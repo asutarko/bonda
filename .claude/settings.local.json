@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx vite *)",
+      "Bash(node pw_authgate_test.mjs)",
+      "Bash(rm -f pw_authgate_test.mjs pw_addchild_test.mjs pw_authgate_*.png pw_addchild_*.png)",
+      "Bash(ls pw_*)",
+      "Bash(node pw_dbg3.mjs)",
+      "Bash(curl -s -o /dev/null -w \"rest: HTTP %{http_code}\\\\n\" \"https://wbhhaajfvanskhwyezds.supabase.co/rest/v1/children?select=id&limit=1\" -H \"apikey: sb_publishable_nyMx-6EQCcRPpWCf_PymwQ_ulZnwbCd\" -H \"Authorization: Bearer sb_publishable_nyMx-6EQCcRPpWCf_PymwQ_ulZnwbCd\")",
+      "Bash(curl -s -o /dev/null -w \"auth-health: HTTP %{http_code}\\\\n\" \"https://wbhhaajfvanskhwyezds.supabase.co/auth/v1/health\" -H \"apikey: sb_publishable_nyMx-6EQCcRPpWCf_PymwQ_ulZnwbCd\")",
+      "Bash(node pw_logout_test.mjs)",
+      "Bash(cd d:/projects/nourens/bonda-latest && rm -f pw_logout_test.mjs pw_logout_*.png && echo done)"
+    ],
+    "additionalDirectories": [
+      "D:\\projects\\nourens\\bonda-latest"
+    ]
+  }
+}
