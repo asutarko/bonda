@@ -10,10 +10,14 @@ create table if not exists public.children (
   emoji text not null default 'none',
   age text not null default '',
   caregiver_type text not null default 'biological',
+  caregiver_label text not null default '',
   schedule_items jsonb not null default '[]'::jsonb,
   history jsonb not null default '[]'::jsonb,
   created_at timestamptz not null default now()
 );
+
+-- Adds the column to a table created before "Other Caregiver" required a label.
+alter table public.children add column if not exists caregiver_label text not null default '';
 
 create index if not exists children_user_id_idx on public.children (user_id);
 

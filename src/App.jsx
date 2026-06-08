@@ -745,6 +745,7 @@ const childFromRow = (row) => ({
   emoji: row.emoji,
   age: row.age,
   caregiverType: row.caregiver_type,
+  caregiverLabel: row.caregiver_label || "",
   scheduleItems: row.schedule_items?.length ? row.schedule_items : DEFAULT_SCHEDULE,
   history: row.history || [],
 });
@@ -789,6 +790,7 @@ function useChildren(userId) {
       emoji,
       age: child.age,
       caregiver_type: child.caregiverType,
+      caregiver_label: child.caregiverLabel || "",
       schedule_items: DEFAULT_SCHEDULE,
       history: [],
     }).select().single();
@@ -806,6 +808,7 @@ function useChildren(userId) {
     if ("emoji" in patch) dbPatch.emoji = patch.emoji;
     if ("age" in patch) dbPatch.age = patch.age;
     if ("caregiverType" in patch) dbPatch.caregiver_type = patch.caregiverType;
+    if ("caregiverLabel" in patch) dbPatch.caregiver_label = patch.caregiverLabel;
     if ("scheduleItems" in patch) dbPatch.schedule_items = patch.scheduleItems;
     if ("history" in patch) dbPatch.history = patch.history;
     supabase.from("children").update(dbPatch).eq("id", id).then(({ error }) => { if (error) console.error("Failed to save child profile:", error.message); });
@@ -1444,6 +1447,7 @@ function AddChildScreen({ childCtx, pop }) {
   const [photo, setPhoto] = useState(null);
   const [age, setAge] = useState("");
   const [caregiverType, setCaregiverType] = useState("biological");
+  const [caregiverLabel, setCaregiverLabel] = useState("");
   const [err, setErr] = useState("");
   const [photoErr, setPhotoErr] = useState("");
   const videoRef = useRef(null);
@@ -1508,8 +1512,9 @@ function AddChildScreen({ childCtx, pop }) {
 
   const save = async () => {
     if (!name.trim()) return setErr("Please enter your child's name.");
+    if (caregiverType === "other" && !caregiverLabel.trim()) return setErr("Please tell us your relationship to this child.");
     setErr(""); setSaving(true);
-    const id = await addChild({ name: name.trim(), emoji: photo || emoji, age: age.trim(), caregiverType });
+    const id = await addChild({ name: name.trim(), emoji: photo || emoji, age: age.trim(), caregiverType, caregiverLabel: caregiverType === "other" ? caregiverLabel.trim() : "" });
     setSaving(false);
     if (!id) return setErr("Could not save the profile. Please try again.");
     pop();
@@ -1619,6 +1624,23 @@ function AddChildScreen({ childCtx, pop }) {
           );
         })}
       </div>
+
+      {caregiverType === "other" && (
+        <div style={{ marginBottom: 14 }}>
+          <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>What is your relationship to this child?</p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {["Aunt / Uncle", "Sibling", "Family Friend", "Nanny / Domestic Helper", "Neighbour", "Other Relative"].map(opt => {
+              const isActive = caregiverLabel === opt;
+              return (
+                <button key={opt} onClick={() => setCaregiverLabel(opt)}
+                  style={{ padding: "8px 14px", borderRadius: 99, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody, background: isActive ? T.purple : T.surface, color: isActive ? "white" : T.ink, border: `1.5px solid ${isActive ? T.purple : T.border}` }}>
+                  {opt}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {err && <p style={{ color: T.red, fontSize: 13, fontWeight: 700, margin: "-8px 0 12px" }}>{err}</p>}
       <Btn onClick={save} full disabled={saving}>{saving ? "Saving..." : "Save Profile"}</Btn>
@@ -3601,16 +3623,12 @@ export default function Bonda() {
       <div style={{ background: T.surface, borderBottom: `1px solid ${T.border}`, padding: "10px 18px 0", position: "sticky", top: 0, zIndex: 100 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, paddingBottom: 10 }}>
 
-          <div onClick={() => current ? pop() : setTab("home")} style={{ width: 34, height: 34, borderRadius: "50%", background: T.purple, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer" }}>
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-              <circle cx="10" cy="10" r="6.5" stroke="white" strokeWidth="1.6"/>
-              <circle cx="10" cy="10" r="2.5" fill="white"/>
-              <circle cx="10" cy="2.5" r="1.2" fill="white" opacity="0.55"/>
-              <circle cx="17.5" cy="10" r="1.2" fill="white" opacity="0.55"/>
-              <circle cx="10" cy="17.5" r="1.2" fill="white" opacity="0.55"/>
-              <circle cx="2.5" cy="10" r="1.2" fill="white" opacity="0.55"/>
-            </svg>
-          </div>
+          <img
+            src="/assets/images/3D - Logo - Green.png"
+            alt="Bonda"
+            onClick={() => current ? pop() : setTab("home")}
+            style={{ width: 34, height: 34, borderRadius: "50%", objectFit: "cover", flexShrink: 0, cursor: "pointer" }}
+          />
 
           <div style={{ flex: 1 }}>
             <p style={{ margin: 0, fontSize: 18, fontWeight: 800, color: T.purple, letterSpacing: "-0.03em", lineHeight: 1.1 }}>Bonda</p>
