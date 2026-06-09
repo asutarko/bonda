@@ -2802,48 +2802,8 @@ function AuthScreen() {
     </Page>
   );
 }
-function CommunityScreen({ account }) {
-  const [view, setView] = useState("home");
-  const [dmPremium, setDmPremium] = useState(() => { try { return localStorage.getItem(`cb_premium_${account.name.toLowerCase()}`) === "true"; } catch { return false; } });
-  const [showPaywall, setShowPaywall] = useState(false);
-
-  const [activeRoom, setActiveRoom] = useState(null);
-  const [groupMsgs, setGroupMsgs] = useState([]); const [groupInput, setGroupInput] = useState(""); const [groupLoading, setGroupLoading] = useState(false);
-  const [allUsers, setAllUsers] = useState([]); const [dmPartner, setDmPartner] = useState(null);
-  const [dmMsgs, setDmMsgs] = useState([]); const [dmInput, setDmInput] = useState(""); const [dmLoading, setDmLoading] = useState(false);
-
-  const endRef = useRef(null);
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [groupMsgs, dmMsgs]);
-
-  useEffect(() => {
-    if (view !== "groupchat" && view !== "dm_chat") return;
-    const iv = setInterval(async () => {
-      if (view === "groupchat" && activeRoom) { const m = await db.get(`room_${activeRoom.id}`) || []; if (m.length !== groupMsgs.length) setGroupMsgs(m); }
-      if (view === "dm_chat" && account && dmPartner) { const m = await db.get(dmKey(account.id, dmPartner.id)) || []; if (m.length !== dmMsgs.length) setDmMsgs(m); }
-    }, 7000);
-    return () => clearInterval(iv);
-  }, [view, activeRoom, groupMsgs.length, dmMsgs.length, dmPartner]);
-
-  const dmKey = (a, b) => { const s = [a, b].sort(); return `dm_${s[0]}_${s[1]}`; };
-
-  const openGroup = async room => { setActiveRoom(room); setGroupLoading(true); setView("groupchat"); const m = await db.get(`room_${room.id}`) || []; setGroupMsgs(m); setGroupLoading(false); };
-  const sendGroup = async () => { const text = groupInput.trim(); if (!text) return; const m = { id: Date.now(), author: account.name, avatar: account.avatar, text, time: new Date().toLocaleTimeString("en-SG", { hour: "2-digit", minute: "2-digit" }), date: new Date().toLocaleDateString("en-SG", { day: "numeric", month: "short" }) }; const u = [...groupMsgs, m].slice(-120); setGroupMsgs(u); setGroupInput(""); await db.set(`room_${activeRoom.id}`, u); };
-  const deleteGroup = async id => { const u = groupMsgs.filter(m => m.id !== id); setGroupMsgs(u); await db.set(`room_${activeRoom.id}`, u); };
-
-  const openDMList = async () => {
-    if (!dmPremium) { setShowPaywall(true); return; }
-    setView("dm_list");
-    const { data, error } = await supabase.from("profiles").select("id, name, avatar, joined");
-    setAllUsers(error ? [] : data);
-  };
-  const openDMChat = async p => { setDmPartner(p); setDmLoading(true); setView("dm_chat"); const m = await db.get(dmKey(account.id, p.id)) || []; setDmMsgs(m); setDmLoading(false); };
-  const sendDM = async () => { const text = dmInput.trim(); if (!text) return; const m = { id: Date.now(), author: account.name, avatar: account.avatar, text, time: new Date().toLocaleTimeString("en-SG", { hour: "2-digit", minute: "2-digit" }), date: new Date().toLocaleDateString("en-SG", { day: "numeric", month: "short" }) }; const u = [...dmMsgs, m].slice(-200); setDmMsgs(u); setDmInput(""); await db.set(dmKey(account.id, dmPartner.id), u); };
-  const deleteDM = async id => { const u = dmMsgs.filter(m => m.id !== id); setDmMsgs(u); await db.set(dmKey(account.id, dmPartner.id), u); };
-
-  const purchase = () => { try { localStorage.setItem(`cb_premium_${account.name.toLowerCase()}`, "true"); } catch {} setDmPremium(true); setShowPaywall(false); setTimeout(openDMList, 300); };
-
-  // Chat UI component
-  const ChatUI = ({ msgs, input, setInput, onSend, onDelete, loading, color, bg, backFn, icon, label, sub, isGroup }) => (
+function ChatUI({ msgs, input, setInput, onSend, onDelete, loading, color, bg, backFn, icon, label, sub, isGroup, account, dmPartner, endRef }) {
+  return (
     <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 130px)" }}>
       <div style={{ padding: "0 18px 12px", display: "flex", alignItems: "center", gap: 10 }}>
         <button onClick={backFn} style={{ background: "none", border: "none", color: T.purple, fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: T.fontBody, padding: 0, flexShrink: 0 }}>←</button>
@@ -2856,8 +2816,7 @@ function CommunityScreen({ account }) {
         {loading && <p style={{ textAlign: "center", color: T.inkMuted, padding: 24, fontSize: 14 }}>Loading...</p>}
         {!loading && msgs.length === 0 && <div style={{ textAlign: "center", padding: "48px 20px" }}><div style={{ fontSize: 40, marginBottom: 12 }}>💬</div><p style={{ fontWeight: 700, color: T.ink, fontSize: 15 }}>No messages yet</p><p style={{ color: T.inkMuted, fontSize: 13 }}>{isGroup ? "Be the first to post!" : "Start a private conversation!"}</p></div>}
         {msgs.map(msg => {
-          const isMe = msg.author === account.name;
-          const isEmoji = msg.avatar && !msg.avatar.startsWith("data:") && msg.avatar.length <= 2;
+          const isMe = msg.authorId ? msg.authorId === account.id : msg.author === account.name;
           return (
             <div key={msg.id} style={{ display: "flex", flexDirection: isMe ? "row-reverse" : "row", gap: 8, alignItems: "flex-end" }}>
               {!isMe && <ComAvatar value={msg.avatar} size={32} active={false} />}
@@ -2884,6 +2843,87 @@ function CommunityScreen({ account }) {
       <p style={{ textAlign: "center", color: T.inkMuted, fontSize: 10, margin: "2px 0 4px" }}>{isGroup ? "Visible to all parents · Be kind 💛" : `Private — only you and ${dmPartner?.name}`}</p>
     </div>
   );
+}
+function CommunityScreen({ account }) {
+  const [view, setView] = useState("home");
+  const [dmPremium, setDmPremium] = useState(() => { try { return localStorage.getItem(`cb_premium_${account.name.toLowerCase()}`) === "true"; } catch { return false; } });
+  const [showPaywall, setShowPaywall] = useState(false);
+
+  const [activeRoom, setActiveRoom] = useState(null);
+  const [groupMsgs, setGroupMsgs] = useState([]); const [groupInput, setGroupInput] = useState(""); const [groupLoading, setGroupLoading] = useState(false);
+  const [allUsers, setAllUsers] = useState([]); const [dmPartner, setDmPartner] = useState(null);
+  const [dmMsgs, setDmMsgs] = useState([]); const [dmInput, setDmInput] = useState(""); const [dmLoading, setDmLoading] = useState(false);
+
+  const endRef = useRef(null);
+  const channelRef = useRef(null);
+
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [groupMsgs, dmMsgs]);
+
+  useEffect(() => {
+    return () => { if (channelRef.current) { supabase.removeChannel(channelRef.current); channelRef.current = null; } };
+  }, []);
+
+  const dmKey = (a, b) => { const s = [a, b].sort(); return `dm_${s[0]}_${s[1]}`; };
+
+  const msgFromRow = m => ({ id: m.id, author: m.author_name, avatar: m.author_avatar, authorId: m.author_id, text: m.text, time: new Date(m.created_at).toLocaleTimeString("en-SG", { hour: "2-digit", minute: "2-digit" }), date: new Date(m.created_at).toLocaleDateString("en-SG", { day: "numeric", month: "short" }) });
+
+  const leaveRoom = () => { if (channelRef.current) { supabase.removeChannel(channelRef.current); channelRef.current = null; } };
+
+  const openGroup = async room => {
+    leaveRoom();
+    setActiveRoom(room); setGroupLoading(true); setView("groupchat");
+    const { data } = await supabase.from("messages").select("id,author_id,author_name,author_avatar,text,created_at").eq("room", `room_${room.id}`).order("created_at", { ascending: true }).limit(120);
+    setGroupMsgs((data || []).map(msgFromRow));
+    setGroupLoading(false);
+    channelRef.current = supabase.channel(`room_${room.id}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `room=eq.room_${room.id}` }, p => setGroupMsgs(prev => [...prev, msgFromRow(p.new)].slice(-120)))
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "messages", filter: `room=eq.room_${room.id}` }, p => setGroupMsgs(prev => prev.filter(m => m.id !== p.old.id)))
+      .subscribe();
+  };
+
+  const sendGroup = async () => {
+    const text = groupInput.trim(); if (!text) return;
+    setGroupInput("");
+    await supabase.from("messages").insert({ room: `room_${activeRoom.id}`, author_id: account.id, author_name: account.name, author_avatar: account.avatar || "none", text });
+  };
+
+  const deleteGroup = async id => {
+    setGroupMsgs(prev => prev.filter(m => m.id !== id));
+    await supabase.from("messages").delete().eq("id", id).eq("author_id", account.id);
+  };
+
+  const openDMList = async () => {
+    if (!dmPremium) { setShowPaywall(true); return; }
+    setView("dm_list");
+    const { data, error } = await supabase.from("profiles").select("id, name, avatar, joined");
+    setAllUsers(error ? [] : data);
+  };
+
+  const openDMChat = async p => {
+    leaveRoom();
+    setDmPartner(p); setDmLoading(true); setView("dm_chat");
+    const key = dmKey(account.id, p.id);
+    const { data } = await supabase.from("messages").select("id,author_id,author_name,author_avatar,text,created_at").eq("room", key).order("created_at", { ascending: true }).limit(200);
+    setDmMsgs((data || []).map(msgFromRow));
+    setDmLoading(false);
+    channelRef.current = supabase.channel(key)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `room=eq.${key}` }, p => setDmMsgs(prev => [...prev, msgFromRow(p.new)].slice(-200)))
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "messages", filter: `room=eq.${key}` }, p => setDmMsgs(prev => prev.filter(m => m.id !== p.old.id)))
+      .subscribe();
+  };
+
+  const sendDM = async () => {
+    const text = dmInput.trim(); if (!text) return;
+    setDmInput("");
+    await supabase.from("messages").insert({ room: dmKey(account.id, dmPartner.id), author_id: account.id, author_name: account.name, author_avatar: account.avatar || "none", text });
+  };
+
+  const deleteDM = async id => {
+    setDmMsgs(prev => prev.filter(m => m.id !== id));
+    await supabase.from("messages").delete().eq("id", id).eq("author_id", account.id);
+  };
+
+  const purchase = () => { try { localStorage.setItem(`cb_premium_${account.name.toLowerCase()}`, "true"); } catch {} setDmPremium(true); setShowPaywall(false); setTimeout(openDMList, 300); };
 
   const Paywall = () => (
     <div style={{ position: "fixed", inset: 0, background: "rgba(26,26,46,0.7)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
@@ -2922,8 +2962,8 @@ function CommunityScreen({ account }) {
     </div>
   );
 
-  if (view === "groupchat" && activeRoom) return <div style={{ position: "relative" }}>{showPaywall && <Paywall />}<ChatUI msgs={groupMsgs} input={groupInput} setInput={setGroupInput} onSend={sendGroup} onDelete={deleteGroup} loading={groupLoading} color={activeRoom.color} bg={activeRoom.bg} backFn={() => setView("home")} icon={activeRoom.icon} label={activeRoom.label} sub={activeRoom.desc} isGroup /></div>;
-  if (view === "dm_chat" && dmPartner) return <div style={{ position: "relative" }}>{showPaywall && <Paywall />}<ChatUI msgs={dmMsgs} input={dmInput} setInput={setDmInput} onSend={sendDM} onDelete={deleteDM} loading={dmLoading} color={T.purple} bg={T.purpleL} backFn={() => setView("dm_list")} icon={dmPartner.avatar} label={dmPartner.name} sub="Private message" isGroup={false} /></div>;
+  if (view === "groupchat" && activeRoom) return <div style={{ position: "relative" }}>{showPaywall && <Paywall />}<ChatUI msgs={groupMsgs} input={groupInput} setInput={setGroupInput} onSend={sendGroup} onDelete={deleteGroup} loading={groupLoading} color={activeRoom.color} bg={activeRoom.bg} backFn={() => { leaveRoom(); setView("home"); }} icon={activeRoom.icon} label={activeRoom.label} sub={activeRoom.desc} isGroup account={account} dmPartner={null} endRef={endRef} /></div>;
+  if (view === "dm_chat" && dmPartner) return <div style={{ position: "relative" }}>{showPaywall && <Paywall />}<ChatUI msgs={dmMsgs} input={dmInput} setInput={setDmInput} onSend={sendDM} onDelete={deleteDM} loading={dmLoading} color={T.purple} bg={T.purpleL} backFn={() => { leaveRoom(); setView("dm_list"); }} icon={dmPartner.avatar} label={dmPartner.name} sub="Private message" isGroup={false} account={account} dmPartner={dmPartner} endRef={endRef} /></div>;
 
   if (view === "dm_list") {
     const others = allUsers.filter(u => u.id !== account.id);
