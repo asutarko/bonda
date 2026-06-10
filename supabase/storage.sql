@@ -14,12 +14,14 @@ on conflict (id) do nothing;
 
 -- Anyone can view files in this bucket (it's public — needed so <img> tags
 -- can load the photos without authentication).
+drop policy if exists "Public read access for the public bucket" on storage.objects;
 create policy "Public read access for the public bucket"
   on storage.objects for select
   to public
   using (bucket_id = 'public');
 
 -- Signed-in users can upload files into assets/parents/ and assets/children/.
+drop policy if exists "Authenticated users can upload profile photos" on storage.objects;
 create policy "Authenticated users can upload profile photos"
   on storage.objects for insert
   to authenticated
@@ -30,6 +32,7 @@ create policy "Authenticated users can upload profile photos"
   );
 
 -- Signed-in users can overwrite/replace their own previously uploaded photos.
+drop policy if exists "Authenticated users can update profile photos" on storage.objects;
 create policy "Authenticated users can update profile photos"
   on storage.objects for update
   to authenticated

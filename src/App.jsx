@@ -1078,42 +1078,60 @@ const db = {
   },
 };
 
-const GROUP_ROOMS = [
-  {
-    id: "foster", label: "Foster Parents", desc: "HealthHub access, CDA, navigating the system",
-    color: "#5B3FEE", bg: "#EDE9FE",
-    svgIcon: (color) => (
-      <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
-        <path d="M11 20 C11 20 2.5 14 2.5 8 C2.5 5 4.5 3 7 3 C8.5 3 10 4 11 5.5 C12 4 13.5 3 15 3 C17.5 3 19.5 5 19.5 8 C19.5 14 11 20 11 20Z" stroke={color} strokeWidth="1.4" fill={color} fillOpacity="0.12"/>
-      </svg>
-    ),
-  },
-  {
-    id: "sg", label: "Singapore Resources", desc: "Subsidies, schools, therapists",
-    color: T.green, bg: T.greenL,
-    svgIcon: (color) => (
-      <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+// Icon choices for Community group rooms — admins pick one of these
+// when creating a room (rooms themselves are stored in the database).
+const ROOM_ICONS = {
+  foster: (color) => (
+    <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+      <path d="M11 20 C11 20 2.5 14 2.5 8 C2.5 5 4.5 3 7 3 C8.5 3 10 4 11 5.5 C12 4 13.5 3 15 3 C17.5 3 19.5 5 19.5 8 C19.5 14 11 20 11 20Z" stroke={color} strokeWidth="1.4" fill={color} fillOpacity="0.12"/>
+    </svg>
+  ),
+  sg: (color) => (
+    <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+      <path d="M11 2C7.686 2 5 4.686 5 8c0 4.5 6 12 6 12s6-7.5 6-12c0-3.314-2.686-6-6-6Z"
+        stroke={color} strokeWidth="1.4" fill={color} fillOpacity="0.15"/>
+      <circle cx="11" cy="8" r="2.5" fill={color} opacity="0.8"/>
+    </svg>
+  ),
+  community: (color) => (
+    <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+      <path d="M3 4 Q3 2 5 2 L14 2 Q16 2 16 4 L16 9 Q16 11 14 11 L8 11 L5 14 L5 11 Q3 11 3 9 Z"
+        stroke={color} strokeWidth="1.3" fill={color} fillOpacity="0.12"/>
+      <path d="M8 13 Q8 11.5 9.5 11.5 L17 11.5 Q19 11.5 19 13.5 L19 17 Q19 18.5 17 18.5 L15 18.5 L15 20.5 L13 18.5 L9.5 18.5 Q8 18.5 8 17 Z"
+        stroke={color} strokeWidth="1.3" fill={color} fillOpacity="0.2"/>
+    </svg>
+  ),
+  general: (color) => (
+    <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+      <circle cx="8" cy="7" r="3" stroke={color} strokeWidth="1.4" fill={color} fillOpacity="0.15"/>
+      <circle cx="15" cy="8.5" r="2.3" stroke={color} strokeWidth="1.3" fill="none" opacity="0.6"/>
+      <path d="M2.5 19 Q2.5 13 8 13 Q13.5 13 13.5 19" stroke={color} strokeWidth="1.4" strokeLinecap="round" fill="none"/>
+      <path d="M13.5 17 Q14 14.5 17 14.5 Q19.5 14.5 19.5 17.5" stroke={color} strokeWidth="1.2" strokeLinecap="round" fill="none" opacity="0.6"/>
+    </svg>
+  ),
+  tips: (color) => (
+    <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+      <path d="M11 2 C7 2 4 5 4 9 C4 11.5 5.2 13 6.5 14.5 L6.5 16 L15.5 16 L15.5 14.5 C16.8 13 18 11.5 18 9 C18 5 15 2 11 2Z" stroke={color} strokeWidth="1.4" fill={color} fillOpacity="0.12"/>
+      <path d="M8.5 19 L13.5 19 M9 21 L13 21" stroke={color} strokeWidth="1.4" strokeLinecap="round"/>
+    </svg>
+  ),
+  events: (color) => (
+    <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+      <rect x="3" y="4" width="16" height="15" rx="2.5" stroke={color} strokeWidth="1.4" fill={color} fillOpacity="0.1"/>
+      <path d="M3 8 L19 8" stroke={color} strokeWidth="1.4"/>
+      <path d="M7 2 L7 5 M15 2 L15 5" stroke={color} strokeWidth="1.4" strokeLinecap="round"/>
+    </svg>
+  ),
+};
 
-        <path d="M11 2C7.686 2 5 4.686 5 8c0 4.5 6 12 6 12s6-7.5 6-12c0-3.314-2.686-6-6-6Z"
-          stroke={color} strokeWidth="1.4" fill={color} fillOpacity="0.15"/>
-        <circle cx="11" cy="8" r="2.5" fill={color} opacity="0.8"/>
-      </svg>
-    ),
-  },
-  {
-    id: "community", label: "Parent Community", desc: "Open chat for all parents",
-    color: T.purple, bg: T.purpleL,
-    svgIcon: (color) => (
-      <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
-
-        <path d="M3 4 Q3 2 5 2 L14 2 Q16 2 16 4 L16 9 Q16 11 14 11 L8 11 L5 14 L5 11 Q3 11 3 9 Z"
-          stroke={color} strokeWidth="1.3" fill={color} fillOpacity="0.12"/>
-        <path d="M8 13 Q8 11.5 9.5 11.5 L17 11.5 Q19 11.5 19 13.5 L19 17 Q19 18.5 17 18.5 L15 18.5 L15 20.5 L13 18.5 L9.5 18.5 Q8 18.5 8 17 Z"
-          stroke={color} strokeWidth="1.3" fill={color} fillOpacity="0.2"/>
-      </svg>
-    ),
-  },
-];
+// Color choices for Community group rooms.
+const ROOM_COLORS = {
+  purple: { color: T.purple, bg: T.purpleL },
+  green:  { color: T.green,  bg: T.greenL },
+  amber:  { color: T.amber,  bg: T.amberL },
+  teal:   { color: T.teal,   bg: T.tealL },
+  red:    { color: T.red,    bg: T.redL },
+};
 const COM_AVATAR_ILLUSTRATIONS = [
   { key: "leaf",    label: "Leaf",    render: (a) => <svg width="44" height="44" viewBox="0 0 44 44"><circle cx="22" cy="22" r="21" fill={a?"#065F46":"#D4EAE0"}/><path d="M22 34 Q10 22 18 10 Q26 10 30 18 Q34 26 22 34Z" fill={a?"#1D9E75":"#7BA08A"} opacity="0.9"/><path d="M22 34 L22 16" stroke={a?"white":"#F2FAF6"} strokeWidth="1.3" strokeLinecap="round" opacity="0.6"/><path d="M22 24 Q18 20 16 16" stroke={a?"white":"#F2FAF6"} strokeWidth="1" strokeLinecap="round" opacity="0.4"/><path d="M22 28 Q26 24 28 20" stroke={a?"white":"#F2FAF6"} strokeWidth="1" strokeLinecap="round" opacity="0.4"/></svg> },{ key: "lotus", label: "Lotus", render: (a) => <svg width="44" height="44" viewBox="0 0 44 44"><circle cx="22" cy="22" r="21" fill={a?"#065F46":"#D4EAE0"}/><path d="M22 28 Q15 22 16 14 Q22 16 22 28Z" fill={a?"white":"#F2FAF6"} opacity="0.8"/><path d="M22 28 Q29 22 28 14 Q22 16 22 28Z" fill={a?"white":"#F2FAF6"} opacity="0.8"/><path d="M22 28 Q22 14 22 12" stroke={a?"white":"#F2FAF6"} strokeWidth="1" strokeLinecap="round" opacity="0.3"/><path d="M22 28 Q12 18 10 12 Q17 12 22 28Z" fill={a?"#1D9E75":"#7BA08A"} opacity="0.6"/><path d="M22 28 Q32 18 34 12 Q27 12 22 28Z" fill={a?"#1D9E75":"#7BA08A"} opacity="0.6"/><ellipse cx="22" cy="30" rx="8" ry="3" fill={a?"#1D9E75":"#7BA08A"} opacity="0.4"/></svg> },{ key: "mountain",label: "Mountain",render: (a) => <svg width="44" height="44" viewBox="0 0 44 44"><circle cx="22" cy="22" r="21" fill={a?"#065F46":"#D4EAE0"}/><path d="M6 32 L16 14 L22 22 L28 14 L38 32Z" fill={a?"#1D9E75":"#7BA08A"} opacity="0.85"/><path d="M16 14 L22 22 L19 22 L16 14Z" fill={a?"white":"#F2FAF6"} opacity="0.6"/><path d="M28 14 L22 22 L25 22 L28 14Z" fill={a?"white":"#F2FAF6"} opacity="0.6"/><path d="M6 32 L38 32" stroke={a?"white":"#F2FAF6"} strokeWidth="1" strokeLinecap="round" opacity="0.3"/></svg> },{ key: "sun", label: "Sun", render: (a) => <svg width="44" height="44" viewBox="0 0 44 44"><circle cx="22" cy="22" r="21" fill={a?"#065F46":"#D4EAE0"}/><circle cx="22" cy="22" r="8" fill={a?"#D97706":"#7BA08A"} opacity="0.9"/>{[0,45,90,135,180,225,270,315].map((deg,i)=>{const rad=deg*Math.PI/180;const x1=22+12*Math.cos(rad);const y1=22+12*Math.sin(rad);const x2=22+16*Math.cos(rad);const y2=22+16*Math.sin(rad);return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke={a?"#D97706":"#7BA08A"} strokeWidth="1.5" strokeLinecap="round"/>})}</svg> },{ key: "moon", label: "Moon", render: (a) => <svg width="44" height="44" viewBox="0 0 44 44"><circle cx="22" cy="22" r="21" fill={a?"#065F46":"#D4EAE0"}/><path d="M26 10 Q16 14 16 22 Q16 30 26 34 Q16 36 10 28 Q6 16 14 10 Q20 6 26 10Z" fill={a?"white":"#F2FAF6"} opacity="0.9"/><circle cx="30" cy="14" r="2" fill={a?"#D97706":"#7BA08A"} opacity="0.5"/><circle cx="32" cy="22" r="1.2" fill={a?"#D97706":"#7BA08A"} opacity="0.35"/></svg> },
   { key: "compass", label: "Compass", render: (a) => <svg width="44" height="44" viewBox="0 0 44 44"><circle cx="22" cy="22" r="21" fill={a?"#065F46":"#D4EAE0"}/><circle cx="22" cy="22" r="12" stroke={a?"white":"#F2FAF6"} strokeWidth="1.3" fill="none" opacity="0.5"/><polygon points="22,12 24,22 22,32 20,22" fill={a?"white":"#F2FAF6"} opacity="0.9"/><polygon points="32,22 22,20 12,22 22,24" fill={a?"#D97706":"#7BA08A"} opacity="0.8"/><circle cx="22" cy="22" r="2" fill={a?"white":"#F2FAF6"}/></svg> },{ key: "wave", label: "Wave", render: (a) => <svg width="44" height="44" viewBox="0 0 44 44"><circle cx="22" cy="22" r="21" fill={a?"#065F46":"#D4EAE0"}/><path d="M8 18 Q13 12 18 18 Q23 24 28 18 Q33 12 38 18" fill="none" stroke={a?"white":"#F2FAF6"} strokeWidth="2" strokeLinecap="round"/><path d="M8 24 Q13 18 18 24 Q23 30 28 24 Q33 18 38 24" fill="none" stroke={a?"#1D9E75":"#7BA08A"} strokeWidth="1.5" strokeLinecap="round" opacity="0.7"/><path d="M8 30 Q13 24 18 30 Q23 36 28 30 Q33 24 38 30" fill="none" stroke={a?"#D97706":"#7BA08A"} strokeWidth="1" strokeLinecap="round" opacity="0.4"/></svg> },{ key: "diamond", label: "Gem", render: (a) => <svg width="44" height="44" viewBox="0 0 44 44"><circle cx="22" cy="22" r="21" fill={a?"#065F46":"#D4EAE0"}/><polygon points="22,10 32,18 22,36 12,18" fill={a?"white":"#F2FAF6"} opacity="0.85"/><polygon points="12,18 22,18 16,10" fill={a?"#1D9E75":"#7BA08A"} opacity="0.6"/><polygon points="32,18 22,18 28,10" fill={a?"#1D9E75":"#7BA08A"} opacity="0.6"/><polygon points="12,18 22,18 22,36" fill={a?"white":"#F2FAF6"} opacity="0.5"/></svg> },{ key: "seed", label: "Grow", render: (a) => <svg width="44" height="44" viewBox="0 0 44 44"><circle cx="22" cy="22" r="21" fill={a?"#065F46":"#D4EAE0"}/><path d="M22 34 L22 20" stroke={a?"white":"#F2FAF6"} strokeWidth="1.5" strokeLinecap="round"/><path d="M22 24 Q14 18 14 10 Q22 10 22 24" fill={a?"#1D9E75":"#7BA08A"} opacity="0.8"/><path d="M22 28 Q30 22 30 14 Q22 14 22 28" fill={a?"white":"#F2FAF6"} opacity="0.7"/></svg> },{ key: "spiral", label: "Journey", render: (a) => <svg width="44" height="44" viewBox="0 0 44 44"><circle cx="22" cy="22" r="21" fill={a?"#065F46":"#D4EAE0"}/><path d="M22 22 Q30 14 30 22 Q30 32 20 32 Q10 32 10 20 Q10 10 22 10 Q36 10 36 22" fill="none" stroke={a?"white":"#F2FAF6"} strokeWidth="1.5" strokeLinecap="round" opacity="0.9"/><circle cx="22" cy="22" r="2" fill={a?"#D97706":"#7BA08A"}/></svg> },
@@ -1448,6 +1466,7 @@ function AddChildScreen({ childCtx, pop }) {
   const [age, setAge] = useState("");
   const [caregiverType, setCaregiverType] = useState("biological");
   const [caregiverLabel, setCaregiverLabel] = useState("");
+  const [customRelative, setCustomRelative] = useState("");
   const [err, setErr] = useState("");
   const [photoErr, setPhotoErr] = useState("");
   const videoRef = useRef(null);
@@ -1513,8 +1532,10 @@ function AddChildScreen({ childCtx, pop }) {
   const save = async () => {
     if (!name.trim()) return setErr("Please enter your child's name.");
     if (caregiverType === "other" && !caregiverLabel.trim()) return setErr("Please tell us your relationship to this child.");
+    if (caregiverType === "other" && caregiverLabel === "Others" && !customRelative.trim()) return setErr("Please tell us your relationship to this child.");
     setErr(""); setSaving(true);
-    const id = await addChild({ name: name.trim(), emoji: photo || emoji, age: age.trim(), caregiverType, caregiverLabel: caregiverType === "other" ? caregiverLabel.trim() : "" });
+    const finalCaregiverLabel = caregiverType === "other" ? (caregiverLabel === "Others" ? customRelative.trim() : caregiverLabel.trim()) : "";
+    const id = await addChild({ name: name.trim(), emoji: photo || emoji, age: age.trim(), caregiverType, caregiverLabel: finalCaregiverLabel });
     setSaving(false);
     if (!id) return setErr("Could not save the profile. Please try again.");
     pop();
@@ -1629,7 +1650,7 @@ function AddChildScreen({ childCtx, pop }) {
         <div style={{ marginBottom: 14 }}>
           <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>What is your relationship to this child?</p>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-            {["Aunt / Uncle", "Sibling", "Family Friend", "Nanny / Domestic Helper", "Neighbour", "Other Relative"].map(opt => {
+            {["Aunt / Uncle", "Sibling", "Family Friend", "Nanny / Domestic Helper", "Neighbour", "Others"].map(opt => {
               const isActive = caregiverLabel === opt;
               return (
                 <button key={opt} onClick={() => setCaregiverLabel(opt)}
@@ -1639,6 +1660,11 @@ function AddChildScreen({ childCtx, pop }) {
               );
             })}
           </div>
+          {caregiverLabel === "Others" && (
+            <div style={{ marginTop: 10 }}>
+              <Input value={customRelative} onChange={e => setCustomRelative(e.target.value)} placeholder="e.g. Cousin" />
+            </div>
+          )}
         </div>
       )}
 
@@ -1657,10 +1683,21 @@ function MyChildScreen({ childCtx }) {
   if (activeBehaviour) return <BehaviourDetail b={activeBehaviour} onBack={() => setActiveBehaviour(null)} />;
   if (activeEmotion) return <EmotionDetail e={activeEmotion} tab={emotionTab} setTab={setEmotionTab} onBack={() => setActiveEmotion(null)} />;
 
-  const isFosterChild = childCtx?.activeChild?.caregiverType === "foster";
+  const { activeChild, children } = childCtx || {};
+  const isFosterChild = activeChild?.caregiverType === "foster";
 
   return (
     <Page>
+
+      {activeChild && (
+        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 20, padding: "12px 16px", background: T.purpleL, borderRadius: T.r, border: `1px solid ${T.purple}20` }}>
+          <ChildAvatar value={activeChild.emoji} size={52} active={true} borderColor={T.purple} />
+          <div style={{ flex: 1 }}>
+            <p style={{ margin: "0 0 2px", fontWeight: 800, color: T.purple, fontSize: 16 }}>{activeChild.name}'s Guide</p>
+            {children?.length > 1 && <p style={{ margin: 0, color: T.inkMuted, fontSize: 12 }}>Switch child on Home tab</p>}
+          </div>
+        </div>
+      )}
 
       {isFosterChild && (
         <div style={{ background: T.ink, borderRadius: T.r, padding: "12px 14px", marginBottom: 20, display: "flex", gap: 12, alignItems: "center" }}>
@@ -2802,7 +2839,7 @@ function AuthScreen() {
     </Page>
   );
 }
-function ChatUI({ msgs, input, setInput, onSend, onDelete, loading, color, bg, backFn, icon, label, sub, isGroup, account, dmPartner, endRef }) {
+function ChatUI({ msgs, input, setInput, onSend, onDelete, loading, color, bg, backFn, icon, label, sub, isGroup, account, dmPartner, endRef, adminIds, isAdmin }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 130px)" }}>
       <div style={{ padding: "0 18px 12px", display: "flex", alignItems: "center", gap: 10 }}>
@@ -2817,17 +2854,23 @@ function ChatUI({ msgs, input, setInput, onSend, onDelete, loading, color, bg, b
         {!loading && msgs.length === 0 && <div style={{ textAlign: "center", padding: "48px 20px" }}><div style={{ fontSize: 40, marginBottom: 12 }}>💬</div><p style={{ fontWeight: 700, color: T.ink, fontSize: 15 }}>No messages yet</p><p style={{ color: T.inkMuted, fontSize: 13 }}>{isGroup ? "Be the first to post!" : "Start a private conversation!"}</p></div>}
         {msgs.map(msg => {
           const isMe = msg.authorId ? msg.authorId === account.id : msg.author === account.name;
+          const authorIsAdmin = adminIds?.has(msg.authorId);
           return (
             <div key={msg.id} style={{ display: "flex", flexDirection: isMe ? "row-reverse" : "row", gap: 8, alignItems: "flex-end" }}>
               {!isMe && <ComAvatar value={msg.avatar} size={32} active={false} />}
               <div style={{ maxWidth: "74%", display: "flex", flexDirection: "column", alignItems: isMe ? "flex-end" : "flex-start", gap: 2 }}>
-                {!isMe && <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: T.inkMuted, paddingLeft: 2 }}>{msg.author}</p>}
+                {!isMe && (
+                  <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: T.inkMuted, paddingLeft: 2, display: "flex", alignItems: "center", gap: 5 }}>
+                    {msg.author}
+                    {authorIsAdmin && <Badge color={T.purple}>Admin</Badge>}
+                  </p>
+                )}
                 <div style={{ background: isMe ? color : T.surface, color: isMe ? "white" : T.ink, borderRadius: isMe ? "16px 16px 4px 16px" : "16px 16px 16px 4px", padding: "10px 14px", boxShadow: T.shadow }}>
                   <p style={{ margin: 0, fontSize: 14, lineHeight: 1.6, wordBreak: "break-word" }}>{msg.text}</p>
                 </div>
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                   <p style={{ margin: 0, fontSize: 10, color: T.inkMuted }}>{msg.date} · {msg.time}</p>
-                  {isMe && <button onClick={() => onDelete(msg.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 10, color: T.red, fontWeight: 700, fontFamily: T.fontBody, padding: 0 }}>Delete</button>}
+                  {(isMe || isAdmin) && <button onClick={() => onDelete(msg.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 10, color: T.red, fontWeight: 700, fontFamily: T.fontBody, padding: 0 }}>Delete</button>}
                 </div>
               </div>
             </div>
@@ -2848,11 +2891,19 @@ function CommunityScreen({ account }) {
   const [view, setView] = useState("home");
   const [dmPremium, setDmPremium] = useState(() => { try { return localStorage.getItem(`cb_premium_${account.name.toLowerCase()}`) === "true"; } catch { return false; } });
   const [showPaywall, setShowPaywall] = useState(false);
+  const isAdmin = account.role === "admin";
 
   const [activeRoom, setActiveRoom] = useState(null);
   const [groupMsgs, setGroupMsgs] = useState([]); const [groupInput, setGroupInput] = useState(""); const [groupLoading, setGroupLoading] = useState(false);
   const [allUsers, setAllUsers] = useState([]); const [dmPartner, setDmPartner] = useState(null);
   const [dmMsgs, setDmMsgs] = useState([]); const [dmInput, setDmInput] = useState(""); const [dmLoading, setDmLoading] = useState(false);
+
+  const [rooms, setRooms] = useState([]);
+  const [adminIds, setAdminIds] = useState(() => new Set());
+  const [announcement, setAnnouncement] = useState(null);
+  const [showRoomManager, setShowRoomManager] = useState(false);
+  const [editingRoom, setEditingRoom] = useState(null); // null = closed, {} = new room, {...row} = editing
+  const [announcementInput, setAnnouncementInput] = useState("");
 
   const endRef = useRef(null);
   const channelRef = useRef(null);
@@ -2861,6 +2912,24 @@ function CommunityScreen({ account }) {
 
   useEffect(() => {
     return () => { if (channelRef.current) { supabase.removeChannel(channelRef.current); channelRef.current = null; } };
+  }, []);
+
+  const loadRooms = async () => {
+    const { data } = await supabase.from("community_rooms").select("*").order("sort_order").order("created_at");
+    setRooms(data || []);
+  };
+
+  const loadAnnouncement = async () => {
+    const { data } = await supabase.from("community_announcements").select("*").order("created_at", { ascending: false }).limit(1);
+    setAnnouncement(data?.[0] || null);
+  };
+
+  useEffect(() => {
+    loadRooms();
+    loadAnnouncement();
+    supabase.from("profiles").select("id").eq("role", "admin").then(({ data }) => {
+      setAdminIds(new Set((data || []).map(p => p.id)));
+    });
   }, []);
 
   const dmKey = (a, b) => { const s = [a, b].sort(); return `dm_${s[0]}_${s[1]}`; };
@@ -2889,7 +2958,8 @@ function CommunityScreen({ account }) {
 
   const deleteGroup = async id => {
     setGroupMsgs(prev => prev.filter(m => m.id !== id));
-    await supabase.from("messages").delete().eq("id", id).eq("author_id", account.id);
+    const q = supabase.from("messages").delete().eq("id", id);
+    await (isAdmin ? q : q.eq("author_id", account.id));
   };
 
   const openDMList = async () => {
@@ -2920,10 +2990,43 @@ function CommunityScreen({ account }) {
 
   const deleteDM = async id => {
     setDmMsgs(prev => prev.filter(m => m.id !== id));
-    await supabase.from("messages").delete().eq("id", id).eq("author_id", account.id);
+    const q = supabase.from("messages").delete().eq("id", id);
+    await (isAdmin ? q : q.eq("author_id", account.id));
   };
 
   const purchase = () => { try { localStorage.setItem(`cb_premium_${account.name.toLowerCase()}`, "true"); } catch {} setDmPremium(true); setShowPaywall(false); setTimeout(openDMList, 300); };
+
+  const saveRoom = async () => {
+    const r = editingRoom;
+    if (!r?.label?.trim()) return;
+    const payload = { label: r.label.trim(), description: (r.description || "").trim(), icon_key: r.icon_key || "community", color_key: r.color_key || "purple" };
+    if (r.id) {
+      await supabase.from("community_rooms").update(payload).eq("id", r.id);
+    } else {
+      await supabase.from("community_rooms").insert({ ...payload, sort_order: rooms.length });
+    }
+    setEditingRoom(null);
+    await loadRooms();
+  };
+
+  const deleteRoom = async id => {
+    await supabase.from("community_rooms").delete().eq("id", id);
+    await loadRooms();
+  };
+
+  const postAnnouncement = async () => {
+    const text = announcementInput.trim();
+    if (!text) return;
+    await supabase.from("community_announcements").insert({ text, created_by: account.id });
+    setAnnouncementInput("");
+    await loadAnnouncement();
+  };
+
+  const clearAnnouncement = async () => {
+    if (!announcement) return;
+    await supabase.from("community_announcements").delete().eq("id", announcement.id);
+    setAnnouncement(null);
+  };
 
   const Paywall = () => (
     <div style={{ position: "fixed", inset: 0, background: "rgba(26,26,46,0.7)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
@@ -2962,8 +3065,11 @@ function CommunityScreen({ account }) {
     </div>
   );
 
-  if (view === "groupchat" && activeRoom) return <div style={{ position: "relative" }}>{showPaywall && <Paywall />}<ChatUI msgs={groupMsgs} input={groupInput} setInput={setGroupInput} onSend={sendGroup} onDelete={deleteGroup} loading={groupLoading} color={activeRoom.color} bg={activeRoom.bg} backFn={() => { leaveRoom(); setView("home"); }} icon={activeRoom.icon} label={activeRoom.label} sub={activeRoom.desc} isGroup account={account} dmPartner={null} endRef={endRef} /></div>;
-  if (view === "dm_chat" && dmPartner) return <div style={{ position: "relative" }}>{showPaywall && <Paywall />}<ChatUI msgs={dmMsgs} input={dmInput} setInput={setDmInput} onSend={sendDM} onDelete={deleteDM} loading={dmLoading} color={T.purple} bg={T.purpleL} backFn={() => { leaveRoom(); setView("dm_list"); }} icon={dmPartner.avatar} label={dmPartner.name} sub="Private message" isGroup={false} account={account} dmPartner={dmPartner} endRef={endRef} /></div>;
+  if (view === "groupchat" && activeRoom) {
+    const c = ROOM_COLORS[activeRoom.color_key] || ROOM_COLORS.purple;
+    return <div style={{ position: "relative" }}>{showPaywall && <Paywall />}<ChatUI msgs={groupMsgs} input={groupInput} setInput={setGroupInput} onSend={sendGroup} onDelete={deleteGroup} loading={groupLoading} color={c.color} bg={c.bg} backFn={() => { leaveRoom(); setView("home"); }} icon={null} label={activeRoom.label} sub={activeRoom.description} isGroup account={account} dmPartner={null} endRef={endRef} adminIds={adminIds} isAdmin={isAdmin} /></div>;
+  }
+  if (view === "dm_chat" && dmPartner) return <div style={{ position: "relative" }}>{showPaywall && <Paywall />}<ChatUI msgs={dmMsgs} input={dmInput} setInput={setDmInput} onSend={sendDM} onDelete={deleteDM} loading={dmLoading} color={T.purple} bg={T.purpleL} backFn={() => { leaveRoom(); setView("dm_list"); }} icon={dmPartner.avatar} label={dmPartner.name} sub="Private message" isGroup={false} account={account} dmPartner={dmPartner} endRef={endRef} adminIds={adminIds} isAdmin={isAdmin} /></div>;
 
   if (view === "dm_list") {
     const others = allUsers.filter(u => u.id !== account.id);
@@ -3005,26 +3111,97 @@ function CommunityScreen({ account }) {
         <button onClick={forceSignOut} style={{ background: "rgba(255,255,255,0.1)", border: "none", borderRadius: 8, padding: "6px 12px", color: "rgba(255,255,255,0.7)", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody }}>Sign out</button>
       </div>
 
+      {announcement && (
+        <div style={{ display: "flex", gap: 10, alignItems: "flex-start", background: T.purpleL, borderRadius: T.r, padding: "12px 14px", marginBottom: 16, border: `1px solid ${T.purple}25` }}>
+          <div style={{ flex: 1 }}>
+            <p style={{ margin: "0 0 2px", color: T.purple, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em" }}>📌 Announcement</p>
+            <p style={{ margin: 0, color: T.ink, fontSize: 13, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{announcement.text}</p>
+          </div>
+          {isAdmin && <button onClick={clearAnnouncement} style={{ background: "none", border: "none", cursor: "pointer", color: T.purple, fontSize: 12, fontWeight: 700, fontFamily: T.fontBody, padding: 0, flexShrink: 0 }}>✕</button>}
+        </div>
+      )}
+
       <div style={{ background: T.amberL, borderRadius: T.r, padding: "12px 14px", marginBottom: 24, border: `1px solid ${T.amber}20` }}>
         <p style={{ margin: 0, color: T.amber, fontSize: 12, fontWeight: 700, lineHeight: 1.6 }}>💛 Be kind and supportive. Everyone here is doing their best.</p>
       </div>
 
+      {isAdmin && (
+        <div style={{ background: T.ink, borderRadius: T.rL, padding: 16, marginBottom: 24 }}>
+          <p style={{ margin: "0 0 10px", color: "white", fontWeight: 800, fontSize: 13 }}>⚙️ Admin controls</p>
+          {!announcement && (
+            <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+              <textarea value={announcementInput} onChange={e => setAnnouncementInput(e.target.value)} placeholder="Post a pinned announcement…" rows={1} style={{ flex: 1, padding: "9px 13px", borderRadius: T.r, border: "none", fontSize: 13, fontFamily: T.fontBody, color: T.ink, outline: "none", resize: "none", lineHeight: 1.5, background: "rgba(255,255,255,0.92)" }} />
+              <button onClick={postAnnouncement} disabled={!announcementInput.trim()} style={{ background: T.purple, color: "white", border: "none", borderRadius: T.r, padding: "0 16px", fontWeight: 700, fontSize: 12, cursor: announcementInput.trim() ? "pointer" : "default", fontFamily: T.fontBody, opacity: announcementInput.trim() ? 1 : 0.5 }}>Post</button>
+            </div>
+          )}
+          <button onClick={() => { setShowRoomManager(s => !s); setEditingRoom(null); }} style={{ background: "rgba(255,255,255,0.1)", color: "white", border: "none", borderRadius: T.r, padding: "8px 14px", fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: T.fontBody }}>{showRoomManager ? "Done managing rooms" : "Manage Group Rooms"}</button>
+        </div>
+      )}
+
       <SectionLabel style={{ marginBottom: 10 }}>Group Rooms</SectionLabel>
       <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 24 }}>
-        {GROUP_ROOMS.map(r => (
-          <Card key={r.id} onClick={() => openGroup(r)}>
-            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              <div style={{ width: 44, height: 44, borderRadius: 12, background: r.bg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, border: `1px solid ${r.color}20` }}>
-                {r.svgIcon(r.color)}
+        {rooms.map(r => {
+          const c = ROOM_COLORS[r.color_key] || ROOM_COLORS.purple;
+          const iconFn = ROOM_ICONS[r.icon_key] || ROOM_ICONS.community;
+          return (
+            <Card key={r.id} onClick={() => !showRoomManager && openGroup(r)}>
+              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <div style={{ width: 44, height: 44, borderRadius: 12, background: c.bg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, border: `1px solid ${c.color}20` }}>
+                  {iconFn(c.color)}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <p style={{ margin: "0 0 3px", fontWeight: 800, color: c.color, fontSize: 14 }}>{r.label}</p>
+                  <p style={{ margin: 0, color: T.inkMuted, fontSize: 12 }}>{r.description}</p>
+                </div>
+                {showRoomManager ? (
+                  <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                    <button onClick={(e) => { e.stopPropagation(); setEditingRoom({ ...r }); }} style={{ background: T.purpleL, color: T.purple, border: "none", borderRadius: 8, padding: "6px 10px", fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: T.fontBody }}>Edit</button>
+                    <button onClick={(e) => { e.stopPropagation(); deleteRoom(r.id); }} style={{ background: T.redL, color: T.red, border: "none", borderRadius: 8, padding: "6px 10px", fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: T.fontBody }}>Delete</button>
+                  </div>
+                ) : (
+                  <span style={{ color: T.inkMuted, fontSize: 20 }}>›</span>
+                )}
               </div>
-              <div style={{ flex: 1 }}>
-                <p style={{ margin: "0 0 3px", fontWeight: 800, color: r.color, fontSize: 14 }}>{r.label}</p>
-                <p style={{ margin: 0, color: T.inkMuted, fontSize: 12 }}>{r.desc}</p>
-              </div>
-              <span style={{ color: T.inkMuted, fontSize: 20 }}>›</span>
+            </Card>
+          );
+        })}
+
+        {showRoomManager && editingRoom === null && (
+          <Btn onClick={() => setEditingRoom({ label: "", description: "", icon_key: "community", color_key: "purple" })} secondary full>+ New Room</Btn>
+        )}
+
+        {showRoomManager && editingRoom && (
+          <Card style={{ padding: 16 }}>
+            <p style={{ margin: "0 0 10px", fontWeight: 800, color: T.ink, fontSize: 13 }}>{editingRoom.id ? "Edit Room" : "New Room"}</p>
+            <Input label="Name" value={editingRoom.label} onChange={e => setEditingRoom(r => ({ ...r, label: e.target.value }))} placeholder="e.g. New Parents" />
+            <Input label="Description" value={editingRoom.description} onChange={e => setEditingRoom(r => ({ ...r, description: e.target.value }))} placeholder="Short description" />
+            <p style={{ margin: "0 0 6px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>Icon</p>
+            <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
+              {Object.keys(ROOM_ICONS).map(key => {
+                const c = ROOM_COLORS[editingRoom.color_key] || ROOM_COLORS.purple;
+                const active = editingRoom.icon_key === key;
+                return (
+                  <button key={key} onClick={() => setEditingRoom(r => ({ ...r, icon_key: key }))} style={{ width: 40, height: 40, borderRadius: 10, background: active ? c.bg : T.canvas, border: `1.5px solid ${active ? c.color : T.border}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+                    {ROOM_ICONS[key](c.color)}
+                  </button>
+                );
+              })}
+            </div>
+            <p style={{ margin: "0 0 6px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>Color</p>
+            <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+              {Object.entries(ROOM_COLORS).map(([key, c]) => {
+                const active = editingRoom.color_key === key;
+                return (
+                  <button key={key} onClick={() => setEditingRoom(r => ({ ...r, color_key: key }))} style={{ width: 32, height: 32, borderRadius: "50%", background: c.color, border: active ? `2.5px solid ${T.ink}` : "2.5px solid transparent", cursor: "pointer" }} />
+                );
+              })}
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <Btn onClick={saveRoom} style={{ flex: 1 }} disabled={!editingRoom.label.trim()}>Save</Btn>
+              <Btn onClick={() => setEditingRoom(null)} secondary style={{ flex: 1 }}>Cancel</Btn>
             </div>
           </Card>
-        ))}
+        )}
       </div>
 
       <SectionLabel style={{ marginBottom: 10 }}>Private Messages</SectionLabel>
@@ -3108,28 +3285,40 @@ function CommunityScreen({ account }) {
   );
 
 }
-function SubsidiesScreen({ pop }) {
+function SubsidiesScreen({ pop, account }) {
   const [open, setOpen] = useState(null);
   const [detail, setDetail] = useState(null);
-  const [loadingLive, setLoadingLive] = useState(false);
-  const [liveUpdate, setLiveUpdate] = useState(null);
-  const [liveErr, setLiveErr] = useState(false);
+  const [news, setNews] = useState([]);
+  const [loadingNews, setLoadingNews] = useState(true);
+  const [editingNews, setEditingNews] = useState(null); // null = closed, {} = new, {...row} = editing
+  const isAdmin = account?.role === "admin";
 
-  useEffect(() => {
-    let cancelled = false;
-    setLoadingLive(true);
-    fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 800, tools: [{ type: "web_search_20250305", name: "web_search" }], system: `Singapore autism subsidies. Search latest 2025-2026. Respond ONLY JSON: { "updates": [ { "scheme": "Name", "headline": "short headline", "isNew": true } ] }. Max 4.`, messages: [{ role: "user", content: "Latest 2025-2026 Singapore autism disability subsidy updates JSON only." }] })
-    }).then(r => r.json()).then(d => {
-      if (cancelled) return;
-      const raw = (d.content || []).filter(b => b.type === "text").map(b => b.text).join("").replace(/```json|```/g, "").trim();
-      const s = raw.indexOf("{"), e = raw.lastIndexOf("}");
-      if (s !== -1 && e !== -1) setLiveUpdate(JSON.parse(raw.slice(s, e + 1)));
-      else setLiveErr(true);
-    }).catch(() => { if (!cancelled) setLiveErr(true); }).finally(() => { if (!cancelled) setLoadingLive(false); });
-    return () => { cancelled = true; };
-  }, []);
+  const loadNews = async () => {
+    setLoadingNews(true);
+    const { data } = await supabase.from("subsidy_news").select("*").order("sort_order").order("created_at", { ascending: false });
+    setNews(data || []);
+    setLoadingNews(false);
+  };
+
+  useEffect(() => { loadNews(); }, []);
+
+  const saveNews = async () => {
+    const n = editingNews;
+    if (!n?.scheme?.trim() || !n?.headline?.trim()) return;
+    const payload = { scheme: n.scheme.trim(), headline: n.headline.trim(), is_new: !!n.is_new };
+    if (n.id) {
+      await supabase.from("subsidy_news").update(payload).eq("id", n.id);
+    } else {
+      await supabase.from("subsidy_news").insert({ ...payload, created_by: account.id, sort_order: news.length });
+    }
+    setEditingNews(null);
+    await loadNews();
+  };
+
+  const deleteNews = async id => {
+    await supabase.from("subsidy_news").delete().eq("id", id);
+    await loadNews();
+  };
 
   if (detail) return (
     <Page>
@@ -3176,22 +3365,47 @@ function SubsidiesScreen({ pop }) {
       <p style={{ margin: "0 0 20px", color: T.inkSoft, fontSize: 14, lineHeight: 1.6 }}>Singapore government schemes that can dramatically reduce the cost of autism therapy and support.</p>
 
 
-      <Card style={{ marginBottom: 20, background: loadingLive ? T.canvas : liveErr ? T.redL : T.greenL, border: `1px solid ${liveErr ? T.red : T.green}25` }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: loadingLive || liveUpdate ? 10 : 0 }}>
+      <Card style={{ marginBottom: 20, background: loadingNews ? T.canvas : T.greenL, border: `1px solid ${T.green}25` }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <div style={{ width: 8, height: 8, borderRadius: "50%", background: loadingLive ? T.amber : liveErr ? T.red : T.green }} />
-            <p style={{ margin: 0, fontWeight: 800, color: T.ink, fontSize: 13 }}>Live Updates</p>
+            <div style={{ width: 8, height: 8, borderRadius: "50%", background: loadingNews ? T.amber : T.green }} />
+            <p style={{ margin: 0, fontWeight: 800, color: T.ink, fontSize: 13 }}>Latest Updates</p>
           </div>
-          {!loadingLive && <p style={{ margin: 0, color: T.inkMuted, fontSize: 11 }}>via Web Search</p>}
+          {isAdmin && !editingNews && <button onClick={() => setEditingNews({})} style={{ background: "none", border: "none", color: T.green, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: T.fontBody, padding: 0 }}>+ Add</button>}
         </div>
-        {loadingLive && <p style={{ margin: 0, color: T.inkSoft, fontSize: 13 }}>Searching for latest Singapore subsidy updates...</p>}
-        {liveErr && !loadingLive && <p style={{ margin: 0, color: T.red, fontSize: 13, fontWeight: 700 }}>Could not fetch live updates. Tap a scheme below for verified information.</p>}
-        {liveUpdate && !loadingLive && (liveUpdate.updates || []).map((u, i) => (
-          <div key={i} style={{ padding: "8px 0", borderTop: i === 0 ? "none" : `1px solid rgba(0,0,0,0.06)` }}>
-            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>{u.isNew && <Badge color={T.green} bg={T.green + "20"}>NEW</Badge>}<p style={{ margin: 0, fontWeight: 700, color: T.ink, fontSize: 13 }}>{u.scheme}</p></div>
-            <p style={{ margin: "2px 0 0", color: T.inkSoft, fontSize: 12 }}>{u.headline}</p>
+
+        {loadingNews && <p style={{ margin: 0, color: T.inkSoft, fontSize: 13 }}>Loading latest updates...</p>}
+        {!loadingNews && news.length === 0 && !editingNews && <p style={{ margin: 0, color: T.inkSoft, fontSize: 13 }}>No updates yet. Tap a scheme below for verified information.</p>}
+
+        {!loadingNews && news.map((u, i) => (
+          <div key={u.id} style={{ padding: "8px 0", borderTop: i === 0 ? "none" : `1px solid rgba(0,0,0,0.06)`, display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>{u.is_new && <Badge color={T.green} bg={T.green + "20"}>NEW</Badge>}<p style={{ margin: 0, fontWeight: 700, color: T.ink, fontSize: 13 }}>{u.scheme}</p></div>
+              <p style={{ margin: "2px 0 0", color: T.inkSoft, fontSize: 12 }}>{u.headline}</p>
+            </div>
+            {isAdmin && (
+              <div style={{ display: "flex", gap: 10, flexShrink: 0 }}>
+                <button onClick={() => setEditingNews(u)} style={{ background: "none", border: "none", color: T.purple, fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: T.fontBody, padding: 0 }}>Edit</button>
+                <button onClick={() => deleteNews(u.id)} style={{ background: "none", border: "none", color: T.red, fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: T.fontBody, padding: 0 }}>Delete</button>
+              </div>
+            )}
           </div>
         ))}
+
+        {isAdmin && editingNews && (
+          <div style={{ marginTop: news.length ? 12 : 0, paddingTop: news.length ? 12 : 0, borderTop: news.length ? `1px solid rgba(0,0,0,0.06)` : "none" }}>
+            <Input placeholder="Scheme name (e.g. EIPIC)" value={editingNews.scheme || ""} onChange={e => setEditingNews(n => ({ ...n, scheme: e.target.value }))} />
+            <Input placeholder="Headline" value={editingNews.headline || ""} onChange={e => setEditingNews(n => ({ ...n, headline: e.target.value }))} />
+            <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, fontSize: 12, fontWeight: 700, color: T.inkSoft, cursor: "pointer" }}>
+              <input type="checkbox" checked={!!editingNews.is_new} onChange={e => setEditingNews(n => ({ ...n, is_new: e.target.checked }))} />
+              Mark as NEW
+            </label>
+            <div style={{ display: "flex", gap: 8 }}>
+              <Btn onClick={saveNews} style={{ flex: 1, padding: "10px" }}>{editingNews.id ? "Save" : "Add"}</Btn>
+              <Btn onClick={() => setEditingNews(null)} secondary style={{ flex: 1, padding: "10px" }}>Cancel</Btn>
+            </div>
+          </div>
+        )}
       </Card>
 
       <Card style={{ background: T.ink, border: "none", marginBottom: 20 }}>
@@ -3595,6 +3809,18 @@ export default function Bonda() {
     return () => { cancelled = true; sub.subscription.unsubscribe(); };
   }, []);
 
+  // Load the account's role (user/admin) from the profiles table — not
+  // available on the auth user object itself.
+  useEffect(() => {
+    if (!account?.id) return;
+    let cancelled = false;
+    supabase.from("profiles").select("role").eq("id", account.id).single().then(({ data }) => {
+      if (cancelled || !data) return;
+      setAccount(a => a && a.role === data.role ? a : { ...a, role: data.role });
+    });
+    return () => { cancelled = true; };
+  }, [account?.id]);
+
   const childCtx = useChildren(account?.id);
 
   if (authLoading) {
@@ -3645,7 +3871,7 @@ export default function Bonda() {
   const renderStack = () => {
     if (!current) return null;
     switch (current) {
-      case "subsidies":  return <SubsidiesScreen pop={pop} />;
+      case "subsidies":  return <SubsidiesScreen pop={pop} account={account} />;
       case "sos":        return <SOSScreen pop={pop} />;
       case "activities": return <ActivitiesScreen pop={pop} />;
       case "training":   return <TrainingScreen pop={pop} />;
