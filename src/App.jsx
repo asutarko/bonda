@@ -988,16 +988,6 @@ const SUBSIDIES = [
   { id: "atf", badge: "DEVICES", badgeColor: "#8B5CF6", icon: "🦾", label: "Assistive Technology Fund", sub: "ATF — SG Enable", org: "SG Enable", amount: "Up to 90% subsidy, cap $40,000", saving: "A $2,000 AAC communication device can cost as little as $200 after subsidy.", color: "#8B5CF6", steps: ["Get a recommendation from your child's therapist, doctor, or school.", "Download the ATF application form from SG Enable's website.", "Submit with professional recommendation and device quotation.", "Once approved, purchase device and claim the subsidy."], eligibility: "Person with diagnosed disability. From Jan 2026: monthly PCI ≤$4,800.", contact: "SG Enable: 1800-8585-885", website: "enablingguide.sg", tip: "This fund covers AAC communication devices — tools that help non-verbal children speak. Life-changing." },
   { id: "comcare", badge: "FINANCIAL AID", badgeColor: T.inkSoft, icon: "🏢", label: "ComCare", sub: "MSF — Ministry of Social & Family Development", org: "MSF", amount: "Varies — living needs, transport, fees", saving: "Can cover therapy transport, school fees, and household bills.", color: T.inkSoft, steps: ["Visit supportgowhere.life.gov.sg to check qualifying schemes.", "Or walk into any Social Service Office (SSO) near you.", "Bring NRIC, child's birth cert, income docs, and medical reports.", "A social worker assesses your household holistically."], eligibility: "Singapore Citizens and PRs. Assessed holistically — no hard income cutoff.", contact: "MSF: 1800-222-0000 (Mon–Fri 9am–6pm)", website: "msf.gov.sg", tip: "ComCare SSOs are within 2km of 95% of HDB homes. Walk in — no appointment needed to start a conversation." },
 ];
-//  SOS DATA
-const SOS_CONTACTS = [
-  { icon: "🏛️", label: "Autism Resource Centre (ARC)", number: "6278 5755", type: "Autism Specialist", color: T.purple },
-  { icon: "🤝", label: "Autism Association Singapore", number: "6745 7144", type: "Autism Specialist", color: T.teal },
-  { icon: "🏥", label: "Institute of Mental Health (IMH)", number: "6389 2000", type: "Mental Health · 24hr", color: T.purple },
-  { icon: "🆘", label: "Samaritans of Singapore (SOS)", number: "1800 221 4444", type: "Crisis · 24hr Free", color: T.red },
-  { icon: "👶", label: "KK Women's & Children's Hospital", number: "6225 5554", type: "Medical", color: T.amber },
-  { icon: "🇸🇬", label: "SG Enable", number: "1800 8585 885", type: "Government", color: T.green },
-  { icon: "🏢", label: "MSF ComCare Hotline", number: "1800 222 0000", type: "Government", color: T.inkSoft },
-];
 //  ACTIVITIES DATA
 const ACTIVITIES = [
   {
@@ -1131,6 +1121,10 @@ const ROOM_COLORS = {
   amber:  { color: T.amber,  bg: T.amberL },
   teal:   { color: T.teal,   bg: T.tealL },
   red:    { color: T.red,    bg: T.redL },
+};
+const SOS_COLORS = {
+  ...ROOM_COLORS,
+  gray: { color: T.inkSoft, bg: T.canvas },
 };
 const COM_AVATAR_ILLUSTRATIONS = [
   { key: "leaf",    label: "Leaf",    render: (a) => <svg width="44" height="44" viewBox="0 0 44 44"><circle cx="22" cy="22" r="21" fill={a?"#065F46":"#D4EAE0"}/><path d="M22 34 Q10 22 18 10 Q26 10 30 18 Q34 26 22 34Z" fill={a?"#1D9E75":"#7BA08A"} opacity="0.9"/><path d="M22 34 L22 16" stroke={a?"white":"#F2FAF6"} strokeWidth="1.3" strokeLinecap="round" opacity="0.6"/><path d="M22 24 Q18 20 16 16" stroke={a?"white":"#F2FAF6"} strokeWidth="1" strokeLinecap="round" opacity="0.4"/><path d="M22 28 Q26 24 28 20" stroke={a?"white":"#F2FAF6"} strokeWidth="1" strokeLinecap="round" opacity="0.4"/></svg> },{ key: "lotus", label: "Lotus", render: (a) => <svg width="44" height="44" viewBox="0 0 44 44"><circle cx="22" cy="22" r="21" fill={a?"#065F46":"#D4EAE0"}/><path d="M22 28 Q15 22 16 14 Q22 16 22 28Z" fill={a?"white":"#F2FAF6"} opacity="0.8"/><path d="M22 28 Q29 22 28 14 Q22 16 22 28Z" fill={a?"white":"#F2FAF6"} opacity="0.8"/><path d="M22 28 Q22 14 22 12" stroke={a?"white":"#F2FAF6"} strokeWidth="1" strokeLinecap="round" opacity="0.3"/><path d="M22 28 Q12 18 10 12 Q17 12 22 28Z" fill={a?"#1D9E75":"#7BA08A"} opacity="0.6"/><path d="M22 28 Q32 18 34 12 Q27 12 22 28Z" fill={a?"#1D9E75":"#7BA08A"} opacity="0.6"/><ellipse cx="22" cy="30" rx="8" ry="3" fill={a?"#1D9E75":"#7BA08A"} opacity="0.4"/></svg> },{ key: "mountain",label: "Mountain",render: (a) => <svg width="44" height="44" viewBox="0 0 44 44"><circle cx="22" cy="22" r="21" fill={a?"#065F46":"#D4EAE0"}/><path d="M6 32 L16 14 L22 22 L28 14 L38 32Z" fill={a?"#1D9E75":"#7BA08A"} opacity="0.85"/><path d="M16 14 L22 22 L19 22 L16 14Z" fill={a?"white":"#F2FAF6"} opacity="0.6"/><path d="M28 14 L22 22 L25 22 L28 14Z" fill={a?"white":"#F2FAF6"} opacity="0.6"/><path d="M6 32 L38 32" stroke={a?"white":"#F2FAF6"} strokeWidth="1" strokeLinecap="round" opacity="0.3"/></svg> },{ key: "sun", label: "Sun", render: (a) => <svg width="44" height="44" viewBox="0 0 44 44"><circle cx="22" cy="22" r="21" fill={a?"#065F46":"#D4EAE0"}/><circle cx="22" cy="22" r="8" fill={a?"#D97706":"#7BA08A"} opacity="0.9"/>{[0,45,90,135,180,225,270,315].map((deg,i)=>{const rad=deg*Math.PI/180;const x1=22+12*Math.cos(rad);const y1=22+12*Math.sin(rad);const x2=22+16*Math.cos(rad);const y2=22+16*Math.sin(rad);return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke={a?"#D97706":"#7BA08A"} strokeWidth="1.5" strokeLinecap="round"/>})}</svg> },{ key: "moon", label: "Moon", render: (a) => <svg width="44" height="44" viewBox="0 0 44 44"><circle cx="22" cy="22" r="21" fill={a?"#065F46":"#D4EAE0"}/><path d="M26 10 Q16 14 16 22 Q16 30 26 34 Q16 36 10 28 Q6 16 14 10 Q20 6 26 10Z" fill={a?"white":"#F2FAF6"} opacity="0.9"/><circle cx="30" cy="14" r="2" fill={a?"#D97706":"#7BA08A"} opacity="0.5"/><circle cx="32" cy="22" r="1.2" fill={a?"#D97706":"#7BA08A"} opacity="0.35"/></svg> },
@@ -3441,7 +3435,39 @@ function SubsidiesScreen({ pop, account }) {
   );
 }
 
-function SOSScreen({ pop }) {
+function SOSScreen({ pop, account }) {
+  const [contacts, setContacts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(null); // null = closed, {} = new, {...row} = editing
+  const isAdmin = account?.role === "admin";
+
+  const loadContacts = async () => {
+    setLoading(true);
+    const { data } = await supabase.from("sos_contacts").select("*").order("sort_order").order("created_at");
+    setContacts(data || []);
+    setLoading(false);
+  };
+
+  useEffect(() => { loadContacts(); }, []);
+
+  const saveContact = async () => {
+    const c = editing;
+    if (!c?.label?.trim() || !c?.number?.trim()) return;
+    const payload = { icon: (c.icon || "📞").trim(), label: c.label.trim(), number: c.number.trim(), type: (c.type || "").trim(), color_key: c.color_key || "purple" };
+    if (c.id) {
+      await supabase.from("sos_contacts").update(payload).eq("id", c.id);
+    } else {
+      await supabase.from("sos_contacts").insert({ ...payload, created_by: account.id, sort_order: contacts.length });
+    }
+    setEditing(null);
+    await loadContacts();
+  };
+
+  const deleteContact = async id => {
+    await supabase.from("sos_contacts").delete().eq("id", id);
+    await loadContacts();
+  };
+
   return (
     <Page>
       <PageHero type="sos" />
@@ -3450,27 +3476,64 @@ function SOSScreen({ pop }) {
       <div style={{ background: T.redL, borderRadius: T.r, padding: "12px 14px", marginBottom: 24, border: `1px solid ${T.red}20` }}>
         <p style={{ margin: 0, color: T.red, fontWeight: 800, fontSize: 13 }}>You don't have to do this alone. Every contact below is there for you. 💛</p>
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {SOS_CONTACTS.map((c, i) => (
-          <Card key={i} accent={c.color}>
-            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              <div style={{ width: 40, height: 40, borderRadius: 10, background: c.color + "15", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, border: `1px solid ${c.color}20` }}>
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                <rect x="2" y="2" width="16" height="16" rx="4" stroke={c.color} strokeWidth="1.4" fill={c.color} fillOpacity="0.1"/>
-                <rect x="9" y="5" width="2" height="6" rx="1" fill={c.color}/>
-                <rect x="9" y="13" width="2" height="2" rx="1" fill={c.color}/>
-              </svg>
-            </div>
-              <div style={{ flex: 1 }}>
-                <p style={{ margin: "0 0 2px", fontWeight: 800, color: T.ink, fontSize: 13 }}>{c.label}</p>
-                <Badge color={c.color} bg={c.color + "15"}>{c.type}</Badge>
+
+      {isAdmin && (
+        <div style={{ marginBottom: 16 }}>
+          {editing ? (
+            <Card>
+              <Input placeholder="Icon (emoji)" value={editing.icon ?? "📞"} onChange={e => setEditing(c => ({ ...c, icon: e.target.value }))} />
+              <Input placeholder="Name (e.g. Autism Resource Centre)" value={editing.label || ""} onChange={e => setEditing(c => ({ ...c, label: e.target.value }))} />
+              <Input placeholder="Phone number" value={editing.number || ""} onChange={e => setEditing(c => ({ ...c, number: e.target.value }))} />
+              <Input placeholder="Type (e.g. Autism Specialist)" value={editing.type || ""} onChange={e => setEditing(c => ({ ...c, type: e.target.value }))} />
+              <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+                {Object.entries(SOS_COLORS).map(([key, sc]) => {
+                  const active = (editing.color_key || "purple") === key;
+                  return <button key={key} onClick={() => setEditing(c => ({ ...c, color_key: key }))} style={{ width: 28, height: 28, borderRadius: "50%", background: sc.color, border: active ? `2.5px solid ${T.ink}` : "2.5px solid transparent", cursor: "pointer" }} />;
+                })}
               </div>
-              <a href={`tel:${c.number.replace(/\s/g, "")}`} style={{ background: c.color, color: "white", borderRadius: T.r, padding: "8px 12px", textDecoration: "none", fontSize: 12, fontWeight: 700, whiteSpace: "nowrap" }}>📞 Call</a>
-            </div>
-            <p style={{ margin: "10px 0 0", color: T.inkMuted, fontSize: 12, fontWeight: 600 }}>{c.number}</p>
-          </Card>
-        ))}
-      </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <Btn onClick={saveContact} style={{ flex: 1, padding: "10px" }}>{editing.id ? "Save" : "Add"}</Btn>
+                <Btn onClick={() => setEditing(null)} secondary style={{ flex: 1, padding: "10px" }}>Cancel</Btn>
+              </div>
+            </Card>
+          ) : (
+            <Btn onClick={() => setEditing({})} secondary full>+ Add Emergency Contact</Btn>
+          )}
+        </div>
+      )}
+
+      {loading ? (
+        <p style={{ margin: 0, color: T.inkSoft, fontSize: 13 }}>Loading contacts...</p>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {contacts.map(c => {
+            const sc = SOS_COLORS[c.color_key] || SOS_COLORS.purple;
+            return (
+              <Card key={c.id} accent={sc.color}>
+                <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                  <div style={{ width: 40, height: 40, borderRadius: 10, background: sc.color + "15", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, border: `1px solid ${sc.color}20`, fontSize: 18 }}>
+                    {c.icon}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <p style={{ margin: "0 0 2px", fontWeight: 800, color: T.ink, fontSize: 13 }}>{c.label}</p>
+                    <Badge color={sc.color} bg={sc.color + "15"}>{c.type}</Badge>
+                  </div>
+                  <a href={`tel:${c.number.replace(/\s/g, "")}`} style={{ background: sc.color, color: "white", borderRadius: T.r, padding: "8px 12px", textDecoration: "none", fontSize: 12, fontWeight: 700, whiteSpace: "nowrap" }}>📞 Call</a>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 10 }}>
+                  <p style={{ margin: 0, color: T.inkMuted, fontSize: 12, fontWeight: 600 }}>{c.number}</p>
+                  {isAdmin && (
+                    <div style={{ display: "flex", gap: 10 }}>
+                      <button onClick={() => setEditing(c)} style={{ background: "none", border: "none", color: T.purple, fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: T.fontBody, padding: 0 }}>Edit</button>
+                      <button onClick={() => deleteContact(c.id)} style={{ background: "none", border: "none", color: T.red, fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: T.fontBody, padding: 0 }}>Delete</button>
+                    </div>
+                  )}
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
     </Page>
   );
 }
@@ -3872,7 +3935,7 @@ export default function Bonda() {
     if (!current) return null;
     switch (current) {
       case "subsidies":  return <SubsidiesScreen pop={pop} account={account} />;
-      case "sos":        return <SOSScreen pop={pop} />;
+      case "sos":        return <SOSScreen pop={pop} account={account} />;
       case "activities": return <ActivitiesScreen pop={pop} />;
       case "training":   return <TrainingScreen pop={pop} />;
       case "addChild":   return <AddChildScreen childCtx={childCtx} pop={pop} />;
