@@ -1328,22 +1328,36 @@ function FosterHubScreen({ pop }) {
   );
 }
 
-function HomeScreen({ childCtx, setTab, push }) {
+function HomeScreen({ childCtx, setTab, push, account }) {
   const { children, activeChild, switchChild } = childCtx;
-  const [qIdx, setQIdx] = useState(() => Math.floor(Math.random() * QUOTES.length));
+  const isAdmin = account?.role === "admin";
+  const [quotes, setQuotes] = useState(QUOTES);
+  const [editingQuote, setEditingQuote] = useState(null); // null = closed, {} = new, {...quote} = editing
+  const [qIdx, setQIdx] = useState(0);
   const [seen, setSeen] = useState([]);
   const [fade, setFade] = useState(true);
   const [paused, setPaused] = useState(false);
 
+  const loadQuotes = async () => {
+    const { data } = await supabase.from("parent_quotes").select("*").order("sort_order").order("created_at");
+    if (data?.length) {
+      setQuotes(data.map(r => ({ id: r.id, q: r.quote, a: r.author })));
+      setQIdx(Math.floor(Math.random() * data.length));
+      setSeen([]);
+    }
+  };
+
+  useEffect(() => { loadQuotes(); }, []);
+
   useEffect(() => {
-    if (paused) return;
+    if (paused || quotes.length < 2) return;
     const t = setInterval(() => {
       setFade(false);
       setTimeout(() => {
         setQIdx(prev => {
           const newSeen = [...seen, prev];
-          const pool = QUOTES.map((_, i) => i).filter(i => !newSeen.includes(i));
-          const next = pool.length ? pool[Math.floor(Math.random() * pool.length)] : Math.floor(Math.random() * QUOTES.length);
+          const pool = quotes.map((_, i) => i).filter(i => !newSeen.includes(i));
+          const next = pool.length ? pool[Math.floor(Math.random() * pool.length)] : Math.floor(Math.random() * quotes.length);
           setSeen(pool.length ? newSeen : [prev]);
           return next;
         });
@@ -1351,9 +1365,29 @@ function HomeScreen({ childCtx, setTab, push }) {
       }, 300);
     }, 6000);
     return () => clearInterval(t);
-  }, [paused, seen, qIdx]);
+  }, [paused, seen, qIdx, quotes]);
 
-  const q = QUOTES[qIdx];
+  const q = quotes[qIdx] || quotes[0];
+
+  const saveQuote = async () => {
+    const e = editingQuote;
+    if (!e?.q?.trim()) return;
+    const payload = { quote: e.q.trim(), author: (e.a || "").trim() };
+    if (e.id) {
+      await supabase.from("parent_quotes").update(payload).eq("id", e.id);
+    } else {
+      await supabase.from("parent_quotes").insert({ ...payload, created_by: account.id, sort_order: quotes.length });
+    }
+    setEditingQuote(null);
+    await loadQuotes();
+  };
+
+  const deleteQuote = async id => {
+    await supabase.from("parent_quotes").delete().eq("id", id);
+    setQIdx(0);
+    setSeen([]);
+    await loadQuotes();
+  };
 
   const isFoster = activeChild?.caregiverType === "foster";
 
@@ -1427,22 +1461,45 @@ function HomeScreen({ childCtx, setTab, push }) {
       </div>
 
 
-      <SectionLabel style={{ marginBottom: 10 }}>💛 For You, Parent</SectionLabel>
-      <div
-        style={{ background: T.ink, borderRadius: T.rL, padding: 22, cursor: "pointer" }}
-        onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}
-        onTouchStart={() => setPaused(true)} onTouchEnd={() => setPaused(false)}
-      >
-        <div style={{ opacity: fade ? 1 : 0, transition: "opacity 0.3s", minHeight: 80 }}>
-          <p style={{ color: "white", fontSize: 15, fontWeight: 600, lineHeight: 1.75, margin: "0 0 10px", fontStyle: "italic" }}>"{q.q}"</p>
-          <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 12, margin: 0 }}>— {q.a}</p>
+      <SectionLabel style={{ marginBottom: 10 }} action={isAdmin && !editingQuote && <button onClick={() => setEditingQuote({})} style={{ background: "none", border: "none", color: T.purple, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody }}>+ Add</button>}>💛 For You, Parent</SectionLabel>
+      {q && (
+        <div
+          style={{ background: T.ink, borderRadius: T.rL, padding: 22, cursor: "pointer" }}
+          onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}
+          onTouchStart={() => setPaused(true)} onTouchEnd={() => setPaused(false)}
+        >
+          <div style={{ opacity: fade ? 1 : 0, transition: "opacity 0.3s", minHeight: 80 }}>
+            <p style={{ color: "white", fontSize: 15, fontWeight: 600, lineHeight: 1.75, margin: "0 0 10px", fontStyle: "italic" }}>"{q.q}"</p>
+            <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 12, margin: 0 }}>— {q.a}</p>
+          </div>
+          <div style={{ height: 1, background: "rgba(255,255,255,0.1)", margin: "14px 0 12px" }} />
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <p style={{ margin: 0, color: "rgba(255,255,255,0.4)", fontSize: 11 }}>Auto-advances · Tap to pause</p>
+            <div style={{ width: 8, height: 8, borderRadius: "50%", background: paused ? T.amber : T.green }} />
+          </div>
         </div>
-        <div style={{ height: 1, background: "rgba(255,255,255,0.1)", margin: "14px 0 12px" }} />
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <p style={{ margin: 0, color: "rgba(255,255,255,0.4)", fontSize: 11 }}>Auto-advances · Tap to pause</p>
-          <div style={{ width: 8, height: 8, borderRadius: "50%", background: paused ? T.amber : T.green }} />
+      )}
+
+      {isAdmin && q?.id && !editingQuote && (
+        <div style={{ display: "flex", gap: 14, marginTop: 8 }}>
+          <button onClick={() => setEditingQuote(q)} style={{ background: "none", border: "none", color: T.purple, fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: T.fontBody, padding: 0 }}>Edit this quote</button>
+          <button onClick={() => deleteQuote(q.id)} style={{ background: "none", border: "none", color: T.red, fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: T.fontBody, padding: 0 }}>Delete</button>
         </div>
-      </div>
+      )}
+
+      {isAdmin && editingQuote && (
+        <Card style={{ marginTop: 8 }}>
+          <div style={{ marginBottom: 14 }}>
+            <p style={{ margin: "0 0 6px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>Quote</p>
+            <textarea value={editingQuote.q || ""} onChange={e => setEditingQuote(c => ({ ...c, q: e.target.value }))} placeholder="Quote text" rows={3} style={{ width: "100%", padding: "11px 14px", borderRadius: T.r, border: `1.5px solid ${T.border}`, fontSize: 14, fontFamily: T.fontBody, color: T.ink, outline: "none", resize: "vertical", lineHeight: 1.5, boxSizing: "border-box" }} />
+          </div>
+          <Input placeholder="Attribution (e.g. For every autism parent)" value={editingQuote.a || ""} onChange={e => setEditingQuote(c => ({ ...c, a: e.target.value }))} />
+          <div style={{ display: "flex", gap: 8 }}>
+            <Btn onClick={saveQuote} style={{ flex: 1, padding: "10px" }}>{editingQuote.id ? "Save" : "Add"}</Btn>
+            <Btn onClick={() => setEditingQuote(null)} secondary style={{ flex: 1, padding: "10px" }}>Cancel</Btn>
+          </div>
+        </Card>
+      )}
 
 
       <div style={{ marginTop: 16, padding: "14px 16px", background: T.greenL, borderRadius: T.r, border: `1px solid ${T.green}25` }}>
@@ -3923,7 +3980,7 @@ export default function Bonda() {
 
   const renderMain = () => {
     switch (tab) {
-      case "home":      return <HomeScreen childCtx={childCtx} setTab={setTab} push={push} />;
+      case "home":      return <HomeScreen childCtx={childCtx} setTab={setTab} push={push} account={account} />;
       case "mychild":   return <MyChildScreen childCtx={childCtx} />;
       case "schedule":  return <ScheduleScreen childCtx={childCtx} push={push} />;
       case "community": return <CommunityScreen account={account} />;
