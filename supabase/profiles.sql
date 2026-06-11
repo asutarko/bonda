@@ -15,17 +15,20 @@ alter table public.profiles enable row level security;
 
 -- Any signed-in parent can see the list of other parents (needed for
 -- the Community tab's group chat and private messages).
+drop policy if exists "Profiles are viewable by authenticated users" on public.profiles;
 create policy "Profiles are viewable by authenticated users"
   on public.profiles for select
   to authenticated
   using (true);
 
 -- A user may only create or edit their own profile row.
+drop policy if exists "Users can insert their own profile" on public.profiles;
 create policy "Users can insert their own profile"
   on public.profiles for insert
   to authenticated
   with check (auth.uid() = id);
 
+drop policy if exists "Users can update their own profile" on public.profiles;
 create policy "Users can update their own profile"
   on public.profiles for update
   to authenticated
