@@ -355,25 +355,6 @@ const Accordion = ({ icon, title, children, accentColor = T.purple }) => {
 const CHILD_AVATARS = ["🦁","🐨","🐼","🦊","🐸","🦋","🌸","🌟","🐬","🦄","🐧","🐯"];
 const PageHero = ({ type }) => {
   const heroes = {
-    subsidies: (
-      <svg width="100%" viewBox="0 0 320 96" style={{ display: "block" }}>
-        <rect width="320" height="96" rx="14" fill="#0A2218"/>
-        <circle cx="48" cy="48" r="32" fill="#065F46" opacity="0.5"/>
-        <circle cx="48" cy="48" r="20" fill="#065F46" opacity="0.7"/>
-        <circle cx="48" cy="48" r="10" fill="#1D9E75"/>
-        <text x="48" y="54" textAnchor="middle" fontSize="13" fontWeight="700" fill="white" fontFamily="system-ui">$</text>
-        <rect x="92" y="28" width="120" height="8" rx="4" fill="#1D9E75" opacity="0.6"/>
-        <rect x="92" y="42" width="88" height="6" rx="3" fill="#1D9E75" opacity="0.35"/>
-        <rect x="92" y="54" width="104" height="6" rx="3" fill="#1D9E75" opacity="0.25"/>
-        <rect x="92" y="66" width="64" height="6" rx="3" fill="#D97706" opacity="0.5"/>
-        <circle cx="260" cy="30" r="14" fill="#D97706" opacity="0.2"/>
-        <circle cx="260" cy="30" r="8" fill="#D97706" opacity="0.4"/>
-        <text x="260" y="35" textAnchor="middle" fontSize="10" fontWeight="700" fill="#D97706" fontFamily="system-ui">SGD</text>
-        <rect x="232" y="52" width="56" height="5" rx="2.5" fill="#065F46" opacity="0.4"/>
-        <rect x="244" y="62" width="32" height="5" rx="2.5" fill="#065F46" opacity="0.25"/>
-        <rect x="240" y="72" width="40" height="5" rx="2.5" fill="#065F46" opacity="0.15"/>
-      </svg>
-    ),
     sos: (
       <svg width="100%" viewBox="0 0 320 96" style={{ display: "block" }}>
         <rect width="320" height="96" rx="14" fill="#1A0808"/>
@@ -388,50 +369,6 @@ const PageHero = ({ type }) => {
         <rect x="90" y="68" width="100" height="5" rx="2.5" fill="#ffffff" opacity="0.06"/>
         <circle cx="268" cy="52" r="20" fill="#DC2626" opacity="0.12"/>
         <path d="M258 52 Q268 42 278 52 Q268 62 258 52" fill="#DC2626" opacity="0.3"/>
-      </svg>
-    ),
-    activities: (
-      <svg width="100%" viewBox="0 0 320 96" style={{ display: "block" }}>
-        <rect width="320" height="96" rx="14" fill="#0A2218"/>
-        <rect x="24" y="52" width="14" height="32" rx="4" fill="#065F46"/>
-        <rect x="44" y="40" width="14" height="44" rx="4" fill="#1D9E75"/>
-        <rect x="64" y="28" width="14" height="56" rx="4" fill="#065F46"/>
-        <rect x="84" y="36" width="14" height="48" rx="4" fill="#1D9E75" opacity="0.8"/>
-        <rect x="104" y="44" width="14" height="40" rx="4" fill="#D97706"/>
-        <circle cx="31" cy="50" r="4" fill="white" opacity="0.8"/>
-        <circle cx="51" cy="38" r="4" fill="white" opacity="0.8"/>
-        <circle cx="71" cy="26" r="4" fill="white" opacity="0.8"/>
-        <circle cx="91" cy="34" r="4" fill="white" opacity="0.8"/>
-        <circle cx="111" cy="42" r="4" fill="#D97706"/>
-        <path d="M31 50 Q51 32 71 26 Q91 20 111 42" fill="none" stroke="#D97706" strokeWidth="1.5" strokeLinecap="round" strokeDasharray="5 3"/>
-        <rect x="136" y="30" width="80" height="7" rx="3.5" fill="#1D9E75" opacity="0.5"/>
-        <rect x="136" y="44" width="56" height="5" rx="2.5" fill="#1D9E75" opacity="0.3"/>
-        <rect x="136" y="54" width="68" height="5" rx="2.5" fill="#1D9E75" opacity="0.2"/>
-        <rect x="136" y="64" width="44" height="5" rx="2.5" fill="#D97706" opacity="0.4"/>
-        <circle cx="268" cy="36" r="8" fill="#D97706" opacity="0.3"/>
-        <circle cx="284" cy="52" r="12" fill="#065F46" opacity="0.25"/>
-        <circle cx="258" cy="62" r="6" fill="#1D9E75" opacity="0.2"/>
-      </svg>
-    ),
-    training: (
-      <svg width="100%" viewBox="0 0 320 96" style={{ display: "block" }}>
-        <rect width="320" height="96" rx="14" fill="#0A2218"/>
-        <rect x="20" y="20" width="60" height="44" rx="8" fill="#065F46"/>
-        <rect x="26" y="26" width="48" height="32" rx="6" fill="#1D9E75" opacity="0.6"/>
-        <rect x="32" y="34" width="36" height="4" rx="2" fill="white" opacity="0.7"/>
-        <rect x="32" y="42" width="26" height="3" rx="1.5" fill="white" opacity="0.4"/>
-        <rect x="32" y="49" width="30" height="3" rx="1.5" fill="white" opacity="0.3"/>
-        <path d="M50 64 L42 76 L58 76 Z" fill="#065F46"/>
-        <circle cx="32" cy="84" r="9" fill="#1D9E75" opacity="0.6"/>
-        <circle cx="50" cy="88" r="9" fill="#065F46"/>
-        <circle cx="68" cy="84" r="9" fill="#D97706" opacity="0.55"/>
-        <rect x="98" y="26" width="110" height="7" rx="3.5" fill="#1D9E75" opacity="0.5"/>
-        <rect x="98" y="40" width="80" height="5" rx="2.5" fill="#1D9E75" opacity="0.3"/>
-        <rect x="98" y="52" width="96" height="5" rx="2.5" fill="#1D9E75" opacity="0.2"/>
-        <rect x="98" y="64" width="60" height="5" rx="2.5" fill="#D97706" opacity="0.4"/>
-        <circle cx="268" cy="48" r="24" fill="#065F46" opacity="0.12"/>
-        <circle cx="268" cy="48" r="14" fill="#065F46" opacity="0.18"/>
-        <circle cx="268" cy="48" r="6" fill="#1D9E75" opacity="0.5"/>
       </svg>
     ),
     addchild: (
@@ -987,57 +924,6 @@ const SUBSIDIES = [
   { id: "ctg", badge: "TRAINING", badgeColor: T.teal, icon: "📚", label: "Caregivers Training Grant", sub: "CTG — SG Enable / AIC", org: "SG Enable", amount: "$200/year for approved courses", saving: "Covers ABA, sensory, PECS, and autism management courses for parents.", color: T.teal, steps: ["Browse approved CTG courses on SG Enable or AIC website.", "Choose a course relevant to your child's needs (ABA, sensory, PECS).", "Apply for CTG when registering for the course.", "Complete the course and claim your subsidy."], eligibility: "Caregiver of a person with disability. $200 tied to care recipient per year.", contact: "SG Enable: 1800-8585-885", website: "sgenable.sg", tip: "Use CTG to fund courses that teach you the same techniques therapists use — directly applicable at home." },
   { id: "atf", badge: "DEVICES", badgeColor: "#8B5CF6", icon: "🦾", label: "Assistive Technology Fund", sub: "ATF — SG Enable", org: "SG Enable", amount: "Up to 90% subsidy, cap $40,000", saving: "A $2,000 AAC communication device can cost as little as $200 after subsidy.", color: "#8B5CF6", steps: ["Get a recommendation from your child's therapist, doctor, or school.", "Download the ATF application form from SG Enable's website.", "Submit with professional recommendation and device quotation.", "Once approved, purchase device and claim the subsidy."], eligibility: "Person with diagnosed disability. From Jan 2026: monthly PCI ≤$4,800.", contact: "SG Enable: 1800-8585-885", website: "enablingguide.sg", tip: "This fund covers AAC communication devices — tools that help non-verbal children speak. Life-changing." },
   { id: "comcare", badge: "FINANCIAL AID", badgeColor: T.inkSoft, icon: "🏢", label: "ComCare", sub: "MSF — Ministry of Social & Family Development", org: "MSF", amount: "Varies — living needs, transport, fees", saving: "Can cover therapy transport, school fees, and household bills.", color: T.inkSoft, steps: ["Visit supportgowhere.life.gov.sg to check qualifying schemes.", "Or walk into any Social Service Office (SSO) near you.", "Bring NRIC, child's birth cert, income docs, and medical reports.", "A social worker assesses your household holistically."], eligibility: "Singapore Citizens and PRs. Assessed holistically — no hard income cutoff.", contact: "MSF: 1800-222-0000 (Mon–Fri 9am–6pm)", website: "msf.gov.sg", tip: "ComCare SSOs are within 2km of 95% of HDB homes. Walk in — no appointment needed to start a conversation." },
-];
-//  ACTIVITIES DATA
-const ACTIVITIES = [
-  {
-    id: "sensory", emoji: "🎨", label: "Sensory", color: T.purple,
-    freq: "Daily — 2–3 sessions of 15–20 min",
-    source: "AJOT (2012); Pfeiffer et al. — 3×/week shows significant self-regulation gains in 6 weeks",
-    tip: "A 15-minute sensory bin before school is more effective than an hour on weekends.",
-    items: [
-      { name: "Sensory Bins", desc: "Rice, kinetic sand, or water beads. Let the child explore freely with no goal.", benefit: "Tactile regulation · Fine motor" },
-      { name: "Finger Painting", desc: "Safe paints or pudding on a tray. No pressure to make anything.", benefit: "Sensory tolerance · Creativity" },
-      { name: "Playdough or Slime", desc: "Squeezing, rolling, pulling — deeply calming through proprioceptive input.", benefit: "Calming · Motor skills" },
-      { name: "Water Exploration", desc: "Pouring between cups, splashing. Water is naturally regulating.", benefit: "Sensory integration" },
-    ],
-  },
-  {
-    id: "movement", emoji: "🏃", label: "Movement", color: T.teal,
-    freq: "Daily — minimum 5 days/week, 20–30 min",
-    source: "Lang et al. Journal of Autism (2010) — 3–5×/week reduces aggression, stereotypy, and off-task behaviour",
-    tip: "Morning movement before learning activities improves focus and regulation for the rest of the day.",
-    items: [
-      { name: "Mini Trampoline", desc: "Jumping provides deep joint pressure — one of the most effective OT tools.", benefit: "Regulation · Energy release" },
-      { name: "Kids' Yoga", desc: "Cat-cow, child's pose — simple poses done together. No experience needed.", benefit: "Breathing · Focus · Flexibility" },
-      { name: "Home Obstacle Course", desc: "Pillows, tunnels, balance beams. Predictable physical challenges build confidence.", benefit: "Motor planning · Coordination" },
-      { name: "Follow the Leader", desc: "Take turns copying movements. Teaches turn-taking through movement.", benefit: "Social skills · Imitation" },
-    ],
-  },
-  {
-    id: "communication", emoji: "🗣️", label: "Communication", color: T.amber,
-    freq: "Daily — 5–10 minute bursts woven into natural routines",
-    source: "Frost & Bondy PECS (2002); Ganz et al. (2012) — daily AAC across all environments produces fastest language gains",
-    tip: "Mealtime, bathtime, dressing — every routine is a communication opportunity. No special session needed.",
-    items: [
-      { name: "Picture Exchange (PECS)", desc: "Printed pictures or apps — child points to what they want. Dramatically reduces frustration.", benefit: "Communication · Fewer meltdowns" },
-      { name: "Cause-and-Effect Toys", desc: "Press button → music plays. Teaches intentional, purposeful communication.", benefit: "Language readiness · Agency" },
-      { name: "Wordless Books", desc: "Child 'tells' the story using only pictures. No verbal pressure, pure expression.", benefit: "Joint attention · Imagination" },
-      { name: "Singing Together", desc: "Music activates different pathways than speech. Many non-verbal children respond to song first.", benefit: "Language processing · Expression" },
-    ],
-  },
-  {
-    id: "social", emoji: "🧩", label: "Social Skills", color: T.green,
-    freq: "3–5 times/week, 15–30 min structured + daily natural opportunities",
-    source: "Kasari et al. (2012) — 3–5×/week structured joint engagement improved social communication significantly over 6 months",
-    tip: "A turn-taking game at dinner 4 nights a week outperforms a weekly clinic session for skill retention.",
-    items: [
-      { name: "Turn-Taking Games", desc: "Simple board games or rolling a ball back and forth — teaches waiting and reciprocity.", benefit: "Social skills · Impulse control" },
-      { name: "Sorting and Categorising", desc: "Sort by colour, shape, or size. Many autistic children love patterns — lean into it.", benefit: "Cognitive skills · Attention" },
-      { name: "Lego or Block Construction", desc: "Free building or guided models. Lego therapy (LeGoff, 2004) shows measurable social gains.", benefit: "Problem-solving · Social skills" },
-      { name: "Cooking Together", desc: "Stirring, pouring, washing produce — multi-sensory, functional, builds life skills.", benefit: "Sensory · Daily living" },
-    ],
-  },
 ];
 //  MOTIVATIONAL QUOTES
 const QUOTES = [
@@ -2566,8 +2452,8 @@ function ScheduleScreen({ childCtx, push }) {
               <Card key={item.id} style={{ background: T.purpleL }}>
                 <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
                   <button onClick={() => setShowEmojiPicker(!showEmojiPicker)} style={{ fontSize: 24, background: T.surface, border: `1.5px solid ${T.border}`, borderRadius: T.r, padding: "6px 10px", cursor: "pointer" }}>{editData.emoji}</button>
-                  <input value={editData.label} onChange={e => setEditData({ ...editData, label: e.target.value })} style={{ flex: 1, padding: "8px 12px", borderRadius: T.r, border: `1.5px solid ${T.purple}`, fontSize: 14, fontFamily: T.fontBody, color: T.ink, background: T.surface, outline: "none" }} />
-                  <input type="time" value={editData.time} onChange={e => setEditData({ ...editData, time: e.target.value })} style={{ padding: "8px 10px", borderRadius: T.r, border: `1.5px solid ${T.purple}`, fontSize: 13, fontFamily: T.fontBody, color: T.ink, background: T.surface, outline: "none", width: 88 }} />
+                  <input value={editData.label} onChange={e => setEditData({ ...editData, label: e.target.value })} style={{ flex: 1, minWidth: 0, boxSizing: "border-box", padding: "8px 12px", borderRadius: T.r, border: `1.5px solid ${T.purple}`, fontSize: 14, fontFamily: T.fontBody, color: T.ink, background: T.surface, outline: "none" }} />
+                  <input type="time" value={editData.time} onChange={e => setEditData({ ...editData, time: e.target.value })} style={{ flexShrink: 0, boxSizing: "border-box", padding: "8px 10px", borderRadius: T.r, border: `1.5px solid ${T.purple}`, fontSize: 13, fontFamily: T.fontBody, color: T.ink, background: T.surface, outline: "none", width: 88 }} />
                 </div>
                 {showEmojiPicker && <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: 10, background: T.surface, borderRadius: T.r, marginBottom: 10 }}>{EMOJI_OPTS.map(e => <button key={e} onClick={() => { setEditData({ ...editData, emoji: e }); setShowEmojiPicker(false); }} style={{ fontSize: 20, background: "none", border: "none", cursor: "pointer", borderRadius: 8, padding: 3 }}>{e}</button>)}</div>}
                 <div style={{ display: "flex", gap: 8 }}>
@@ -2601,8 +2487,8 @@ function ScheduleScreen({ childCtx, push }) {
               <p style={{ margin: "0 0 10px", fontWeight: 800, color: T.purple, fontSize: 14 }}>New Activity</p>
               <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
                 <button onClick={() => setShowEmojiPicker(!showEmojiPicker)} style={{ fontSize: 24, background: T.surface, border: `1.5px solid ${T.border}`, borderRadius: T.r, padding: "6px 10px", cursor: "pointer" }}>{newItem.emoji}</button>
-                <input value={newItem.label} onChange={e => setNewItem({ ...newItem, label: e.target.value })} placeholder="Activity name" style={{ flex: 1, padding: "8px 12px", borderRadius: T.r, border: `1.5px solid ${T.purple}`, fontSize: 14, fontFamily: T.fontBody, color: T.ink, outline: "none", background: T.surface }} />
-                <input type="time" value={newItem.time} onChange={e => setNewItem({ ...newItem, time: e.target.value })} style={{ padding: "8px 8px", borderRadius: T.r, border: `1.5px solid ${T.purple}`, fontSize: 13, fontFamily: T.fontBody, color: T.ink, outline: "none", width: 88, background: T.surface }} />
+                <input value={newItem.label} onChange={e => setNewItem({ ...newItem, label: e.target.value })} placeholder="Activity name" style={{ flex: 1, minWidth: 0, boxSizing: "border-box", padding: "8px 12px", borderRadius: T.r, border: `1.5px solid ${T.purple}`, fontSize: 14, fontFamily: T.fontBody, color: T.ink, outline: "none", background: T.surface }} />
+                <input type="time" value={newItem.time} onChange={e => setNewItem({ ...newItem, time: e.target.value })} style={{ flexShrink: 0, boxSizing: "border-box", padding: "8px 8px", borderRadius: T.r, border: `1.5px solid ${T.purple}`, fontSize: 13, fontFamily: T.fontBody, color: T.ink, outline: "none", width: 88, background: T.surface }} />
               </div>
               {showEmojiPicker && <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: 10, background: T.surface, borderRadius: T.r, marginBottom: 10 }}>{EMOJI_OPTS.map(e => <button key={e} onClick={() => { setNewItem({ ...newItem, emoji: e }); setShowEmojiPicker(false); }} style={{ fontSize: 20, background: "none", border: "none", cursor: "pointer", borderRadius: 8, padding: 3 }}>{e}</button>)}</div>}
               <div style={{ display: "flex", gap: 8 }}>
@@ -2947,6 +2833,7 @@ function CommunityScreen({ account }) {
   const [activeRoom, setActiveRoom] = useState(null);
   const [groupMsgs, setGroupMsgs] = useState([]); const [groupInput, setGroupInput] = useState(""); const [groupLoading, setGroupLoading] = useState(false);
   const [allUsers, setAllUsers] = useState([]); const [dmPartner, setDmPartner] = useState(null);
+  const [dmSearch, setDmSearch] = useState(""); const [dmSearchMatches, setDmSearchMatches] = useState(null);
   const [dmMsgs, setDmMsgs] = useState([]); const [dmInput, setDmInput] = useState(""); const [dmLoading, setDmLoading] = useState(false);
 
   const [rooms, setRooms] = useState([]);
@@ -2986,6 +2873,27 @@ function CommunityScreen({ account }) {
   const dmKey = (a, b) => { const s = [a, b].sort(); return `dm_${s[0]}_${s[1]}`; };
 
   const msgFromRow = m => ({ id: m.id, author: m.author_name, avatar: m.author_avatar, authorId: m.author_id, text: m.text, time: new Date(m.created_at).toLocaleTimeString("en-SG", { hour: "2-digit", minute: "2-digit" }), date: new Date(m.created_at).toLocaleDateString("en-SG", { day: "numeric", month: "short" }) });
+
+  // Search private messages by content — finds which DM partners have a
+  // message matching the search term so they show up even if their name doesn't match.
+  useEffect(() => {
+    const term = dmSearch.trim();
+    if (view !== "dm_list" || !term) { setDmSearchMatches(null); return; }
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      const { data } = await supabase.from("messages").select("room")
+        .ilike("text", `%${term}%`)
+        .or(`room.like.dm_${account.id}_%,room.like.dm_%_${account.id}`)
+        .limit(100);
+      if (cancelled) return;
+      const partnerIds = new Set((data || []).map(m => {
+        const [, idA, idB] = m.room.split("_");
+        return idA === account.id ? idB : idA;
+      }));
+      setDmSearchMatches(partnerIds);
+    }, 300);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [dmSearch, view, account.id]);
 
   const leaveRoom = () => { if (channelRef.current) { supabase.removeChannel(channelRef.current); channelRef.current = null; } };
 
@@ -3124,15 +3032,25 @@ function CommunityScreen({ account }) {
 
   if (view === "dm_list") {
     const others = allUsers.filter(u => u.id !== account.id);
+    const term = dmSearch.trim().toLowerCase();
+    const filtered = !term ? others : others.filter(p => p.name.toLowerCase().includes(term) || dmSearchMatches?.has(p.id));
     return (
       <Page>
         {showPaywall && <Paywall />}
         <button onClick={() => setView("home")} style={{ background: "none", border: "none", color: T.purple, fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: T.fontBody, padding: "0 0 16px", display: "flex", alignItems: "center", gap: 6 }}>← Back</button>
         <h2 style={{ margin: "0 0 6px", color: T.ink, fontSize: 20, fontWeight: 800 }}>Private Messages</h2>
         <p style={{ margin: "0 0 20px", color: T.inkSoft, fontSize: 14 }}>Choose a parent to message privately</p>
+        {others.length > 0 && (
+          <div style={{ position: "relative", marginBottom: 16 }}>
+            <span style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", fontSize: 14, pointerEvents: "none", opacity: 0.5 }}>🔍</span>
+            <input value={dmSearch} onChange={e => setDmSearch(e.target.value)} placeholder="Search by name or message..."
+              style={{ width: "100%", padding: "11px 14px 11px 38px", borderRadius: T.r, border: `1.5px solid ${T.border}`, fontSize: 14, fontFamily: T.fontBody, color: T.ink, background: T.canvas, outline: "none", boxSizing: "border-box" }} />
+          </div>
+        )}
         {others.length === 0 ? <div style={{ textAlign: "center", padding: "48px 20px" }}><div style={{ fontSize: 44, marginBottom: 12 }}>👥</div><p style={{ fontWeight: 700, color: T.ink, fontSize: 15 }}>No other parents yet</p><p style={{ color: T.inkMuted, fontSize: 13, lineHeight: 1.6 }}>Once other parents join, they'll appear here.</p></div> :
+          filtered.length === 0 ? <div style={{ textAlign: "center", padding: "48px 20px" }}><div style={{ fontSize: 44, marginBottom: 12 }}>🔍</div><p style={{ fontWeight: 700, color: T.ink, fontSize: 15 }}>No matches</p><p style={{ color: T.inkMuted, fontSize: 13, lineHeight: 1.6 }}>No parent name or message matches "{dmSearch.trim()}".</p></div> :
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {others.map(p => (
+            {filtered.map(p => (
               <Card key={p.id} onClick={() => openDMChat(p)} style={{ padding: "14px 16px" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
                   <ComAvatar value={p.avatar} size={44} active={false} borderColor={T.border} />
@@ -3411,7 +3329,6 @@ function SubsidiesScreen({ pop, account }) {
 
   return (
     <Page>
-      <PageHero type="subsidies" />
       <h2 style={{ margin: "0 0 6px", color: T.ink, fontSize: 22, fontWeight: 800 }}>Subsidies & Aid</h2>
       <p style={{ margin: "0 0 20px", color: T.inkSoft, fontSize: 14, lineHeight: 1.6 }}>Singapore government schemes that can dramatically reduce the cost of autism therapy and support.</p>
 
@@ -3595,66 +3512,193 @@ function SOSScreen({ pop, account }) {
   );
 }
 
-function ActivitiesScreen({ pop }) {
+const ACTIVITY_TEXTAREA_STYLE = { width: "100%", padding: "11px 14px", borderRadius: T.r, border: `1.5px solid ${T.border}`, fontSize: 13, fontFamily: T.fontBody, color: T.ink, outline: "none", resize: "vertical", lineHeight: 1.5, boxSizing: "border-box", marginBottom: 14, background: T.canvas };
+
+function ActivitiesScreen({ pop, account }) {
+  const isAdmin = account?.role === "admin";
+  const [categories, setCategories] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(null);
   const [openItem, setOpenItem] = useState(null);
   const [showFreq, setShowFreq] = useState(null);
+  const [editingCat, setEditingCat] = useState(null); // null = closed, {} = new, {...cat} = editing
+  const [editingItem, setEditingItem] = useState(null); // {category_id, ...} = new/editing item
+
+  const loadActivities = async () => {
+    setLoading(true);
+    const [{ data: cats }, { data: items }] = await Promise.all([
+      supabase.from("activity_categories").select("*").order("sort_order").order("created_at"),
+      supabase.from("activity_items").select("*").order("sort_order").order("created_at"),
+    ]);
+    setCategories((cats || []).map(c => ({ ...c, items: (items || []).filter(i => i.category_id === c.id) })));
+    setLoading(false);
+  };
+
+  useEffect(() => { loadActivities(); }, []);
+
+  const saveCategory = async () => {
+    const c = editingCat;
+    if (!c?.label?.trim()) return;
+    const payload = { emoji: (c.emoji || "🎨").trim(), label: c.label.trim(), color_key: c.color_key || "purple", freq: (c.freq || "").trim(), source: (c.source || "").trim(), tip: (c.tip || "").trim() };
+    if (c.id) {
+      await supabase.from("activity_categories").update(payload).eq("id", c.id);
+    } else {
+      await supabase.from("activity_categories").insert({ ...payload, created_by: account.id, sort_order: categories.length });
+    }
+    setEditingCat(null);
+    await loadActivities();
+  };
+
+  const deleteCategory = async id => {
+    await supabase.from("activity_categories").delete().eq("id", id);
+    if (open === id) setOpen(null);
+    await loadActivities();
+  };
+
+  const saveItem = async () => {
+    const it = editingItem;
+    if (!it?.name?.trim()) return;
+    const payload = { name: it.name.trim(), description: (it.desc || "").trim(), benefit: (it.benefit || "").trim() };
+    if (it.id) {
+      await supabase.from("activity_items").update(payload).eq("id", it.id);
+    } else {
+      const cat = categories.find(c => c.id === it.category_id);
+      await supabase.from("activity_items").insert({ ...payload, category_id: it.category_id, created_by: account.id, sort_order: cat?.items.length || 0 });
+    }
+    setEditingItem(null);
+    await loadActivities();
+  };
+
+  const deleteItem = async id => {
+    await supabase.from("activity_items").delete().eq("id", id);
+    await loadActivities();
+  };
 
   return (
     <Page>
-      <PageHero type="activities" />
       <h2 style={{ margin: "0 0 6px", color: T.ink, fontSize: 22, fontWeight: 800 }}>Activity Guide</h2>
       <p style={{ margin: "0 0 24px", color: T.inkSoft, fontSize: 14, lineHeight: 1.6 }}>Research-backed activities you can do at home. Each one targets a real developmental need.</p>
+
+      {isAdmin && (
+        <div style={{ marginBottom: 16 }}>
+          {editingCat ? (
+            <Card>
+              <p style={{ margin: "0 0 10px", fontWeight: 800, color: T.purple, fontSize: 14 }}>{editingCat.id ? "Edit Category" : "New Category"}</p>
+              <Input placeholder="Emoji" value={editingCat.emoji ?? "🎨"} onChange={e => setEditingCat(c => ({ ...c, emoji: e.target.value }))} />
+              <Input placeholder="Category name (e.g. Sensory)" value={editingCat.label || ""} onChange={e => setEditingCat(c => ({ ...c, label: e.target.value }))} />
+              <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+                {Object.entries(ROOM_COLORS).map(([key, sc]) => {
+                  const active = (editingCat.color_key || "purple") === key;
+                  return <button key={key} onClick={() => setEditingCat(c => ({ ...c, color_key: key }))} style={{ width: 28, height: 28, borderRadius: "50%", background: sc.color, border: active ? `2.5px solid ${T.ink}` : "2.5px solid transparent", cursor: "pointer" }} />;
+                })}
+              </div>
+              <textarea value={editingCat.freq || ""} onChange={e => setEditingCat(c => ({ ...c, freq: e.target.value }))} placeholder="Recommended frequency (e.g. Daily — 2–3 sessions of 15–20 min)" rows={2} style={ACTIVITY_TEXTAREA_STYLE} />
+              <textarea value={editingCat.source || ""} onChange={e => setEditingCat(c => ({ ...c, source: e.target.value }))} placeholder="Research source / citation" rows={2} style={ACTIVITY_TEXTAREA_STYLE} />
+              <textarea value={editingCat.tip || ""} onChange={e => setEditingCat(c => ({ ...c, tip: e.target.value }))} placeholder="Practical tip for parents" rows={2} style={ACTIVITY_TEXTAREA_STYLE} />
+              <div style={{ display: "flex", gap: 8 }}>
+                <Btn onClick={saveCategory} style={{ flex: 1, padding: "10px" }}>{editingCat.id ? "Save" : "Add"}</Btn>
+                <Btn onClick={() => setEditingCat(null)} secondary style={{ flex: 1, padding: "10px" }}>Cancel</Btn>
+              </div>
+            </Card>
+          ) : (
+            <Btn onClick={() => setEditingCat({})} secondary full>+ Add Category</Btn>
+          )}
+        </div>
+      )}
+
+      {loading ? (
+        <p style={{ margin: 0, color: T.inkSoft, fontSize: 13 }}>Loading activities...</p>
+      ) : (
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {ACTIVITIES.map((cat, ci) => (
-          <Card key={ci} style={{ padding: 0, overflow: "hidden" }}>
-            <div onClick={() => setOpen(open === ci ? null : ci)} style={{ padding: "14px 16px", display: "flex", alignItems: "center", gap: 12, cursor: "pointer", background: open === ci ? cat.color + "10" : T.surface }}>
-              <div style={{ width: 40, height: 40, borderRadius: 10, background: cat.color + "15", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, border: `1px solid ${cat.color}20` }}>
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                <circle cx="10" cy="10" r="7" stroke={cat.color} strokeWidth="1.4" fill={cat.color} fillOpacity="0.12"/>
-                <circle cx="10" cy="10" r="3" fill={cat.color} opacity="0.7"/>
-              </svg>
+        {categories.map((cat) => {
+          const color = ROOM_COLORS[cat.color_key]?.color || T.purple;
+          const isOpen = open === cat.id;
+          return (
+          <Card key={cat.id} style={{ padding: 0, overflow: "hidden" }}>
+            <div onClick={() => setOpen(isOpen ? null : cat.id)} style={{ padding: "14px 16px", display: "flex", alignItems: "center", gap: 12, cursor: "pointer", background: isOpen ? color + "10" : T.surface }}>
+              <div style={{ width: 40, height: 40, borderRadius: 10, background: color + "15", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, border: `1px solid ${color}20`, fontSize: 18 }}>
+                {cat.emoji}
+              </div>
+              <p style={{ flex: 1, margin: 0, fontWeight: 800, color: color, fontSize: 15 }}>{cat.label}</p>
+              <span style={{ color: T.inkMuted, fontWeight: 300, fontSize: 20, transform: isOpen ? "rotate(45deg)" : "none", transition: "transform 0.2s", display: "block" }}>+</span>
             </div>
-              <p style={{ flex: 1, margin: 0, fontWeight: 800, color: cat.color, fontSize: 15 }}>{cat.label}</p>
-              <span style={{ color: T.inkMuted, fontWeight: 300, fontSize: 20, transform: open === ci ? "rotate(45deg)" : "none", transition: "transform 0.2s", display: "block" }}>+</span>
-            </div>
-            {open === ci && (
+            {isOpen && (
               <div style={{ padding: "0 16px 16px" }}>
-                <p style={{ margin: "0 0 12px", color: T.inkSoft, fontSize: 13, lineHeight: 1.7, fontStyle: "italic" }}>{cat.why}</p>
-                <Card onClick={() => setShowFreq(showFreq === ci ? null : ci)} style={{ background: showFreq === ci ? T.ink : T.canvas, border: "none", marginBottom: 12, padding: "12px 14px" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <p style={{ margin: 0, fontWeight: 800, color: showFreq === ci ? "white" : T.ink, fontSize: 13 }}>How often should my child do this?</p>
-                    <span style={{ color: showFreq === ci ? "white" : T.inkMuted, fontWeight: 300, fontSize: 18, transform: showFreq === ci ? "rotate(45deg)" : "none", transition: "transform 0.2s", display: "block" }}>+</span>
+                {isAdmin && (
+                  <div style={{ display: "flex", gap: 14, marginBottom: 12 }}>
+                    <button onClick={() => setEditingCat(cat)} style={{ background: "none", border: "none", color: T.purple, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: T.fontBody, padding: 0 }}>Edit category</button>
+                    <button onClick={() => deleteCategory(cat.id)} style={{ background: "none", border: "none", color: T.red, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: T.fontBody, padding: 0 }}>Delete category</button>
                   </div>
-                  {showFreq === ci && (
+                )}
+                <Card onClick={() => setShowFreq(showFreq === cat.id ? null : cat.id)} style={{ background: showFreq === cat.id ? T.ink : T.canvas, border: "none", marginBottom: 12, padding: "12px 14px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    <p style={{ margin: 0, fontWeight: 800, color: showFreq === cat.id ? "white" : T.ink, fontSize: 13 }}>How often should my child do this?</p>
+                    <span style={{ color: showFreq === cat.id ? "white" : T.inkMuted, fontWeight: 300, fontSize: 18, transform: showFreq === cat.id ? "rotate(45deg)" : "none", transition: "transform 0.2s", display: "block" }}>+</span>
+                  </div>
+                  {showFreq === cat.id && (
                     <div style={{ marginTop: 10 }}>
-                      <p style={{ margin: "0 0 4px", color: cat.color, fontWeight: 800, fontSize: 14 }}>{cat.freq}</p>
+                      <p style={{ margin: "0 0 4px", color: color, fontWeight: 800, fontSize: 14 }}>{cat.freq}</p>
                       <p style={{ margin: "0 0 8px", color: "rgba(255,255,255,0.65)", fontSize: 12, lineHeight: 1.6 }}>{cat.source}</p>
                       <p style={{ margin: 0, color: T.amber, fontSize: 12, fontWeight: 700 }}>💡 {cat.tip}</p>
                     </div>
                   )}
                 </Card>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {cat.items.map((item, ii) => (
-                    <Card key={ii} onClick={() => setOpenItem(openItem === `${ci}-${ii}` ? null : `${ci}-${ii}`)} style={{ background: openItem === `${ci}-${ii}` ? cat.color + "10" : T.canvas, border: "none", padding: "12px 14px" }}>
+                  {cat.items.map((item) => (
+                    editingItem?.id === item.id ? (
+                      <Card key={item.id} style={{ background: color + "10", border: "none", padding: "12px 14px" }}>
+                        <Input placeholder="Activity name" value={editingItem.name || ""} onChange={e => setEditingItem(it => ({ ...it, name: e.target.value }))} />
+                        <textarea value={editingItem.desc || ""} onChange={e => setEditingItem(it => ({ ...it, desc: e.target.value }))} placeholder="Description" rows={2} style={ACTIVITY_TEXTAREA_STYLE} />
+                        <Input placeholder="Benefit (e.g. Calming · Motor skills)" value={editingItem.benefit || ""} onChange={e => setEditingItem(it => ({ ...it, benefit: e.target.value }))} />
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <Btn onClick={saveItem} style={{ flex: 1, padding: "10px" }}>Save</Btn>
+                          <Btn onClick={() => setEditingItem(null)} secondary style={{ flex: 1, padding: "10px" }}>Cancel</Btn>
+                        </div>
+                      </Card>
+                    ) : (
+                    <Card key={item.id} onClick={() => setOpenItem(openItem === item.id ? null : item.id)} style={{ background: openItem === item.id ? color + "10" : T.canvas, border: "none", padding: "12px 14px" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                         <p style={{ margin: 0, fontWeight: 700, color: T.ink, fontSize: 13 }}>{item.name}</p>
-                        <span style={{ color: T.inkMuted, fontWeight: 300, fontSize: 18, transform: openItem === `${ci}-${ii}` ? "rotate(45deg)" : "none", transition: "transform 0.2s", display: "block" }}>+</span>
+                        <span style={{ color: T.inkMuted, fontWeight: 300, fontSize: 18, transform: openItem === item.id ? "rotate(45deg)" : "none", transition: "transform 0.2s", display: "block" }}>+</span>
                       </div>
-                      {openItem === `${ci}-${ii}` && (
+                      {openItem === item.id && (
                         <div style={{ marginTop: 10 }}>
-                          <p style={{ margin: "0 0 8px", color: T.inkSoft, fontSize: 13, lineHeight: 1.65 }}>{item.desc}</p>
-                          <Badge color={cat.color} bg={cat.color + "18"}>✓ {item.benefit}</Badge>
+                          <p style={{ margin: "0 0 8px", color: T.inkSoft, fontSize: 13, lineHeight: 1.65 }}>{item.description}</p>
+                          <Badge color={color} bg={color + "18"}>✓ {item.benefit}</Badge>
+                          {isAdmin && (
+                            <div style={{ display: "flex", gap: 14, marginTop: 10 }} onClick={e => e.stopPropagation()}>
+                              <button onClick={() => setEditingItem({ ...item, category_id: cat.id, desc: item.description })} style={{ background: "none", border: "none", color: T.purple, fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: T.fontBody, padding: 0 }}>Edit</button>
+                              <button onClick={() => deleteItem(item.id)} style={{ background: "none", border: "none", color: T.red, fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: T.fontBody, padding: 0 }}>Delete</button>
+                            </div>
+                          )}
                         </div>
                       )}
                     </Card>
+                    )
                   ))}
                 </div>
+                {isAdmin && (
+                  editingItem && !editingItem.id && editingItem.category_id === cat.id ? (
+                    <Card style={{ background: color + "10", border: "none", padding: "12px 14px", marginTop: 8 }}>
+                      <Input placeholder="Activity name" value={editingItem.name || ""} onChange={e => setEditingItem(it => ({ ...it, name: e.target.value }))} />
+                      <textarea value={editingItem.desc || ""} onChange={e => setEditingItem(it => ({ ...it, desc: e.target.value }))} placeholder="Description" rows={2} style={ACTIVITY_TEXTAREA_STYLE} />
+                      <Input placeholder="Benefit (e.g. Calming · Motor skills)" value={editingItem.benefit || ""} onChange={e => setEditingItem(it => ({ ...it, benefit: e.target.value }))} />
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <Btn onClick={saveItem} style={{ flex: 1, padding: "10px" }}>Add</Btn>
+                        <Btn onClick={() => setEditingItem(null)} secondary style={{ flex: 1, padding: "10px" }}>Cancel</Btn>
+                      </div>
+                    </Card>
+                  ) : (
+                    <Btn onClick={() => setEditingItem({ category_id: cat.id })} secondary full style={{ marginTop: 8 }}>+ Add Activity</Btn>
+                  )
+                )}
               </div>
             )}
           </Card>
-        ))}
+          );
+        })}
       </div>
+      )}
     </Page>
   );
 }
@@ -3742,7 +3786,6 @@ function TrainingScreen({ pop }) {
   return (
     <Page>
       <h2 style={{ margin: "0 0 12px", color: T.ink, fontSize: 22, fontWeight: 800 }}>Behaviour Training</h2>
-      <PageHero type="training" />
       <p style={{ margin: "0 0 20px", color: T.inkSoft, fontSize: 14, lineHeight: 1.6 }}>Research-backed strategies to help your child learn what's expected — at home and at school.</p>
 
 
@@ -3993,7 +4036,7 @@ export default function Bonda() {
     switch (current) {
       case "subsidies":  return <SubsidiesScreen pop={pop} account={account} />;
       case "sos":        return <SOSScreen pop={pop} account={account} />;
-      case "activities": return <ActivitiesScreen pop={pop} />;
+      case "activities": return <ActivitiesScreen pop={pop} account={account} />;
       case "training":   return <TrainingScreen pop={pop} />;
       case "addChild":   return <AddChildScreen childCtx={childCtx} pop={pop} />;
       case "fosterHub":   return <FosterHubScreen pop={pop} />;
