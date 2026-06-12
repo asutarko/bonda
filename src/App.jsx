@@ -756,6 +756,24 @@ function useChildren(userId) {
   return { children, activeChild, addChild, updateChild, switchChild, loading, userId };
 }
 
+// Stack of "close this" callbacks registered by open modals/forms, so the
+// hardware/browser back button can dismiss them instead of leaving the app.
+const backHandlerStack = [];
+
+function useBackHandler(active, onBack) {
+  const onBackRef = useRef(onBack);
+  onBackRef.current = onBack;
+  useEffect(() => {
+    if (!active) return;
+    const handler = () => onBackRef.current();
+    backHandlerStack.push(handler);
+    return () => {
+      const idx = backHandlerStack.lastIndexOf(handler);
+      if (idx !== -1) backHandlerStack.splice(idx, 1);
+    };
+  }, [active]);
+}
+
 const DEFAULT_SCHEDULE = [
   { id: "s1", emoji: "🌅", label: "Wake Up",      time: "07:00" },
   { id: "s2", emoji: "🍳", label: "Breakfast",    time: "07:30" },
@@ -2201,6 +2219,11 @@ function ScheduleScreen({ childCtx, push }) {
   const [previewPlaying, setPreviewPlaying] = useState(null);
   const audioCtxRef = useRef(null);
 
+  useBackHandler(showEmojiPicker, () => setShowEmojiPicker(false));
+  useBackHandler(showAlarmSettings, () => setShowAlarmSettings(false));
+  useBackHandler(showAdd, () => { setShowAdd(false); setShowEmojiPicker(false); });
+  useBackHandler(!!editing, () => { setEditing(null); setShowEmojiPicker(false); });
+
   const saveAlarm = (on, vol, tone) => {
     try {
       localStorage.setItem("bonda_alarm_on", String(on));
@@ -3524,6 +3547,9 @@ function ActivitiesScreen({ pop, account }) {
   const [editingCat, setEditingCat] = useState(null); // null = closed, {} = new, {...cat} = editing
   const [editingItem, setEditingItem] = useState(null); // {category_id, ...} = new/editing item
 
+  useBackHandler(!!editingItem, () => setEditingItem(null));
+  useBackHandler(!!editingCat, () => setEditingCat(null));
+
   const loadActivities = async () => {
     setLoading(true);
     const [{ data: cats }, { data: items }] = await Promise.all([
@@ -3986,6 +4012,47 @@ export default function Bonda() {
 
   const childCtx = useChildren(account?.id);
 
+  // Intercept the hardware/browser back button: close any open modal/form,
+  // else pop the screen stack, else go to the Home tab, else ask for a
+  // second press before letting the app actually exit.
+  const [showExitHint, setShowExitHint] = useState(false);
+  const navStateRef = useRef({ tab, hasStack: stack.length > 0 });
+  navStateRef.current = { tab, hasStack: stack.length > 0 };
+
+  useEffect(() => {
+    window.history.pushState({ bondaGuard: true }, "");
+    let exitArmed = false;
+    let exitTimer;
+    const onPopState = () => {
+      if (backHandlerStack.length) {
+        backHandlerStack[backHandlerStack.length - 1]();
+        window.history.pushState({ bondaGuard: true }, "");
+        return;
+      }
+      const { tab: curTab, hasStack } = navStateRef.current;
+      if (hasStack) {
+        setStack(s => s.slice(0, -1));
+        window.history.pushState({ bondaGuard: true }, "");
+        return;
+      }
+      if (curTab !== "home") {
+        setTab("home");
+        window.history.pushState({ bondaGuard: true }, "");
+        return;
+      }
+      if (exitArmed) return; // second press in a row — let the app exit
+      exitArmed = true;
+      setShowExitHint(true);
+      window.history.pushState({ bondaGuard: true }, "");
+      exitTimer = setTimeout(() => { exitArmed = false; setShowExitHint(false); }, 2000);
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => {
+      window.removeEventListener("popstate", onPopState);
+      clearTimeout(exitTimer);
+    };
+  }, []);
+
   if (authLoading) {
     return (
       <div style={{ minHeight: "100vh", background: T.canvas, fontFamily: T.fontBody, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -4101,6 +4168,12 @@ export default function Bonda() {
               </button>
             ))}
           </div>
+        </div>
+      )}
+
+      {showExitHint && (
+        <div style={{ position: "fixed", bottom: 90, left: "50%", transform: "translateX(-50%)", background: T.ink, color: "white", padding: "10px 20px", borderRadius: 99, fontSize: 13, fontWeight: 700, boxShadow: T.shadowM, zIndex: 200, whiteSpace: "nowrap" }}>
+          Tekan sekali lagi untuk keluar
         </div>
       )}
     </div>
