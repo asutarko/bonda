@@ -636,7 +636,7 @@ const AvatarIllustrations = [
 const ChildAvatar = ({ value, size = 36, active = false, borderColor = "transparent" }) => {
   const bg     = active ? T.purple : T.purpleL;
   const stroke = active ? "white" : T.purple;
-  const isPhoto  = value && value.startsWith("data:");
+  const isPhoto  = value && (value.startsWith("data:") || value.startsWith("http"));
   const isNone   = !value || value === "none";
   const isKey    = value && !isPhoto && !isNone && value.length > 1 && !["🦁","🐨","🐼","🦊","🐸","🦋","🌸","🌟","🐬","🦄","🐧","🐯"].includes(value);
   const av       = isKey ? AvatarIllustrations.find(a => a.key === value) : null;
@@ -751,9 +751,27 @@ function useChildren(userId) {
     supabase.from("children").update(dbPatch).eq("id", id).then(({ error }) => { if (error) console.error("Failed to save child profile:", error.message); });
   };
 
+  const deleteChild = async (id) => {
+    const { error } = await supabase.from("children").delete().eq("id", id);
+    if (error) { console.error("Failed to delete child profile:", error.message); return false; }
+    setChildren(cs => {
+      const remaining = cs.filter(c => c.id !== id);
+      if (activeId === id) {
+        const nextId = remaining[0]?.id || null;
+        setActiveId(nextId);
+        try {
+          if (nextId) localStorage.setItem(`cb_active_child_${userId}`, nextId);
+          else localStorage.removeItem(`cb_active_child_${userId}`);
+        } catch {}
+      }
+      return remaining;
+    });
+    return true;
+  };
+
   const activeChild = children.find(c => c.id === activeId) || children[0] || null;
 
-  return { children, activeChild, addChild, updateChild, switchChild, loading, userId };
+  return { children, activeChild, addChild, updateChild, deleteChild, switchChild, loading, userId };
 }
 
 // Stack of "close this" callbacks registered by open modals/forms, so the
@@ -1345,6 +1363,11 @@ function HomeScreen({ childCtx, setTab, push, account }) {
               <p style={{ margin: "0 0 2px", color: "rgba(255,255,255,0.6)", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>Active child</p>
               <p style={{ margin: 0, color: "white", fontSize: 18, fontWeight: 800 }}>{activeChild.name}</p>
             </div>
+            <button onClick={() => push("editChild")} title="Edit profile" style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(255,255,255,0.12)", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
+              <svg width="14" height="14" viewBox="0 0 18 18" fill="none">
+                <path d="M11.5 2.5 L15.5 6.5 L6 16 L2 16.5 L2.5 12.5 Z" stroke="white" strokeWidth="1.4" strokeLinejoin="round" strokeLinecap="round" fill="none"/>
+              </svg>
+            </button>
             <button onClick={() => setTab("schedule")} style={{ background: T.purple, color: "white", border: "none", borderRadius: T.r, padding: "8px 14px", fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: T.fontBody }}>Schedule →</button>
           </div>
         </Card>
@@ -1626,6 +1649,255 @@ function AddChildScreen({ childCtx, pop }) {
       {err && <p style={{ color: T.red, fontSize: 13, fontWeight: 700, margin: "-8px 0 12px" }}>{err}</p>}
       <Btn onClick={save} full disabled={saving}>{saving ? "Saving..." : "Save Profile"}</Btn>
       <Btn onClick={pop} full secondary style={{ marginTop: 10 }}>Cancel</Btn>
+    </Page>
+  );
+}
+const OTHER_CAREGIVER_OPTIONS = ["Aunt / Uncle", "Sibling", "Family Friend", "Nanny / Domestic Helper", "Neighbour", "Others"];
+
+function EditChildScreen({ childCtx, pop }) {
+  const { activeChild, updateChild, deleteChild, userId } = childCtx;
+
+  const isExistingPhoto = !!(activeChild?.emoji && (activeChild.emoji.startsWith("data:") || activeChild.emoji.startsWith("http")));
+  const initialCaregiverLabel = activeChild?.caregiverType === "other"
+    ? (OTHER_CAREGIVER_OPTIONS.includes(activeChild.caregiverLabel) ? activeChild.caregiverLabel : (activeChild.caregiverLabel ? "Others" : ""))
+    : "";
+  const initialCustomRelative = activeChild?.caregiverType === "other" && activeChild.caregiverLabel && !OTHER_CAREGIVER_OPTIONS.includes(activeChild.caregiverLabel)
+    ? activeChild.caregiverLabel
+    : "";
+
+  const [name, setName] = useState(activeChild?.name || "");
+  const [emoji, setEmoji] = useState(isExistingPhoto ? "none" : (activeChild?.emoji || "none"));
+  const [photo, setPhoto] = useState(isExistingPhoto ? activeChild.emoji : null);
+  const [age, setAge] = useState(activeChild?.age || "");
+  const [caregiverType, setCaregiverType] = useState(activeChild?.caregiverType || "biological");
+  const [caregiverLabel, setCaregiverLabel] = useState(initialCaregiverLabel);
+  const [customRelative, setCustomRelative] = useState(initialCustomRelative);
+  const [err, setErr] = useState("");
+  const [photoErr, setPhotoErr] = useState("");
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
+  const [showCamera, setShowCamera] = useState(false);
+  const [cameraReady, setCameraReady] = useState(false);
+  const [cameraSupported, setCameraSupported] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  // Silently check camera availability on mount — hide button if not supported
+  useEffect(() => {
+    const check = async () => {
+      try {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          setCameraSupported(false); return;
+        }
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const hasCamera = devices.some(d => d.kind === "videoinput");
+        setCameraSupported(hasCamera);
+      } catch { setCameraSupported(false); }
+    };
+    check();
+  }, []);
+
+  const openCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
+      streamRef.current = stream;
+      setShowCamera(true);
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.onloadedmetadata = () => { videoRef.current.play(); setCameraReady(true); };
+        }
+      }, 100);
+    } catch {
+      // Don't show error — just hide the button
+      setCameraSupported(false);
+    }
+  };
+
+  const stopCamera = () => {
+    if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null; }
+    setShowCamera(false); setCameraReady(false);
+  };
+
+  const takePhoto = () => {
+    if (!videoRef.current) return;
+    const canvas = document.createElement("canvas");
+    canvas.width = videoRef.current.videoWidth || 300;
+    canvas.height = videoRef.current.videoHeight || 300;
+    canvas.getContext("2d").drawImage(videoRef.current, 0, 0);
+    setPhoto(canvas.toDataURL("image/jpeg", 0.75));
+    stopCamera();
+  };
+
+  useEffect(() => () => stopCamera(), []);
+
+  if (!activeChild) return null;
+
+  const save = async () => {
+    if (!name.trim()) return setErr("Please enter your child's name.");
+    if (caregiverType === "other" && !caregiverLabel.trim()) return setErr("Please tell us your relationship to this child.");
+    if (caregiverType === "other" && caregiverLabel === "Others" && !customRelative.trim()) return setErr("Please tell us your relationship to this child.");
+    setErr(""); setSaving(true);
+    const finalCaregiverLabel = caregiverType === "other" ? (caregiverLabel === "Others" ? customRelative.trim() : caregiverLabel.trim()) : "";
+    let emojiValue = photo || emoji;
+    if (emojiValue && emojiValue.startsWith("data:")) {
+      const url = await uploadPhoto(emojiValue, "children", userId);
+      if (url) emojiValue = url;
+    }
+    updateChild(activeChild.id, { name: name.trim(), emoji: emojiValue, age: age.trim(), caregiverType, caregiverLabel: finalCaregiverLabel });
+    setSaving(false);
+    pop();
+  };
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    const ok = await deleteChild(activeChild.id);
+    setDeleting(false);
+    if (ok) pop();
+  };
+
+  const isPhotoSelected = !!photo;
+
+  return (
+    <Page>
+      <h2 style={{ margin: "0 0 6px", fontSize: 20, fontWeight: 800, color: T.ink }}>Edit Child Profile</h2>
+      <p style={{ margin: "0 0 24px", color: T.inkSoft, fontSize: 14, lineHeight: 1.6 }}>Update {activeChild.name}'s details below.</p>
+
+      <SectionLabel style={{ marginBottom: 10 }}>Profile Picture</SectionLabel>
+
+      <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16, padding: "14px 16px", background: T.purpleL, borderRadius: T.r }}>
+
+        <ChildAvatar value={photo || emoji} size={60} active={true} borderColor={T.purple} />
+        <div style={{ flex: 1 }}>
+          <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>
+            {isPhotoSelected ? "Photo added ✓ — or choose an avatar below" : "Add a real photo (optional) — or pick an avatar below"}
+          </p>
+          <div style={{ display: "flex", gap: 8 }}>
+
+            <label style={{ flex: 1, background: T.purple, color: "white", borderRadius: T.r, padding: "8px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", textAlign: "center", fontFamily: T.fontBody, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
+              <span style={{ fontSize: 15 }}>+</span> Upload
+              <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => {
+                const file = e.target.files[0];
+                if (!file) return;
+                if (file.size > 2 * 1024 * 1024) return setPhotoErr("Photo must be under 2 MB.");
+                const reader = new FileReader();
+                reader.onload = ev => { setPhoto(ev.target.result); setPhotoErr(""); };
+                reader.readAsDataURL(file);
+              }} />
+            </label>
+
+            {cameraSupported && (
+              <button onClick={openCamera} style={{ flex: 1, background: T.surface, color: T.purple, borderRadius: T.r, padding: "8px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", border: `1.5px solid ${T.purple}`, fontFamily: T.fontBody, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
+                <span style={{ fontSize: 15 }}>+</span> Camera
+              </button>
+            )}
+
+            {isPhotoSelected && (
+              <button onClick={() => { setPhoto(null); }} style={{ background: T.redL, color: T.red, borderRadius: T.r, padding: "8px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", border: "none", fontFamily: T.fontBody }}>✕</button>
+            )}
+          </div>
+          {photoErr && <p style={{ margin: "6px 0 0", color: T.red, fontSize: 11, fontWeight: 700 }}>{photoErr}</p>}
+
+        </div>
+      </div>
+
+      {showCamera && (
+        <div style={{ marginBottom: 16, background: "#000", borderRadius: T.r, overflow: "hidden" }}>
+          <video ref={videoRef} style={{ width: "100%", display: "block", aspectRatio: "4/3", objectFit: "cover" }} muted playsInline />
+          <div style={{ display: "flex", gap: 8, padding: "10px 12px", background: "#111" }}>
+            <Btn onClick={takePhoto} disabled={!cameraReady} style={{ flex: 1, background: cameraReady ? T.green : T.border }}>
+              📸 Take Photo
+            </Btn>
+            <Btn onClick={stopCamera} secondary style={{ flex: 1 }}>Cancel</Btn>
+          </div>
+        </div>
+      )}
+
+      <SectionLabel style={{ marginBottom: 10 }}>Or choose an illustrated avatar</SectionLabel>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 24, opacity: isPhotoSelected ? 0.4 : 1, transition: "opacity 0.2s" }}>
+        {AvatarIllustrations.map(av => {
+          const isActive = !isPhotoSelected && emoji === av.key;
+          return (
+            <div key={av.key} onClick={() => { if (!isPhotoSelected) { setEmoji(av.key); } }} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, cursor: isPhotoSelected ? "default" : "pointer" }}>
+              <div style={{ border: `2.5px solid ${isActive ? T.purple : "transparent"}`, borderRadius: "50%", padding: 1, transform: isActive ? "scale(1.08)" : "scale(1)", transition: "all 0.15s" }}>
+                {av.render(isActive)}
+              </div>
+              <p style={{ margin: 0, fontSize: 9, fontWeight: isActive ? 800 : 600, color: isActive ? T.purple : T.inkMuted, letterSpacing: "0.03em" }}>{av.label}</p>
+            </div>
+          );
+        })}
+      </div>
+
+      <Input label="Child's name" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Aiden" />
+      <Input label="Age (optional)" value={age} onChange={e => setAge(e.target.value)} placeholder="e.g. 5 years old" type="text" />
+
+      <SectionLabel style={{ marginBottom: 10 }}>Your relationship to this child</SectionLabel>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
+        {[
+          { key: "biological", label: "Biological or Adoptive Parent", icon: (a) => <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="6" r="3.5" stroke={a?"white":T.purple} strokeWidth="1.4" fill={a?"white":T.purple} fillOpacity={a?0.3:0.15}/><path d="M2.5 16 Q2.5 11.5 9 11.5 Q15.5 11.5 15.5 16" stroke={a?"white":T.purple} strokeWidth="1.4" strokeLinecap="round" fill="none"/></svg> },
+          { key: "foster",     label: "Foster Parent",                icon: (a) => <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 16 C9 16 2 11.5 2 6.5 C2 4 3.5 2.5 5.5 2.5 C7 2.5 8 3.5 9 5 C10 3.5 11 2.5 12.5 2.5 C14.5 2.5 16 4 16 6.5 C16 11.5 9 16 9 16Z" stroke={a?"white":T.purple} strokeWidth="1.4" fill={a?"white":T.purple} fillOpacity={a?0.3:0.15}/></svg> },
+          { key: "grandparent",label: "Grandparent / Extended Family", icon: (a) => <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="7" cy="5.5" r="2.8" stroke={a?"white":T.purple} strokeWidth="1.3" fill="none"/><circle cx="13" cy="6" r="2.2" stroke={a?"white":T.purple} strokeWidth="1.2" fill="none" opacity="0.6"/><path d="M1.5 15 Q1.5 11 7 11 Q12.5 11 12.5 15" stroke={a?"white":T.purple} strokeWidth="1.3" strokeLinecap="round" fill="none"/><path d="M12.5 13.5 Q13 11.5 15.5 11.5 Q17 11.5 17 13.5" stroke={a?"white":T.purple} strokeWidth="1.2" strokeLinecap="round" fill="none" opacity="0.6"/></svg> },
+          { key: "other",      label: "Other Caregiver",              icon: (a) => <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="6" r="3.5" stroke={a?"white":T.purple} strokeWidth="1.4" fill="none"/><path d="M2.5 16 Q2.5 11.5 9 11.5 Q15.5 11.5 15.5 16" stroke={a?"white":T.purple} strokeWidth="1.4" strokeLinecap="round" fill="none"/><path d="M9 3 L9 3.1 M9 7 L9 9" stroke={a?"white":T.purple} strokeWidth="1.6" strokeLinecap="round" opacity="0.5"/></svg> },
+        ].map(({ key, label, icon }) => {
+          const isActive = caregiverType === key;
+          return (
+            <div key={key} onClick={() => setCaregiverType(key)}
+              style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", borderRadius: T.r, background: isActive ? T.purple : T.surface, border: `1.5px solid ${isActive ? T.purple : T.border}`, cursor: "pointer", transition: "all 0.15s" }}>
+              <div style={{ width: 32, height: 32, borderRadius: 8, background: isActive ? "rgba(255,255,255,0.2)" : T.purpleL, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                {icon(isActive)}
+              </div>
+              <p style={{ margin: 0, fontWeight: 700, fontSize: 13, color: isActive ? "white" : T.ink }}>{label}</p>
+              {isActive && (
+                <div style={{ marginLeft: "auto", width: 18, height: 18, borderRadius: "50%", background: "rgba(255,255,255,0.3)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 5 L4 7 L8 3" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {caregiverType === "other" && (
+        <div style={{ marginBottom: 14 }}>
+          <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>What is your relationship to this child?</p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {OTHER_CAREGIVER_OPTIONS.map(opt => {
+              const isActive = caregiverLabel === opt;
+              return (
+                <button key={opt} onClick={() => setCaregiverLabel(opt)}
+                  style={{ padding: "8px 14px", borderRadius: 99, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody, background: isActive ? T.purple : T.surface, color: isActive ? "white" : T.ink, border: `1.5px solid ${isActive ? T.purple : T.border}` }}>
+                  {opt}
+                </button>
+              );
+            })}
+          </div>
+          {caregiverLabel === "Others" && (
+            <div style={{ marginTop: 10 }}>
+              <Input value={customRelative} onChange={e => setCustomRelative(e.target.value)} placeholder="e.g. Cousin" />
+            </div>
+          )}
+        </div>
+      )}
+
+      {err && <p style={{ color: T.red, fontSize: 13, fontWeight: 700, margin: "-8px 0 12px" }}>{err}</p>}
+      <Btn onClick={save} full disabled={saving}>{saving ? "Saving..." : "Save Changes"}</Btn>
+      <Btn onClick={pop} full secondary style={{ marginTop: 10 }}>Cancel</Btn>
+
+      <div style={{ height: 1, background: T.border, margin: "28px 0 20px" }} />
+
+      <SectionLabel style={{ marginBottom: 10 }}>Danger Zone</SectionLabel>
+      {!confirmDelete ? (
+        <Btn onClick={() => setConfirmDelete(true)} full danger>Delete {activeChild.name}'s Profile</Btn>
+      ) : (
+        <Card style={{ background: T.redL, border: `1px solid ${T.red}30` }}>
+          <p style={{ margin: "0 0 12px", color: T.red, fontSize: 13, fontWeight: 700, lineHeight: 1.6 }}>This will permanently delete {activeChild.name}'s profile, schedule, and history. This cannot be undone.</p>
+          <div style={{ display: "flex", gap: 8 }}>
+            <Btn onClick={handleDelete} disabled={deleting} danger style={{ flex: 1 }}>{deleting ? "Deleting..." : "Yes, delete permanently"}</Btn>
+            <Btn onClick={() => setConfirmDelete(false)} secondary style={{ flex: 1 }}>Cancel</Btn>
+          </div>
+        </Card>
+      )}
     </Page>
   );
 }
@@ -2589,6 +2861,7 @@ function AuthScreen() {
   const [view, setView] = useState("login");
   const [loginEmail, setLoginEmail] = useState(""); const [loginPass, setLoginPass] = useState(""); const [loginErr, setLoginErr] = useState("");
   const [regEmail, setRegEmail] = useState(""); const [regName, setRegName] = useState(""); const [regPass, setRegPass] = useState(""); const [regAvatar, setRegAvatar] = useState("none"); const [regErr, setRegErr] = useState(""); const [regMsg, setRegMsg] = useState(""); const [regPhoto, setRegPhoto] = useState(null); const [regShowCam, setRegShowCam] = useState(false); const [regCamReady, setRegCamReady] = useState(false); const [regCamOk, setRegCamOk] = useState(true); const regVideoRef = useRef(null); const regStreamRef = useRef(null);
+  const [forgotEmail, setForgotEmail] = useState(""); const [forgotErr, setForgotErr] = useState(""); const [forgotMsg, setForgotMsg] = useState("");
 
   const login = async () => {
     setLoginErr("");
@@ -2597,6 +2870,14 @@ function AuthScreen() {
     const { error } = await supabase.auth.signInWithPassword({ email: loginEmail.trim(), password: loginPass });
     if (error) return setLoginErr(error.message === "Invalid login credentials" ? "Incorrect email or password." : error.message);
     // On success, the top-level auth listener picks up the new session and switches to the main app.
+  };
+
+  const forgotPassword = async () => {
+    setForgotErr(""); setForgotMsg("");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(forgotEmail.trim())) return setForgotErr("Please enter a valid email address.");
+    const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail.trim(), { redirectTo: window.location.origin });
+    if (error) return setForgotErr(error.message);
+    setForgotMsg("Check your email for a link to reset your password.");
   };
 
   // Camera for register profile photo
@@ -2735,6 +3016,18 @@ function AuthScreen() {
     </Page>
   );
 
+  if (view === "forgot") return (
+    <Page>
+      <h2 style={{ margin: "0 0 4px", color: T.ink, fontSize: 22, fontWeight: 800 }}>Reset Password</h2>
+      <p style={{ margin: "0 0 24px", color: T.inkSoft, fontSize: 14 }}>Enter your email and we'll send you a link to reset your password.</p>
+      <Input label="Email" type="email" value={forgotEmail} onChange={e => setForgotEmail(e.target.value)} onKeyDown={e => e.key === "Enter" && forgotPassword()} placeholder="you@example.com" />
+      {forgotErr && <p style={{ color: T.red, fontSize: 13, fontWeight: 700, margin: "-8px 0 12px" }}>{forgotErr}</p>}
+      {forgotMsg && <p style={{ color: T.green, fontSize: 13, fontWeight: 700, margin: "-8px 0 12px" }}>{forgotMsg}</p>}
+      <Btn onClick={forgotPassword} full style={{ marginBottom: 10 }}>Send Reset Link →</Btn>
+      <Btn onClick={() => { setForgotErr(""); setForgotMsg(""); setView("login"); }} full secondary>← Back to sign in</Btn>
+    </Page>
+  );
+
   return (
     <Page>
       <div style={{ textAlign: "center", marginBottom: 28 }}>
@@ -2787,6 +3080,7 @@ function AuthScreen() {
       {regMsg && <p style={{ color: T.green, fontSize: 13, fontWeight: 700, margin: "0 0 12px" }}>{regMsg}</p>}
       <Input label="Email" type="email" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} placeholder="you@example.com" />
       <Input label="Password" type="password" value={loginPass} onChange={e => setLoginPass(e.target.value)} onKeyDown={e => e.key === "Enter" && login()} placeholder="Enter your password" />
+      <button onClick={() => { setLoginErr(""); setForgotMsg(""); setForgotEmail(loginEmail); setView("forgot"); }} style={{ display: "block", width: "100%", textAlign: "right", background: "none", border: "none", color: T.purple, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody, padding: 0, margin: "-8px 0 12px" }}>Forgot password?</button>
       {loginErr && <p style={{ color: T.red, fontSize: 13, fontWeight: 700, margin: "-8px 0 12px" }}>{loginErr}</p>}
       <Btn onClick={login} full style={{ marginBottom: 10 }}>Sign In →</Btn>
       <Btn onClick={() => { setLoginErr(""); setView("register"); }} full secondary>New here? Create a free account</Btn>
@@ -2796,6 +3090,34 @@ function AuthScreen() {
         <p style={{ margin: "0 0 5px", color: T.inkSoft, fontSize: 12, fontWeight: 600 }}>Singapore Resources — subsidies, schools, therapists</p>
         <p style={{ margin: 0, color: T.inkSoft, fontSize: 12, fontWeight: 600 }}>Community — connect and message other parents</p>
       </div>
+    </Page>
+  );
+}
+
+// Shown when the user lands back in the app via a "reset password" email link
+// (Supabase fires a PASSWORD_RECOVERY auth event for this).
+function ResetPasswordScreen({ onDone }) {
+  const [pass, setPass] = useState(""); const [confirm, setConfirm] = useState(""); const [err, setErr] = useState(""); const [msg, setMsg] = useState("");
+
+  const save = async () => {
+    setErr(""); setMsg("");
+    if (pass.length < 6) return setErr("Password must be at least 6 characters.");
+    if (pass !== confirm) return setErr("Passwords don't match.");
+    const { error } = await supabase.auth.updateUser({ password: pass });
+    if (error) return setErr(error.message);
+    setMsg("Password updated! Taking you to the app…");
+    setTimeout(onDone, 1000);
+  };
+
+  return (
+    <Page>
+      <h2 style={{ margin: "0 0 4px", color: T.ink, fontSize: 22, fontWeight: 800 }}>Set a New Password</h2>
+      <p style={{ margin: "0 0 24px", color: T.inkSoft, fontSize: 14 }}>Choose a new password for your account.</p>
+      <Input label="New password (min 6 characters)" type="password" value={pass} onChange={e => setPass(e.target.value)} placeholder="Enter new password" />
+      <Input label="Confirm password" type="password" value={confirm} onChange={e => setConfirm(e.target.value)} onKeyDown={e => e.key === "Enter" && save()} placeholder="Re-enter new password" />
+      {err && <p style={{ color: T.red, fontSize: 13, fontWeight: 700, margin: "-8px 0 12px" }}>{err}</p>}
+      {msg && <p style={{ color: T.green, fontSize: 13, fontWeight: 700, margin: "-8px 0 12px" }}>{msg}</p>}
+      <Btn onClick={save} full>Update Password →</Btn>
     </Page>
   );
 }
@@ -3946,9 +4268,19 @@ const dataUrlToBlob = (dataUrl) => {
 const uploadPhoto = async (dataUrl, folder, ownerId) => {
   if (!dataUrl || !dataUrl.startsWith("data:")) return null;
   const blob = dataUrlToBlob(dataUrl);
-  const path = `assets/${folder}/${ownerId}-${Date.now()}.jpg`;
+  const dir = `assets/${folder}`;
+  const fileName = `${ownerId}-${Date.now()}.jpg`;
+  const path = `${dir}/${fileName}`;
   const { error } = await supabase.storage.from("public").upload(path, blob, { contentType: blob.type, upsert: true });
   if (error) { console.error(`Failed to upload ${folder} photo:`, error.message); return null; }
+
+  // Remove this owner's previous photo(s) so old uploads don't pile up in storage.
+  const { data: existing } = await supabase.storage.from("public").list(dir, { search: `${ownerId}-` });
+  const stale = (existing || [])
+    .filter(f => f.name.startsWith(`${ownerId}-`) && f.name !== fileName)
+    .map(f => `${dir}/${f.name}`);
+  if (stale.length) await supabase.storage.from("public").remove(stale);
+
   const { data } = supabase.storage.from("public").getPublicUrl(path);
   return data.publicUrl;
 };
@@ -3983,6 +4315,7 @@ export default function Bonda() {
   const [stack, setStack] = useState([]); // secondary screens pushed on top
   const [account, setAccount] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [passwordRecovery, setPasswordRecovery] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -3991,7 +4324,8 @@ export default function Bonda() {
       setAccount(accountFromUser(data.session?.user));
       setAuthLoading(false);
     });
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "PASSWORD_RECOVERY") setPasswordRecovery(true);
       setAccount(accountFromUser(session?.user));
       setAuthLoading(false);
     });
@@ -4061,6 +4395,15 @@ export default function Bonda() {
     );
   }
 
+  if (passwordRecovery) {
+    return (
+      <div style={{ minHeight: "100vh", background: T.canvas, fontFamily: T.fontBody, display: "flex", flexDirection: "column", maxWidth: 480, margin: "0 auto", position: "relative" }}>
+        <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+        <ResetPasswordScreen onDone={() => setPasswordRecovery(false)} />
+      </div>
+    );
+  }
+
   if (!account) {
     return (
       <div style={{ minHeight: "100vh", background: T.canvas, fontFamily: T.fontBody, display: "flex", flexDirection: "column", maxWidth: 480, margin: "0 auto", position: "relative" }}>
@@ -4084,6 +4427,7 @@ export default function Bonda() {
     activities: "Activity Guide",
     training: "Behaviour Training",
     addChild: "Add a Child",
+    editChild: "Edit Profile",
   };
 
   const pageTitle = current ? TITLES[current] || "" : TITLES[tab];
@@ -4106,6 +4450,7 @@ export default function Bonda() {
       case "activities": return <ActivitiesScreen pop={pop} account={account} />;
       case "training":   return <TrainingScreen pop={pop} />;
       case "addChild":   return <AddChildScreen childCtx={childCtx} pop={pop} />;
+      case "editChild":  return <EditChildScreen childCtx={childCtx} pop={pop} />;
       case "fosterHub":   return <FosterHubScreen pop={pop} />;
       default:           return null;
     }

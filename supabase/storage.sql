@@ -41,3 +41,15 @@ create policy "Authenticated users can update profile photos"
     and (storage.foldername(name))[1] = 'assets'
     and (storage.foldername(name))[2] in ('parents', 'children')
   );
+
+-- Signed-in users can delete old profile photos (the app removes its own
+-- previous upload each time a new one is saved, so storage doesn't pile up).
+drop policy if exists "Authenticated users can delete profile photos" on storage.objects;
+create policy "Authenticated users can delete profile photos"
+  on storage.objects for delete
+  to authenticated
+  using (
+    bucket_id = 'public'
+    and (storage.foldername(name))[1] = 'assets'
+    and (storage.foldername(name))[2] in ('parents', 'children')
+  );
