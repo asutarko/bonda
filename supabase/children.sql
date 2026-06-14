@@ -19,6 +19,10 @@ create table if not exists public.children (
 -- Adds the column to a table created before "Other Caregiver" required a label.
 alter table public.children add column if not exists caregiver_label text not null default '';
 
+-- Dated observation entries (sleep, food, communication, sensory, behaviour, health, other) —
+-- a running development log caregivers can use as a substitute medical history.
+alter table public.children add column if not exists dev_log jsonb not null default '[]'::jsonb;
+
 create index if not exists children_user_id_idx on public.children (user_id);
 
 alter table public.children enable row level security;
