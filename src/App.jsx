@@ -686,6 +686,8 @@ const childFromRow = (row) => ({
   scheduleItems: row.schedule_items?.length ? row.schedule_items : DEFAULT_SCHEDULE,
   history: row.history || [],
   devLog: row.dev_log || [],
+  todayDone: row.today_done || {},
+  todayDoneDate: row.today_done_date || null,
   createdAt: row.created_at,
 });
 
@@ -752,6 +754,8 @@ function useChildren(userId) {
     if ("scheduleItems" in patch) dbPatch.schedule_items = patch.scheduleItems;
     if ("history" in patch) dbPatch.history = patch.history;
     if ("devLog" in patch) dbPatch.dev_log = patch.devLog;
+    if ("todayDone" in patch) dbPatch.today_done = patch.todayDone;
+    if ("todayDoneDate" in patch) dbPatch.today_done_date = patch.todayDoneDate;
     supabase.from("children").update(dbPatch).eq("id", id).then(({ error }) => { if (error) console.error("Failed to save child profile:", error.message); });
   };
 
@@ -957,14 +961,22 @@ const BEHAVIOURS = [
     actions: ["🚨 IMMEDIATELY: Remove paint chips, coins, batteries, soil from all accessible areas.", "See a doctor urgently — request blood tests for iron, zinc, calcium, and lead.", "Never leave unsupervised in environments where pica occurs.", "Offer safe oral alternatives: food-grade chew toys, crunchy foods, chewable sensory jewellery.", "🏥 If dangerous item swallowed (battery, coin, sharp object): go to A&E immediately."],
   },
 ];
-//  SUBSIDIES DATA
-const SUBSIDIES = [
-  { id: "eipic", badge: "START HERE", badgeColor: T.red, icon: "🏥", label: "EIPIC", sub: "Early Intervention Programme", org: "SG Enable / MSF", amount: "$5–$430/month after subsidy", saving: "Saves up to $780/month vs unsubsidised. 30–70% off depending on income.", color: "#7C3AED", steps: ["Get your child assessed by a paediatrician at KKH, NUH, or SGH.", "Ask the doctor to refer your child to SG Enable for EIPIC placement.", "SG Enable contacts you and matches your child to a nearby centre.", "Centre assesses needs and calculates your means-tested subsidy.", "Enrol — fees range from $5 to $430/month for Singapore Citizens."], eligibility: "Singapore Citizen or PR, aged 6 or below, assessed by paediatrician.", contact: "SG Enable: 1800-8585-885", website: "enablingguide.sg", tip: "Waitlists can be 6–18 months — register early. Your spot is held from the referral date." },
-  { id: "hcg", badge: "MONTHLY CASH", badgeColor: T.green, icon: "💵", label: "Home Caregiving Grant", sub: "HCG — Agency for Integrated Care", org: "AIC", amount: "$250–$400/month cash", saving: "Up to $4,800/year to offset therapy, transport, and caregiving costs.", color: T.green, steps: ["Child must be assessed as having permanent moderate-to-severe disability.", "For children under 8, assessment must be done by a paediatrician.", "Apply via AIC's eFASS portal using Singpass (online).", "Or visit any AIC Link office and fill in a printed form."], eligibility: "SC or PR. Monthly per-capita income ≤$3,600 or property AV ≤$21,000.", contact: "AIC: 1800-650-6060", website: "aic.sg", tip: "Budget 2025 enhanced HCG from April 2026. Apply now to lock in eligibility." },
-  { id: "ctg", badge: "TRAINING", badgeColor: T.teal, icon: "📚", label: "Caregivers Training Grant", sub: "CTG — SG Enable / AIC", org: "SG Enable", amount: "$200/year for approved courses", saving: "Covers ABA, sensory, PECS, and autism management courses for parents.", color: T.teal, steps: ["Browse approved CTG courses on SG Enable or AIC website.", "Choose a course relevant to your child's needs (ABA, sensory, PECS).", "Apply for CTG when registering for the course.", "Complete the course and claim your subsidy."], eligibility: "Caregiver of a person with disability. $200 tied to care recipient per year.", contact: "SG Enable: 1800-8585-885", website: "sgenable.sg", tip: "Use CTG to fund courses that teach you the same techniques therapists use — directly applicable at home." },
-  { id: "atf", badge: "DEVICES", badgeColor: "#8B5CF6", icon: "🦾", label: "Assistive Technology Fund", sub: "ATF — SG Enable", org: "SG Enable", amount: "Up to 90% subsidy, cap $40,000", saving: "A $2,000 AAC communication device can cost as little as $200 after subsidy.", color: "#8B5CF6", steps: ["Get a recommendation from your child's therapist, doctor, or school.", "Download the ATF application form from SG Enable's website.", "Submit with professional recommendation and device quotation.", "Once approved, purchase device and claim the subsidy."], eligibility: "Person with diagnosed disability. From Jan 2026: monthly PCI ≤$4,800.", contact: "SG Enable: 1800-8585-885", website: "enablingguide.sg", tip: "This fund covers AAC communication devices — tools that help non-verbal children speak. Life-changing." },
-  { id: "comcare", badge: "FINANCIAL AID", badgeColor: T.inkSoft, icon: "🏢", label: "ComCare", sub: "MSF — Ministry of Social & Family Development", org: "MSF", amount: "Varies — living needs, transport, fees", saving: "Can cover therapy transport, school fees, and household bills.", color: T.inkSoft, steps: ["Visit supportgowhere.life.gov.sg to check qualifying schemes.", "Or walk into any Social Service Office (SSO) near you.", "Bring NRIC, child's birth cert, income docs, and medical reports.", "A social worker assesses your household holistically."], eligibility: "Singapore Citizens and PRs. Assessed holistically — no hard income cutoff.", contact: "MSF: 1800-222-0000 (Mon–Fri 9am–6pm)", website: "msf.gov.sg", tip: "ComCare SSOs are within 2km of 95% of HDB homes. Walk in — no appointment needed to start a conversation." },
-];
+// Maps a Supabase "subsidies" row to the shape the Subsidies screen renders.
+const subsidyFromRow = (row) => ({
+  id: row.id,
+  badge: row.badge,
+  badgeColor: row.badge_color,
+  label: row.label,
+  org: row.org,
+  amount: row.amount,
+  saving: row.saving,
+  color: row.color,
+  steps: row.steps || [],
+  eligibility: row.eligibility,
+  contact: row.contact,
+  website: row.website,
+  tip: row.tip,
+});
 //  MOTIVATIONAL QUOTES
 const QUOTES = [
   { q: "You are not failing. You are learning a language no one taught you.", a: "For every autism parent" },
@@ -2684,7 +2696,6 @@ const ALARM_TONES = [
 function ScheduleScreen({ childCtx, push }) {
   const { activeChild, updateChild, children } = childCtx;
   const [scheduleView, setScheduleView] = useState("today");
-  const [done, setDone] = useState({});
   const [editing, setEditing] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
   const [newItem, setNewItem] = useState({ emoji: "⭐", label: "", time: "08:00" });
@@ -2789,10 +2800,13 @@ function ScheduleScreen({ childCtx, push }) {
   const items = activeChild.scheduleItems || DEFAULT_SCHEDULE;
   const history = activeChild.history || [];
   const sorted = [...items].sort((a, b) => a.time.localeCompare(b.time));
+  const todayStr = new Date().toISOString().slice(0, 10);
+  // Checkmarks are pinned to today's date — a new day starts unchecked even if "Save Day" was skipped.
+  const done = activeChild.todayDoneDate === todayStr ? activeChild.todayDone || {} : {};
   const completedCount = items.filter(i => done[i.id]).length;
   const progress = items.length ? Math.round((completedCount / items.length) * 100) : 0;
 
-  const toggleDone = id => setDone(d => ({ ...d, [id]: !d[id] }));
+  const toggleDone = id => updateChild(activeChild.id, { todayDone: { ...done, [id]: !done[id] }, todayDoneDate: todayStr });
 
   const addItem = () => {
     if (!newItem.label.trim()) return;
@@ -2817,8 +2831,7 @@ function ScheduleScreen({ childCtx, push }) {
       completed: items.filter(i => done[i.id]).map(i => ({ emoji: i.emoji, label: i.label, time: i.time })),
       missed: items.filter(i => !done[i.id]).map(i => ({ emoji: i.emoji, label: i.label, time: i.time })),
     };
-    updateChild(activeChild.id, { history: [entry, ...history].slice(0, 30) });
-    setDone({});
+    updateChild(activeChild.id, { history: [entry, ...history].slice(0, 30), todayDone: {}, todayDoneDate: todayStr });
     alert("✅ Day saved!");
   };
 
@@ -3817,6 +3830,9 @@ function SubsidiesScreen({ pop, account }) {
   const [news, setNews] = useState([]);
   const [loadingNews, setLoadingNews] = useState(true);
   const [editingNews, setEditingNews] = useState(null); // null = closed, {} = new, {...row} = editing
+  const [schemes, setSchemes] = useState([]);
+  const [loadingSchemes, setLoadingSchemes] = useState(true);
+  const [editingScheme, setEditingScheme] = useState(null); // null = closed, {} = new, {...row, steps: "a\nb"} = editing
   const isAdmin = account?.role === "admin";
 
   const loadNews = async () => {
@@ -3826,7 +3842,14 @@ function SubsidiesScreen({ pop, account }) {
     setLoadingNews(false);
   };
 
-  useEffect(() => { loadNews(); }, []);
+  const loadSchemes = async () => {
+    setLoadingSchemes(true);
+    const { data } = await supabase.from("subsidies").select("*").order("sort_order").order("created_at");
+    setSchemes(data || []);
+    setLoadingSchemes(false);
+  };
+
+  useEffect(() => { loadNews(); loadSchemes(); }, []);
 
   const saveNews = async () => {
     const n = editingNews;
@@ -3844,6 +3867,37 @@ function SubsidiesScreen({ pop, account }) {
   const deleteNews = async id => {
     await supabase.from("subsidy_news").delete().eq("id", id);
     await loadNews();
+  };
+
+  const saveScheme = async () => {
+    const s = editingScheme;
+    if (!s?.label?.trim()) return;
+    const payload = {
+      badge: (s.badge || "").trim(),
+      badge_color: (s.badge_color || "").trim(),
+      label: s.label.trim(),
+      org: (s.org || "").trim(),
+      amount: (s.amount || "").trim(),
+      saving: (s.saving || "").trim(),
+      color: (s.color || "").trim(),
+      steps: (s.steps || "").split("\n").map(x => x.trim()).filter(Boolean),
+      eligibility: (s.eligibility || "").trim(),
+      contact: (s.contact || "").trim(),
+      website: (s.website || "").trim(),
+      tip: (s.tip || "").trim(),
+    };
+    if (s.id) {
+      await supabase.from("subsidies").update(payload).eq("id", s.id);
+    } else {
+      await supabase.from("subsidies").insert({ ...payload, created_by: account.id, sort_order: schemes.length });
+    }
+    setEditingScheme(null);
+    await loadSchemes();
+  };
+
+  const deleteScheme = async id => {
+    await supabase.from("subsidies").delete().eq("id", id);
+    await loadSchemes();
   };
 
   if (detail) return (
@@ -3939,10 +3993,39 @@ function SubsidiesScreen({ pop, account }) {
         <a href="https://supportgowhere.life.gov.sg" target="_blank" rel="noreferrer" style={{ display: "block", background: T.green, color: "white", borderRadius: T.r, padding: "10px", textDecoration: "none", fontSize: 13, fontWeight: 700, textAlign: "center" }}>🔍 Check SupportGoWhere.sg</a>
       </Card>
 
-      <SectionLabel style={{ marginBottom: 10 }}>All Schemes</SectionLabel>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+        <SectionLabel style={{ margin: 0 }}>All Schemes</SectionLabel>
+        {isAdmin && !editingScheme && <button onClick={() => setEditingScheme({})} style={{ background: "none", border: "none", color: T.purple, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: T.fontBody, padding: 0 }}>+ Add Scheme</button>}
+      </div>
+
+      {isAdmin && editingScheme && (
+        <Card style={{ marginBottom: 10 }}>
+          <p style={{ margin: "0 0 10px", fontWeight: 800, color: T.purple, fontSize: 14 }}>{editingScheme.id ? "Edit Scheme" : "New Scheme"}</p>
+          <Input placeholder="Badge (e.g. START HERE)" value={editingScheme.badge || ""} onChange={e => setEditingScheme(s => ({ ...s, badge: e.target.value }))} />
+          <Input placeholder="Badge colour (e.g. #DC2626)" value={editingScheme.badge_color || ""} onChange={e => setEditingScheme(s => ({ ...s, badge_color: e.target.value }))} />
+          <Input placeholder="Scheme name (e.g. EIPIC)" value={editingScheme.label || ""} onChange={e => setEditingScheme(s => ({ ...s, label: e.target.value }))} />
+          <Input placeholder="Organisation (e.g. SG Enable / MSF)" value={editingScheme.org || ""} onChange={e => setEditingScheme(s => ({ ...s, org: e.target.value }))} />
+          <Input placeholder="Amount (e.g. $5–$430/month after subsidy)" value={editingScheme.amount || ""} onChange={e => setEditingScheme(s => ({ ...s, amount: e.target.value }))} />
+          <textarea value={editingScheme.saving || ""} onChange={e => setEditingScheme(s => ({ ...s, saving: e.target.value }))} placeholder="Saving summary" rows={2} style={ACTIVITY_TEXTAREA_STYLE} />
+          <Input placeholder="Accent colour (e.g. #7C3AED)" value={editingScheme.color || ""} onChange={e => setEditingScheme(s => ({ ...s, color: e.target.value }))} />
+          <textarea value={editingScheme.steps || ""} onChange={e => setEditingScheme(s => ({ ...s, steps: e.target.value }))} placeholder={"How-to-apply steps — one per line"} rows={4} style={ACTIVITY_TEXTAREA_STYLE} />
+          <textarea value={editingScheme.eligibility || ""} onChange={e => setEditingScheme(s => ({ ...s, eligibility: e.target.value }))} placeholder="Eligibility" rows={2} style={ACTIVITY_TEXTAREA_STYLE} />
+          <Input placeholder="Contact (e.g. SG Enable: 1800-8585-885)" value={editingScheme.contact || ""} onChange={e => setEditingScheme(s => ({ ...s, contact: e.target.value }))} />
+          <Input placeholder="Website (e.g. enablingguide.sg)" value={editingScheme.website || ""} onChange={e => setEditingScheme(s => ({ ...s, website: e.target.value }))} />
+          <textarea value={editingScheme.tip || ""} onChange={e => setEditingScheme(s => ({ ...s, tip: e.target.value }))} placeholder="Parent tip" rows={2} style={ACTIVITY_TEXTAREA_STYLE} />
+          <div style={{ display: "flex", gap: 8 }}>
+            <Btn onClick={saveScheme} style={{ flex: 1, padding: "10px" }}>{editingScheme.id ? "Save" : "Add"}</Btn>
+            <Btn onClick={() => setEditingScheme(null)} secondary style={{ flex: 1, padding: "10px" }}>Cancel</Btn>
+          </div>
+        </Card>
+      )}
+
+      {loadingSchemes ? (
+        <p style={{ margin: 0, color: T.inkSoft, fontSize: 13 }}>Loading schemes...</p>
+      ) : (
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {SUBSIDIES.map(s => (
-          <Card key={s.id} onClick={() => setDetail(s)}>
+        {schemes.map(s => (
+          <Card key={s.id} onClick={() => setDetail(subsidyFromRow(s))}>
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
               <div style={{ width: 44, height: 44, borderRadius: 12, background: s.color + "15", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, border: `1px solid ${s.color}20` }}>
                 <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
@@ -3953,15 +4036,22 @@ function SubsidiesScreen({ pop, account }) {
               <div style={{ flex: 1 }}>
                 <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 3 }}>
                   <p style={{ margin: 0, fontWeight: 800, color: T.ink, fontSize: 14 }}>{s.label}</p>
-                  <Badge color={s.badgeColor} bg={s.badgeColor + "18"}>{s.badge}</Badge>
+                  <Badge color={s.badge_color} bg={s.badge_color + "18"}>{s.badge}</Badge>
                 </div>
                 <p style={{ margin: 0, color: T.inkMuted, fontSize: 12 }}>{s.org} · {s.amount}</p>
               </div>
+              {isAdmin && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+                  <button onClick={() => setEditingScheme({ ...s, steps: (s.steps || []).join("\n") })} style={{ background: "none", border: "none", color: T.purple, fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: T.fontBody, padding: 0 }}>Edit</button>
+                  <button onClick={() => deleteScheme(s.id)} style={{ background: "none", border: "none", color: T.red, fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: T.fontBody, padding: 0 }}>Delete</button>
+                </div>
+              )}
               <span style={{ color: T.inkMuted, fontSize: 20 }}>›</span>
             </div>
           </Card>
         ))}
       </div>
+      )}
     </Page>
   );
 }

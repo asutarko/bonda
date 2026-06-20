@@ -23,6 +23,12 @@ alter table public.children add column if not exists caregiver_label text not nu
 -- a running development log caregivers can use as a substitute medical history.
 alter table public.children add column if not exists dev_log jsonb not null default '[]'::jsonb;
 
+-- Today's schedule checkmarks, keyed by schedule_items id, so progress survives a
+-- refresh/relogin instead of living only in component state. today_done_date pins
+-- which day the checkmarks belong to, so a new day starts unchecked.
+alter table public.children add column if not exists today_done jsonb not null default '{}'::jsonb;
+alter table public.children add column if not exists today_done_date date;
+
 create index if not exists children_user_id_idx on public.children (user_id);
 
 alter table public.children enable row level security;
