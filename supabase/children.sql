@@ -29,6 +29,15 @@ alter table public.children add column if not exists dev_log jsonb not null defa
 alter table public.children add column if not exists today_done jsonb not null default '{}'::jsonb;
 alter table public.children add column if not exists today_done_date date;
 
+-- Optional additional-needs profile (e.g. autism), filled in by the parent in their own
+-- words rather than picked from a fixed list, so the check-in prompts in the app can be
+-- tailored to this child instead of staying generic.
+alter table public.children add column if not exists has_special_needs boolean not null default false;
+alter table public.children add column if not exists verbal_status text not null default '';
+alter table public.children add column if not exists known_triggers text not null default '';
+alter table public.children add column if not exists therapy_schedule text not null default '';
+alter table public.children add column if not exists diet_program text not null default '';
+
 create index if not exists children_user_id_idx on public.children (user_id);
 
 alter table public.children enable row level security;

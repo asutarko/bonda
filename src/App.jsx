@@ -324,6 +324,33 @@ const Input = ({ label, ...props }) => (
   </div>
 );
 
+// Multi-line text input — same chrome as Input, for free-text answers
+const TextArea = ({ label, hint, ...props }) => (
+  <div style={{ marginBottom: 14 }}>
+    {label && <p style={{ margin: "0 0 6px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>{label}</p>}
+    {hint && <p style={{ margin: "0 0 8px", fontSize: 12, color: T.inkMuted, lineHeight: 1.5 }}>{hint}</p>}
+    <textarea
+      rows={2}
+      {...props}
+      style={{
+        width: "100%",
+        padding: "11px 14px",
+        borderRadius: T.r,
+        border: `1.5px solid ${T.border}`,
+        fontSize: 14,
+        fontFamily: T.fontBody,
+        color: T.ink,
+        background: T.canvas,
+        outline: "none",
+        resize: "vertical",
+        lineHeight: 1.5,
+        boxSizing: "border-box",
+        ...(props.style || {}),
+      }}
+    />
+  </div>
+);
+
 // Avatar display — photo, emoji, or initials
 const Avatar = ({ src, size = 36, bg = T.purpleL, border = "transparent" }) => {
   const isPhoto = src && src.startsWith("data:");
@@ -688,6 +715,11 @@ const childFromRow = (row) => ({
   devLog: row.dev_log || [],
   todayDone: row.today_done || {},
   todayDoneDate: row.today_done_date || null,
+  hasSpecialNeeds: row.has_special_needs || false,
+  verbalStatus: row.verbal_status || "",
+  knownTriggers: row.known_triggers || "",
+  therapySchedule: row.therapy_schedule || "",
+  dietProgram: row.diet_program || "",
   createdAt: row.created_at,
 });
 
@@ -735,6 +767,11 @@ function useChildren(userId) {
       schedule_items: DEFAULT_SCHEDULE,
       history: [],
       dev_log: [],
+      has_special_needs: child.hasSpecialNeeds || false,
+      verbal_status: child.hasSpecialNeeds ? (child.verbalStatus || "") : "",
+      known_triggers: child.hasSpecialNeeds ? (child.knownTriggers || "") : "",
+      therapy_schedule: child.hasSpecialNeeds ? (child.therapySchedule || "") : "",
+      diet_program: child.hasSpecialNeeds ? (child.dietProgram || "") : "",
     }).select().single();
     if (error || !data) { if (error) console.error("Failed to add child profile:", error.message); return null; }
     const newChild = childFromRow(data);
@@ -756,6 +793,11 @@ function useChildren(userId) {
     if ("devLog" in patch) dbPatch.dev_log = patch.devLog;
     if ("todayDone" in patch) dbPatch.today_done = patch.todayDone;
     if ("todayDoneDate" in patch) dbPatch.today_done_date = patch.todayDoneDate;
+    if ("hasSpecialNeeds" in patch) dbPatch.has_special_needs = patch.hasSpecialNeeds;
+    if ("verbalStatus" in patch) dbPatch.verbal_status = patch.verbalStatus;
+    if ("knownTriggers" in patch) dbPatch.known_triggers = patch.knownTriggers;
+    if ("therapySchedule" in patch) dbPatch.therapy_schedule = patch.therapySchedule;
+    if ("dietProgram" in patch) dbPatch.diet_program = patch.dietProgram;
     supabase.from("children").update(dbPatch).eq("id", id).then(({ error }) => { if (error) console.error("Failed to save child profile:", error.message); });
   };
 
@@ -1453,6 +1495,51 @@ function HomeScreen({ childCtx, setTab, push, account }) {
     </Page>
   );
 }
+const VERBAL_STATUS_OPTIONS = [
+  { key: "verbal",    label: "Verbal" },
+  { key: "nonverbal", label: "Nonverbal" },
+  { key: "mixed",     label: "Mixed / Emerging" },
+];
+
+// Optional additional-needs profile, filled in by the parent in their own words. This
+// powers the adaptive "Gentle Prompts" check-in questions (see AUTISM_PROMPTS) — e.g. a
+// known trigger or diet program the parent describes here gets reflected back as a
+// check-in question, instead of the app guessing with a generic one.
+function SpecialNeedsSection({ hasSpecialNeeds, setHasSpecialNeeds, verbalStatus, setVerbalStatus, knownTriggers, setKnownTriggers, therapySchedule, setTherapySchedule, dietProgram, setDietProgram }) {
+  return (
+    <>
+      <SectionLabel style={{ marginBottom: 10 }}>Additional Needs (optional)</SectionLabel>
+      <Card onClick={() => setHasSpecialNeeds(v => !v)} style={{ marginBottom: hasSpecialNeeds ? 14 : 20, display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", cursor: "pointer" }}>
+        <div style={{ width: 22, height: 22, borderRadius: 7, border: `1.5px solid ${hasSpecialNeeds ? T.purple : T.border}`, background: hasSpecialNeeds ? T.purple : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all 0.15s" }}>
+          {hasSpecialNeeds && <svg width="11" height="11" viewBox="0 0 10 10" fill="none"><path d="M2 5 L4 7 L8 3" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+        </div>
+        <p style={{ margin: 0, fontWeight: 700, fontSize: 13, color: T.ink }}>This child has additional needs (e.g. autism)</p>
+      </Card>
+
+      {hasSpecialNeeds && (
+        <>
+          <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>Verbal status</p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>
+            {VERBAL_STATUS_OPTIONS.map(opt => {
+              const isActive = verbalStatus === opt.key;
+              return (
+                <button key={opt.key} onClick={() => setVerbalStatus(isActive ? "" : opt.key)}
+                  style={{ padding: "8px 14px", borderRadius: 99, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody, background: isActive ? T.purple : T.surface, color: isActive ? "white" : T.ink, border: `1.5px solid ${isActive ? T.purple : T.border}` }}>
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
+
+          <TextArea label="Known triggers (optional)" hint="Describe in your own words — e.g. loud noises, crowded places, sudden changes in routine." value={knownTriggers} onChange={e => setKnownTriggers(e.target.value)} placeholder="e.g. Loud noises, being rushed, scratchy clothing tags" />
+          <TextArea label="Therapy schedule (optional)" hint="e.g. which therapies, and which days/times." value={therapySchedule} onChange={e => setTherapySchedule(e.target.value)} placeholder="e.g. Speech therapy Tue 4pm, ABA Mon/Wed/Fri 3-5pm" />
+          <TextArea label="Diet program (optional)" hint="e.g. any special diet, allergy, or feeding program." value={dietProgram} onChange={e => setDietProgram(e.target.value)} placeholder="e.g. Gluten-free, casein-free (GFCF)" />
+        </>
+      )}
+    </>
+  );
+}
+
 function AddChildScreen({ childCtx, pop }) {
   const [name, setName] = useState("");
   const [emoji, setEmoji] = useState("none");
@@ -1461,6 +1548,11 @@ function AddChildScreen({ childCtx, pop }) {
   const [caregiverType, setCaregiverType] = useState("biological");
   const [caregiverLabel, setCaregiverLabel] = useState("");
   const [customRelative, setCustomRelative] = useState("");
+  const [hasSpecialNeeds, setHasSpecialNeeds] = useState(false);
+  const [verbalStatus, setVerbalStatus] = useState("");
+  const [knownTriggers, setKnownTriggers] = useState("");
+  const [therapySchedule, setTherapySchedule] = useState("");
+  const [dietProgram, setDietProgram] = useState("");
   const [err, setErr] = useState("");
   const [photoErr, setPhotoErr] = useState("");
   const videoRef = useRef(null);
@@ -1529,7 +1621,7 @@ function AddChildScreen({ childCtx, pop }) {
     if (caregiverType === "other" && caregiverLabel === "Others" && !customRelative.trim()) return setErr("Please tell us your relationship to this child.");
     setErr(""); setSaving(true);
     const finalCaregiverLabel = caregiverType === "other" ? (caregiverLabel === "Others" ? customRelative.trim() : caregiverLabel.trim()) : "";
-    const id = await addChild({ name: name.trim(), emoji: photo || emoji, age: age.trim(), caregiverType, caregiverLabel: finalCaregiverLabel });
+    const id = await addChild({ name: name.trim(), emoji: photo || emoji, age: age.trim(), caregiverType, caregiverLabel: finalCaregiverLabel, hasSpecialNeeds, verbalStatus, knownTriggers: knownTriggers.trim(), therapySchedule: therapySchedule.trim(), dietProgram: dietProgram.trim() });
     setSaving(false);
     if (!id) return setErr("Could not save the profile. Please try again.");
     pop();
@@ -1662,6 +1754,8 @@ function AddChildScreen({ childCtx, pop }) {
         </div>
       )}
 
+      <SpecialNeedsSection hasSpecialNeeds={hasSpecialNeeds} setHasSpecialNeeds={setHasSpecialNeeds} verbalStatus={verbalStatus} setVerbalStatus={setVerbalStatus} knownTriggers={knownTriggers} setKnownTriggers={setKnownTriggers} therapySchedule={therapySchedule} setTherapySchedule={setTherapySchedule} dietProgram={dietProgram} setDietProgram={setDietProgram} />
+
       {err && <p style={{ color: T.red, fontSize: 13, fontWeight: 700, margin: "-8px 0 12px" }}>{err}</p>}
       <Btn onClick={save} full disabled={saving}>{saving ? "Saving..." : "Save Profile"}</Btn>
       <Btn onClick={pop} full secondary style={{ marginTop: 10 }}>Cancel</Btn>
@@ -1688,6 +1782,11 @@ function EditChildScreen({ childCtx, pop }) {
   const [caregiverType, setCaregiverType] = useState(activeChild?.caregiverType || "biological");
   const [caregiverLabel, setCaregiverLabel] = useState(initialCaregiverLabel);
   const [customRelative, setCustomRelative] = useState(initialCustomRelative);
+  const [hasSpecialNeeds, setHasSpecialNeeds] = useState(activeChild?.hasSpecialNeeds || false);
+  const [verbalStatus, setVerbalStatus] = useState(activeChild?.verbalStatus || "");
+  const [knownTriggers, setKnownTriggers] = useState(activeChild?.knownTriggers || "");
+  const [therapySchedule, setTherapySchedule] = useState(activeChild?.therapySchedule || "");
+  const [dietProgram, setDietProgram] = useState(activeChild?.dietProgram || "");
   const [err, setErr] = useState("");
   const [photoErr, setPhotoErr] = useState("");
   const videoRef = useRef(null);
@@ -1761,7 +1860,7 @@ function EditChildScreen({ childCtx, pop }) {
       const url = await uploadPhoto(emojiValue, "children", userId);
       if (url) emojiValue = url;
     }
-    updateChild(activeChild.id, { name: name.trim(), emoji: emojiValue, age: age.trim(), caregiverType, caregiverLabel: finalCaregiverLabel });
+    updateChild(activeChild.id, { name: name.trim(), emoji: emojiValue, age: age.trim(), caregiverType, caregiverLabel: finalCaregiverLabel, hasSpecialNeeds, verbalStatus: hasSpecialNeeds ? verbalStatus : "", knownTriggers: hasSpecialNeeds ? knownTriggers.trim() : "", therapySchedule: hasSpecialNeeds ? therapySchedule.trim() : "", dietProgram: hasSpecialNeeds ? dietProgram.trim() : "" });
     setSaving(false);
     pop();
   };
@@ -1896,6 +1995,8 @@ function EditChildScreen({ childCtx, pop }) {
         </div>
       )}
 
+      <SpecialNeedsSection hasSpecialNeeds={hasSpecialNeeds} setHasSpecialNeeds={setHasSpecialNeeds} verbalStatus={verbalStatus} setVerbalStatus={setVerbalStatus} knownTriggers={knownTriggers} setKnownTriggers={setKnownTriggers} therapySchedule={therapySchedule} setTherapySchedule={setTherapySchedule} dietProgram={dietProgram} setDietProgram={setDietProgram} />
+
       {err && <p style={{ color: T.red, fontSize: 13, fontWeight: 700, margin: "-8px 0 12px" }}>{err}</p>}
       <Btn onClick={save} full disabled={saving}>{saving ? "Saving..." : "Save Changes"}</Btn>
       <Btn onClick={pop} full secondary style={{ marginTop: 10 }}>Cancel</Btn>
@@ -1925,6 +2026,7 @@ const DEV_LOG_CATEGORIES = [
   { key: "sensory",       label: "Sensory",       emoji: "🌈", color: T.green },
   { key: "behaviour",     label: "Behaviour",     emoji: "🎯", color: T.red },
   { key: "health",        label: "Health",        emoji: "❤️", color: T.red },
+  { key: "therapy",       label: "Therapy",       emoji: "🗓️", color: T.purple },
   { key: "other",         label: "Other",         emoji: "📝", color: T.inkMuted },
 ];
 const devLogCategory = key => DEV_LOG_CATEGORIES.find(c => c.key === key) || DEV_LOG_CATEGORIES[DEV_LOG_CATEGORIES.length - 1];
@@ -1958,6 +2060,47 @@ const OBSERVATION_PROMPTS = [
   { id: "week_one_easier",   dayOffset: 7, category: "behaviour",     en: "Looking back at this first week — what's one thing that's gotten a little easier?", id_: "Melihat kembali minggu pertama ini — apa satu hal yang sudah sedikit lebih mudah?" },
   { id: "health_patterns",   dayOffset: 7, category: "health",        en: "Have you noticed any patterns in sleep, mood, or behaviour tied to a certain time of day?", id_: "Apakah Anda melihat pola pada tidur, mood, atau perilaku yang berkaitan dengan waktu tertentu?" },
 ];
+
+// Extra "Gentle Prompts" shown only when the parent has filled in the optional
+// Additional Needs profile (see SpecialNeedsSection). Some entries pull the parent's
+// own words (known trigger / therapy / diet) straight into the question instead of
+// asking generically — `requires` skips a prompt until that field is filled in, and
+// `en`/`id_` may be a function of activeChild so the text can quote it back.
+// `verbalOnly`/`nonverbalOnly` pick the matching half of a pair based on verbalStatus.
+const AUTISM_PROMPTS = [
+  { id: "an_trigger_check",  dayOffset: 0, category: "behaviour",     requires: "knownTriggers",
+    en: c => `You mentioned "${c.knownTriggers}" as a known trigger. Did it come up today? How did they respond?`,
+    id_: c => `Anda menyebutkan "${c.knownTriggers}" sebagai pemicu yang diketahui. Apakah itu muncul hari ini? Bagaimana respons mereka?` },
+  { id: "an_diet_check",     dayOffset: 0, category: "food",          requires: "dietProgram",
+    en: c => `How did today go with the "${c.dietProgram}" diet/program? Any reactions, cravings, or refusals?`,
+    id_: c => `Bagaimana hari ini dengan program diet/makan "${c.dietProgram}"? Ada reaksi, keinginan, atau penolakan?` },
+  { id: "an_therapy_check",  dayOffset: 1, category: "therapy",       requires: "therapySchedule",
+    en: c => `How did the latest therapy session go (${c.therapySchedule})? Any progress or difficulty you noticed at home?`,
+    id_: c => `Bagaimana sesi terapi terakhir (${c.therapySchedule})? Ada progres atau kesulitan yang terlihat di rumah?` },
+  { id: "an_comm_v",         dayOffset: 0, category: "communication", verbalOnly: true,
+    en: "Did they use any new words or phrases today? Were they easy to understand?", id_: "Apakah mereka mengucapkan kata atau frasa baru hari ini? Mudah dipahami?" },
+  { id: "an_comm_nv",        dayOffset: 0, category: "communication", nonverbalOnly: true,
+    en: "Did they use gestures, sounds, an AAC device, or pictures to communicate today? What seemed to work best?", id_: "Apakah mereka menggunakan gerakan tubuh, suara, alat AAC, atau gambar untuk berkomunikasi hari ini? Apa yang paling berhasil?" },
+  { id: "an_wants_v",        dayOffset: 2, category: "communication", verbalOnly: true,
+    en: "Did they ask any questions today, or start a conversation on their own?", id_: "Apakah mereka mengajukan pertanyaan hari ini, atau memulai percakapan sendiri?" },
+  { id: "an_wants_nv",       dayOffset: 2, category: "communication", nonverbalOnly: true,
+    en: "Did they point to, hand over, or lead you to something they wanted? How did you know what they needed?", id_: "Apakah mereka menunjuk, memberikan sesuatu, atau menuntun Anda ke hal yang mereka inginkan? Bagaimana Anda tahu apa yang mereka butuhkan?" },
+  { id: "an_sensory_calm",   dayOffset: 1, category: "sensory",
+    en: "What sensory input seemed to help them feel calm today — deep pressure, movement, a quiet space, or something else?", id_: "Input sensorik apa yang membantu mereka merasa tenang hari ini — tekanan dalam (deep pressure), gerakan, tempat tenang, atau hal lain?" },
+  { id: "an_meltdown",       dayOffset: 3, category: "behaviour",
+    en: "If they got overwhelmed today, did it look more like a meltdown (loud, big movements) or a shutdown (going quiet, withdrawing)? What helped after?", id_: "Jika mereka merasa kewalahan hari ini, apakah lebih seperti meltdown (ribut, gerakan besar) atau shutdown (jadi diam, menarik diri)? Apa yang membantu setelahnya?" },
+  { id: "an_transitions",    dayOffset: 2, category: "sensory",
+    en: "How did transitions go today — moving from one activity to the next, or an unexpected change in plan?", id_: "Bagaimana transisi hari ini — berpindah dari satu aktivitas ke aktivitas lain, atau perubahan rencana yang tiba-tiba?" },
+  { id: "an_stimming",       dayOffset: 1, category: "sensory",
+    en: "Did you notice any repetitive movements or sounds (stimming) today? Did it seem to help them self-soothe or focus?", id_: "Apakah Anda melihat gerakan atau suara berulang (stimming) hari ini? Apakah itu membantu mereka menenangkan diri atau fokus?" },
+  { id: "an_sleep_routine",  dayOffset: 5, category: "sleep",
+    en: "Did their bedtime / wind-down routine go as expected tonight? What seemed to help or disrupt it?", id_: "Apakah rutinitas sebelum tidur malam ini berjalan seperti biasa? Apa yang membantu atau mengganggunya?" },
+  { id: "an_therapy_skill",  dayOffset: 7, category: "therapy",
+    en: "Looking at this week, is there a skill from therapy that you noticed them practising at home on their own?", id_: "Melihat minggu ini, apakah ada keterampilan dari terapi yang Anda lihat mereka praktikkan sendiri di rumah?" },
+  { id: "an_food_sensory",   dayOffset: 3, category: "food",
+    en: "Are there specific food textures, colours, or smells they consistently avoid or seek out?", id_: "Apakah ada tekstur, warna, atau aroma makanan tertentu yang selalu mereka hindari atau justru sukai?" },
+];
+
 const daysSince = iso => iso ? Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 86400000)) : 0;
 
 // A running, dated journal of observations — sleep, eating, communication, sensory,
@@ -1987,8 +2130,21 @@ function DevLogSection({ activeChild, updateChild }) {
 
   const answeredPromptIds = devLog.filter(e => e.promptId).map(e => e.promptId);
   const today = daysSince(activeChild.createdAt);
-  const activePrompts = OBSERVATION_PROMPTS
+  const autismPrompts = activeChild.hasSpecialNeeds
+    ? AUTISM_PROMPTS.filter(p => {
+        if (p.requires && !String(activeChild[p.requires] || "").trim()) return false;
+        if (p.verbalOnly && activeChild.verbalStatus === "nonverbal") return false;
+        if (p.nonverbalOnly && activeChild.verbalStatus !== "nonverbal") return false;
+        return true;
+      })
+    : [];
+  // Autism prompts go first so they claim slots ahead of the generic foster-care
+  // ones — otherwise a brand-new profile's 4 day-0 prompts fill up before the
+  // tailored ones (which quote the parent's own trigger/therapy/diet text) ever
+  // get a turn, and the personalisation effectively never surfaces.
+  const activePrompts = [...autismPrompts, ...OBSERVATION_PROMPTS]
     .filter(p => p.dayOffset <= today && !answeredPromptIds.includes(p.id) && !dismissed.includes(p.id))
+    .map(p => ({ ...p, en: typeof p.en === "function" ? p.en(activeChild) : p.en, id_: typeof p.id_ === "function" ? p.id_(activeChild) : p.id_ }))
     .slice(0, 4);
 
   const resetForm = () => { setShowForm(false); setEditingId(null); setCategory("other"); setSource("carer"); setNote(""); setAnsweringPrompt(null); };
