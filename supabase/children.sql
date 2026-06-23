@@ -38,6 +38,10 @@ alter table public.children add column if not exists known_triggers text not nul
 alter table public.children add column if not exists therapy_schedule text not null default '';
 alter table public.children add column if not exists diet_program text not null default '';
 
+-- Date of birth and gender, shown alongside (and in addition to) the free-text age field.
+alter table public.children add column if not exists dob date;
+alter table public.children add column if not exists gender text not null default '';
+
 create index if not exists children_user_id_idx on public.children (user_id);
 
 alter table public.children enable row level security;

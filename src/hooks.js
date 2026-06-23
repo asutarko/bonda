@@ -9,6 +9,8 @@ export const childFromRow = (row) => ({
   age: row.age,
   caregiverType: row.caregiver_type,
   caregiverLabel: row.caregiver_label || "",
+  dob: row.dob || "",
+  gender: row.gender || "",
   scheduleItems: row.schedule_items?.length ? row.schedule_items : DEFAULT_SCHEDULE,
   history: row.history || [],
   devLog: row.dev_log || [],
@@ -63,6 +65,8 @@ export function useChildren(userId) {
       age: child.age,
       caregiver_type: child.caregiverType,
       caregiver_label: child.caregiverLabel || "",
+      dob: child.dob || null,
+      gender: child.gender || "",
       schedule_items: DEFAULT_SCHEDULE,
       history: [],
       dev_log: [],
@@ -87,6 +91,8 @@ export function useChildren(userId) {
     if ("age" in patch) dbPatch.age = patch.age;
     if ("caregiverType" in patch) dbPatch.caregiver_type = patch.caregiverType;
     if ("caregiverLabel" in patch) dbPatch.caregiver_label = patch.caregiverLabel;
+    if ("dob" in patch) dbPatch.dob = patch.dob || null;
+    if ("gender" in patch) dbPatch.gender = patch.gender;
     if ("scheduleItems" in patch) dbPatch.schedule_items = patch.scheduleItems;
     if ("history" in patch) dbPatch.history = patch.history;
     if ("devLog" in patch) dbPatch.dev_log = patch.devLog;

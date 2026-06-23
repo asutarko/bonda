@@ -44,6 +44,8 @@ export function AddChildScreen({ childCtx, pop }) {
   const [emoji, setEmoji] = useState("none");
   const [photo, setPhoto] = useState(null);
   const [age, setAge] = useState("");
+  const [dob, setDob] = useState("");
+  const [gender, setGender] = useState("");
   const [caregiverType, setCaregiverType] = useState("biological");
   const [caregiverLabel, setCaregiverLabel] = useState("");
   const [customRelative, setCustomRelative] = useState("");
@@ -120,7 +122,7 @@ export function AddChildScreen({ childCtx, pop }) {
     if (caregiverType === "other" && caregiverLabel === "Others" && !customRelative.trim()) return setErr("Please tell us your relationship to this child.");
     setErr(""); setSaving(true);
     const finalCaregiverLabel = caregiverType === "other" ? (caregiverLabel === "Others" ? customRelative.trim() : caregiverLabel.trim()) : "";
-    const id = await addChild({ name: name.trim(), emoji: photo || emoji, age: age.trim(), caregiverType, caregiverLabel: finalCaregiverLabel, hasSpecialNeeds, verbalStatus, knownTriggers: knownTriggers.trim(), therapySchedule: therapySchedule.trim(), dietProgram: dietProgram.trim() });
+    const id = await addChild({ name: name.trim(), emoji: photo || emoji, age: age.trim(), dob, gender, caregiverType, caregiverLabel: finalCaregiverLabel, hasSpecialNeeds, verbalStatus, knownTriggers: knownTriggers.trim(), therapySchedule: therapySchedule.trim(), dietProgram: dietProgram.trim() });
     setSaving(false);
     if (!id) return setErr("Could not save the profile. Please try again.");
     pop();
@@ -202,7 +204,21 @@ export function AddChildScreen({ childCtx, pop }) {
       </div>
 
       <Input label="Child's name" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Aiden" />
+      <Input label="Date of birth (optional)" value={dob} onChange={e => setDob(e.target.value)} type="date" />
       <Input label="Age (optional)" value={age} onChange={e => setAge(e.target.value)} placeholder="e.g. 5 years old" type="text" />
+
+      <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>Gender (optional)</p>
+      <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+        {["Male", "Female"].map(opt => {
+          const isActive = gender === opt;
+          return (
+            <button key={opt} onClick={() => setGender(isActive ? "" : opt)}
+              style={{ flex: 1, padding: "10px", borderRadius: T.r, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody, background: isActive ? T.purple : T.surface, color: isActive ? "white" : T.ink, border: `1.5px solid ${isActive ? T.purple : T.border}` }}>
+              {opt}
+            </button>
+          );
+        })}
+      </div>
 
 
       <SectionLabel style={{ marginBottom: 10 }}>Your relationship to this child</SectionLabel>
@@ -281,6 +297,8 @@ export function ChildProfileForm({ childCtx, onSaved, onCancel, onDeleted, showH
   const [emoji, setEmoji] = useState(isExistingPhoto ? "none" : (activeChild?.emoji || "none"));
   const [photo, setPhoto] = useState(isExistingPhoto ? activeChild.emoji : null);
   const [age, setAge] = useState(activeChild?.age || "");
+  const [dob, setDob] = useState(activeChild?.dob || "");
+  const [gender, setGender] = useState(activeChild?.gender || "");
   const [caregiverType, setCaregiverType] = useState(activeChild?.caregiverType || "biological");
   const [caregiverLabel, setCaregiverLabel] = useState(initialCaregiverLabel);
   const [customRelative, setCustomRelative] = useState(initialCustomRelative);
@@ -362,7 +380,7 @@ export function ChildProfileForm({ childCtx, onSaved, onCancel, onDeleted, showH
       const url = await uploadPhoto(emojiValue, "children", userId);
       if (url) emojiValue = url;
     }
-    updateChild(activeChild.id, { name: name.trim(), emoji: emojiValue, age: age.trim(), caregiverType, caregiverLabel: finalCaregiverLabel, hasSpecialNeeds, verbalStatus: hasSpecialNeeds ? verbalStatus : "", knownTriggers: hasSpecialNeeds ? knownTriggers.trim() : "", therapySchedule: hasSpecialNeeds ? therapySchedule.trim() : "", dietProgram: hasSpecialNeeds ? dietProgram.trim() : "" });
+    updateChild(activeChild.id, { name: name.trim(), emoji: emojiValue, age: age.trim(), dob, gender, caregiverType, caregiverLabel: finalCaregiverLabel, hasSpecialNeeds, verbalStatus: hasSpecialNeeds ? verbalStatus : "", knownTriggers: hasSpecialNeeds ? knownTriggers.trim() : "", therapySchedule: hasSpecialNeeds ? therapySchedule.trim() : "", dietProgram: hasSpecialNeeds ? dietProgram.trim() : "" });
     setSaving(false);
     onSaved && onSaved();
   };
@@ -451,7 +469,21 @@ export function ChildProfileForm({ childCtx, onSaved, onCancel, onDeleted, showH
       </div>
 
       <Input label="Child's name" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Aiden" />
+      <Input label="Date of birth (optional)" value={dob} onChange={e => setDob(e.target.value)} type="date" />
       <Input label="Age (optional)" value={age} onChange={e => setAge(e.target.value)} placeholder="e.g. 5 years old" type="text" />
+
+      <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>Gender (optional)</p>
+      <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+        {["Male", "Female"].map(opt => {
+          const isActive = gender === opt;
+          return (
+            <button key={opt} onClick={() => setGender(isActive ? "" : opt)}
+              style={{ flex: 1, padding: "10px", borderRadius: T.r, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody, background: isActive ? T.purple : T.surface, color: isActive ? "white" : T.ink, border: `1.5px solid ${isActive ? T.purple : T.border}` }}>
+              {opt}
+            </button>
+          );
+        })}
+      </div>
 
       <SectionLabel style={{ marginBottom: 10 }}>Your relationship to this child</SectionLabel>
       <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
