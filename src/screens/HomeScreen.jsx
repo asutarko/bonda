@@ -134,7 +134,7 @@ export function HomeScreen({ childCtx, setTab, push, account }) {
               <p style={{ margin: "0 0 2px", color: "rgba(255,255,255,0.6)", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>Active child</p>
               <p style={{ margin: 0, color: "white", fontSize: 18, fontWeight: 800 }}>{activeChild.name}</p>
             </div>
-            <button onClick={() => push("editChild")} title="Edit profile" style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(255,255,255,0.12)", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
+            <button onClick={() => setTab("mychild")} title="Edit profile" style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(255,255,255,0.12)", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
               <svg width="14" height="14" viewBox="0 0 18 18" fill="none">
                 <path d="M11.5 2.5 L15.5 6.5 L6 16 L2 16.5 L2.5 12.5 Z" stroke="white" strokeWidth="1.4" strokeLinejoin="round" strokeLinecap="round" fill="none"/>
               </svg>
