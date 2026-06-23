@@ -89,7 +89,7 @@ export function HomeScreen({ childCtx, setTab, push, account }) {
     { type: "sos", label: "Emergency Contacts", desc: "Singapore autism helplines", action: () => push("sos") },
     { type: "activities", label: "Activity Guide", desc: "Research-backed home therapy", action: () => push("activities") },
     { type: "training", label: "Behaviour Training", desc: "Teaching good behaviours", action: () => push("training") },
-    { type: "emotions", label: "Emotion & Behaviour", desc: "Track feelings, behaviours & development", action: () => setTab("mychild") },
+    { type: "emotions", label: "Emotion & Behaviour", desc: "Understand feelings & behaviours", action: () => push("emotionsGuide") },
   ];
 
   return (

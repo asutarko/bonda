@@ -2,6 +2,82 @@ import { useState } from "react";
 import { T } from "../theme";
 import { Page, SectionLabel, Card, Badge } from "../ui";
 
+export function EmotionsBehavioursScreen({ pop }) {
+  const [subTab, setSubTab] = useState("emotions"); // emotions | behaviours
+  const [activeEmotion, setActiveEmotion] = useState(null);
+  const [emotionTab, setEmotionTab] = useState("signs");
+  const [activeBehaviour, setActiveBehaviour] = useState(null);
+
+  if (activeBehaviour) return <BehaviourDetail b={activeBehaviour} onBack={() => setActiveBehaviour(null)} />;
+  if (activeEmotion) return <EmotionDetail e={activeEmotion} tab={emotionTab} setTab={setEmotionTab} onBack={() => setActiveEmotion(null)} />;
+
+  return (
+    <Page>
+      <div style={{ display: "flex", background: T.border, borderRadius: T.r, padding: 3, gap: 3, marginBottom: 24 }}>
+        {[["emotions","Emosi"],["behaviours","Behaviours"]].map(([v, l]) => (
+          <button key={v} onClick={() => setSubTab(v)} style={{ flex: 1, padding: "10px", borderRadius: 9, background: subTab === v ? T.surface : "transparent", border: "none", fontWeight: 700, fontSize: 13, color: subTab === v ? T.ink : T.inkMuted, cursor: "pointer", fontFamily: T.fontBody, boxShadow: subTab === v ? T.shadow : "none", transition: "all 0.2s" }}>{l}</button>
+        ))}
+      </div>
+
+      {subTab === "emotions" && (
+        <>
+          <SectionLabel style={{ marginBottom: 10 }}>Emotions</SectionLabel>
+          <p style={{ margin: "0 0 14px", color: T.inkSoft, fontSize: 13, lineHeight: 1.6 }}>Tap an emotion to see what it looks like in a non-verbal autistic child — and exactly what to do.</p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {EMOTIONS.map(e => (
+              <Card key={e.id} onClick={() => { setActiveEmotion(e); setEmotionTab("signs"); }} style={{ padding: "14px 16px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                  <div style={{ width: 48, height: 48, borderRadius: "50%", flexShrink: 0, overflow: "hidden" }}>
+                    <EmotionIllustration id={e.id} size={48} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <p style={{ margin: "0 0 3px", fontWeight: 800, color: e.color, fontSize: 15 }}>{e.label}</p>
+                    <p style={{ margin: 0, color: T.inkMuted, fontSize: 12 }}>{e.signs.length} signs · {e.actions.length} actions</p>
+                  </div>
+                  <span style={{ color: T.inkMuted, fontSize: 20 }}>›</span>
+                </div>
+              </Card>
+            ))}
+          </div>
+
+          <div style={{ marginTop: 20, padding: "14px 16px", background: T.amberL, borderRadius: T.r, border: `1px solid ${T.amber}25` }}>
+            <p style={{ margin: 0, color: T.amber, fontSize: 12, fontWeight: 700, lineHeight: 1.7 }}>🧭 Every autistic child is different. Bonda gives you <strong>frameworks, not prescriptions</strong>. Use what fits your child, leave what doesn't. You know them best.</p>
+          </div>
+        </>
+      )}
+
+      {subTab === "behaviours" && (
+        <>
+          <SectionLabel style={{ marginBottom: 10 }}>Behaviours</SectionLabel>
+          <p style={{ margin: "0 0 14px", color: T.inkSoft, fontSize: 13, lineHeight: 1.6 }}>Research-backed explanations of specific behaviours parents find confusing or worrying — with practical steps.</p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {BEHAVIOURS.map(b => (
+              <Card key={b.id} onClick={() => setActiveBehaviour(b)} style={{ padding: "14px 16px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                  <div style={{ width: 48, height: 48, borderRadius: 14, background: b.urgency ? T.redL : T.purpleL, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, border: `1.5px solid ${b.urgency ? T.red + "25" : T.purple + "20"}` }}>
+                    <span style={{ fontSize: 24, lineHeight: 1 }}>{b.icon}</span>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
+                      <p style={{ margin: 0, fontWeight: 800, color: T.ink, fontSize: 14 }}>{b.label}</p>
+                      {b.urgency && <Badge color={T.red} bg={T.redL}>URGENT</Badge>}
+                    </div>
+                    <p style={{ margin: 0, color: T.inkMuted, fontSize: 12, lineHeight: 1.4 }}>{b.summary}</p>
+                  </div>
+                  <span style={{ color: T.inkMuted, fontSize: 20 }}>›</span>
+                </div>
+              </Card>
+            ))}
+          </div>
+          <div style={{ marginTop: 16, padding: "14px 16px", background: T.amberL, borderRadius: T.r }}>
+            <p style={{ margin: 0, color: T.amber, fontSize: 12, fontWeight: 700, lineHeight: 1.7 }}>💡 Every behaviour is communication. Before trying to stop it, ask: <em>what is my child trying to tell me?</em> Understanding function is the key to finding a real solution.</p>
+          </div>
+        </>
+      )}
+    </Page>
+  );
+}
+
 export const EmotionIllustration = ({ id, size = 48 }) => {
   const s = size;
   const r = s / 2;

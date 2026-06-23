@@ -14,6 +14,7 @@ import { SubsidiesScreen } from "./screens/SubsidiesScreen";
 import { SOSScreen } from "./screens/SOSScreen";
 import { ActivitiesScreen } from "./screens/ActivitiesScreen";
 import { TrainingScreen } from "./screens/TrainingScreen";
+import { EmotionsBehavioursScreen } from "./screens/EmotionsBehavioursGuide";
 
 export const NAV = [
   { id: "home",      label: "Home",      icon: "🏠" },
@@ -142,6 +143,7 @@ export default function Bonda() {
     training: "Behaviour Training",
     addChild: "Add a Child",
     editChild: "Edit Profile",
+    emotionsGuide: "Emotion & Behaviour",
   };
 
   const pageTitle = current ? TITLES[current] || "" : TITLES[tab];
@@ -166,6 +168,7 @@ export default function Bonda() {
       case "addChild":   return <AddChildScreen childCtx={childCtx} pop={pop} />;
       case "editChild":  return <EditChildScreen childCtx={childCtx} pop={pop} />;
       case "fosterHub":   return <FosterHubScreen pop={pop} />;
+      case "emotionsGuide": return <EmotionsBehavioursScreen pop={pop} />;
       default:           return null;
     }
   };
