@@ -277,10 +277,14 @@ export function MyChildScreen({ childCtx }) {
     <Page>
 
       {activeChild && (
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: children?.length > 1 ? 6 : 20 }}>
           <ChildAvatar value={activeChild.emoji} size={36} active={true} borderColor={T.purple} />
           <p style={{ margin: 0, fontWeight: 800, color: T.ink, fontSize: 16 }}>{activeChild.name}</p>
         </div>
+      )}
+
+      {activeChild && children?.length > 1 && (
+        <p style={{ margin: "0 0 20px", color: T.inkMuted, fontSize: 12, lineHeight: 1.5 }}>Mau lihat data anak lain? Ketuk anaknya di tab Home untuk ganti.</p>
       )}
 
       {isFosterChild && (
