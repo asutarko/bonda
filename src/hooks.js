@@ -6,7 +6,6 @@ export const childFromRow = (row) => ({
   id: row.id,
   name: row.name,
   emoji: row.emoji,
-  age: row.age,
   caregiverType: row.caregiver_type,
   caregiverLabel: row.caregiver_label || "",
   dob: row.dob || "",
@@ -62,7 +61,6 @@ export function useChildren(userId) {
       user_id: userId,
       name: child.name,
       emoji,
-      age: child.age,
       caregiver_type: child.caregiverType,
       caregiver_label: child.caregiverLabel || "",
       dob: child.dob || null,
@@ -88,7 +86,6 @@ export function useChildren(userId) {
     const dbPatch = {};
     if ("name" in patch) dbPatch.name = patch.name;
     if ("emoji" in patch) dbPatch.emoji = patch.emoji;
-    if ("age" in patch) dbPatch.age = patch.age;
     if ("caregiverType" in patch) dbPatch.caregiver_type = patch.caregiverType;
     if ("caregiverLabel" in patch) dbPatch.caregiver_label = patch.caregiverLabel;
     if ("dob" in patch) dbPatch.dob = patch.dob || null;

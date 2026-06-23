@@ -7,8 +7,7 @@ create table if not exists public.children (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
   name text not null,
-  emoji text not null default 'none',
-  age text not null default '',
+  emoji text not null default 'none',s
   caregiver_type text not null default 'biological',
   caregiver_label text not null default '',
   schedule_items jsonb not null default '[]'::jsonb,
