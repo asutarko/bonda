@@ -8,8 +8,17 @@ create table if not exists public.profiles (
   name text not null,
   avatar text not null default 'none',
   joined text not null,
+  gender text not null default '',
+  address text not null default '',
+  phone text not null default '',
+  relationship text not null default '',
   created_at timestamptz not null default now()
 );
+
+alter table public.profiles add column if not exists gender text not null default '';
+alter table public.profiles add column if not exists address text not null default '';
+alter table public.profiles add column if not exists phone text not null default '';
+alter table public.profiles add column if not exists relationship text not null default '';
 
 alter table public.profiles enable row level security;
 
@@ -42,12 +51,16 @@ language plpgsql
 security definer set search_path = public
 as $$
 begin
-  insert into public.profiles (id, name, avatar, joined)
+  insert into public.profiles (id, name, avatar, joined, gender, address, phone, relationship)
   values (
     new.id,
     coalesce(new.raw_user_meta_data ->> 'name', new.email),
     coalesce(new.raw_user_meta_data ->> 'avatar', 'none'),
-    coalesce(new.raw_user_meta_data ->> 'joined', to_char(new.created_at, 'Mon YYYY'))
+    coalesce(new.raw_user_meta_data ->> 'joined', to_char(new.created_at, 'Mon YYYY')),
+    coalesce(new.raw_user_meta_data ->> 'gender', ''),
+    coalesce(new.raw_user_meta_data ->> 'address', ''),
+    coalesce(new.raw_user_meta_data ->> 'phone', ''),
+    coalesce(new.raw_user_meta_data ->> 'relationship', '')
   )
   on conflict (id) do nothing;
   return new;
