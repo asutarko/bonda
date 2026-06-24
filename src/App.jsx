@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "./lib/supabase";
 import { T } from "./theme";
-import { NavMark } from "./ui";
+import { NavMark, ComAvatar } from "./ui";
 import { useChildren, useBackHandler, backHandlerStack, accountFromUser, forceSignOut } from "./hooks";
 import { FosterHubScreen } from "./screens/FosterHubScreen";
 import { HomeScreen } from "./screens/HomeScreen";
@@ -15,6 +15,7 @@ import { SOSScreen } from "./screens/SOSScreen";
 import { ActivitiesScreen } from "./screens/ActivitiesScreen";
 import { TrainingScreen } from "./screens/TrainingScreen";
 import { EmotionsBehavioursScreen } from "./screens/EmotionsBehavioursGuide";
+import { EditProfileScreen } from "./screens/ProfileScreen";
 
 export const NAV = [
   { id: "home",      label: "Home",      icon: "🏠" },
@@ -143,6 +144,7 @@ export default function Bonda() {
     training: "Behaviour Training",
     addChild: "Add a Child",
     editChild: "Edit Profile",
+    editProfile: "Edit Profile",
     emotionsGuide: "Emotion & Behaviour",
   };
 
@@ -167,6 +169,7 @@ export default function Bonda() {
       case "training":   return <TrainingScreen pop={pop} account={account} />;
       case "addChild":   return <AddChildScreen childCtx={childCtx} pop={pop} />;
       case "editChild":  return <EditChildScreen childCtx={childCtx} pop={pop} />;
+      case "editProfile": return <EditProfileScreen account={account} pop={pop} />;
       case "fosterHub":   return <FosterHubScreen pop={pop} />;
       case "emotionsGuide": return <EmotionsBehavioursScreen pop={pop} />;
       default:           return null;
@@ -200,6 +203,10 @@ export default function Bonda() {
               </p>
             </div>
           )}
+
+          <button onClick={() => push("editProfile")} title="Edit profile" style={{ width: 30, height: 30, borderRadius: "50%", border: "none", padding: 0, background: "none", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer" }}>
+            <ComAvatar value={account.avatar} size={30} active={true} borderColor={T.purpleL} />
+          </button>
 
           <button onClick={forceSignOut} title="Sign out" style={{ width: 30, height: 30, borderRadius: "50%", background: T.purpleL, border: "none", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer" }}>
             <svg width="15" height="15" viewBox="0 0 18 18" fill="none">

@@ -3,12 +3,13 @@ import { supabase } from "../lib/supabase";
 import { uploadPhoto } from "../hooks";
 import { T } from "../theme";
 import { Page, SectionLabel, Card, Badge, Btn, Input, TextArea, Avatar, Accordion, PageHero, AvatarIllustrations, ChildAvatar, ComAvatar, COM_AVATAR_ILLUSTRATIONS, ROOM_ICONS, ACTIVITY_TEXTAREA_STYLE, ActionIllustration, HeroIllustration } from "../ui";
-import { CHILD_AVATARS, DEFAULT_CHILDREN, DEFAULT_SCHEDULE, ROOM_COLORS, SOS_COLORS, VERBAL_STATUS_OPTIONS } from "../data";
+import { CHILD_AVATARS, DEFAULT_CHILDREN, DEFAULT_SCHEDULE, ROOM_COLORS, SOS_COLORS, VERBAL_STATUS_OPTIONS, RELATIONSHIP_OPTIONS } from "../data";
 
 export function AuthScreen() {
   const [view, setView] = useState("login");
   const [loginEmail, setLoginEmail] = useState(""); const [loginPass, setLoginPass] = useState(""); const [loginErr, setLoginErr] = useState("");
   const [regEmail, setRegEmail] = useState(""); const [regName, setRegName] = useState(""); const [regPass, setRegPass] = useState(""); const [regAvatar, setRegAvatar] = useState("none"); const [regErr, setRegErr] = useState(""); const [regMsg, setRegMsg] = useState(""); const [regPhoto, setRegPhoto] = useState(null); const [regShowCam, setRegShowCam] = useState(false); const [regCamReady, setRegCamReady] = useState(false); const [regCamOk, setRegCamOk] = useState(true); const regVideoRef = useRef(null); const regStreamRef = useRef(null);
+  const [regGender, setRegGender] = useState(""); const [regAddress, setRegAddress] = useState(""); const [regPhone, setRegPhone] = useState(""); const [regRelationship, setRegRelationship] = useState("");
   const [forgotEmail, setForgotEmail] = useState(""); const [forgotErr, setForgotErr] = useState(""); const [forgotMsg, setForgotMsg] = useState("");
 
   const login = async () => {
@@ -62,6 +63,10 @@ export function AuthScreen() {
     setRegErr(""); setRegMsg("");
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(regEmail.trim())) return setRegErr("Please enter a valid email address.");
     if (!regName.trim() || regName.trim().length < 2) return setRegErr("Name must be at least 2 characters.");
+    if (!regGender) return setRegErr("Please select your gender.");
+    if (!regPhone.trim()) return setRegErr("Please enter your phone number.");
+    if (!regAddress.trim()) return setRegErr("Please enter your home address.");
+    if (!regRelationship) return setRegErr("Please select your relationship to the child.");
     if (regPass.length < 6) return setRegErr("Password must be at least 6 characters.");
     const joined = new Date().toLocaleDateString("en-SG", { month: "short", year: "numeric" });
     // Sign up with a short avatar key first — never the raw photo, which would
@@ -69,7 +74,7 @@ export function AuthScreen() {
     const { data, error } = await supabase.auth.signUp({
       email: regEmail.trim(),
       password: regPass,
-      options: { data: { name: regName.trim(), avatar: regAvatar, joined } },
+      options: { data: { name: regName.trim(), avatar: regAvatar, joined, gender: regGender, address: regAddress.trim(), phone: regPhone.trim(), relationship: regRelationship } },
     });
     if (error) return setRegErr(error.message);
     if (!data.session) {
@@ -156,6 +161,36 @@ export function AuthScreen() {
       </div>
 
       <Input label="Your name (shown to other parents)" value={regName} onChange={e => setRegName(e.target.value)} placeholder="e.g. Sarah, Mum of Aiden" />
+
+      <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>Gender</p>
+      <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+        {["Male", "Female"].map(opt => {
+          const isActive = regGender === opt;
+          return (
+            <button key={opt} onClick={() => setRegGender(isActive ? "" : opt)}
+              style={{ flex: 1, padding: "10px", borderRadius: T.r, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody, background: isActive ? T.purple : T.surface, color: isActive ? "white" : T.ink, border: `1.5px solid ${isActive ? T.purple : T.border}` }}>
+              {opt}
+            </button>
+          );
+        })}
+      </div>
+
+      <Input label="Phone number" type="tel" value={regPhone} onChange={e => setRegPhone(e.target.value)} placeholder="e.g. 9123 4567" />
+      <Input label="Home address" value={regAddress} onChange={e => setRegAddress(e.target.value)} placeholder="e.g. Blk 123 Ang Mo Kio Ave 3, #04-56" />
+
+      <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>Relationship to the child</p>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 20 }}>
+        {RELATIONSHIP_OPTIONS.map(opt => {
+          const isActive = regRelationship === opt;
+          return (
+            <button key={opt} onClick={() => setRegRelationship(isActive ? "" : opt)}
+              style={{ padding: "8px 14px", borderRadius: 99, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody, background: isActive ? T.purple : T.surface, color: isActive ? "white" : T.ink, border: `1.5px solid ${isActive ? T.purple : T.border}` }}>
+              {opt}
+            </button>
+          );
+        })}
+      </div>
+
       <Input label="Email" type="email" value={regEmail} onChange={e => setRegEmail(e.target.value)} placeholder="you@example.com" />
       <Input label="Password (min 6 characters)" type="password" value={regPass} onChange={e => setRegPass(e.target.value)} placeholder="Create a password" />
       {regErr && <p style={{ color: T.red, fontSize: 13, fontWeight: 700, margin: "-8px 0 12px" }}>{regErr}</p>}

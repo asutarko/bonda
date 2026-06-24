@@ -201,4 +201,8 @@ export const accountFromUser = (u) => u ? {
   avatar: u.user_metadata?.avatar || "none",
   email: u.email,
   joined: u.user_metadata?.joined || new Date(u.created_at).toLocaleDateString("en-SG", { month: "short", year: "numeric" }),
+  gender: u.user_metadata?.gender || "",
+  address: u.user_metadata?.address || "",
+  phone: u.user_metadata?.phone || "",
+  relationship: u.user_metadata?.relationship || "",
 } : null;

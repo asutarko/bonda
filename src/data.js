@@ -50,6 +50,9 @@ export const VERBAL_STATUS_OPTIONS = [
   { key: "mixed",     label: "Mixed / Emerging" },
 ];
 
+// The parent account's relationship to the child(ren) they care for.
+export const RELATIONSHIP_OPTIONS = ["Ayah", "Ibu", "Kakak", "Adik", "Kakek", "Nenek", "Bibi"];
+
 // Optional additional-needs profile, filled in by the parent in their own words. This
 // powers the adaptive "Gentle Prompts" check-in questions (see AUTISM_PROMPTS) — e.g. a
 // known trigger or diet program the parent describes here gets reflected back as a
