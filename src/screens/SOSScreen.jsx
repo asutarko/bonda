@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "../lib/supabase";
 import { T } from "../theme";
-import { Page, SectionLabel, Card, Badge, Btn, Input, TextArea, Avatar, Accordion, PageHero, AvatarIllustrations, ChildAvatar, ComAvatar, ROOM_ICONS, ACTIVITY_TEXTAREA_STYLE, ActionIllustration, HeroIllustration } from "../ui";
+import { Page, SectionLabel, Card, Badge, Btn, Input, TextArea, Avatar, Accordion, AvatarIllustrations, ChildAvatar, ComAvatar, ROOM_ICONS, ACTIVITY_TEXTAREA_STYLE, ActionIllustration, HeroIllustration } from "../ui";
 import { CHILD_AVATARS, DEFAULT_CHILDREN, DEFAULT_SCHEDULE, ROOM_COLORS, SOS_COLORS, VERBAL_STATUS_OPTIONS } from "../data";
 
 export function SOSScreen({ pop, account }) {
@@ -39,7 +39,6 @@ export function SOSScreen({ pop, account }) {
 
   return (
     <Page>
-      <PageHero type="sos" />
       <h2 style={{ margin: "0 0 6px", color: T.ink, fontSize: 22, fontWeight: 800 }}>Emergency Contacts</h2>
       <p style={{ margin: "0 0 6px", color: T.inkSoft, fontSize: 14, lineHeight: 1.6 }}>Singapore government and specialist contacts for autism and caregiver support.</p>
       <div style={{ background: T.redL, borderRadius: T.r, padding: "12px 14px", marginBottom: 24, border: `1px solid ${T.red}20` }}>
