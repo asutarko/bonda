@@ -145,7 +145,7 @@ export default function Bonda() {
     addChild: "Add a Child",
     editChild: "Edit Profile",
     editProfile: "Edit User Profile",
-    emotionsGuide: "Emotion & Behaviour",
+    emotionsGuide: "Emotions & Behaviour",
   };
 
   const pageTitle = current ? TITLES[current] || "" : TITLES[tab];

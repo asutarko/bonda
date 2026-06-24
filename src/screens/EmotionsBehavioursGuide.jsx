@@ -14,7 +14,7 @@ export function EmotionsBehavioursScreen({ pop }) {
   return (
     <Page>
       <div style={{ display: "flex", background: T.border, borderRadius: T.r, padding: 3, gap: 3, marginBottom: 24 }}>
-        {[["emotions","Emosi"],["behaviours","Behaviours"]].map(([v, l]) => (
+        {[["emotions","Emotions"],["behaviours","Behaviours"]].map(([v, l]) => (
           <button key={v} onClick={() => setSubTab(v)} style={{ flex: 1, padding: "10px", borderRadius: 9, background: subTab === v ? T.surface : "transparent", border: "none", fontWeight: 700, fontSize: 13, color: subTab === v ? T.ink : T.inkMuted, cursor: "pointer", fontFamily: T.fontBody, boxShadow: subTab === v ? T.shadow : "none", transition: "all 0.2s" }}>{l}</button>
         ))}
       </div>
