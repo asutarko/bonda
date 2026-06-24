@@ -95,7 +95,7 @@ export function EditProfileScreen({ account, pop }) {
 
   return (
     <Page>
-      <h2 style={{ margin: "0 0 6px", fontSize: 20, fontWeight: 800, color: T.ink }}>Edit Profile</h2>
+      <h2 style={{ margin: "0 0 6px", fontSize: 20, fontWeight: 800, color: T.ink }}>Edit User Profile</h2>
       <p style={{ margin: "0 0 24px", color: T.inkSoft, fontSize: 14, lineHeight: 1.6 }}>Update your photo and contact details below.</p>
 
       <SectionLabel style={{ marginBottom: 10 }}>Profile Picture</SectionLabel>

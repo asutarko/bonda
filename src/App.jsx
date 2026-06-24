@@ -144,7 +144,7 @@ export default function Bonda() {
     training: "Behaviour Training",
     addChild: "Add a Child",
     editChild: "Edit Profile",
-    editProfile: "Edit Profile",
+    editProfile: "Edit User Profile",
     emotionsGuide: "Emotion & Behaviour",
   };
 
