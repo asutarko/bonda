@@ -262,6 +262,36 @@ export const TextArea = ({ label, hint, ...props }) => (
   </div>
 );
 
+// Dropdown select — same chrome as Input
+
+export const Select = ({ label, options, placeholder, ...props }) => (
+  <div style={{ marginBottom: 14 }}>
+    {label && <p style={{ margin: "0 0 6px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>{label}</p>}
+    <select
+      {...props}
+      style={{
+        width: "100%",
+        padding: "11px 14px",
+        borderRadius: T.r,
+        border: `1.5px solid ${T.border}`,
+        fontSize: 14,
+        fontFamily: T.fontBody,
+        color: T.ink,
+        background: T.canvas,
+        outline: "none",
+        boxSizing: "border-box",
+        cursor: "pointer",
+        ...(props.style || {}),
+      }}
+    >
+      {placeholder && <option value="">{placeholder}</option>}
+      {options.map(opt => (
+        <option key={opt.value ?? opt} value={opt.value ?? opt}>{opt.label ?? opt}</option>
+      ))}
+    </select>
+  </div>
+);
+
 // Avatar display — photo, emoji, or initials
 
 export const Avatar = ({ src, size = 36, bg = T.purpleL, border = "transparent" }) => {
