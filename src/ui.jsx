@@ -292,6 +292,13 @@ export const Select = ({ label, options, placeholder, ...props }) => (
   </div>
 );
 
+// Inline validation message — sits directly under the field it refers to
+
+export const FieldError = ({ children }) => {
+  if (!children) return null;
+  return <p style={{ margin: "-10px 0 14px", color: T.red, fontSize: 12, fontWeight: 700 }}>{children}</p>;
+};
+
 // Avatar display — photo, emoji, or initials
 
 export const Avatar = ({ src, size = 36, bg = T.purpleL, border = "transparent" }) => {

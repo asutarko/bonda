@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { supabase } from "../lib/supabase";
 import { uploadPhoto } from "../hooks";
 import { T } from "../theme";
-import { Page, SectionLabel, Input, Btn, ComAvatar, COM_AVATAR_ILLUSTRATIONS } from "../ui";
+import { Page, SectionLabel, Input, Select, FieldError, Btn, ComAvatar, COM_AVATAR_ILLUSTRATIONS } from "../ui";
 import { RELATIONSHIP_OPTIONS, OCCUPATION_OPTIONS, NATIONALITY_OPTIONS, MARITAL_STATUS_OPTIONS } from "../data";
 
 export function EditProfileScreen({ account, pop }) {
@@ -10,6 +10,7 @@ export function EditProfileScreen({ account, pop }) {
 
   const [avatar, setAvatar] = useState(isExistingPhoto ? "none" : (account?.avatar || "none"));
   const [photo, setPhoto] = useState(isExistingPhoto ? account.avatar : null);
+  const [showAvatarPicker, setShowAvatarPicker] = useState(false);
   const [phone, setPhone] = useState(account?.phone || "");
   const [address, setAddress] = useState(account?.address || "");
   const [relationship, setRelationship] = useState(account?.relationship || "");
@@ -17,6 +18,7 @@ export function EditProfileScreen({ account, pop }) {
   const [nationality, setNationality] = useState(account?.nationality || "");
   const [maritalStatus, setMaritalStatus] = useState(account?.maritalStatus || "");
   const [err, setErr] = useState("");
+  const [errors, setErrors] = useState({});
   const [photoErr, setPhotoErr] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -70,9 +72,12 @@ export function EditProfileScreen({ account, pop }) {
   const isPhotoSelected = !!photo;
 
   const save = async () => {
-    if (!phone.trim()) return setErr("Please enter your phone number.");
-    if (!address.trim()) return setErr("Please enter your home address.");
-    if (!relationship) return setErr("Please select your relationship to the child.");
+    const fe = {};
+    if (!phone.trim()) fe.phone = "Please enter your phone number.";
+    if (!address.trim()) fe.address = "Please enter your home address.";
+    if (!relationship) fe.relationship = "Please select your relationship to the child.";
+    setErrors(fe);
+    if (Object.keys(fe).length > 0) return;
     setErr(""); setSaving(true);
 
     let avatarValue = photo || avatar;
@@ -102,7 +107,7 @@ export function EditProfileScreen({ account, pop }) {
             {isPhotoSelected ? "Photo added ✓ — or choose an avatar below" : "Add a real photo (optional) — or pick an avatar below"}
           </p>
           <div style={{ display: "flex", gap: 8 }}>
-            <label style={{ flex: 1, background: T.purple, color: "white", borderRadius: T.r, padding: "8px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", textAlign: "center", fontFamily: T.fontBody, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
+            <label onClick={() => setShowAvatarPicker(false)} style={{ flex: 1, background: T.purple, color: "white", borderRadius: T.r, padding: "8px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", textAlign: "center", fontFamily: T.fontBody, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
               <span style={{ fontSize: 15 }}>+</span> Upload
               <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => {
                 const file = e.target.files[0];
@@ -115,10 +120,14 @@ export function EditProfileScreen({ account, pop }) {
             </label>
 
             {cameraSupported && (
-              <button onClick={openCamera} style={{ flex: 1, background: T.surface, color: T.purple, borderRadius: T.r, padding: "8px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", border: `1.5px solid ${T.purple}`, fontFamily: T.fontBody, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
+              <button onClick={() => { setShowAvatarPicker(false); openCamera(); }} style={{ flex: 1, background: T.surface, color: T.purple, borderRadius: T.r, padding: "8px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", border: `1.5px solid ${T.purple}`, fontFamily: T.fontBody, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
                 <span style={{ fontSize: 15 }}>+</span> Camera
               </button>
             )}
+
+            <button onClick={() => setShowAvatarPicker(v => !v)} style={{ flex: 1, background: showAvatarPicker ? T.purple : T.surface, color: showAvatarPicker ? "white" : T.purple, borderRadius: T.r, padding: "8px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", border: `1.5px solid ${T.purple}`, fontFamily: T.fontBody, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
+              <span style={{ fontSize: 15 }}>+</span> Avatar
+            </button>
 
             {isPhotoSelected && (
               <button onClick={() => setPhoto(null)} style={{ background: T.redL, color: T.red, borderRadius: T.r, padding: "8px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", border: "none", fontFamily: T.fontBody }}>✕</button>
@@ -138,78 +147,39 @@ export function EditProfileScreen({ account, pop }) {
         </div>
       )}
 
-      <SectionLabel style={{ marginBottom: 10 }}>Or choose an illustrated avatar</SectionLabel>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 24, opacity: isPhotoSelected ? 0.4 : 1, transition: "opacity 0.2s" }}>
-        {COM_AVATAR_ILLUSTRATIONS.map(av => {
-          const isActive = !isPhotoSelected && avatar === av.key;
-          return (
-            <div key={av.key} onClick={() => { if (!isPhotoSelected) setAvatar(av.key); }} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, cursor: isPhotoSelected ? "default" : "pointer" }}>
-              <div style={{ border: `2.5px solid ${isActive ? T.purple : "transparent"}`, borderRadius: "50%", padding: 1, transform: isActive ? "scale(1.08)" : "scale(1)", transition: "all 0.15s" }}>
-                {av.render(isActive)}
-              </div>
-              <p style={{ margin: 0, fontSize: 9, fontWeight: isActive ? 800 : 600, color: isActive ? T.purple : T.inkMuted, letterSpacing: "0.03em" }}>{av.label}</p>
-            </div>
-          );
-        })}
-      </div>
+      {showAvatarPicker && (
+        <>
+          <SectionLabel style={{ marginBottom: 10 }}>Or choose an illustrated avatar</SectionLabel>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 24, opacity: isPhotoSelected ? 0.4 : 1, transition: "opacity 0.2s" }}>
+            {COM_AVATAR_ILLUSTRATIONS.map(av => {
+              const isActive = !isPhotoSelected && avatar === av.key;
+              return (
+                <div key={av.key} onClick={() => { if (!isPhotoSelected) setAvatar(av.key); }} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, cursor: isPhotoSelected ? "default" : "pointer" }}>
+                  <div style={{ border: `2.5px solid ${isActive ? T.purple : "transparent"}`, borderRadius: "50%", padding: 1, transform: isActive ? "scale(1.08)" : "scale(1)", transition: "all 0.15s" }}>
+                    {av.render(isActive)}
+                  </div>
+                  <p style={{ margin: 0, fontSize: 9, fontWeight: isActive ? 800 : 600, color: isActive ? T.purple : T.inkMuted, letterSpacing: "0.03em" }}>{av.label}</p>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
 
       <SectionLabel style={{ marginBottom: 10 }}>Contact Details</SectionLabel>
       <Input label="Phone number" type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="e.g. 9123 4567" />
+      <FieldError>{errors.phone}</FieldError>
       <Input label="Home address" value={address} onChange={e => setAddress(e.target.value)} placeholder="e.g. Blk 123 Ang Mo Kio Ave 3, #04-56" />
+      <FieldError>{errors.address}</FieldError>
 
-      <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>Relationship to the child</p>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 20 }}>
-        {RELATIONSHIP_OPTIONS.map(opt => {
-          const isActive = relationship === opt;
-          return (
-            <button key={opt} onClick={() => setRelationship(isActive ? "" : opt)}
-              style={{ padding: "8px 14px", borderRadius: 99, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody, background: isActive ? T.purple : T.surface, color: isActive ? "white" : T.ink, border: `1.5px solid ${isActive ? T.purple : T.border}` }}>
-              {opt}
-            </button>
-          );
-        })}
-      </div>
+      <Select label="Relationship to the child" value={relationship} onChange={e => setRelationship(e.target.value)} placeholder="Select relationship" options={RELATIONSHIP_OPTIONS} />
+      <FieldError>{errors.relationship}</FieldError>
 
       <SectionLabel style={{ marginBottom: 10 }}>More About You</SectionLabel>
 
-      <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>Occupation</p>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
-        {OCCUPATION_OPTIONS.map(opt => {
-          const isActive = occupation === opt;
-          return (
-            <button key={opt} onClick={() => setOccupation(isActive ? "" : opt)}
-              style={{ padding: "8px 14px", borderRadius: 99, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody, background: isActive ? T.purple : T.surface, color: isActive ? "white" : T.ink, border: `1.5px solid ${isActive ? T.purple : T.border}` }}>
-              {opt}
-            </button>
-          );
-        })}
-      </div>
-
-      <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>Nationality</p>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
-        {NATIONALITY_OPTIONS.map(opt => {
-          const isActive = nationality === opt;
-          return (
-            <button key={opt} onClick={() => setNationality(isActive ? "" : opt)}
-              style={{ padding: "8px 14px", borderRadius: 99, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody, background: isActive ? T.purple : T.surface, color: isActive ? "white" : T.ink, border: `1.5px solid ${isActive ? T.purple : T.border}` }}>
-              {opt}
-            </button>
-          );
-        })}
-      </div>
-
-      <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>Marital Status</p>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 20 }}>
-        {MARITAL_STATUS_OPTIONS.map(opt => {
-          const isActive = maritalStatus === opt;
-          return (
-            <button key={opt} onClick={() => setMaritalStatus(isActive ? "" : opt)}
-              style={{ padding: "8px 14px", borderRadius: 99, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody, background: isActive ? T.purple : T.surface, color: isActive ? "white" : T.ink, border: `1.5px solid ${isActive ? T.purple : T.border}` }}>
-              {opt}
-            </button>
-          );
-        })}
-      </div>
+      <Select label="Occupation" value={occupation} onChange={e => setOccupation(e.target.value)} placeholder="Select occupation" options={OCCUPATION_OPTIONS} />
+      <Select label="Nationality" value={nationality} onChange={e => setNationality(e.target.value)} placeholder="Select nationality" options={NATIONALITY_OPTIONS} />
+      <Select label="Marital Status" value={maritalStatus} onChange={e => setMaritalStatus(e.target.value)} placeholder="Select marital status" options={MARITAL_STATUS_OPTIONS} />
 
       {err && <p style={{ color: T.red, fontSize: 13, fontWeight: 700, margin: "-8px 0 12px" }}>{err}</p>}
       <Btn onClick={save} full disabled={saving}>{saving ? "Saving..." : "Save Changes"}</Btn>

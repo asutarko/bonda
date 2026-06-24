@@ -2,13 +2,8 @@ import { useState, useEffect, useRef } from "react";
 import { supabase } from "../lib/supabase";
 import { uploadPhoto } from "../hooks";
 import { T } from "../theme";
-import { Page, SectionLabel, Card, Badge, Btn, Input, TextArea, Select, Avatar, Accordion, PageHero, AvatarIllustrations, ChildAvatar, ComAvatar, ROOM_ICONS, ACTIVITY_TEXTAREA_STYLE, ActionIllustration, HeroIllustration } from "../ui";
+import { Page, SectionLabel, Card, Badge, Btn, Input, TextArea, Select, FieldError, Avatar, Accordion, PageHero, AvatarIllustrations, ChildAvatar, ComAvatar, ROOM_ICONS, ACTIVITY_TEXTAREA_STYLE, ActionIllustration, HeroIllustration } from "../ui";
 import { CHILD_AVATARS, DEFAULT_CHILDREN, DEFAULT_SCHEDULE, ROOM_COLORS, SOS_COLORS, VERBAL_STATUS_OPTIONS } from "../data";
-
-function FieldError({ children }) {
-  if (!children) return null;
-  return <p style={{ margin: "-10px 0 14px", color: T.red, fontSize: 12, fontWeight: 700 }}>{children}</p>;
-}
 
 export function SpecialNeedsSection({
   verbalStatus, setVerbalStatus,
