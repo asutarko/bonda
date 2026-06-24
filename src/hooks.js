@@ -205,4 +205,7 @@ export const accountFromUser = (u) => u ? {
   address: u.user_metadata?.address || "",
   phone: u.user_metadata?.phone || "",
   relationship: u.user_metadata?.relationship || "",
+  occupation: u.user_metadata?.occupation || "",
+  nationality: u.user_metadata?.nationality || "",
+  maritalStatus: u.user_metadata?.maritalStatus || "",
 } : null;

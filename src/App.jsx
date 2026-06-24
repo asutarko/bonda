@@ -242,7 +242,7 @@ export default function Bonda() {
 
       {showExitHint && (
         <div style={{ position: "fixed", bottom: 90, left: "50%", transform: "translateX(-50%)", background: T.ink, color: "white", padding: "10px 20px", borderRadius: 99, fontSize: 13, fontWeight: 700, boxShadow: T.shadowM, zIndex: 200, whiteSpace: "nowrap" }}>
-          Tekan sekali lagi untuk keluar
+          Press again to exit
         </div>
       )}
     </div>

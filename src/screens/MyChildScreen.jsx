@@ -94,6 +94,22 @@ export const AUTISM_PROMPTS = [
 
 export const daysSince = iso => iso ? Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 86400000)) : 0;
 
+// Age from date of birth, shown as months for babies and years for everyone else
+// — a "1 yr" label hides whether a toddler just turned 1 or is nearly 2.
+
+export const ageFromDob = dob => {
+  if (!dob) return "";
+  const birth = new Date(dob);
+  if (Number.isNaN(birth.getTime())) return "";
+  const now = new Date();
+  let months = (now.getFullYear() - birth.getFullYear()) * 12 + (now.getMonth() - birth.getMonth());
+  if (now.getDate() < birth.getDate()) months -= 1;
+  if (months < 0) return "";
+  if (months < 24) return `${months} mo`;
+  const years = Math.floor(months / 12);
+  return `${years} yr`;
+};
+
 // A running, dated journal of observations — sleep, eating, communication, sensory,
 // behaviour and health notes — that doubles as a substitute medical history for
 // caregivers without HealthHub/Parents Gateway access.
@@ -173,8 +189,8 @@ export function DevLogSection({ activeChild, updateChild }) {
                   <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 10 }}>
                     <span style={{ fontSize: 18, lineHeight: 1 }}>{cat.emoji}</span>
                     <div style={{ flex: 1 }}>
-                      <p style={{ margin: "0 0 4px", color: T.ink, fontSize: 13, fontWeight: 700, lineHeight: 1.5 }}>{p.en}</p>
-                      <p style={{ margin: 0, color: T.inkMuted, fontSize: 12, lineHeight: 1.5, fontStyle: "italic" }}>{p.id_}</p>
+                      <p style={{ margin: 0, color: T.ink, fontSize: 13, fontWeight: 700, lineHeight: 1.5 }}>{p.en}</p>
+                      {/* Indonesian translation (p.id_) temporarily disabled — bilingual prompts off for now */}
                     </div>
                   </div>
                   <div style={{ display: "flex", gap: 8 }}>
@@ -194,8 +210,7 @@ export function DevLogSection({ activeChild, updateChild }) {
         <Card style={{ marginBottom: 16 }}>
           {answeringPrompt && (
             <div style={{ marginBottom: 12, padding: "10px 12px", background: T.purpleL, borderRadius: T.r }}>
-              <p style={{ margin: "0 0 2px", color: T.ink, fontSize: 12, fontWeight: 700, lineHeight: 1.5 }}>{answeringPrompt.en}</p>
-              <p style={{ margin: 0, color: T.inkSoft, fontSize: 11, lineHeight: 1.5, fontStyle: "italic" }}>{answeringPrompt.id_}</p>
+              <p style={{ margin: 0, color: T.ink, fontSize: 12, fontWeight: 700, lineHeight: 1.5 }}>{answeringPrompt.en}</p>
             </div>
           )}
 
@@ -280,11 +295,14 @@ export function MyChildScreen({ childCtx }) {
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: children?.length > 1 ? 6 : 20 }}>
           <ChildAvatar value={activeChild.emoji} size={36} active={true} borderColor={T.purple} />
           <p style={{ margin: 0, fontWeight: 800, color: T.ink, fontSize: 16 }}>{activeChild.name}</p>
+          {ageFromDob(activeChild.dob) && (
+            <span style={{ background: T.purpleL, color: T.purple, fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 99 }}>{ageFromDob(activeChild.dob)}</span>
+          )}
         </div>
       )}
 
       {activeChild && children?.length > 1 && (
-        <p style={{ margin: "0 0 20px", color: T.inkMuted, fontSize: 12, lineHeight: 1.5 }}>Mau lihat data anak lain? Ketuk anaknya di tab Home untuk ganti.</p>
+        <p style={{ margin: "0 0 20px", color: T.inkMuted, fontSize: 12, lineHeight: 1.5 }}>Want to view another child's data? Tap them on the Home tab to switch.</p>
       )}
 
       {isFosterChild && (
@@ -302,7 +320,7 @@ export function MyChildScreen({ childCtx }) {
       )}
 
       <div style={{ display: "flex", background: T.border, borderRadius: T.r, padding: 3, gap: 3, marginBottom: 24 }}>
-        {[["profile","Profil Anak"],["devlog","Development"]].map(([v, l]) => (
+        {[["profile","Child Profile"],["devlog","Development"]].map(([v, l]) => (
           <button key={v} onClick={() => setSubTab(v)} style={{ flex: 1, padding: "10px", borderRadius: 9, background: subTab === v ? T.surface : "transparent", border: "none", fontWeight: 700, fontSize: 13, color: subTab === v ? T.ink : T.inkMuted, cursor: "pointer", fontFamily: T.fontBody, boxShadow: subTab === v ? T.shadow : "none", transition: "all 0.2s" }}>{l}</button>
         ))}
       </div>
