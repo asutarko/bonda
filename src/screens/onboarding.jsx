@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import Swal from "sweetalert2";
 import { supabase } from "../lib/supabase";
 import { uploadPhoto } from "../hooks";
 import { T } from "../theme";
@@ -160,7 +161,7 @@ export function AddChildScreen({ childCtx, pop }) {
     const id = await addChild({ name: name.trim(), emoji: photo || emoji, dob, gender, caregiverType, caregiverLabel: finalCaregiverLabel, hasSpecialNeeds: true, verbalStatus, knownTriggers: hasTriggers === "Yes" ? knownTriggers.trim() : "", therapySchedule: hasTherapy === "Yes" ? therapySchedule.trim() : "", dietProgram: hasDiet === "Yes" ? dietProgram.trim() : "" });
     setSaving(false);
     if (!id) return setErr("Could not save the profile. Please try again.");
-    alert("Data berhasil disimpan");
+    await Swal.fire({ icon: "success", title: "Data berhasil disimpan", confirmButtonColor: T.purple });
     pop();
   };
 
@@ -442,7 +443,7 @@ export function ChildProfileForm({ childCtx, onSaved, onCancel, onDeleted, showH
     }
     updateChild(activeChild.id, { name: name.trim(), emoji: emojiValue, dob, gender, caregiverType, caregiverLabel: finalCaregiverLabel, hasSpecialNeeds: true, verbalStatus, knownTriggers: hasTriggers === "Yes" ? knownTriggers.trim() : "", therapySchedule: hasTherapy === "Yes" ? therapySchedule.trim() : "", dietProgram: hasDiet === "Yes" ? dietProgram.trim() : "" });
     setSaving(false);
-    alert("Data berhasil disimpan");
+    await Swal.fire({ icon: "success", title: "Data berhasil disimpan", confirmButtonColor: T.purple });
     onSaved && onSaved();
   };
 

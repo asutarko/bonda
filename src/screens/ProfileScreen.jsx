@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import Swal from "sweetalert2";
 import { supabase } from "../lib/supabase";
 import { uploadPhoto } from "../hooks";
 import { T } from "../theme";
@@ -90,6 +91,7 @@ export function EditProfileScreen({ account, pop }) {
     if (error) { setSaving(false); return setErr(error.message); }
     await supabase.from("profiles").update({ avatar: avatarValue, phone: phone.trim(), address: address.trim(), relationship, occupation, nationality, marital_status: maritalStatus }).eq("id", account.id);
     setSaving(false);
+    await Swal.fire({ icon: "success", title: "Data berhasil disimpan", confirmButtonColor: T.purple });
     pop();
   };
 
