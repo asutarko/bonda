@@ -1,12 +1,55 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "../lib/supabase";
 import { T } from "../theme";
 import { Page, SectionLabel, Card, Badge } from "../ui";
+
+export const emotionFromRow = (row) => ({
+  id: row.key,
+  label: row.label,
+  color: row.color,
+  bg: row.bg,
+  source: row.source,
+  signs: row.signs || [],
+  actions: row.actions || [],
+});
+
+export const behaviourFromRow = (row) => ({
+  id: row.key,
+  icon: row.icon,
+  label: row.label,
+  urgency: row.urgency,
+  summary: row.summary,
+  source: row.source,
+  why: row.why || [],
+  actions: row.actions || [],
+});
 
 export function EmotionsBehavioursScreen({ pop }) {
   const [subTab, setSubTab] = useState("emotions"); // emotions | behaviours
   const [activeEmotion, setActiveEmotion] = useState(null);
   const [emotionTab, setEmotionTab] = useState("signs");
   const [activeBehaviour, setActiveBehaviour] = useState(null);
+  const [emotions, setEmotions] = useState([]);
+  const [loadingEmotions, setLoadingEmotions] = useState(true);
+  const [behaviours, setBehaviours] = useState([]);
+  const [loadingBehaviours, setLoadingBehaviours] = useState(true);
+
+  useEffect(() => {
+    const loadEmotions = async () => {
+      setLoadingEmotions(true);
+      const { data } = await supabase.from("emotions_guide").select("*").order("sort_order");
+      setEmotions((data || []).map(emotionFromRow));
+      setLoadingEmotions(false);
+    };
+    const loadBehaviours = async () => {
+      setLoadingBehaviours(true);
+      const { data } = await supabase.from("behaviours_guide").select("*").order("sort_order");
+      setBehaviours((data || []).map(behaviourFromRow));
+      setLoadingBehaviours(false);
+    };
+    loadEmotions();
+    loadBehaviours();
+  }, []);
 
   if (activeBehaviour) return <BehaviourDetail b={activeBehaviour} onBack={() => setActiveBehaviour(null)} />;
   if (activeEmotion) return <EmotionDetail e={activeEmotion} tab={emotionTab} setTab={setEmotionTab} onBack={() => setActiveEmotion(null)} />;
@@ -23,8 +66,11 @@ export function EmotionsBehavioursScreen({ pop }) {
         <>
           <SectionLabel style={{ marginBottom: 10 }}>Emotions</SectionLabel>
           <p style={{ margin: "0 0 14px", color: T.inkSoft, fontSize: 13, lineHeight: 1.6 }}>Tap an emotion to see what it looks like in a non-verbal autistic child — and exactly what to do.</p>
+          {loadingEmotions ? (
+            <p style={{ margin: 0, color: T.inkSoft, fontSize: 13 }}>Loading emotions...</p>
+          ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {EMOTIONS.map(e => (
+            {emotions.map(e => (
               <Card key={e.id} onClick={() => { setActiveEmotion(e); setEmotionTab("signs"); }} style={{ padding: "14px 16px" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
                   <div style={{ width: 48, height: 48, borderRadius: "50%", flexShrink: 0, overflow: "hidden" }}>
@@ -39,6 +85,7 @@ export function EmotionsBehavioursScreen({ pop }) {
               </Card>
             ))}
           </div>
+          )}
 
           <div style={{ marginTop: 20, padding: "14px 16px", background: T.amberL, borderRadius: T.r, border: `1px solid ${T.amber}25` }}>
             <p style={{ margin: 0, color: T.amber, fontSize: 12, fontWeight: 700, lineHeight: 1.7 }}>🧭 Every autistic child is different. Bonda gives you <strong>frameworks, not prescriptions</strong>. Use what fits your child, leave what doesn't. You know them best.</p>
@@ -50,8 +97,11 @@ export function EmotionsBehavioursScreen({ pop }) {
         <>
           <SectionLabel style={{ marginBottom: 10 }}>Behaviours</SectionLabel>
           <p style={{ margin: "0 0 14px", color: T.inkSoft, fontSize: 13, lineHeight: 1.6 }}>Research-backed explanations of specific behaviours parents find confusing or worrying — with practical steps.</p>
+          {loadingBehaviours ? (
+            <p style={{ margin: 0, color: T.inkSoft, fontSize: 13 }}>Loading behaviours...</p>
+          ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {BEHAVIOURS.map(b => (
+            {behaviours.map(b => (
               <Card key={b.id} onClick={() => setActiveBehaviour(b)} style={{ padding: "14px 16px" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
                   <div style={{ width: 48, height: 48, borderRadius: 14, background: b.urgency ? T.redL : T.purpleL, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, border: `1.5px solid ${b.urgency ? T.red + "25" : T.purple + "20"}` }}>
@@ -69,6 +119,7 @@ export function EmotionsBehavioursScreen({ pop }) {
               </Card>
             ))}
           </div>
+          )}
           <div style={{ marginTop: 16, padding: "14px 16px", background: T.amberL, borderRadius: T.r }}>
             <p style={{ margin: 0, color: T.amber, fontSize: 12, fontWeight: 700, lineHeight: 1.7 }}>💡 Every behaviour is communication. Before trying to stop it, ask: <em>what is my child trying to tell me?</em> Understanding function is the key to finding a real solution.</p>
           </div>
@@ -144,159 +195,6 @@ export const EmotionIllustration = ({ id, size = 48 }) => {
 };
 
 // Quick action illustrations — geometric scene icons
-
-export const EMOTIONS = [
-  {
-    id: "happy", emoji: "😊", label: "Happy", color: "#D97706", bg: "#FEF3C7",
-    signs: [
-      { title: "Happy stimming", body: "Hand flapping, clapping, rocking with a smile. Research confirms these are expressions of joy in autistic children — not problems to suppress." },
-      { title: "Jumping or spinning", body: "Full-body excitement release. A 2020 Journal of Autism study found stimming amplifies joy the way laughter does for neurotypical children." },
-      { title: "Happy sounds", body: "Squealing, humming, repeating favourite sounds. These are positive vocal stims — the child's version of laughing out loud." },
-      { title: "Approaching you", body: "Moving closer, leaning in, brief eye contact — the child is seeking shared positive experience with someone they feel safe with." },
-      { title: "Relaxed body", body: "Loose limbs, open posture, visible smile. Physical relaxation is one of the most reliable cross-cultural happiness signals, including in ASD." },
-    ],
-    actions: [
-      { title: "Join in — don't stop it", body: "Mirror their joy. If they're flapping, flap with them. Research shows shared positive stimming deepens parent-child attachment in ASD." },
-      { title: "Name what made them happy", body: "Point to the object or activity and say its name calmly. You are building a vocabulary of joy that your child can eventually use to ask for more." },
-      { title: "Repeat it soon", body: "If something lit them up, offer it again within the next day. Positive emotional experiences build the neural pathways that support emotional stability." },
-    ],
-  },
-  {
-    id: "sad", emoji: "😢", label: "Sad", color: "#2563EB", bg: "#DBEAFE",
-    signs: [
-      { title: "Looking away more", body: "Gaze avoidance increases during sadness. Autistic children process sadness differently — reduced eye contact with familiar people is a key signal." },
-      { title: "Retreating or hiding", body: "Moving to a corner, under a table, or to their room. This is internalized sadness, not rejection of you." },
-      { title: "Flat expression", body: "May look blank or 'empty'. Research consistently shows autistic children feel emotions just as intensely — their faces just show it differently." },
-      { title: "Going quiet", body: "A sudden drop in their usual noise level — fewer sounds, less stimming. Silence below their baseline is a meaningful signal." },
-      { title: "Refusing preferred foods", body: "Emotionally-driven food refusal is documented in non-verbal ASD. When a child stops wanting their favourite thing, something emotional is happening." },
-    ],
-    actions: [
-      { title: "Sit near them silently", body: "Your calm physical presence is more soothing than words. For non-verbal children, nearness without demand is the most regulating thing you can offer." },
-      { title: "Offer their comfort object", body: "Without asking. Without talking. Just place it near them. Familiar objects reduce cortisol in autistic children during emotional distress." },
-      { title: "Play a familiar calm song", body: "Music activates different brain pathways than speech. A known, gentle song can shift emotional state without requiring anything from the child." },
-      { title: "Give it time", body: "Autistic children often need longer recovery time from sadness. Resist the urge to 'fix' it quickly. Presence without pressure is the intervention." },
-    ],
-  },
-  {
-    id: "angry", emoji: "😤", label: "Angry", color: "#DC2626", bg: "#FEE2E2",
-    signs: [
-      { title: "Self-injury (SIB)", body: "Head banging, biting self, hitting self. This is communicative — the child is expressing peak frustration they cannot put into words. It is not a behaviour problem." },
-      { title: "Hitting or throwing", body: "Aggression peaks during unmet needs, transitions, or sensory overload — not due to bad character. The body is doing what the voice cannot." },
-      { title: "Fast or loud breathing", body: "A physiological sign the nervous system is activating. This is the warning window before a meltdown — the moment to intervene calmly." },
-      { title: "Pushing things away", body: "Forcefully rejecting objects, food, or people. Research identifies this as a primary non-verbal 'NO' in minimally verbal autistic children. Honour it." },
-      { title: "Stomping or pacing", body: "Rhythmic physical release of anger. The body is discharging emotion the only way it knows how without language." },
-    ],
-    actions: [
-      { title: "Regulate yourself first", body: "Your nervous system directly co-regulates your child's. Take one slow breath before responding. A calm parent is the most powerful de-escalation tool available." },
-      { title: "Remove all demands", body: "Stop all instructions, questions, and requests the moment you see anger rising. Demands during dysregulation always make it worse — every time." },
-      { title: "Reduce the environment", body: "Lower lights, mute sounds, reduce visual clutter. Give physical space without leaving them alone. The environment may be the cause." },
-      { title: "Balloon breathing — together", body: "Once the peak passes (not during): inhale 4 counts, hold 4, exhale 6. Do it visibly yourself. Non-verbal children co-regulate through mirroring." },
-      { title: "Find the trigger afterward", body: "When calm is restored, ask: what happened 5 minutes before? Transitions? Noise? Hunger? Identifying the trigger prevents the next episode." },
-    ],
-  },
-  {
-    id: "confused", emoji: "😕", label: "Confused", color: "#7C3AED", bg: "#EDE9FE",
-    signs: [
-      { title: "Stimming suddenly increases", body: "Escalating repetitive behaviours signal the nervous system is trying to self-regulate against confusion. It is not bad behaviour — it is a distress response." },
-      { title: "Freezing mid-action", body: "Stopping suddenly and staring blankly. The brain has 'paused' to process. Research confirms this is cognitive overload, not defiance." },
-      { title: "Hyperfocusing on one object", body: "Fixating on something predictable when the world feels unpredictable. It is self-grounding — the child is narrowing their sensory field to something manageable." },
-      { title: "Sudden clinginess", body: "NIH research links confusion in ASD directly to anxiety spikes. Unexplained clinginess often means the child simply doesn't know what comes next." },
-      { title: "Sensory seeking escalates", body: "Jumping, spinning, crashing — the brain is trying to re-orient itself using predictable physical input when the situation makes no sense." },
-    ],
-    actions: [
-      { title: "Show, don't tell", body: "Point, gesture, demonstrate. For non-verbal children, visual and physical information bypasses the confusion that verbal language in a distressed state creates." },
-      { title: "Go to the visual schedule", body: "Open it together. Point to what comes next. Predictability is the antidote to confusion — it instantly lowers the anxiety that drives the behaviour." },
-      { title: "Slow everything down", body: "Move slower, speak slower, reduce background noise. A confused autistic brain needs processing time — urgency and speed make confusion dramatically worse." },
-      { title: "Return to a known routine", body: "A familiar song, a known activity, a regular sequence. Predictable structure restores the sense of safety that confusion takes away." },
-    ],
-  },
-  {
-    id: "excited", emoji: "🤩", label: "Excited", color: "#6D28D9", bg: "#EDE9FE",
-    signs: [
-      { title: "Non-stop movement", body: "Running, spinning, jumping — the nervous system is flooded with positive arousal and the body is trying to release it. It looks like happiness, but it needs management." },
-      { title: "Very loud vocalizations", body: "High-pitched squealing, screaming, or phrase repetition. Excitement overflow — the child's internal volume has exceeded their capacity to regulate." },
-      { title: "Grabbing and touching", body: "Over-excitement can look like aggression. The child isn't trying to harm — their sensory system is flooded and reaching for input without impulse control." },
-      { title: "Followed by a crash", body: "Research confirms autistic children frequently meltdown immediately after peak excitement. The nervous system cannot sustain the arousal flood — collapse follows." },
-      { title: "Demanding repetition", body: "Wanting the same experience over and over. The brain is chasing the excitement peak and trying to hold on to it by repeating the trigger." },
-    ],
-    actions: [
-      { title: "Go lower — not higher", body: "Lower your voice, slow your movements. Don't match their energy. Your regulated nervous system is the anchor they need when their own is flooding." },
-      { title: "Use a visual countdown", body: "Show 5 fingers, then 3, then 1 before ending the exciting activity. Abrupt endings trigger meltdowns — the countdown provides a bridge to transition." },
-      { title: "Play a wind-down song", body: "Create a specific calming song used only after exciting events. Over time, the song becomes a nervous system signal: excitement is ending, safety is here." },
-      { title: "Schedule recovery time", body: "After known exciting events — parties, outings, school presentations — schedule 30–60 minutes of quiet time. This prevents the post-excitement meltdown." },
-    ],
-  },
-];
-//  BEHAVIOUR DATA
-
-export const BEHAVIOURS = [
-  {
-    id: "saliva", icon: "💧", label: "Playing with Saliva",
-    urgency: null,
-    summary: "Oral sensory seeking — not a habit or defiance.",
-    source: "Behavior Analysis in Practice; NIH PMC; Griffin OT (2024)",
-    why: [
-      { title: "Oral sensory seeking", body: "The mouth has the densest sensory receptors in the body. Saliva provides texture, temperature, and wetness — a free, always-available sensory input for a child whose oral system is under-stimulated." },
-      { title: "Proprioceptive regulation", body: "The jaw is one of the body's most powerful muscles. Oral activity sends strong proprioceptive signals that help organise and calm the nervous system." },
-      { title: "A form of stimming", body: "Like hand-flapping or rocking, saliva play is repetitive, rhythmic, and calming. It is not a hygiene failure — it is self-regulation." },
-      { title: "Low oral awareness", body: "Some autistic children have reduced sensory awareness around the mouth. They may not realise they are drooling or doing it at all." },
-    ],
-    actions: ["Rule out medical causes first — enlarged tonsils or oral motor weakness can increase drooling.", "Track when it happens: bored? Stressed? Excited? Timing reveals function.", "Offer safe alternatives: silicone chew necklaces, chewy foods, sour snacks.", "Never punish or shame — calmly redirect to a chew toy without drawing attention."],
-  },
-  {
-    id: "eyepoke", icon: "👁️", label: "Digging Fingers into Eyes",
-    urgency: "⚠️ Can damage vision over time. Requires consistent redirection.",
-    summary: "Visual stimming — seeking phosphene light sensations.",
-    source: "Blue ABA; Wonderbaby.org; Autism Research Institute",
-    why: [
-      { title: "Seeking phosphenes", body: "Pressing the eyes creates bright flashes of light (phosphenes) generated by pressure on the retina. For a visually under-stimulated child, this is genuinely fascinating and calming." },
-      { title: "Activates the calm reflex", body: "Eye pressure activates the oculocardiac reflex, which slows the heart rate. The child may have discovered this accidentally and uses it to self-soothe." },
-      { title: "Response to overwhelm", body: "Often escalates during sensory overload or anxiety — pressing the eyes shuts out chaotic external visual input and replaces it with predictable internal sensation." },
-      { title: "Boredom", body: "In low-stimulation environments, pressing the eyes creates a more interesting visual experience than the surroundings." },
-    ],
-    actions: ["Get an eye exam first — undiagnosed vision problems can trigger this.", "Offer rich visual alternatives: lava lamps, fibre optic lights, glitter jars.", "Gently redirect hands to a fidget toy when you see it starting.", "🚨 If frequent and forceful: see an ophthalmologist — repeated pressure can damage the retina."],
-  },
-  {
-    id: "skinpick", icon: "🩹", label: "Skin Picking Until Bleeding",
-    urgency: "🚨 Medical alert — open wounds risk infection. Clean and cover immediately.",
-    summary: "Sensory seeking or emotional dysregulation — not deliberate self-harm.",
-    source: "CHOP Autism Roadmap; NIH PMC; Journal of Autism & Developmental Disorders (2024)",
-    why: [
-      { title: "Sensory seeking (most common)", body: "Research from CHOP confirms skin picking in ASD is primarily driven by the sensory feedback it provides — pressure, slight pain, and texture create an input that regulates an under-stimulated nervous system." },
-      { title: "Emotional dysregulation outlet", body: "A 2024 NIH study found self-rubbing and scratching are most strongly linked to emotion dysregulation. When a child cannot express frustration or anxiety verbally, the body becomes the outlet." },
-      { title: "Automatic reinforcement", body: "The behaviour itself feels good — creating an internal sensory reward that is very hard to extinguish without providing a meaningful replacement." },
-      { title: "Anxiety and transition stress", body: "Picking escalates sharply during high-anxiety periods, transitions, or demand situations. It becomes a coping ritual — repetitive, predictable, calming." },
-    ],
-    actions: ["🚨 If bleeding: clean with antiseptic, cover, see a doctor if deep.", "Use physical barriers: soft gloves, long sleeves, bandaged target areas.", "Log: What happened before (trigger)? Where on body? What followed? This reveals function.", "Offer competing sensory input: textured fidgets, kinetic sand, bumpy mats.", "Request a Functional Behaviour Assessment (FBA) from a BCBA — this is the clinical gold standard."],
-  },
-  {
-    id: "hairpull", icon: "🌀", label: "Pulling Own Hair",
-    urgency: "⚠️ Bald patches need professional support. Swallowed hair can cause intestinal blockage.",
-    summary: "Trichotillomania — sensory-compulsive behaviour, not a choice.",
-    source: "NIH PMC11363882 (Cureus, 2024); Autism Research Institute",
-    why: [
-      { title: "Tactile sensory seeking", body: "The texture of hair between fingers and the sensation of pulling and release provides intense proprioceptive input. For sensory-seeking children, this is genuinely pleasurable." },
-      { title: "Tension-release cycle", body: "A 2024 NIH study confirms hair pulling produces a 'sense of relief' — the nervous system experiences a brief tension-and-release that is immediately and powerfully calming." },
-      { title: "Compulsive pattern", body: "Studies confirm 24.7% of autistic children have co-morbid compulsive behaviours including trichotillomania. The pulling becomes ritualistic and shares features with OCD-spectrum behaviours." },
-      { title: "Anxiety response", body: "Escalates during transitions, new environments, or academic demands. It is a coping mechanism — predictable, controllable, immediately soothing for an overwhelmed nervous system." },
-    ],
-    actions: ["See a paediatrician or psychiatrist first to assess for co-occurring anxiety or OCD.", "Keep hands busy: fidget tools, textured gloves, putty, yarn balls.", "Use physical barriers at high-risk times: hats, hair clips, hoods.", "Ask your OT about Habit Reversal Training (HRT) adapted for ASD.", "🚨 If child swallows hair: seek medical attention immediately."],
-  },
-  {
-    id: "pica", icon: "🚨", label: "Eating Non-Food Items (Pica)",
-    urgency: "🚨 DANGEROUS — can cause poisoning, choking, blockage. Requires immediate medical assessment.",
-    summary: "Affects 23–46% of autistic children. Sensory, nutritional, or compulsive in origin.",
-    source: "Autism Research Institute; NIH PMC; DSM-5; Autism Parenting Magazine (2025)",
-    why: [
-      { title: "Oral sensory seeking", body: "The most common driver. Non-food items often provide stronger sensory feedback than food — more intense texture, temperature, or chewing resistance." },
-      { title: "Nutritional deficiency", body: "NIH research links pica to iron, zinc, and calcium deficiencies — the body craves non-food items to compensate for missing minerals. Blood tests can identify this." },
-      { title: "Compulsive and automatic", body: "For many children, pica becomes a compulsive routine maintained by automatic reinforcement — the eating itself feels rewarding regardless of environment." },
-      { title: "Anxiety and overwhelm", body: "The oral act of eating activates the parasympathetic nervous system and has a genuine calming effect, even when the item is non-food." },
-    ],
-    actions: ["🚨 IMMEDIATELY: Remove paint chips, coins, batteries, soil from all accessible areas.", "See a doctor urgently — request blood tests for iron, zinc, calcium, and lead.", "Never leave unsupervised in environments where pica occurs.", "Offer safe oral alternatives: food-grade chew toys, crunchy foods, chewable sensory jewellery.", "🏥 If dangerous item swallowed (battery, coin, sharp object): go to A&E immediately."],
-  },
-];
-// Maps a Supabase "subsidies" row to the shape the Subsidies screen renders.
 
 export const SEMANTIC_ICONS = {
   "Happy stimming":
