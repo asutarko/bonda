@@ -7,7 +7,7 @@ create table if not exists public.children (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
   name text not null,
-  emoji text not null default 'none',s
+  emoji text not null default 'none',
   caregiver_type text not null default 'biological',
   caregiver_label text not null default '',
   schedule_items jsonb not null default '[]'::jsonb,
@@ -40,6 +40,13 @@ alter table public.children add column if not exists diet_program text not null 
 -- Date of birth and gender, shown alongside (and in addition to) the free-text age field.
 alter table public.children add column if not exists dob date;
 alter table public.children add column if not exists gender text not null default '';
+
+-- Free-text age, kept for children added before dob/gender existed.
+alter table public.children add column if not exists age text not null default '';
+
+-- Optional link to the clinic_psychologists directory (see clinics.sql), so a child
+-- can be assigned to the psychologist managing their case.
+alter table public.children add column if not exists psychologist_id uuid references public.clinic_psychologists (id) on delete set null;
 
 create index if not exists children_user_id_idx on public.children (user_id);
 
