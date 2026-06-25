@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { supabase } from "../lib/supabase";
 import { uploadPhoto } from "../hooks";
 import { T } from "../theme";
-import { Page, SectionLabel, Card, Badge, Btn, Input, TextArea, Avatar, Accordion, PageHero, AvatarIllustrations, ChildAvatar, ComAvatar, COM_AVATAR_ILLUSTRATIONS, ROOM_ICONS, ACTIVITY_TEXTAREA_STYLE, ActionIllustration, HeroIllustration } from "../ui";
+import { Page, SectionLabel, Card, Badge, Btn, Input, TextArea, Select, Avatar, Accordion, PageHero, AvatarIllustrations, ChildAvatar, ComAvatar, COM_AVATAR_ILLUSTRATIONS, ROOM_ICONS, ACTIVITY_TEXTAREA_STYLE, ActionIllustration, HeroIllustration } from "../ui";
 import { CHILD_AVATARS, DEFAULT_CHILDREN, DEFAULT_SCHEDULE, ROOM_COLORS, SOS_COLORS, VERBAL_STATUS_OPTIONS, RELATIONSHIP_OPTIONS } from "../data";
 
 export function AuthScreen() {
@@ -162,34 +162,12 @@ export function AuthScreen() {
 
       <Input label="Your name (shown to other parents)" value={regName} onChange={e => setRegName(e.target.value)} placeholder="e.g. Sarah, Mum of Aiden" />
 
-      <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>Gender</p>
-      <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
-        {["Male", "Female"].map(opt => {
-          const isActive = regGender === opt;
-          return (
-            <button key={opt} onClick={() => setRegGender(isActive ? "" : opt)}
-              style={{ flex: 1, padding: "10px", borderRadius: T.r, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody, background: isActive ? T.purple : T.surface, color: isActive ? "white" : T.ink, border: `1.5px solid ${isActive ? T.purple : T.border}` }}>
-              {opt}
-            </button>
-          );
-        })}
-      </div>
+      <Select label="Gender" value={regGender} onChange={e => setRegGender(e.target.value)} placeholder="Select gender" options={["Male", "Female"]} />
 
       <Input label="Phone number" type="tel" value={regPhone} onChange={e => setRegPhone(e.target.value)} placeholder="e.g. 9123 4567" />
       <Input label="Home address" value={regAddress} onChange={e => setRegAddress(e.target.value)} placeholder="e.g. Blk 123 Ang Mo Kio Ave 3, #04-56" />
 
-      <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>Relationship to the child</p>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 20 }}>
-        {RELATIONSHIP_OPTIONS.map(opt => {
-          const isActive = regRelationship === opt;
-          return (
-            <button key={opt} onClick={() => setRegRelationship(isActive ? "" : opt)}
-              style={{ padding: "8px 14px", borderRadius: 99, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody, background: isActive ? T.purple : T.surface, color: isActive ? "white" : T.ink, border: `1.5px solid ${isActive ? T.purple : T.border}` }}>
-              {opt}
-            </button>
-          );
-        })}
-      </div>
+      <Select label="Relationship to the child" value={regRelationship} onChange={e => setRegRelationship(e.target.value)} placeholder="Select relationship" options={RELATIONSHIP_OPTIONS} />
 
       <Input label="Email" type="email" value={regEmail} onChange={e => setRegEmail(e.target.value)} placeholder="you@example.com" />
       <Input label="Password (min 6 characters)" type="password" value={regPass} onChange={e => setRegPass(e.target.value)} placeholder="Create a password" />
