@@ -48,6 +48,29 @@ alter table public.children add column if not exists age text not null default '
 -- can be assigned to the psychologist managing their case.
 alter table public.children add column if not exists psychologist_id uuid references public.clinic_psychologists (id) on delete set null;
 
+-- Whether this child profile is active. New profiles start active automatically;
+-- the owning parent can view this but cannot change it themselves (enforced below) —
+-- only an admin account (profiles.role = 'admin', managed from the separate admin app)
+-- can flip it.
+alter table public.children add column if not exists active boolean not null default true;
+
+create or replace function public.enforce_children_active_update()
+returns trigger as $$
+begin
+  if new.active is distinct from old.active
+     and not exists (select 1 from public.profiles where id = auth.uid() and role = 'admin') then
+    new.active := old.active;
+  end if;
+  return new;
+end;
+$$ language plpgsql security definer set search_path = public;
+
+drop trigger if exists children_enforce_active_update on public.children;
+create trigger children_enforce_active_update
+  before update on public.children
+  for each row
+  execute function public.enforce_children_active_update();
+
 create index if not exists children_user_id_idx on public.children (user_id);
 
 alter table public.children enable row level security;

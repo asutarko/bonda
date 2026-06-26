@@ -22,9 +22,7 @@ export const QUOTES = [
 
 export function HomeScreen({ childCtx, setTab, push, account }) {
   const { children, activeChild, switchChild } = childCtx;
-  const isAdmin = account?.role === "admin";
   const [quotes, setQuotes] = useState(QUOTES);
-  const [editingQuote, setEditingQuote] = useState(null); // null = closed, {} = new, {...quote} = editing
   const [qIdx, setQIdx] = useState(0);
   const [seen, setSeen] = useState([]);
   const [fade, setFade] = useState(true);
@@ -60,26 +58,6 @@ export function HomeScreen({ childCtx, setTab, push, account }) {
   }, [paused, seen, qIdx, quotes]);
 
   const q = quotes[qIdx] || quotes[0];
-
-  const saveQuote = async () => {
-    const e = editingQuote;
-    if (!e?.q?.trim()) return;
-    const payload = { quote: e.q.trim(), author: (e.a || "").trim() };
-    if (e.id) {
-      await supabase.from("parent_quotes").update(payload).eq("id", e.id);
-    } else {
-      await supabase.from("parent_quotes").insert({ ...payload, created_by: account.id, sort_order: quotes.length });
-    }
-    setEditingQuote(null);
-    await loadQuotes();
-  };
-
-  const deleteQuote = async id => {
-    await supabase.from("parent_quotes").delete().eq("id", id);
-    setQIdx(0);
-    setSeen([]);
-    await loadQuotes();
-  };
 
   const isFoster = activeChild?.caregiverType === "foster";
 
@@ -159,7 +137,7 @@ export function HomeScreen({ childCtx, setTab, push, account }) {
       </div>
 
 
-      <SectionLabel style={{ marginBottom: 10 }} action={isAdmin && !editingQuote && <button onClick={() => setEditingQuote({})} style={{ background: "none", border: "none", color: T.purple, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody }}>+ Add</button>}>💛 For You, Parent</SectionLabel>
+      <SectionLabel style={{ marginBottom: 10 }}>💛 For You, Parent</SectionLabel>
       {q && (
         <div
           style={{ background: T.ink, borderRadius: T.rL, padding: 22, cursor: "pointer" }}
@@ -177,28 +155,6 @@ export function HomeScreen({ childCtx, setTab, push, account }) {
           </div>
         </div>
       )}
-
-      {isAdmin && q?.id && !editingQuote && (
-        <div style={{ display: "flex", gap: 14, marginTop: 8 }}>
-          <button onClick={() => setEditingQuote(q)} style={{ background: "none", border: "none", color: T.purple, fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: T.fontBody, padding: 0 }}>Edit this quote</button>
-          <button onClick={() => deleteQuote(q.id)} style={{ background: "none", border: "none", color: T.red, fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: T.fontBody, padding: 0 }}>Delete</button>
-        </div>
-      )}
-
-      {isAdmin && editingQuote && (
-        <Card style={{ marginTop: 8 }}>
-          <div style={{ marginBottom: 14 }}>
-            <p style={{ margin: "0 0 6px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>Quote</p>
-            <textarea value={editingQuote.q || ""} onChange={e => setEditingQuote(c => ({ ...c, q: e.target.value }))} placeholder="Quote text" rows={3} style={{ width: "100%", padding: "11px 14px", borderRadius: T.r, border: `1.5px solid ${T.border}`, fontSize: 14, fontFamily: T.fontBody, color: T.ink, outline: "none", resize: "vertical", lineHeight: 1.5, boxSizing: "border-box" }} />
-          </div>
-          <Input placeholder="Attribution (e.g. For every autism parent)" value={editingQuote.a || ""} onChange={e => setEditingQuote(c => ({ ...c, a: e.target.value }))} />
-          <div style={{ display: "flex", gap: 8 }}>
-            <Btn onClick={saveQuote} style={{ flex: 1, padding: "10px" }}>{editingQuote.id ? "Save" : "Add"}</Btn>
-            <Btn onClick={() => setEditingQuote(null)} secondary style={{ flex: 1, padding: "10px" }}>Cancel</Btn>
-          </div>
-        </Card>
-      )}
-
 
       <div style={{ marginTop: 16, padding: "14px 16px", background: T.greenL, borderRadius: T.r, border: `1px solid ${T.green}25` }}>
         <p style={{ margin: 0, color: T.green, fontSize: 12, fontWeight: 700, lineHeight: 1.7 }}>1 in 150 children in Singapore is autistic. Government subsidies can reduce early intervention costs by 30–70%. Tap <strong>Subsidies</strong> above to find out what you qualify for.</p>

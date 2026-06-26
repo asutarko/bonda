@@ -20,6 +20,7 @@ export const childFromRow = (row) => ({
   knownTriggers: row.known_triggers || "",
   therapySchedule: row.therapy_schedule || "",
   dietProgram: row.diet_program || "",
+  active: row.active ?? true,
   createdAt: row.created_at,
 });
 
@@ -81,6 +82,8 @@ export function useChildren(userId) {
     return newChild.id;
   };
 
+  // "active" is deliberately not whitelisted below — only an admin account can
+  // change it (enforced by a DB trigger), so the parent-facing app never writes it.
   const updateChild = (id, patch) => {
     setChildren(cs => cs.map(c => c.id === id ? { ...c, ...patch } : c));
     const dbPatch = {};

@@ -3,7 +3,6 @@ import { supabase } from "../lib/supabase";
 import { T } from "../theme";
 import { Page, SectionLabel, Card, Badge, Btn, Input, TextArea, Avatar, Accordion, PageHero, AvatarIllustrations, ChildAvatar, ComAvatar, ROOM_ICONS, ACTIVITY_TEXTAREA_STYLE, ActionIllustration, HeroIllustration } from "../ui";
 import { CHILD_AVATARS, DEFAULT_CHILDREN, DEFAULT_SCHEDULE, ROOM_COLORS, SOS_COLORS, VERBAL_STATUS_OPTIONS } from "../data";
-import { useBackHandler } from "../hooks";
 
 export const RuleIcon = ({ type }) => {
   const isGood = type === "good";
@@ -42,7 +41,6 @@ export const MethodIcon = ({ idx, color }) => {
 };
 
 export function TrainingScreen({ pop, account }) {
-  const isAdmin = account?.role === "admin";
   const [env, setEnv] = useState("home");
   const [view, setView] = useState("rules");
   const [openRule, setOpenRule] = useState(null);
@@ -50,11 +48,6 @@ export function TrainingScreen({ pop, account }) {
   const [rules, setRules] = useState([]);
   const [methods, setMethods] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [editingRule, setEditingRule] = useState(null); // null = closed, {} = new, {...rule} = editing
-  const [editingMethod, setEditingMethod] = useState(null);
-
-  useBackHandler(!!editingRule, () => setEditingRule(null));
-  useBackHandler(!!editingMethod, () => setEditingMethod(null));
 
   const loadTraining = async () => {
     setLoading(true);
@@ -71,61 +64,6 @@ export function TrainingScreen({ pop, account }) {
 
   const ruleList = (e, type) => rules.filter(r => r.env === e && r.type === type);
 
-  const saveRule = async () => {
-    const r = editingRule;
-    if (!r?.label?.trim()) return;
-    const payload = { env: r.env || env, type: r.type || "good", label: r.label.trim(), how: (r.how || "").trim() };
-    if (r.id) {
-      await supabase.from("training_rules").update(payload).eq("id", r.id);
-    } else {
-      await supabase.from("training_rules").insert({ ...payload, created_by: account.id, sort_order: ruleList(payload.env, payload.type).length });
-    }
-    setEditingRule(null);
-    await loadTraining();
-  };
-
-  const deleteRule = async id => {
-    await supabase.from("training_rules").delete().eq("id", id);
-    setOpenRule(null);
-    await loadTraining();
-  };
-
-  const saveMethod = async () => {
-    const m = editingMethod;
-    if (!m?.title?.trim()) return;
-    const payload = { title: m.title.trim(), color_key: m.color_key || "purple", body: (m.body || "").trim(), tip: (m.tip || "").trim() };
-    if (m.id) {
-      await supabase.from("training_methods").update(payload).eq("id", m.id);
-    } else {
-      await supabase.from("training_methods").insert({ ...payload, created_by: account.id, sort_order: methods.length });
-    }
-    setEditingMethod(null);
-    await loadTraining();
-  };
-
-  const deleteMethod = async id => {
-    await supabase.from("training_methods").delete().eq("id", id);
-    setOpenMethod(null);
-    await loadTraining();
-  };
-
-  const renderRuleForm = () => (
-    <Card>
-      <p style={{ margin: "0 0 10px", fontWeight: 800, color: T.purple, fontSize: 14 }}>{editingRule.id ? "Edit Rule" : "New Rule"} <span style={{ color: T.inkMuted, fontWeight: 600, fontSize: 12 }}>· {env === "home" ? "Home" : "School"}</span></p>
-      <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
-        {[["good","Encourage"],["bad","Redirect"]].map(([t, l]) => (
-          <button key={t} onClick={() => setEditingRule(r => ({ ...r, type: t }))} style={{ flex: 1, padding: "8px", borderRadius: T.r, border: `1.5px solid ${(editingRule.type || "good") === t ? T.purple : T.border}`, background: (editingRule.type || "good") === t ? T.purpleL : T.surface, fontWeight: 700, fontSize: 12, color: (editingRule.type || "good") === t ? T.purple : T.inkMuted, cursor: "pointer", fontFamily: T.fontBody }}>{l}</button>
-        ))}
-      </div>
-      <Input placeholder="Rule label (e.g. Asking for help)" value={editingRule.label || ""} onChange={e => setEditingRule(r => ({ ...r, label: e.target.value }))} />
-      <textarea value={editingRule.how || ""} onChange={e => setEditingRule(r => ({ ...r, how: e.target.value }))} placeholder="How to handle it" rows={3} style={ACTIVITY_TEXTAREA_STYLE} />
-      <div style={{ display: "flex", gap: 8 }}>
-        <Btn onClick={saveRule} style={{ flex: 1, padding: "10px" }}>{editingRule.id ? "Save" : "Add"}</Btn>
-        <Btn onClick={() => setEditingRule(null)} secondary style={{ flex: 1, padding: "10px" }}>Cancel</Btn>
-      </div>
-    </Card>
-  );
-
   const renderRuleGroup = (type, color, colorL, label, icon) => (
     <>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
@@ -136,7 +74,6 @@ export function TrainingScreen({ pop, account }) {
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
         {ruleList(env, type).map((r) => {
-          if (isAdmin && editingRule?.id === r.id) return <div key={r.id}>{renderRuleForm()}</div>;
           const key = `${type}${r.id}`;
           const isOpen = openRule === key;
           return (
@@ -149,21 +86,11 @@ export function TrainingScreen({ pop, account }) {
               {isOpen && (
                 <div style={{ margin: "12px 0 0 48px", padding: "10px 12px", background: T.surface, borderRadius: T.r }}>
                   <p style={{ margin: 0, color: T.inkSoft, fontSize: 13, lineHeight: 1.7 }}>{r.how}</p>
-                  {isAdmin && (
-                    <div style={{ display: "flex", gap: 14, marginTop: 10 }} onClick={e => e.stopPropagation()}>
-                      <button onClick={() => setEditingRule(r)} style={{ background: "none", border: "none", color: T.purple, fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: T.fontBody, padding: 0 }}>Edit</button>
-                      <button onClick={() => deleteRule(r.id)} style={{ background: "none", border: "none", color: T.red, fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: T.fontBody, padding: 0 }}>Delete</button>
-                    </div>
-                  )}
                 </div>
               )}
             </Card>
           );
         })}
-        {isAdmin && (!editingRule || editingRule.id || (editingRule.type || "good") !== type) && (
-          <Btn onClick={() => setEditingRule({ env, type })} secondary full>+ Add {label} Rule</Btn>
-        )}
-        {isAdmin && editingRule && !editingRule.id && (editingRule.type || "good") === type && renderRuleForm()}
       </div>
     </>
   );
@@ -230,39 +157,11 @@ export function TrainingScreen({ pop, account }) {
                     </div>
                     <p style={{ margin: 0, color, fontWeight: 700, fontSize: 12, lineHeight: 1.6 }}>{m.tip}</p>
                   </div>
-                  {isAdmin && (
-                    <div style={{ display: "flex", gap: 14, marginTop: 10 }}>
-                      <button onClick={() => setEditingMethod(m)} style={{ background: "none", border: "none", color: T.purple, fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: T.fontBody, padding: 0 }}>Edit</button>
-                      <button onClick={() => deleteMethod(m.id)} style={{ background: "none", border: "none", color: T.red, fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: T.fontBody, padding: 0 }}>Delete</button>
-                    </div>
-                  )}
                 </div>
               )}
             </Card>
             );
           })}
-          {isAdmin && (
-            editingMethod ? (
-              <Card>
-                <p style={{ margin: "0 0 10px", fontWeight: 800, color: T.purple, fontSize: 14 }}>{editingMethod.id ? "Edit Method" : "New Method"}</p>
-                <Input placeholder="Method title" value={editingMethod.title || ""} onChange={e => setEditingMethod(m => ({ ...m, title: e.target.value }))} />
-                <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
-                  {Object.entries(ROOM_COLORS).map(([key, sc]) => {
-                    const active = (editingMethod.color_key || "purple") === key;
-                    return <button key={key} onClick={() => setEditingMethod(m => ({ ...m, color_key: key }))} style={{ width: 28, height: 28, borderRadius: "50%", background: sc.color, border: active ? `2.5px solid ${T.ink}` : "2.5px solid transparent", cursor: "pointer" }} />;
-                  })}
-                </div>
-                <textarea value={editingMethod.body || ""} onChange={e => setEditingMethod(m => ({ ...m, body: e.target.value }))} placeholder="Description" rows={3} style={ACTIVITY_TEXTAREA_STYLE} />
-                <textarea value={editingMethod.tip || ""} onChange={e => setEditingMethod(m => ({ ...m, tip: e.target.value }))} placeholder="Practical tip for parents" rows={2} style={ACTIVITY_TEXTAREA_STYLE} />
-                <div style={{ display: "flex", gap: 8 }}>
-                  <Btn onClick={saveMethod} style={{ flex: 1, padding: "10px" }}>{editingMethod.id ? "Save" : "Add"}</Btn>
-                  <Btn onClick={() => setEditingMethod(null)} secondary style={{ flex: 1, padding: "10px" }}>Cancel</Btn>
-                </div>
-              </Card>
-            ) : (
-              <Btn onClick={() => setEditingMethod({})} secondary full>+ Add Method</Btn>
-            )
-          )}
         </div>
       )}
     </Page>

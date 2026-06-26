@@ -26,11 +26,8 @@ export function SubsidiesScreen({ pop, account }) {
   const [detail, setDetail] = useState(null);
   const [news, setNews] = useState([]);
   const [loadingNews, setLoadingNews] = useState(true);
-  const [editingNews, setEditingNews] = useState(null); // null = closed, {} = new, {...row} = editing
   const [schemes, setSchemes] = useState([]);
   const [loadingSchemes, setLoadingSchemes] = useState(true);
-  const [editingScheme, setEditingScheme] = useState(null); // null = closed, {} = new, {...row, steps: "a\nb"} = editing
-  const isAdmin = account?.role === "admin";
 
   const loadNews = async () => {
     setLoadingNews(true);
@@ -47,55 +44,6 @@ export function SubsidiesScreen({ pop, account }) {
   };
 
   useEffect(() => { loadNews(); loadSchemes(); }, []);
-
-  const saveNews = async () => {
-    const n = editingNews;
-    if (!n?.scheme?.trim() || !n?.headline?.trim()) return;
-    const payload = { scheme: n.scheme.trim(), headline: n.headline.trim(), is_new: !!n.is_new };
-    if (n.id) {
-      await supabase.from("subsidy_news").update(payload).eq("id", n.id);
-    } else {
-      await supabase.from("subsidy_news").insert({ ...payload, created_by: account.id, sort_order: news.length });
-    }
-    setEditingNews(null);
-    await loadNews();
-  };
-
-  const deleteNews = async id => {
-    await supabase.from("subsidy_news").delete().eq("id", id);
-    await loadNews();
-  };
-
-  const saveScheme = async () => {
-    const s = editingScheme;
-    if (!s?.label?.trim()) return;
-    const payload = {
-      badge: (s.badge || "").trim(),
-      badge_color: (s.badge_color || "").trim(),
-      label: s.label.trim(),
-      org: (s.org || "").trim(),
-      amount: (s.amount || "").trim(),
-      saving: (s.saving || "").trim(),
-      color: (s.color || "").trim(),
-      steps: (s.steps || "").split("\n").map(x => x.trim()).filter(Boolean),
-      eligibility: (s.eligibility || "").trim(),
-      contact: (s.contact || "").trim(),
-      website: (s.website || "").trim(),
-      tip: (s.tip || "").trim(),
-    };
-    if (s.id) {
-      await supabase.from("subsidies").update(payload).eq("id", s.id);
-    } else {
-      await supabase.from("subsidies").insert({ ...payload, created_by: account.id, sort_order: schemes.length });
-    }
-    setEditingScheme(null);
-    await loadSchemes();
-  };
-
-  const deleteScheme = async id => {
-    await supabase.from("subsidies").delete().eq("id", id);
-    await loadSchemes();
-  };
 
   if (detail) return (
     <Page>
@@ -147,11 +95,10 @@ export function SubsidiesScreen({ pop, account }) {
             <div style={{ width: 8, height: 8, borderRadius: "50%", background: loadingNews ? T.amber : T.green }} />
             <p style={{ margin: 0, fontWeight: 800, color: T.ink, fontSize: 13 }}>Latest Updates</p>
           </div>
-          {isAdmin && !editingNews && <button onClick={() => setEditingNews({})} style={{ background: "none", border: "none", color: T.green, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: T.fontBody, padding: 0 }}>+ Add</button>}
         </div>
 
         {loadingNews && <p style={{ margin: 0, color: T.inkSoft, fontSize: 13 }}>Loading latest updates...</p>}
-        {!loadingNews && news.length === 0 && !editingNews && <p style={{ margin: 0, color: T.inkSoft, fontSize: 13 }}>No updates yet. Tap a scheme below for verified information.</p>}
+        {!loadingNews && news.length === 0 && <p style={{ margin: 0, color: T.inkSoft, fontSize: 13 }}>No updates yet. Tap a scheme below for verified information.</p>}
 
         {!loadingNews && news.map((u, i) => (
           <div key={u.id} style={{ padding: "8px 0", borderTop: i === 0 ? "none" : `1px solid rgba(0,0,0,0.06)`, display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
@@ -159,29 +106,8 @@ export function SubsidiesScreen({ pop, account }) {
               <div style={{ display: "flex", gap: 6, alignItems: "center" }}>{u.is_new && <Badge color={T.green} bg={T.green + "20"}>NEW</Badge>}<p style={{ margin: 0, fontWeight: 700, color: T.ink, fontSize: 13 }}>{u.scheme}</p></div>
               <p style={{ margin: "2px 0 0", color: T.inkSoft, fontSize: 12 }}>{u.headline}</p>
             </div>
-            {isAdmin && (
-              <div style={{ display: "flex", gap: 10, flexShrink: 0 }}>
-                <button onClick={() => setEditingNews(u)} style={{ background: "none", border: "none", color: T.purple, fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: T.fontBody, padding: 0 }}>Edit</button>
-                <button onClick={() => deleteNews(u.id)} style={{ background: "none", border: "none", color: T.red, fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: T.fontBody, padding: 0 }}>Delete</button>
-              </div>
-            )}
           </div>
         ))}
-
-        {isAdmin && editingNews && (
-          <div style={{ marginTop: news.length ? 12 : 0, paddingTop: news.length ? 12 : 0, borderTop: news.length ? `1px solid rgba(0,0,0,0.06)` : "none" }}>
-            <Input placeholder="Scheme name (e.g. EIPIC)" value={editingNews.scheme || ""} onChange={e => setEditingNews(n => ({ ...n, scheme: e.target.value }))} />
-            <Input placeholder="Headline" value={editingNews.headline || ""} onChange={e => setEditingNews(n => ({ ...n, headline: e.target.value }))} />
-            <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, fontSize: 12, fontWeight: 700, color: T.inkSoft, cursor: "pointer" }}>
-              <input type="checkbox" checked={!!editingNews.is_new} onChange={e => setEditingNews(n => ({ ...n, is_new: e.target.checked }))} />
-              Mark as NEW
-            </label>
-            <div style={{ display: "flex", gap: 8 }}>
-              <Btn onClick={saveNews} style={{ flex: 1, padding: "10px" }}>{editingNews.id ? "Save" : "Add"}</Btn>
-              <Btn onClick={() => setEditingNews(null)} secondary style={{ flex: 1, padding: "10px" }}>Cancel</Btn>
-            </div>
-          </div>
-        )}
       </Card>
 
       <Card style={{ background: T.ink, border: "none", marginBottom: 20 }}>
@@ -192,30 +118,7 @@ export function SubsidiesScreen({ pop, account }) {
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
         <SectionLabel style={{ margin: 0 }}>All Schemes</SectionLabel>
-        {isAdmin && !editingScheme && <button onClick={() => setEditingScheme({})} style={{ background: "none", border: "none", color: T.purple, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: T.fontBody, padding: 0 }}>+ Add Scheme</button>}
       </div>
-
-      {isAdmin && editingScheme && (
-        <Card style={{ marginBottom: 10 }}>
-          <p style={{ margin: "0 0 10px", fontWeight: 800, color: T.purple, fontSize: 14 }}>{editingScheme.id ? "Edit Scheme" : "New Scheme"}</p>
-          <Input placeholder="Badge (e.g. START HERE)" value={editingScheme.badge || ""} onChange={e => setEditingScheme(s => ({ ...s, badge: e.target.value }))} />
-          <Input placeholder="Badge colour (e.g. #DC2626)" value={editingScheme.badge_color || ""} onChange={e => setEditingScheme(s => ({ ...s, badge_color: e.target.value }))} />
-          <Input placeholder="Scheme name (e.g. EIPIC)" value={editingScheme.label || ""} onChange={e => setEditingScheme(s => ({ ...s, label: e.target.value }))} />
-          <Input placeholder="Organisation (e.g. SG Enable / MSF)" value={editingScheme.org || ""} onChange={e => setEditingScheme(s => ({ ...s, org: e.target.value }))} />
-          <Input placeholder="Amount (e.g. $5–$430/month after subsidy)" value={editingScheme.amount || ""} onChange={e => setEditingScheme(s => ({ ...s, amount: e.target.value }))} />
-          <textarea value={editingScheme.saving || ""} onChange={e => setEditingScheme(s => ({ ...s, saving: e.target.value }))} placeholder="Saving summary" rows={2} style={ACTIVITY_TEXTAREA_STYLE} />
-          <Input placeholder="Accent colour (e.g. #7C3AED)" value={editingScheme.color || ""} onChange={e => setEditingScheme(s => ({ ...s, color: e.target.value }))} />
-          <textarea value={editingScheme.steps || ""} onChange={e => setEditingScheme(s => ({ ...s, steps: e.target.value }))} placeholder={"How-to-apply steps — one per line"} rows={4} style={ACTIVITY_TEXTAREA_STYLE} />
-          <textarea value={editingScheme.eligibility || ""} onChange={e => setEditingScheme(s => ({ ...s, eligibility: e.target.value }))} placeholder="Eligibility" rows={2} style={ACTIVITY_TEXTAREA_STYLE} />
-          <Input placeholder="Contact (e.g. SG Enable: 1800-8585-885)" value={editingScheme.contact || ""} onChange={e => setEditingScheme(s => ({ ...s, contact: e.target.value }))} />
-          <Input placeholder="Website (e.g. enablingguide.sg)" value={editingScheme.website || ""} onChange={e => setEditingScheme(s => ({ ...s, website: e.target.value }))} />
-          <textarea value={editingScheme.tip || ""} onChange={e => setEditingScheme(s => ({ ...s, tip: e.target.value }))} placeholder="Parent tip" rows={2} style={ACTIVITY_TEXTAREA_STYLE} />
-          <div style={{ display: "flex", gap: 8 }}>
-            <Btn onClick={saveScheme} style={{ flex: 1, padding: "10px" }}>{editingScheme.id ? "Save" : "Add"}</Btn>
-            <Btn onClick={() => setEditingScheme(null)} secondary style={{ flex: 1, padding: "10px" }}>Cancel</Btn>
-          </div>
-        </Card>
-      )}
 
       {loadingSchemes ? (
         <p style={{ margin: 0, color: T.inkSoft, fontSize: 13 }}>Loading schemes...</p>
@@ -237,12 +140,6 @@ export function SubsidiesScreen({ pop, account }) {
                 </div>
                 <p style={{ margin: 0, color: T.inkMuted, fontSize: 12 }}>{s.org} · {s.amount}</p>
               </div>
-              {isAdmin && (
-                <div style={{ display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }} onClick={e => e.stopPropagation()}>
-                  <button onClick={() => setEditingScheme({ ...s, steps: (s.steps || []).join("\n") })} style={{ background: "none", border: "none", color: T.purple, fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: T.fontBody, padding: 0 }}>Edit</button>
-                  <button onClick={() => deleteScheme(s.id)} style={{ background: "none", border: "none", color: T.red, fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: T.fontBody, padding: 0 }}>Delete</button>
-                </div>
-              )}
               <span style={{ color: T.inkMuted, fontSize: 20 }}>›</span>
             </div>
           </Card>

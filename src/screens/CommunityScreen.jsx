@@ -5,7 +5,7 @@ import { Page, SectionLabel, Card, Badge, Btn, Input, TextArea, Avatar, Accordio
 import { CHILD_AVATARS, DEFAULT_CHILDREN, DEFAULT_SCHEDULE, ROOM_COLORS, SOS_COLORS, VERBAL_STATUS_OPTIONS } from "../data";
 import { forceSignOut } from "../hooks";
 
-export function ChatUI({ msgs, input, setInput, onSend, onDelete, loading, color, bg, backFn, icon, label, sub, isGroup, account, dmPartner, endRef, adminIds, isAdmin }) {
+export function ChatUI({ msgs, input, setInput, onSend, onDelete, loading, color, bg, backFn, icon, label, sub, isGroup, account, dmPartner, endRef }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 130px)" }}>
       <div style={{ padding: "0 18px 12px", display: "flex", alignItems: "center", gap: 10 }}>
@@ -20,7 +20,6 @@ export function ChatUI({ msgs, input, setInput, onSend, onDelete, loading, color
         {!loading && msgs.length === 0 && <div style={{ textAlign: "center", padding: "48px 20px" }}><div style={{ fontSize: 40, marginBottom: 12 }}>💬</div><p style={{ fontWeight: 700, color: T.ink, fontSize: 15 }}>No messages yet</p><p style={{ color: T.inkMuted, fontSize: 13 }}>{isGroup ? "Be the first to post!" : "Start a private conversation!"}</p></div>}
         {msgs.map(msg => {
           const isMe = msg.authorId ? msg.authorId === account.id : msg.author === account.name;
-          const authorIsAdmin = adminIds?.has(msg.authorId);
           return (
             <div key={msg.id} style={{ display: "flex", flexDirection: isMe ? "row-reverse" : "row", gap: 8, alignItems: "flex-end" }}>
               {!isMe && <ComAvatar value={msg.avatar} size={32} active={false} />}
@@ -28,7 +27,6 @@ export function ChatUI({ msgs, input, setInput, onSend, onDelete, loading, color
                 {!isMe && (
                   <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: T.inkMuted, paddingLeft: 2, display: "flex", alignItems: "center", gap: 5 }}>
                     {msg.author}
-                    {authorIsAdmin && <Badge color={T.purple}>Admin</Badge>}
                   </p>
                 )}
                 <div style={{ background: isMe ? color : T.surface, color: isMe ? "white" : T.ink, borderRadius: isMe ? "16px 16px 4px 16px" : "16px 16px 16px 4px", padding: "10px 14px", boxShadow: T.shadow }}>
@@ -36,7 +34,7 @@ export function ChatUI({ msgs, input, setInput, onSend, onDelete, loading, color
                 </div>
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                   <p style={{ margin: 0, fontSize: 10, color: T.inkMuted }}>{msg.date} · {msg.time}</p>
-                  {(isMe || isAdmin) && <button onClick={() => onDelete(msg.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 10, color: T.red, fontWeight: 700, fontFamily: T.fontBody, padding: 0 }}>Delete</button>}
+                  {isMe && <button onClick={() => onDelete(msg.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 10, color: T.red, fontWeight: 700, fontFamily: T.fontBody, padding: 0 }}>Delete</button>}
                 </div>
               </div>
             </div>
@@ -58,7 +56,6 @@ export function CommunityScreen({ account }) {
   const [view, setView] = useState("home");
   const [dmPremium, setDmPremium] = useState(() => { try { return localStorage.getItem(`cb_premium_${account.name.toLowerCase()}`) === "true"; } catch { return false; } });
   const [showPaywall, setShowPaywall] = useState(false);
-  const isAdmin = account.role === "admin";
 
   const [activeRoom, setActiveRoom] = useState(null);
   const [groupMsgs, setGroupMsgs] = useState([]); const [groupInput, setGroupInput] = useState(""); const [groupLoading, setGroupLoading] = useState(false);
@@ -67,11 +64,7 @@ export function CommunityScreen({ account }) {
   const [dmMsgs, setDmMsgs] = useState([]); const [dmInput, setDmInput] = useState(""); const [dmLoading, setDmLoading] = useState(false);
 
   const [rooms, setRooms] = useState([]);
-  const [adminIds, setAdminIds] = useState(() => new Set());
   const [announcement, setAnnouncement] = useState(null);
-  const [showRoomManager, setShowRoomManager] = useState(false);
-  const [editingRoom, setEditingRoom] = useState(null); // null = closed, {} = new room, {...row} = editing
-  const [announcementInput, setAnnouncementInput] = useState("");
 
   const endRef = useRef(null);
   const channelRef = useRef(null);
@@ -95,9 +88,6 @@ export function CommunityScreen({ account }) {
   useEffect(() => {
     loadRooms();
     loadAnnouncement();
-    supabase.from("profiles").select("id").eq("role", "admin").then(({ data }) => {
-      setAdminIds(new Set((data || []).map(p => p.id)));
-    });
   }, []);
 
   const dmKey = (a, b) => { const s = [a, b].sort(); return `dm_${s[0]}_${s[1]}`; };
@@ -147,8 +137,7 @@ export function CommunityScreen({ account }) {
 
   const deleteGroup = async id => {
     setGroupMsgs(prev => prev.filter(m => m.id !== id));
-    const q = supabase.from("messages").delete().eq("id", id);
-    await (isAdmin ? q : q.eq("author_id", account.id));
+    await supabase.from("messages").delete().eq("id", id).eq("author_id", account.id);
   };
 
   const openDMList = async () => {
@@ -179,43 +168,10 @@ export function CommunityScreen({ account }) {
 
   const deleteDM = async id => {
     setDmMsgs(prev => prev.filter(m => m.id !== id));
-    const q = supabase.from("messages").delete().eq("id", id);
-    await (isAdmin ? q : q.eq("author_id", account.id));
+    await supabase.from("messages").delete().eq("id", id).eq("author_id", account.id);
   };
 
   const purchase = () => { try { localStorage.setItem(`cb_premium_${account.name.toLowerCase()}`, "true"); } catch {} setDmPremium(true); setShowPaywall(false); setTimeout(openDMList, 300); };
-
-  const saveRoom = async () => {
-    const r = editingRoom;
-    if (!r?.label?.trim()) return;
-    const payload = { label: r.label.trim(), description: (r.description || "").trim(), icon_key: r.icon_key || "community", color_key: r.color_key || "purple" };
-    if (r.id) {
-      await supabase.from("community_rooms").update(payload).eq("id", r.id);
-    } else {
-      await supabase.from("community_rooms").insert({ ...payload, sort_order: rooms.length });
-    }
-    setEditingRoom(null);
-    await loadRooms();
-  };
-
-  const deleteRoom = async id => {
-    await supabase.from("community_rooms").delete().eq("id", id);
-    await loadRooms();
-  };
-
-  const postAnnouncement = async () => {
-    const text = announcementInput.trim();
-    if (!text) return;
-    await supabase.from("community_announcements").insert({ text, created_by: account.id });
-    setAnnouncementInput("");
-    await loadAnnouncement();
-  };
-
-  const clearAnnouncement = async () => {
-    if (!announcement) return;
-    await supabase.from("community_announcements").delete().eq("id", announcement.id);
-    setAnnouncement(null);
-  };
 
   const Paywall = () => (
     <div style={{ position: "fixed", inset: 0, background: "rgba(26,26,46,0.7)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
@@ -256,9 +212,9 @@ export function CommunityScreen({ account }) {
 
   if (view === "groupchat" && activeRoom) {
     const c = ROOM_COLORS[activeRoom.color_key] || ROOM_COLORS.purple;
-    return <div style={{ position: "relative" }}>{showPaywall && <Paywall />}<ChatUI msgs={groupMsgs} input={groupInput} setInput={setGroupInput} onSend={sendGroup} onDelete={deleteGroup} loading={groupLoading} color={c.color} bg={c.bg} backFn={() => { leaveRoom(); setView("home"); }} icon={null} label={activeRoom.label} sub={activeRoom.description} isGroup account={account} dmPartner={null} endRef={endRef} adminIds={adminIds} isAdmin={isAdmin} /></div>;
+    return <div style={{ position: "relative" }}>{showPaywall && <Paywall />}<ChatUI msgs={groupMsgs} input={groupInput} setInput={setGroupInput} onSend={sendGroup} onDelete={deleteGroup} loading={groupLoading} color={c.color} bg={c.bg} backFn={() => { leaveRoom(); setView("home"); }} icon={null} label={activeRoom.label} sub={activeRoom.description} isGroup account={account} dmPartner={null} endRef={endRef} /></div>;
   }
-  if (view === "dm_chat" && dmPartner) return <div style={{ position: "relative" }}>{showPaywall && <Paywall />}<ChatUI msgs={dmMsgs} input={dmInput} setInput={setDmInput} onSend={sendDM} onDelete={deleteDM} loading={dmLoading} color={T.purple} bg={T.purpleL} backFn={() => { leaveRoom(); setView("dm_list"); }} icon={dmPartner.avatar} label={dmPartner.name} sub="Private message" isGroup={false} account={account} dmPartner={dmPartner} endRef={endRef} adminIds={adminIds} isAdmin={isAdmin} /></div>;
+  if (view === "dm_chat" && dmPartner) return <div style={{ position: "relative" }}>{showPaywall && <Paywall />}<ChatUI msgs={dmMsgs} input={dmInput} setInput={setDmInput} onSend={sendDM} onDelete={deleteDM} loading={dmLoading} color={T.purple} bg={T.purpleL} backFn={() => { leaveRoom(); setView("dm_list"); }} icon={dmPartner.avatar} label={dmPartner.name} sub="Private message" isGroup={false} account={account} dmPartner={dmPartner} endRef={endRef} /></div>;
 
   if (view === "dm_list") {
     const others = allUsers.filter(u => u.id !== account.id);
@@ -316,7 +272,6 @@ export function CommunityScreen({ account }) {
             <p style={{ margin: "0 0 2px", color: T.purple, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em" }}>📌 Announcement</p>
             <p style={{ margin: 0, color: T.ink, fontSize: 13, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{announcement.text}</p>
           </div>
-          {isAdmin && <button onClick={clearAnnouncement} style={{ background: "none", border: "none", cursor: "pointer", color: T.purple, fontSize: 12, fontWeight: 700, fontFamily: T.fontBody, padding: 0, flexShrink: 0 }}>✕</button>}
         </div>
       )}
 
@@ -324,26 +279,13 @@ export function CommunityScreen({ account }) {
         <p style={{ margin: 0, color: T.amber, fontSize: 12, fontWeight: 700, lineHeight: 1.6 }}>💛 Be kind and supportive. Everyone here is doing their best.</p>
       </div>
 
-      {isAdmin && (
-        <div style={{ background: T.ink, borderRadius: T.rL, padding: 16, marginBottom: 24 }}>
-          <p style={{ margin: "0 0 10px", color: "white", fontWeight: 800, fontSize: 13 }}>⚙️ Admin controls</p>
-          {!announcement && (
-            <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-              <textarea value={announcementInput} onChange={e => setAnnouncementInput(e.target.value)} placeholder="Post a pinned announcement…" rows={1} style={{ flex: 1, padding: "9px 13px", borderRadius: T.r, border: "none", fontSize: 13, fontFamily: T.fontBody, color: T.ink, outline: "none", resize: "none", lineHeight: 1.5, background: "rgba(255,255,255,0.92)" }} />
-              <button onClick={postAnnouncement} disabled={!announcementInput.trim()} style={{ background: T.purple, color: "white", border: "none", borderRadius: T.r, padding: "0 16px", fontWeight: 700, fontSize: 12, cursor: announcementInput.trim() ? "pointer" : "default", fontFamily: T.fontBody, opacity: announcementInput.trim() ? 1 : 0.5 }}>Post</button>
-            </div>
-          )}
-          <button onClick={() => { setShowRoomManager(s => !s); setEditingRoom(null); }} style={{ background: "rgba(255,255,255,0.1)", color: "white", border: "none", borderRadius: T.r, padding: "8px 14px", fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: T.fontBody }}>{showRoomManager ? "Done managing rooms" : "Manage Group Rooms"}</button>
-        </div>
-      )}
-
       <SectionLabel style={{ marginBottom: 10 }}>Group Rooms</SectionLabel>
       <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 24 }}>
         {rooms.map(r => {
           const c = ROOM_COLORS[r.color_key] || ROOM_COLORS.purple;
           const iconFn = ROOM_ICONS[r.icon_key] || ROOM_ICONS.community;
           return (
-            <Card key={r.id} onClick={() => !showRoomManager && openGroup(r)}>
+            <Card key={r.id} onClick={() => openGroup(r)}>
               <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
                 <div style={{ width: 44, height: 44, borderRadius: 12, background: c.bg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, border: `1px solid ${c.color}20` }}>
                   {iconFn(c.color)}
@@ -352,55 +294,11 @@ export function CommunityScreen({ account }) {
                   <p style={{ margin: "0 0 3px", fontWeight: 800, color: c.color, fontSize: 14 }}>{r.label}</p>
                   <p style={{ margin: 0, color: T.inkMuted, fontSize: 12 }}>{r.description}</p>
                 </div>
-                {showRoomManager ? (
-                  <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-                    <button onClick={(e) => { e.stopPropagation(); setEditingRoom({ ...r }); }} style={{ background: T.purpleL, color: T.purple, border: "none", borderRadius: 8, padding: "6px 10px", fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: T.fontBody }}>Edit</button>
-                    <button onClick={(e) => { e.stopPropagation(); deleteRoom(r.id); }} style={{ background: T.redL, color: T.red, border: "none", borderRadius: 8, padding: "6px 10px", fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: T.fontBody }}>Delete</button>
-                  </div>
-                ) : (
-                  <span style={{ color: T.inkMuted, fontSize: 20 }}>›</span>
-                )}
+                <span style={{ color: T.inkMuted, fontSize: 20 }}>›</span>
               </div>
             </Card>
           );
         })}
-
-        {showRoomManager && editingRoom === null && (
-          <Btn onClick={() => setEditingRoom({ label: "", description: "", icon_key: "community", color_key: "purple" })} secondary full>+ New Room</Btn>
-        )}
-
-        {showRoomManager && editingRoom && (
-          <Card style={{ padding: 16 }}>
-            <p style={{ margin: "0 0 10px", fontWeight: 800, color: T.ink, fontSize: 13 }}>{editingRoom.id ? "Edit Room" : "New Room"}</p>
-            <Input label="Name" value={editingRoom.label} onChange={e => setEditingRoom(r => ({ ...r, label: e.target.value }))} placeholder="e.g. New Parents" />
-            <Input label="Description" value={editingRoom.description} onChange={e => setEditingRoom(r => ({ ...r, description: e.target.value }))} placeholder="Short description" />
-            <p style={{ margin: "0 0 6px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>Icon</p>
-            <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
-              {Object.keys(ROOM_ICONS).map(key => {
-                const c = ROOM_COLORS[editingRoom.color_key] || ROOM_COLORS.purple;
-                const active = editingRoom.icon_key === key;
-                return (
-                  <button key={key} onClick={() => setEditingRoom(r => ({ ...r, icon_key: key }))} style={{ width: 40, height: 40, borderRadius: 10, background: active ? c.bg : T.canvas, border: `1.5px solid ${active ? c.color : T.border}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
-                    {ROOM_ICONS[key](c.color)}
-                  </button>
-                );
-              })}
-            </div>
-            <p style={{ margin: "0 0 6px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>Color</p>
-            <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-              {Object.entries(ROOM_COLORS).map(([key, c]) => {
-                const active = editingRoom.color_key === key;
-                return (
-                  <button key={key} onClick={() => setEditingRoom(r => ({ ...r, color_key: key }))} style={{ width: 32, height: 32, borderRadius: "50%", background: c.color, border: active ? `2.5px solid ${T.ink}` : "2.5px solid transparent", cursor: "pointer" }} />
-                );
-              })}
-            </div>
-            <div style={{ display: "flex", gap: 8 }}>
-              <Btn onClick={saveRoom} style={{ flex: 1 }} disabled={!editingRoom.label.trim()}>Save</Btn>
-              <Btn onClick={() => setEditingRoom(null)} secondary style={{ flex: 1 }}>Cancel</Btn>
-            </div>
-          </Card>
-        )}
       </div>
 
       <SectionLabel style={{ marginBottom: 10 }}>Private Messages</SectionLabel>

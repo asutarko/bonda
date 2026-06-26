@@ -48,18 +48,6 @@ export default function Bonda() {
     return () => { cancelled = true; sub.subscription.unsubscribe(); };
   }, []);
 
-  // Load the account's role (user/admin) from the profiles table — not
-  // available on the auth user object itself.
-  useEffect(() => {
-    if (!account?.id) return;
-    let cancelled = false;
-    supabase.from("profiles").select("role").eq("id", account.id).single().then(({ data }) => {
-      if (cancelled || !data) return;
-      setAccount(a => a && a.role === data.role ? a : { ...a, role: data.role });
-    });
-    return () => { cancelled = true; };
-  }, [account?.id]);
-
   const childCtx = useChildren(account?.id);
 
   // Intercept the hardware/browser back button: close any open modal/form,
