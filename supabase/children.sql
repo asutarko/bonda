@@ -94,6 +94,18 @@ create policy "Users can update their own children"
   to authenticated
   using (auth.uid() = user_id);
 
+-- Without this, an admin account (different auth.uid() than the child's owner)
+-- couldn't even issue the UPDATE needed to flip "active" on someone else's child —
+-- the row-ownership policy above would reject it before the active-lock trigger
+-- ever ran. This grants admins update access to any child row; the trigger still
+-- locks "active" against everyone except admins.
+drop policy if exists "Admins can update any child" on public.children;
+create policy "Admins can update any child"
+  on public.children for update
+  to authenticated
+  using (exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'))
+  with check (exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'));
+
 drop policy if exists "Users can delete their own children" on public.children;
 create policy "Users can delete their own children"
   on public.children for delete
