@@ -10,6 +10,7 @@ export function AuthScreen() {
   const [loginEmail, setLoginEmail] = useState(""); const [loginPass, setLoginPass] = useState(""); const [loginErr, setLoginErr] = useState("");
   const [regEmail, setRegEmail] = useState(""); const [regName, setRegName] = useState(""); const [regPass, setRegPass] = useState(""); const [regAvatar, setRegAvatar] = useState("none"); const [regErr, setRegErr] = useState(""); const [regMsg, setRegMsg] = useState(""); const [regPhoto, setRegPhoto] = useState(null); const [regShowCam, setRegShowCam] = useState(false); const [regCamReady, setRegCamReady] = useState(false); const [regCamOk, setRegCamOk] = useState(true); const regVideoRef = useRef(null); const regStreamRef = useRef(null);
   const [regGender, setRegGender] = useState(""); const [regAddress, setRegAddress] = useState(""); const [regPhone, setRegPhone] = useState(""); const [regRelationship, setRegRelationship] = useState("");
+  const [regShowAvatarPicker, setRegShowAvatarPicker] = useState(false);
   const [forgotEmail, setForgotEmail] = useState(""); const [forgotErr, setForgotErr] = useState(""); const [forgotMsg, setForgotMsg] = useState("");
 
   const login = async () => {
@@ -125,6 +126,9 @@ export function AuthScreen() {
                 + Camera
               </button>
             )}
+            <button onClick={() => setRegShowAvatarPicker(v => !v)} style={{ flex: 1, background: regShowAvatarPicker ? T.purple : T.surface, color: regShowAvatarPicker ? "white" : T.purple, border: `1.5px solid ${T.purple}`, borderRadius: T.r, padding: "8px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
+              + Avatar
+            </button>
             {regPhoto && (
               <button onClick={() => setRegPhoto(null)} style={{ background: T.redL, color: T.red, border: "none", borderRadius: T.r, padding: "8px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody }}>✕</button>
             )}
@@ -144,21 +148,25 @@ export function AuthScreen() {
       )}
 
 
-      <SectionLabel style={{ marginBottom: 10 }}>Or choose an illustrated avatar</SectionLabel>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 24, opacity: regPhoto ? 0.4 : 1, transition: "opacity 0.2s" }}>
-        {COM_AVATAR_ILLUSTRATIONS.map(av => {
-          const isActive = !regPhoto && regAvatar === av.key;
-          return (
-            <div key={av.key} onClick={() => { if (!regPhoto) setRegAvatar(av.key); }}
-              style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, cursor: regPhoto ? "default" : "pointer" }}>
-              <div style={{ border: `2.5px solid ${isActive ? T.purple : "transparent"}`, borderRadius: "50%", padding: 1, transform: isActive ? "scale(1.08)" : "scale(1)", transition: "all 0.15s" }}>
-                {av.render(isActive)}
-              </div>
-              <p style={{ margin: 0, fontSize: 9, fontWeight: isActive ? 800 : 600, color: isActive ? T.purple : T.inkMuted, letterSpacing: "0.03em" }}>{av.label}</p>
-            </div>
-          );
-        })}
-      </div>
+      {regShowAvatarPicker && (
+        <>
+          <SectionLabel style={{ marginBottom: 10 }}>Choose an illustrated avatar</SectionLabel>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 24, opacity: regPhoto ? 0.4 : 1, transition: "opacity 0.2s" }}>
+            {COM_AVATAR_ILLUSTRATIONS.map(av => {
+              const isActive = !regPhoto && regAvatar === av.key;
+              return (
+                <div key={av.key} onClick={() => { if (!regPhoto) setRegAvatar(av.key); }}
+                  style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, cursor: regPhoto ? "default" : "pointer" }}>
+                  <div style={{ border: `2.5px solid ${isActive ? T.purple : "transparent"}`, borderRadius: "50%", padding: 1, transform: isActive ? "scale(1.08)" : "scale(1)", transition: "all 0.15s" }}>
+                    {av.render(isActive)}
+                  </div>
+                  <p style={{ margin: 0, fontSize: 9, fontWeight: isActive ? 800 : 600, color: isActive ? T.purple : T.inkMuted, letterSpacing: "0.03em" }}>{av.label}</p>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
 
       <Input label="Your name (shown to other parents)" value={regName} onChange={e => setRegName(e.target.value)} placeholder="e.g. Sarah, Mum of Aiden" />
 

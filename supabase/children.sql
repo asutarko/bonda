@@ -48,11 +48,12 @@ alter table public.children add column if not exists age text not null default '
 -- can be assigned to the psychologist managing their case.
 alter table public.children add column if not exists psychologist_id uuid references public.clinic_psychologists (id) on delete set null;
 
--- Whether this child profile is active. New profiles start active automatically;
--- the owning parent can view this but cannot change it themselves (enforced below) —
+-- Whether this child profile is active. New profiles start inactive (pending review);
+-- the owning parent can view this but cannot set or change it themselves (enforced below) —
 -- only an admin account (profiles.role = 'admin', managed from the separate admin app)
 -- can flip it.
-alter table public.children add column if not exists active boolean not null default true;
+alter table public.children add column if not exists active boolean not null default false;
+alter table public.children alter column active set default false;
 
 create or replace function public.enforce_children_active_update()
 returns trigger as $$
@@ -70,6 +71,25 @@ create trigger children_enforce_active_update
   before update on public.children
   for each row
   execute function public.enforce_children_active_update();
+
+-- A non-admin can still smuggle active=true through the insert itself (the trigger
+-- above only guards updates), so pin it to false on insert unless an admin is creating
+-- the row on a parent's behalf.
+create or replace function public.enforce_children_active_insert()
+returns trigger as $$
+begin
+  if new.active and not exists (select 1 from public.profiles where id = auth.uid() and role = 'admin') then
+    new.active := false;
+  end if;
+  return new;
+end;
+$$ language plpgsql security definer set search_path = public;
+
+drop trigger if exists children_enforce_active_insert on public.children;
+create trigger children_enforce_active_insert
+  before insert on public.children
+  for each row
+  execute function public.enforce_children_active_insert();
 
 create index if not exists children_user_id_idx on public.children (user_id);
 

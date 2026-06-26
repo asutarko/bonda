@@ -51,7 +51,7 @@ export const VERBAL_STATUS_OPTIONS = [
 ];
 
 // The parent account's relationship to the child(ren) they care for.
-export const RELATIONSHIP_OPTIONS = ["Father", "Mother", "Older Sibling", "Younger Sibling", "Grandfather", "Grandmother", "Aunt"];
+export const RELATIONSHIP_OPTIONS = ["Father", "Mother", "Foster/Adoptive Parent", "Older Sibling", "Younger Sibling", "Grandfather", "Grandmother", "Aunt"];
 
 // Standard KTP/Dukcapil occupation categories, kept short so they fit as tap-to-select pills.
 export const OCCUPATION_OPTIONS = ["Unemployed", "Homemaker", "Student", "Civil Servant", "Military/Police", "Private Employee", "Self-Employed", "Farmer", "Laborer", "Retired", "Other"];
