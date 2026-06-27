@@ -60,7 +60,4 @@ export const NATIONALITY_OPTIONS = ["Indonesian Citizen", "Foreign Citizen"];
 
 export const MARITAL_STATUS_OPTIONS = ["Single", "Married", "Divorced", "Widowed"];
 
-// Optional additional-needs profile, filled in by the parent in their own words. This
-// powers the adaptive "Gentle Prompts" check-in questions (see AUTISM_PROMPTS) — e.g. a
-// known trigger or diet program the parent describes here gets reflected back as a
-// check-in question, instead of the app guessing with a generic one.
+// Optional additional-needs profile, filled in by the parent in their own words.
