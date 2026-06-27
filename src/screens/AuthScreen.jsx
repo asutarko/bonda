@@ -110,8 +110,8 @@ export function AuthScreen() {
           <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>
             {regPhoto ? "Photo added ✓ — or choose an avatar below" : "Add a real photo:"}
           </p>
-          <div style={{ display: "flex", gap: 8 }}>
-            <label style={{ flex: 1, background: T.purple, color: "white", borderRadius: T.r, padding: "8px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <label style={{ flex: "1 1 92px", background: T.purple, color: "white", borderRadius: T.r, padding: "8px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
               + Upload
               <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => {
                 const file = e.target.files[0]; if (!file) return;
@@ -122,11 +122,11 @@ export function AuthScreen() {
               }} />
             </label>
             {regCamOk && (
-              <button onClick={openRegCam} style={{ flex: 1, background: T.surface, color: T.purple, border: `1.5px solid ${T.purple}`, borderRadius: T.r, padding: "8px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
+              <button onClick={openRegCam} style={{ flex: "1 1 92px", background: T.surface, color: T.purple, border: `1.5px solid ${T.purple}`, borderRadius: T.r, padding: "8px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
                 + Camera
               </button>
             )}
-            <button onClick={() => setRegShowAvatarPicker(v => !v)} style={{ flex: 1, background: regShowAvatarPicker ? T.purple : T.surface, color: regShowAvatarPicker ? "white" : T.purple, border: `1.5px solid ${T.purple}`, borderRadius: T.r, padding: "8px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
+            <button onClick={() => setRegShowAvatarPicker(v => !v)} style={{ flex: "1 1 92px", background: regShowAvatarPicker ? T.purple : T.surface, color: regShowAvatarPicker ? "white" : T.purple, border: `1.5px solid ${T.purple}`, borderRadius: T.r, padding: "8px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
               + Avatar
             </button>
             {regPhoto && (

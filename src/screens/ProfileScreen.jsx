@@ -114,8 +114,8 @@ export function EditProfileScreen({ account, pop }) {
           <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>
             {isPhotoSelected ? "Photo added ✓ — or choose an avatar below" : "Add a real photo (optional) — or pick an avatar below"}
           </p>
-          <div style={{ display: "flex", gap: 8 }}>
-            <label onClick={() => setShowAvatarPicker(false)} style={{ flex: 1, background: T.purple, color: "white", borderRadius: T.r, padding: "8px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", textAlign: "center", fontFamily: T.fontBody, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <label onClick={() => setShowAvatarPicker(false)} style={{ flex: "1 1 92px", background: T.purple, color: "white", borderRadius: T.r, padding: "8px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", textAlign: "center", fontFamily: T.fontBody, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
               <span style={{ fontSize: 15 }}>+</span> Upload
               <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => {
                 const file = e.target.files[0];
@@ -128,12 +128,12 @@ export function EditProfileScreen({ account, pop }) {
             </label>
 
             {cameraSupported && (
-              <button onClick={() => { setShowAvatarPicker(false); openCamera(); }} style={{ flex: 1, background: T.surface, color: T.purple, borderRadius: T.r, padding: "8px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", border: `1.5px solid ${T.purple}`, fontFamily: T.fontBody, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
+              <button onClick={() => { setShowAvatarPicker(false); openCamera(); }} style={{ flex: "1 1 92px", background: T.surface, color: T.purple, borderRadius: T.r, padding: "8px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", border: `1.5px solid ${T.purple}`, fontFamily: T.fontBody, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
                 <span style={{ fontSize: 15 }}>+</span> Camera
               </button>
             )}
 
-            <button onClick={() => setShowAvatarPicker(v => !v)} style={{ flex: 1, background: showAvatarPicker ? T.purple : T.surface, color: showAvatarPicker ? "white" : T.purple, borderRadius: T.r, padding: "8px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", border: `1.5px solid ${T.purple}`, fontFamily: T.fontBody, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
+            <button onClick={() => setShowAvatarPicker(v => !v)} style={{ flex: "1 1 92px", background: showAvatarPicker ? T.purple : T.surface, color: showAvatarPicker ? "white" : T.purple, borderRadius: T.r, padding: "8px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", border: `1.5px solid ${T.purple}`, fontFamily: T.fontBody, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
               <span style={{ fontSize: 15 }}>+</span> Avatar
             </button>
 
@@ -175,6 +175,7 @@ export function EditProfileScreen({ account, pop }) {
       )}
 
       <SectionLabel style={{ marginBottom: 10 }}>Contact Details</SectionLabel>
+      <Input label="Email address" type="email" value={account?.email || ""} disabled style={{ background: T.border, cursor: "not-allowed", color: T.inkSoft }} />
       <Input label="Phone number" type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="e.g. 9123 4567" />
       <FieldError>{errors.phone}</FieldError>
       <Input label="Home address" value={address} onChange={e => setAddress(e.target.value)} placeholder="e.g. Blk 123 Ang Mo Kio Ave 3, #04-56" />
