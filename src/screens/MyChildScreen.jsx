@@ -263,6 +263,14 @@ export function MyChildScreen({ childCtx }) {
 
   const { activeChild, children, updateChild } = childCtx || {};
   const isFosterChild = activeChild?.caregiverType === "foster";
+  const isChildActive = !!activeChild?.active;
+
+  // The Development tab needs an approved child profile (devLog write policies
+  // assume it). Bounce back to Child Profile if it's somehow selected for a
+  // still-pending child — e.g. switching from an approved child to a pending one.
+  useEffect(() => {
+    if (subTab === "devlog" && !isChildActive) setSubTab("profile");
+  }, [activeChild?.id, isChildActive]);
 
   return (
     <Page>
@@ -296,11 +304,21 @@ export function MyChildScreen({ childCtx }) {
         </div>
       )}
 
-      <div style={{ display: "flex", background: T.border, borderRadius: T.r, padding: 3, gap: 3, marginBottom: 24 }}>
-        {[["profile","Child Profile"],["devlog","Development"]].map(([v, l]) => (
-          <button key={v} onClick={() => setSubTab(v)} style={{ flex: 1, padding: "10px", borderRadius: 9, background: subTab === v ? T.surface : "transparent", border: "none", fontWeight: 700, fontSize: 13, color: subTab === v ? T.ink : T.inkMuted, cursor: "pointer", fontFamily: T.fontBody, boxShadow: subTab === v ? T.shadow : "none", transition: "all 0.2s" }}>{l}</button>
-        ))}
+      <div style={{ display: "flex", background: T.border, borderRadius: T.r, padding: 3, gap: 3, marginBottom: isChildActive ? 24 : 8 }}>
+        {[["profile","Child Profile"],["devlog","Development"]].map(([v, l]) => {
+          const disabled = v === "devlog" && !isChildActive;
+          return (
+            <button key={v} onClick={() => !disabled && setSubTab(v)} disabled={disabled}
+              style={{ flex: 1, padding: "10px", borderRadius: 9, background: subTab === v ? T.surface : "transparent", border: "none", fontWeight: 700, fontSize: 13, color: disabled ? T.inkMuted : (subTab === v ? T.ink : T.inkMuted), cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.5 : 1, fontFamily: T.fontBody, boxShadow: subTab === v ? T.shadow : "none", transition: "all 0.2s" }}>
+              {l}
+            </button>
+          );
+        })}
       </div>
+
+      {activeChild && !isChildActive && (
+        <p style={{ margin: "0 0 20px", color: T.inkMuted, fontSize: 12, lineHeight: 1.5 }}>Development log unlocks once {activeChild.name}'s profile is approved.</p>
+      )}
 
       {subTab === "profile" && activeChild && (
         <ChildProfileForm childCtx={childCtx} showHeader={false} />
