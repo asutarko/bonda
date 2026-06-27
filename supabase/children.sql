@@ -126,8 +126,16 @@ create policy "Admins can update any child"
   using (exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'))
   with check (exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'));
 
+-- Once a child profile is approved (active = true), the owning parent can no
+-- longer delete it themselves; only an admin can (see policy below).
 drop policy if exists "Users can delete their own children" on public.children;
 create policy "Users can delete their own children"
   on public.children for delete
   to authenticated
-  using (auth.uid() = user_id);
+  using (auth.uid() = user_id and active = false);
+
+drop policy if exists "Admins can delete any child" on public.children;
+create policy "Admins can delete any child"
+  on public.children for delete
+  to authenticated
+  using (exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'));

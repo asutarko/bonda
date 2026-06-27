@@ -217,13 +217,16 @@ export default function Bonda() {
       {!current && (
         <div style={{ background: T.surface, borderTop: `1px solid ${T.border}`, padding: "10px 0 16px", position: "sticky", bottom: 0, zIndex: 100 }}>
           <div style={{ display: "flex", justifyContent: "space-around" }}>
-            {NAV.map(n => (
-              <button key={n.id} onClick={() => setTab(n.id)} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, background: "none", border: "none", cursor: "pointer", fontFamily: T.fontBody, padding: "4px 14px", borderRadius: T.r, transition: "all 0.15s" }}>
-                <NavMark id={n.id} active={tab === n.id} />
-                <span style={{ fontSize: 10, fontWeight: tab === n.id ? 800 : 600, color: tab === n.id ? T.purple : T.inkMuted, letterSpacing: "0.02em" }}>{n.label}</span>
-                {tab === n.id && <div style={{ width: 20, height: 2.5, borderRadius: 99, background: T.purple, marginTop: 0 }} />}
-              </button>
-            ))}
+            {NAV.map(n => {
+              const disabled = n.id === "schedule" && childCtx.activeChild && !childCtx.activeChild.active;
+              return (
+                <button key={n.id} onClick={() => { if (!disabled) setTab(n.id); }} disabled={disabled} title={disabled ? `${childCtx.activeChild.name}'s profile is pending admin approval` : undefined} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, background: "none", border: "none", cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.4 : 1, fontFamily: T.fontBody, padding: "4px 14px", borderRadius: T.r, transition: "all 0.15s" }}>
+                  <NavMark id={n.id} active={tab === n.id} />
+                  <span style={{ fontSize: 10, fontWeight: tab === n.id ? 800 : 600, color: tab === n.id ? T.purple : T.inkMuted, letterSpacing: "0.02em" }}>{n.label}</span>
+                  {tab === n.id && <div style={{ width: 20, height: 2.5, borderRadius: 99, background: T.purple, marginTop: 0 }} />}
+                </button>
+              );
+            })}
           </div>
         </div>
       )}

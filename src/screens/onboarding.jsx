@@ -505,7 +505,11 @@ export function ChildProfileForm({ childCtx, onSaved, onCancel, onDeleted, showH
       <div style={{ height: 1, background: T.border, margin: "28px 0 20px" }} />
 
       <SectionLabel style={{ marginBottom: 10 }}>Danger Zone</SectionLabel>
-      {!confirmDelete ? (
+      {activeChild.active ? (
+        <Card style={{ background: T.purpleL }}>
+          <p style={{ margin: 0, color: T.inkSoft, fontSize: 13, fontWeight: 600, lineHeight: 1.6 }}>{activeChild.name}'s profile is active and approved, so it can no longer be deleted from the app. Contact an admin if this profile needs to be removed.</p>
+        </Card>
+      ) : !confirmDelete ? (
         <Btn onClick={() => setConfirmDelete(true)} full danger>Delete {activeChild.name}'s Profile</Btn>
       ) : (
         <Card style={{ background: T.redL, border: `1px solid ${T.red}30` }}>

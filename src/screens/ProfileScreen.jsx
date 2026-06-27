@@ -15,7 +15,10 @@ export function EditProfileScreen({ account, pop }) {
   const [phone, setPhone] = useState(account?.phone || "");
   const [address, setAddress] = useState(account?.address || "");
   const [relationship, setRelationship] = useState(account?.relationship || "");
-  const [occupation, setOccupation] = useState(account?.occupation || "");
+  const initialOccupation = account?.occupation && !OCCUPATION_OPTIONS.includes(account.occupation) ? "Other" : (account?.occupation || "");
+  const initialCustomOccupation = account?.occupation && !OCCUPATION_OPTIONS.includes(account.occupation) ? account.occupation : "";
+  const [occupation, setOccupation] = useState(initialOccupation);
+  const [customOccupation, setCustomOccupation] = useState(initialCustomOccupation);
   const [nationality, setNationality] = useState(account?.nationality || "");
   const [maritalStatus, setMaritalStatus] = useState(account?.maritalStatus || "");
   const [err, setErr] = useState("");
@@ -77,9 +80,12 @@ export function EditProfileScreen({ account, pop }) {
     if (!phone.trim()) fe.phone = "Please enter your phone number.";
     if (!address.trim()) fe.address = "Please enter your home address.";
     if (!relationship) fe.relationship = "Please select your relationship to the child.";
+    if (occupation === "Other" && !customOccupation.trim()) fe.customOccupation = "Please enter your occupation.";
     setErrors(fe);
     if (Object.keys(fe).length > 0) return;
     setErr(""); setSaving(true);
+
+    const finalOccupation = occupation === "Other" ? customOccupation.trim() : occupation;
 
     let avatarValue = photo || avatar;
     if (avatarValue && avatarValue.startsWith("data:")) {
@@ -87,9 +93,9 @@ export function EditProfileScreen({ account, pop }) {
       if (url) avatarValue = url;
     }
 
-    const { error } = await supabase.auth.updateUser({ data: { avatar: avatarValue, phone: phone.trim(), address: address.trim(), relationship, occupation, nationality, maritalStatus } });
+    const { error } = await supabase.auth.updateUser({ data: { avatar: avatarValue, phone: phone.trim(), address: address.trim(), relationship, occupation: finalOccupation, nationality, maritalStatus } });
     if (error) { setSaving(false); return setErr(error.message); }
-    await supabase.from("profiles").update({ avatar: avatarValue, phone: phone.trim(), address: address.trim(), relationship, occupation, nationality, marital_status: maritalStatus }).eq("id", account.id);
+    await supabase.from("profiles").update({ avatar: avatarValue, phone: phone.trim(), address: address.trim(), relationship, occupation: finalOccupation, nationality, marital_status: maritalStatus }).eq("id", account.id);
     setSaving(false);
     await Swal.fire({ icon: "success", title: "Data berhasil disimpan", confirmButtonColor: T.purple });
     pop();
@@ -180,6 +186,12 @@ export function EditProfileScreen({ account, pop }) {
       <SectionLabel style={{ marginBottom: 10 }}>More About You</SectionLabel>
 
       <Select label="Occupation" value={occupation} onChange={e => setOccupation(e.target.value)} placeholder="Select occupation" options={OCCUPATION_OPTIONS} />
+      {occupation === "Other" && (
+        <div style={{ marginTop: -6 }}>
+          <Input value={customOccupation} onChange={e => setCustomOccupation(e.target.value)} placeholder="Enter your occupation" />
+          <FieldError>{errors.customOccupation}</FieldError>
+        </div>
+      )}
       <Select label="Nationality" value={nationality} onChange={e => setNationality(e.target.value)} placeholder="Select nationality" options={NATIONALITY_OPTIONS} />
       <Select label="Marital Status" value={maritalStatus} onChange={e => setMaritalStatus(e.target.value)} placeholder="Select marital status" options={MARITAL_STATUS_OPTIONS} />
 

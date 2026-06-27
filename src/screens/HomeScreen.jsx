@@ -117,7 +117,7 @@ export function HomeScreen({ childCtx, setTab, push, account }) {
                 <path d="M11.5 2.5 L15.5 6.5 L6 16 L2 16.5 L2.5 12.5 Z" stroke="white" strokeWidth="1.4" strokeLinejoin="round" strokeLinecap="round" fill="none"/>
               </svg>
             </button>
-            <button onClick={() => setTab("schedule")} style={{ background: T.purple, color: "white", border: "none", borderRadius: T.r, padding: "8px 14px", fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: T.fontBody }}>Schedule →</button>
+            <button onClick={() => { if (activeChild.active) setTab("schedule"); }} disabled={!activeChild.active} title={!activeChild.active ? `${activeChild.name}'s profile is pending admin approval` : undefined} style={{ background: activeChild.active ? T.purple : "rgba(255,255,255,0.12)", color: activeChild.active ? "white" : "rgba(255,255,255,0.4)", border: "none", borderRadius: T.r, padding: "8px 14px", fontWeight: 700, fontSize: 12, cursor: activeChild.active ? "pointer" : "not-allowed", fontFamily: T.fontBody }}>Schedule →</button>
           </div>
         </Card>
       )}
