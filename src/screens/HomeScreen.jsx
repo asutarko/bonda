@@ -27,6 +27,7 @@ export function HomeScreen({ childCtx, setTab, push, account }) {
   const [seen, setSeen] = useState([]);
   const [fade, setFade] = useState(true);
   const [paused, setPaused] = useState(false);
+  const [banner, setBanner] = useState("");
 
   const loadQuotes = async () => {
     const { data } = await supabase.from("parent_quotes").select("*").order("sort_order").order("created_at");
@@ -37,7 +38,12 @@ export function HomeScreen({ childCtx, setTab, push, account }) {
     }
   };
 
-  useEffect(() => { loadQuotes(); }, []);
+  const loadBanner = async () => {
+    const { data } = await supabase.from("home_banner").select("message").eq("active", true).order("created_at").limit(1).maybeSingle();
+    if (data?.message) setBanner(data.message);
+  };
+
+  useEffect(() => { loadQuotes(); loadBanner(); }, []);
 
   useEffect(() => {
     if (paused || quotes.length < 2) return;
@@ -156,9 +162,11 @@ export function HomeScreen({ childCtx, setTab, push, account }) {
         </div>
       )}
 
-      <div style={{ marginTop: 16, padding: "14px 16px", background: T.greenL, borderRadius: T.r, border: `1px solid ${T.green}25` }}>
-        <p style={{ margin: 0, color: T.green, fontSize: 12, fontWeight: 700, lineHeight: 1.7 }}>1 in 150 children in Singapore is autistic. Government subsidies can reduce early intervention costs by 30–70%. Tap <strong>Subsidies</strong> above to find out what you qualify for.</p>
-      </div>
+      {banner && (
+        <div style={{ marginTop: 16, padding: "14px 16px", background: T.greenL, borderRadius: T.r, border: `1px solid ${T.green}25` }}>
+          <p style={{ margin: 0, color: T.green, fontSize: 12, fontWeight: 700, lineHeight: 1.7 }}>{banner}</p>
+        </div>
+      )}
 
       <p style={{ textAlign: "center", marginTop: 28, marginBottom: 0, color: T.inkMuted, fontSize: 10, fontWeight: 600, letterSpacing: "0.05em" }}>◎ Bonda · Made with 💛 by Norena Darsana</p>
     </Page>
