@@ -4,6 +4,7 @@ import { T } from "./theme";
 import { NavMark, ComAvatar } from "./ui";
 import { useChildren, useBackHandler, backHandlerStack, accountFromUser, forceSignOut } from "./hooks";
 import { FosterHubScreen } from "./screens/FosterHubScreen";
+import { CarerLetterScreen } from "./screens/CarerLetterScreen";
 import { HomeScreen } from "./screens/HomeScreen";
 import { MyChildScreen } from "./screens/MyChildScreen";
 import { AddChildScreen, EditChildScreen } from "./screens/onboarding";
@@ -134,6 +135,7 @@ export default function Bonda() {
     editChild: "Edit Profile",
     editProfile: "Edit User Profile",
     emotionsGuide: "Emotions & Behaviour",
+    carerLetter: "Foster Carer Letter",
   };
 
   const pageTitle = current ? TITLES[current] || "" : TITLES[tab];
@@ -158,7 +160,8 @@ export default function Bonda() {
       case "addChild":   return <AddChildScreen childCtx={childCtx} pop={pop} />;
       case "editChild":  return <EditChildScreen childCtx={childCtx} pop={pop} />;
       case "editProfile": return <EditProfileScreen account={account} pop={pop} />;
-      case "fosterHub":   return <FosterHubScreen pop={pop} />;
+      case "fosterHub":   return <FosterHubScreen pop={pop} push={push} />;
+      case "carerLetter": return <CarerLetterScreen pop={pop} childCtx={childCtx} account={account} />;
       case "emotionsGuide": return <EmotionsBehavioursScreen pop={pop} />;
       default:           return null;
     }

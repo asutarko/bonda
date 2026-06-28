@@ -20,6 +20,7 @@ export const childFromRow = (row) => ({
   knownTriggers: row.known_triggers || "",
   therapySchedule: row.therapy_schedule || "",
   dietProgram: row.diet_program || "",
+  psychologistId: row.psychologist_id || null,
   active: row.active ?? true,
   createdAt: row.created_at,
 });

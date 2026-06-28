@@ -72,6 +72,14 @@ export const ActionIllustration = ({ type, size = 44 }) => {
         <path d="M55 22h6M58 19v6" stroke="#fff" strokeWidth="1.4" strokeLinecap="round"/>
       </svg>
     ),
+    letter: (
+      <svg width={size} height={size} viewBox="0 0 80 80" style={{ display: "block" }}>
+        <rect width="80" height="80" rx="14" fill="#DBEAFE"/>
+        <rect x="20" y="22" width="40" height="36" rx="4" fill="#fff" stroke="#2563EB" strokeWidth="2"/>
+        <path d="M22 24 L40 40 L58 24" stroke="#2563EB" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+        <rect x="27" y="48" width="18" height="3" rx="1.5" fill="#2563EB" opacity="0.4"/>
+      </svg>
+    ),
   };
   return illustrations[type] || null;
 };
