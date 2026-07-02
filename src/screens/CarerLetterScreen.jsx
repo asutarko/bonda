@@ -49,7 +49,8 @@ const fillTemplate = (content, values) => {
     [/\[placement start date\]/gi, values.placementStartDate],
     [/\[fostering agency[^\]]*\]/gi, values.fosteringAgency],
     [/\[case worker name\]/gi, values.caseWorkerName],
-    [/\[case worker phone[^\]]*\]/gi, values.caseWorkerContact],
+    [/\[case worker phone[^\]]*\]/gi, values.caseWorkerPhone],
+    [/\[case worker email[^\]]*\]/gi, values.caseWorkerEmail],
     [/\[short-term[^\]]*\]/gi, values.placementType],
     [/\[court order reference[^\]]*\]/gi, values.courtOrderRef],
     [/\[non-verbal[^\]]*\/ verbal\]/gi, values.verbalText],
@@ -108,7 +109,8 @@ export function CarerLetterScreen({ pop, childCtx, account }) {
   const [placementStartDate, setPlacementStartDate] = useState("");
   const [fosteringAgency, setFosteringAgency] = useState("");
   const [caseWorkerName, setCaseWorkerName] = useState("");
-  const [caseWorkerContact, setCaseWorkerContact] = useState("");
+  const [caseWorkerPhone, setCaseWorkerPhone] = useState("");
+  const [caseWorkerEmail, setCaseWorkerEmail] = useState("");
   const [placementType, setPlacementType] = useState("");
   const [courtOrderRef, setCourtOrderRef] = useState("");
   const [diagnosis, setDiagnosis] = useState("");
@@ -164,7 +166,8 @@ export function CarerLetterScreen({ pop, childCtx, account }) {
       placementStartDate: placementStartDate ? formatDate(placementStartDate) : "to be confirmed",
       fosteringAgency: fosteringAgency.trim() || "to be confirmed",
       caseWorkerName: caseWorkerName.trim() || "to be confirmed",
-      caseWorkerContact: caseWorkerContact.trim() || "to be confirmed",
+      caseWorkerPhone: caseWorkerPhone.trim() || "to be confirmed",
+      caseWorkerEmail: caseWorkerEmail.trim() || "to be confirmed",
       placementType: placementType || "to be confirmed",
       courtOrderRef: courtOrderRef.trim() || "not applicable",
       verbalText: verbalTextFor(selectedChild.verbalStatus),
@@ -222,7 +225,8 @@ export function CarerLetterScreen({ pop, childCtx, account }) {
         <Input label="Placement start date" type="date" value={placementStartDate} onChange={e => setPlacementStartDate(e.target.value)} />
         <Input label="Fostering agency / VWO name" value={fosteringAgency} onChange={e => setFosteringAgency(e.target.value)} />
         <Input label="Case worker name" value={caseWorkerName} onChange={e => setCaseWorkerName(e.target.value)} />
-        <Input label="Case worker phone / email" value={caseWorkerContact} onChange={e => setCaseWorkerContact(e.target.value)} />
+        <Input label="Case worker phone" value={caseWorkerPhone} onChange={e => setCaseWorkerPhone(e.target.value)} />
+        <Input label="Case worker email" value={caseWorkerEmail} onChange={e => setCaseWorkerEmail(e.target.value)} />
         <Select label="Placement status" placeholder="Select placement status (foster carers only)" value={placementType} onChange={e => setPlacementType(e.target.value)} options={PLACEMENT_TYPE_OPTIONS.map(o => ({ value: o, label: o }))} />
         <Input label="Court order reference (if applicable)" value={courtOrderRef} onChange={e => setCourtOrderRef(e.target.value)} />
         <Input label="Diagnosis (if applicable)" placeholder="e.g. Autism Spectrum Disorder" value={diagnosis} onChange={e => setDiagnosis(e.target.value)} />

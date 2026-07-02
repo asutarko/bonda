@@ -7,7 +7,7 @@ import { CHILD_AVATARS, DEFAULT_CHILDREN, DEFAULT_SCHEDULE, ROOM_COLORS, SOS_COL
 
 export function AuthScreen() {
   const [view, setView] = useState("login");
-  const [loginEmail, setLoginEmail] = useState(""); const [loginPass, setLoginPass] = useState(""); const [loginErr, setLoginErr] = useState("");
+  const [loginEmail, setLoginEmail] = useState(""); const [loginPass, setLoginPass] = useState(""); const [loginErr, setLoginErr] = useState(""); const [showLoginPass, setShowLoginPass] = useState(false);
   const [regEmail, setRegEmail] = useState(""); const [regName, setRegName] = useState(""); const [regPass, setRegPass] = useState(""); const [regAvatar, setRegAvatar] = useState("none"); const [regErr, setRegErr] = useState(""); const [regMsg, setRegMsg] = useState(""); const [regPhoto, setRegPhoto] = useState(null); const [regShowCam, setRegShowCam] = useState(false); const [regCamReady, setRegCamReady] = useState(false); const [regCamOk, setRegCamOk] = useState(true); const regVideoRef = useRef(null); const regStreamRef = useRef(null);
   const [regGender, setRegGender] = useState(""); const [regAddress, setRegAddress] = useState(""); const [regPhone, setRegPhone] = useState(""); const [regRelationship, setRegRelationship] = useState("");
   const [regShowAvatarPicker, setRegShowAvatarPicker] = useState(false);
@@ -248,7 +248,23 @@ export function AuthScreen() {
       </div>
       {regMsg && <p style={{ color: T.green, fontSize: 13, fontWeight: 700, margin: "0 0 12px" }}>{regMsg}</p>}
       <Input label="Email" type="email" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} placeholder="you@example.com" />
-      <Input label="Password" type="password" value={loginPass} onChange={e => setLoginPass(e.target.value)} onKeyDown={e => e.key === "Enter" && login()} placeholder="Enter your password" />
+      <div style={{ marginBottom: 14 }}>
+        <p style={{ margin: "0 0 6px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>Password</p>
+        <div style={{ position: "relative" }}>
+          <input
+            type={showLoginPass ? "text" : "password"}
+            value={loginPass}
+            onChange={e => setLoginPass(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && login()}
+            placeholder="Enter your password"
+            style={{ width: "100%", padding: "11px 44px 11px 14px", borderRadius: T.r, border: `1.5px solid ${T.border}`, fontSize: 14, fontFamily: T.fontBody, color: T.ink, background: T.canvas, outline: "none", boxSizing: "border-box" }}
+          />
+          <button type="button" onClick={() => setShowLoginPass(v => !v)} aria-label={showLoginPass ? "Hide password" : "Show password"}
+            style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", padding: 4, lineHeight: 1, fontSize: 16, color: T.inkMuted }}>
+            {showLoginPass ? "🙈" : "👁️"}
+          </button>
+        </div>
+      </div>
       <button onClick={() => { setLoginErr(""); setForgotMsg(""); setForgotEmail(loginEmail); setView("forgot"); }} style={{ display: "block", width: "100%", textAlign: "right", background: "none", border: "none", color: T.purple, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody, padding: 0, margin: "-8px 0 12px" }}>Forgot password?</button>
       {loginErr && <p style={{ color: T.red, fontSize: 13, fontWeight: 700, margin: "-8px 0 12px" }}>{loginErr}</p>}
       <Btn onClick={login} full style={{ marginBottom: 10 }}>Sign In →</Btn>

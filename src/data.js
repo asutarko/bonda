@@ -56,8 +56,6 @@ export const RELATIONSHIP_OPTIONS = ["Father", "Mother", "Foster/Adoptive Parent
 // Standard KTP/Dukcapil occupation categories, kept short so they fit as tap-to-select pills.
 export const OCCUPATION_OPTIONS = ["Unemployed", "Homemaker", "Student", "Civil Servant", "Military/Police", "Private Employee", "Self-Employed", "Farmer", "Laborer", "Retired", "Other"];
 
-export const NATIONALITY_OPTIONS = ["Indonesian Citizen", "Foreign Citizen"];
-
 export const MARITAL_STATUS_OPTIONS = ["Single", "Married", "Divorced", "Widowed"];
 
 // Optional additional-needs profile, filled in by the parent in their own words.

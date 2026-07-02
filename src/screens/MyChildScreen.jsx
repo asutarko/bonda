@@ -57,6 +57,8 @@ export function DevLogSection({ activeChild, updateChild }) {
   const devLog = activeChild.devLog || [];
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [editingPromptId, setEditingPromptId] = useState(null);
+  const [editPromptAnswer, setEditPromptAnswer] = useState([]);
   const [category, setCategory] = useState("other");
   const [source, setSource] = useState("carer");
   const [note, setNote] = useState("");
@@ -92,12 +94,35 @@ export function DevLogSection({ activeChild, updateChild }) {
   const answeredPromptIds = devLog.filter(e => e.promptId).map(e => e.promptId);
   const activePrompts = faqQuestions.filter(q => !answeredPromptIds.includes(q.id));
 
-  const resetForm = () => { setShowForm(false); setEditingId(null); setCategory("other"); setSource("carer"); setNote(""); };
+  const resetForm = () => { setShowForm(false); setEditingId(null); setEditingPromptId(null); setEditPromptAnswer([]); setCategory("other"); setSource("carer"); setNote(""); };
 
   const startAdd = () => { resetForm(); setShowForm(true); };
-  const startEdit = entry => { setEditingId(entry.id); setCategory(entry.category); setSource(entry.source || "carer"); setNote(entry.note); setShowForm(true); };
+  const startEdit = entry => {
+    setEditingId(entry.id);
+    setCategory(entry.category);
+    setSource(entry.source || "carer");
+    setNote(entry.note);
+    setEditingPromptId(entry.promptId || null);
+    const question = entry.promptId ? faqQuestions.find(q => q.id === entry.promptId) : null;
+    // Older entries were only saved with the joined answer text, not option ids
+    // — fall back to matching options by label so the combobox still preselects.
+    const answerIds = entry.optionIds || (question ? question.options.filter(o => (entry.note || "").split(", ").includes(o.answer)).map(o => o.id) : []);
+    setEditPromptAnswer(answerIds);
+    setShowForm(true);
+  };
+
+  // If the entry being edited came from a Gentle Prompt, edit it the same way it
+  // was created — via the question's combobox — instead of the generic form.
+  const editingPromptQuestion = editingPromptId ? faqQuestions.find(q => q.id === editingPromptId) : null;
 
   const saveEntry = () => {
+    if (editingId && editingPromptQuestion) {
+      if (!editPromptAnswer.length) return;
+      const finalNote = editingPromptQuestion.options.filter(o => editPromptAnswer.includes(o.id)).map(o => o.answer).join(", ");
+      updateChild(activeChild.id, { devLog: devLog.map(e => e.id === editingId ? { ...e, note: finalNote, optionIds: editPromptAnswer } : e) });
+      resetForm();
+      return;
+    }
     const finalNote = note.trim();
     if (!finalNote) return;
     if (editingId) {
@@ -133,6 +158,7 @@ export function DevLogSection({ activeChild, updateChild }) {
       source: "carer",
       note: p.options.filter(o => pendingAnswers[p.id].includes(o.id)).map(o => o.answer).join(", "),
       promptId: p.id,
+      optionIds: pendingAnswers[p.id],
     }));
     updateChild(activeChild.id, { devLog: [...newEntries, ...devLog] });
 
@@ -187,7 +213,28 @@ export function DevLogSection({ activeChild, updateChild }) {
 
       {!showForm && SHOW_ADD_OBSERVATION && <Btn onClick={startAdd} full style={{ marginBottom: 16 }}>+ Add Observation</Btn>}
 
-      {showForm && (
+      {showForm && editingPromptQuestion && (
+        <Card style={{ marginBottom: 16 }}>
+          <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>{editingPromptQuestion.question}</p>
+          <Select
+            placeholder={editingPromptQuestion.allowMultiple ? undefined : "Select an answer"}
+            multiple={editingPromptQuestion.allowMultiple || undefined}
+            value={editingPromptQuestion.allowMultiple ? editPromptAnswer : (editPromptAnswer[0] || "")}
+            onChange={e => {
+              const ids = editingPromptQuestion.allowMultiple ? Array.from(e.target.selectedOptions, o => o.value) : (e.target.value ? [e.target.value] : []);
+              setEditPromptAnswer(ids);
+            }}
+            options={editingPromptQuestion.options.map(opt => ({ value: opt.id, label: opt.answer }))}
+          />
+
+          <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+            <Btn onClick={saveEntry} disabled={!editPromptAnswer.length} style={{ flex: 1 }}>Save Changes</Btn>
+            <Btn onClick={resetForm} secondary style={{ flex: 1 }}>Cancel</Btn>
+          </div>
+        </Card>
+      )}
+
+      {showForm && !editingPromptQuestion && (
         <Card style={{ marginBottom: 16 }}>
           <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>Category</p>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>

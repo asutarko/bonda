@@ -4,7 +4,7 @@ import { supabase } from "../lib/supabase";
 import { uploadPhoto } from "../hooks";
 import { T } from "../theme";
 import { Page, SectionLabel, Input, Select, FieldError, Btn, ComAvatar, COM_AVATAR_ILLUSTRATIONS } from "../ui";
-import { RELATIONSHIP_OPTIONS, OCCUPATION_OPTIONS, NATIONALITY_OPTIONS, MARITAL_STATUS_OPTIONS } from "../data";
+import { RELATIONSHIP_OPTIONS, OCCUPATION_OPTIONS, MARITAL_STATUS_OPTIONS } from "../data";
 
 export function EditProfileScreen({ account, pop }) {
   const isExistingPhoto = !!(account?.avatar && (account.avatar.startsWith("data:") || account.avatar.startsWith("http")));
@@ -20,11 +20,18 @@ export function EditProfileScreen({ account, pop }) {
   const [occupation, setOccupation] = useState(initialOccupation);
   const [customOccupation, setCustomOccupation] = useState(initialCustomOccupation);
   const [nationality, setNationality] = useState(account?.nationality || "");
+  const [nationalityOptions, setNationalityOptions] = useState([]);
   const [maritalStatus, setMaritalStatus] = useState(account?.maritalStatus || "");
   const [err, setErr] = useState("");
   const [errors, setErrors] = useState({});
   const [photoErr, setPhotoErr] = useState("");
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    supabase.from("nationalities").select("name").order("sort_order").then(({ data, error }) => {
+      if (!error && data) setNationalityOptions(data.map(n => n.name));
+    });
+  }, []);
 
   const videoRef = useRef(null);
   const streamRef = useRef(null);
@@ -193,7 +200,7 @@ export function EditProfileScreen({ account, pop }) {
           <FieldError>{errors.customOccupation}</FieldError>
         </div>
       )}
-      <Select label="Nationality" value={nationality} onChange={e => setNationality(e.target.value)} placeholder="Select nationality" options={NATIONALITY_OPTIONS} />
+      <Select label="Nationality" value={nationality} onChange={e => setNationality(e.target.value)} placeholder="Select nationality" options={nationalityOptions} />
       <Select label="Marital Status" value={maritalStatus} onChange={e => setMaritalStatus(e.target.value)} placeholder="Select marital status" options={MARITAL_STATUS_OPTIONS} />
 
       {err && <p style={{ color: T.red, fontSize: 13, fontWeight: 700, margin: "-8px 0 12px" }}>{err}</p>}
