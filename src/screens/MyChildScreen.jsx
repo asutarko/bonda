@@ -4,6 +4,7 @@ import { T } from "../theme";
 import { Page, SectionLabel, Card, Badge, Btn, Input, TextArea, Select, Avatar, Accordion, PageHero, AvatarIllustrations, ChildAvatar, ComAvatar, ROOM_ICONS, ACTIVITY_TEXTAREA_STYLE, ActionIllustration, HeroIllustration } from "../ui";
 import { CHILD_AVATARS, DEFAULT_CHILDREN, DEFAULT_SCHEDULE, ROOM_COLORS, SOS_COLORS, VERBAL_STATUS_OPTIONS } from "../data";
 import { ChildProfileForm } from "./onboarding";
+import { MedicalDisclaimerBanner } from "../components/bonda-compliance";
 
 export const DEV_LOG_CATEGORIES = [
   { key: "sleep",         label: "Sleep",         emoji: "😴", color: T.purple },
@@ -321,6 +322,7 @@ export function MyChildScreen({ childCtx }) {
 
   return (
     <Page>
+      <MedicalDisclaimerBanner />
 
       {activeChild && (
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: children?.length > 1 ? 6 : 20 }}>

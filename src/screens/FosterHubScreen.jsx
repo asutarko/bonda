@@ -3,6 +3,7 @@ import { supabase } from "../lib/supabase";
 import { T } from "../theme";
 import { Page, SectionLabel, Card, Badge, Btn, Input, TextArea, Avatar, Accordion, PageHero, AvatarIllustrations, ChildAvatar, ComAvatar, ROOM_ICONS, ACTIVITY_TEXTAREA_STYLE, ActionIllustration, HeroIllustration } from "../ui";
 import { CHILD_AVATARS, DEFAULT_CHILDREN, DEFAULT_SCHEDULE, ROOM_COLORS, SOS_COLORS, VERBAL_STATUS_OPTIONS } from "../data";
+import { MedicalDisclaimerBanner } from "../components/bonda-compliance";
 
 export function FosterHubScreen({ pop, push }) {
   const [openSection, setOpenSection] = useState(null);
@@ -87,6 +88,7 @@ export function FosterHubScreen({ pop, push }) {
 
   return (
     <Page>
+      <MedicalDisclaimerBanner />
 
       <div style={{ background: T.ink, borderRadius: T.rL, padding: 22, marginBottom: 20 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 14 }}>

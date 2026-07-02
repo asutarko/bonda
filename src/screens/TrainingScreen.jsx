@@ -3,6 +3,7 @@ import { supabase } from "../lib/supabase";
 import { T } from "../theme";
 import { Page, SectionLabel, Card, Badge, Btn, Input, TextArea, Avatar, Accordion, PageHero, AvatarIllustrations, ChildAvatar, ComAvatar, ROOM_ICONS, ACTIVITY_TEXTAREA_STYLE, ActionIllustration, HeroIllustration } from "../ui";
 import { CHILD_AVATARS, DEFAULT_CHILDREN, DEFAULT_SCHEDULE, ROOM_COLORS, SOS_COLORS, VERBAL_STATUS_OPTIONS } from "../data";
+import { MedicalDisclaimerBanner } from "../components/bonda-compliance";
 
 export const RuleIcon = ({ type }) => {
   const isGood = type === "good";
@@ -97,6 +98,7 @@ export function TrainingScreen({ pop, account }) {
 
   return (
     <Page>
+      <MedicalDisclaimerBanner />
       <h2 style={{ margin: "0 0 12px", color: T.ink, fontSize: 22, fontWeight: 800 }}>Behaviour Training</h2>
       <p style={{ margin: "0 0 20px", color: T.inkSoft, fontSize: 14, lineHeight: 1.6 }}>Research-backed strategies to help your child learn what's expected — at home and at school.</p>
 

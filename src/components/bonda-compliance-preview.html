@@ -1,0 +1,1084 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <title>Bonda — Compliance Module Preview</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    html,body{height:100%;background:#F2FAF6}
+    body{font-family:"Plus Jakarta Sans",sans-serif;-webkit-font-smoothing:antialiased}
+    #root{height:100%}
+    *{scrollbar-width:thin;scrollbar-color:#D4EAE0 transparent}
+    ::-webkit-scrollbar{width:4px}
+    ::-webkit-scrollbar-thumb{background:#D4EAE0;border-radius:2px}
+    @media(min-width:480px){body{background:#0A2218}#root{max-width:430px;margin:0 auto;background:#F2FAF6;min-height:100vh;box-shadow:0 0 60px rgba(0,0,0,0.5)}}
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script>const {useState,useEffect,useRef}=React;</script>
+  <script>
+function _slicedToArray(r, e) { return _arrayWithHoles(r) || _iterableToArrayLimit(r, e) || _unsupportedIterableToArray(r, e) || _nonIterableRest(); }
+function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
+function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return _arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0; } }
+function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
+function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t.return && (u = t.return(), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
+function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
+// ============================================================
+// BONDA — COMPLIANCE MODULE
+// File: bonda-compliance.jsx
+// 
+// Contains:
+//   1. ConsentGate      — blocks app until user accepts
+//   2. PrivacyPolicy    — full PDPA-compliant policy
+//   3. MedicalDisclaimer — required health content disclaimer
+//   4. LegalHub         — all legal docs in one screen
+//   5. DPIASummary      — Data Protection Impact Assessment
+//
+// HOW TO USE:
+//   • Wrap your root <App /> with <ConsentGate>
+//   • Add <LegalHub /> to your settings/footer
+//   • Place <MedicalDisclaimerBanner /> on any health content screen
+//
+// DEVELOPER NOTES:
+//   • Replace DPO_EMAIL with a real monitored inbox before launch
+//   • All consent state uses localStorage — migrate to Supabase when ready
+//   • Tested against PDPA 2012 + PDPC Advisory Guidelines March 2024
+// ============================================================
+
+var _React = React,
+  useState = _React.useState,
+  useEffect = _React.useEffect;
+
+// ── CONFIG — update these before launch ──────────────────────
+var COMPLIANCE_CONFIG = {
+  appName: "Bonda",
+  dpoName: "Norena Darsana",
+  dpoEmail: "norena@bondaapp.sg",
+  // ← set up this email before launch
+  policyDate: "July 2025",
+  policyVersion: "1.0",
+  storageKey: "bonda_consent_v1" // bump version to force re-consent on major changes
+};
+
+// ── DESIGN TOKENS (matches Bonda design system) ───────────────
+var C = {
+  ink: "#065F46",
+  inkSoft: "#2D5A3D",
+  inkMuted: "#7BA08A",
+  canvas: "#F2FAF6",
+  surface: "#FFFFFF",
+  border: "#D4EAE0",
+  primary: "#065F46",
+  primaryL: "#DCFCE7",
+  amber: "#D97706",
+  amberL: "#FEF3C7",
+  red: "#DC2626",
+  redL: "#FEE2E2",
+  green: "#16A34A",
+  greenL: "#DCFCE7",
+  r: "12px",
+  rL: "20px",
+  font: "'Plus Jakarta Sans', sans-serif"
+};
+
+// ── SHARED PRIMITIVES ─────────────────────────────────────────
+var Section = function Section(_ref) {
+  var title = _ref.title,
+    children = _ref.children,
+    _ref$accent = _ref.accent,
+    accent = _ref$accent === void 0 ? C.primary : _ref$accent;
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 16,
+      borderRadius: C.r,
+      overflow: "hidden",
+      border: "1px solid ".concat(C.border)
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: "10px 16px",
+      background: accent + "12",
+      borderBottom: "1px solid ".concat(C.border)
+    }
+  }, /*#__PURE__*/React.createElement("p", {
+    style: {
+      margin: 0,
+      fontWeight: 800,
+      fontSize: 13,
+      color: accent
+    }
+  }, title)), /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: "12px 16px",
+      background: C.surface
+    }
+  }, children));
+};
+var BulletList = function BulletList(_ref2) {
+  var items = _ref2.items,
+    _ref2$color = _ref2.color,
+    color = _ref2$color === void 0 ? C.inkSoft : _ref2$color;
+  return /*#__PURE__*/React.createElement("ul", {
+    style: {
+      margin: 0,
+      paddingLeft: 0,
+      listStyle: "none"
+    }
+  }, items.map(function (item, i) {
+    return /*#__PURE__*/React.createElement("li", {
+      key: i,
+      style: {
+        display: "flex",
+        gap: 8,
+        alignItems: "flex-start",
+        marginBottom: 6
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: C.primary,
+        fontWeight: 700,
+        flexShrink: 0,
+        marginTop: 1
+      }
+    }, "\u2022"), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 13,
+        color: color,
+        lineHeight: 1.7
+      }
+    }, item));
+  }));
+};
+var BackButton = function BackButton(_ref3) {
+  var onBack = _ref3.onBack,
+    _ref3$label = _ref3.label,
+    label = _ref3$label === void 0 ? "← Back" : _ref3$label;
+  return /*#__PURE__*/React.createElement("button", {
+    onClick: onBack,
+    style: {
+      background: "none",
+      border: "none",
+      color: C.primary,
+      fontWeight: 700,
+      fontSize: 14,
+      cursor: "pointer",
+      fontFamily: C.font,
+      padding: "0 0 20px",
+      display: "flex",
+      alignItems: "center",
+      gap: 6
+    }
+  }, label);
+};
+
+// ═════════════════════════════════════════════════════════════
+//  1. CONSENT GATE
+//  Wrap your entire <App /> with this.
+//  The app will not render until the user has accepted.
+//
+//  Usage:
+//    <ConsentGate>
+//      <YourApp />
+//    </ConsentGate>
+// ═════════════════════════════════════════════════════════════
+function ConsentGate(_ref4) {
+  var children = _ref4.children;
+  var _useState = useState("loading"),
+    _useState2 = _slicedToArray(_useState, 2),
+    status = _useState2[0],
+    setStatus = _useState2[1]; // loading | pending | accepted
+  var _useState3 = useState("main"),
+    _useState4 = _slicedToArray(_useState3, 2),
+    screen = _useState4[0],
+    setScreen = _useState4[1]; // main | privacy | disclaimer
+  var _useState5 = useState(false),
+    _useState6 = _slicedToArray(_useState5, 2),
+    checked = _useState6[0],
+    setChecked = _useState6[1];
+  var _useState7 = useState(""),
+    _useState8 = _slicedToArray(_useState7, 2),
+    error = _useState8[0],
+    setError = _useState8[1];
+  useEffect(function () {
+    try {
+      var saved = localStorage.getItem(COMPLIANCE_CONFIG.storageKey);
+      if (saved) {
+        var _JSON$parse = JSON.parse(saved),
+          version = _JSON$parse.version,
+          acceptedAt = _JSON$parse.acceptedAt;
+        if (version === COMPLIANCE_CONFIG.policyVersion) {
+          setStatus("accepted");
+          return;
+        }
+      }
+    } catch (_unused) {}
+    setStatus("pending");
+  }, []);
+  var accept = function accept() {
+    if (!checked) {
+      setError("Please tick the checkbox above to continue.");
+      return;
+    }
+    var record = {
+      version: COMPLIANCE_CONFIG.policyVersion,
+      acceptedAt: new Date().toISOString(),
+      dpoEmail: COMPLIANCE_CONFIG.dpoEmail
+    };
+    try {
+      localStorage.setItem(COMPLIANCE_CONFIG.storageKey, JSON.stringify(record));
+    } catch (_unused2) {}
+    setStatus("accepted");
+  };
+
+  // App is fully consented — render children normally
+  if (status === "accepted") return children;
+
+  // Loading — brief flash while checking localStorage
+  if (status === "loading") return /*#__PURE__*/React.createElement("div", {
+    style: {
+      height: "100vh",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      background: C.canvas
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      width: 40,
+      height: 40,
+      borderRadius: "50%",
+      background: C.primary,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center"
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: "white",
+      fontSize: 18
+    }
+  }, "\u25CE")));
+
+  // Sub-screens — Privacy Policy or Medical Disclaimer
+  if (screen === "privacy") return /*#__PURE__*/React.createElement(PrivacyPolicyScreen, {
+    onBack: function onBack() {
+      return setScreen("main");
+    }
+  });
+  if (screen === "disclaimer") return /*#__PURE__*/React.createElement(MedicalDisclaimerScreen, {
+    onBack: function onBack() {
+      return setScreen("main");
+    }
+  });
+
+  // ── CONSENT GATE MAIN SCREEN ──────────────────────────────
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      minHeight: "100vh",
+      background: C.canvas,
+      fontFamily: C.font,
+      overflowY: "auto"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      maxWidth: 480,
+      margin: "0 auto",
+      padding: "0 0 40px"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: C.primary,
+      padding: "40px 24px 32px",
+      textAlign: "center"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      width: 64,
+      height: 64,
+      borderRadius: "50%",
+      background: "rgba(255,255,255,0.15)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      margin: "0 auto 16px"
+    }
+  }, /*#__PURE__*/React.createElement("svg", {
+    width: "32",
+    height: "32",
+    viewBox: "0 0 32 32",
+    fill: "none"
+  }, /*#__PURE__*/React.createElement("circle", {
+    cx: "16",
+    cy: "16",
+    r: "11",
+    stroke: "white",
+    strokeWidth: "2"
+  }), /*#__PURE__*/React.createElement("circle", {
+    cx: "16",
+    cy: "16",
+    r: "4.5",
+    fill: "white"
+  }), /*#__PURE__*/React.createElement("circle", {
+    cx: "16",
+    cy: "4",
+    r: "2",
+    fill: "white",
+    opacity: "0.5"
+  }), /*#__PURE__*/React.createElement("circle", {
+    cx: "28",
+    cy: "16",
+    r: "2",
+    fill: "white",
+    opacity: "0.5"
+  }), /*#__PURE__*/React.createElement("circle", {
+    cx: "16",
+    cy: "28",
+    r: "2",
+    fill: "white",
+    opacity: "0.5"
+  }), /*#__PURE__*/React.createElement("circle", {
+    cx: "4",
+    cy: "16",
+    r: "2",
+    fill: "white",
+    opacity: "0.5"
+  }))), /*#__PURE__*/React.createElement("h1", {
+    style: {
+      margin: "0 0 8px",
+      color: "white",
+      fontSize: 28,
+      fontWeight: 800,
+      letterSpacing: "-0.03em"
+    }
+  }, "Welcome to Bonda"), /*#__PURE__*/React.createElement("p", {
+    style: {
+      margin: 0,
+      color: "rgba(255,255,255,0.75)",
+      fontSize: 15,
+      lineHeight: 1.6
+    }
+  }, "For the parent who stays.", /*#__PURE__*/React.createElement("br", null), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 13,
+      opacity: 0.7
+    }
+  }, "Before you begin, please read and agree to the following."))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: "24px 20px"
+    }
+  }, /*#__PURE__*/React.createElement(Section, {
+    title: "What Bonda does",
+    accent: C.primary
+  }, /*#__PURE__*/React.createElement(BulletList, {
+    items: ["Helps you understand your autistic child's emotions and behaviours", "Provides a daily visual schedule with activity reminders", "Guides you through Singapore government subsidies and support", "Connects you with other parents in a private community", "Gives foster parents a hub for navigating system challenges"]
+  })), /*#__PURE__*/React.createElement(Section, {
+    title: "\u2695\uFE0F Important: what Bonda is NOT",
+    accent: C.amber
+  }, /*#__PURE__*/React.createElement(BulletList, {
+    items: ["Bonda is NOT a medical app and does not provide medical advice", "Bonda does NOT diagnose autism or any other condition", "Bonda does NOT replace therapists, doctors, or specialists", "Always consult a qualified professional for your child's specific needs", "In an emergency, call 995 or go to your nearest hospital"],
+    color: C.inkSoft
+  })), /*#__PURE__*/React.createElement(Section, {
+    title: "\uD83D\uDD12 Your data and privacy",
+    accent: C.primary
+  }, /*#__PURE__*/React.createElement(BulletList, {
+    items: ["Your child's profile, schedule, and health notes are stored on YOUR device only", "Community accounts use a display name — not your real name", "We never share your data with advertisers or third parties", "Data Protection Officer: ".concat(COMPLIANCE_CONFIG.dpoName, " (").concat(COMPLIANCE_CONFIG.dpoEmail, ")"), "You can delete your data at any time from within the app"]
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 12,
+      display: "flex",
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: function onClick() {
+      return setScreen("privacy");
+    },
+    style: {
+      flex: 1,
+      padding: "8px 12px",
+      borderRadius: C.r,
+      border: "1.5px solid ".concat(C.primary),
+      background: "none",
+      color: C.primary,
+      fontWeight: 700,
+      fontSize: 12,
+      cursor: "pointer",
+      fontFamily: C.font
+    }
+  }, "Read Privacy Policy \u2192"), /*#__PURE__*/React.createElement("button", {
+    onClick: function onClick() {
+      return setScreen("disclaimer");
+    },
+    style: {
+      flex: 1,
+      padding: "8px 12px",
+      borderRadius: C.r,
+      border: "1.5px solid ".concat(C.amber),
+      background: "none",
+      color: C.amber,
+      fontWeight: 700,
+      fontSize: 12,
+      cursor: "pointer",
+      fontFamily: C.font
+    }
+  }, "Read Medical Disclaimer \u2192"))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: C.surface,
+      borderRadius: C.r,
+      padding: "16px",
+      marginBottom: 16,
+      border: "2px solid ".concat(checked ? C.primary : C.border),
+      transition: "border-color 0.2s",
+      cursor: "pointer"
+    },
+    onClick: function onClick() {
+      setChecked(!checked);
+      setError("");
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "flex-start",
+      gap: 12
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      width: 22,
+      height: 22,
+      borderRadius: 6,
+      border: "2px solid ".concat(checked ? C.primary : C.border),
+      background: checked ? C.primary : C.surface,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      flexShrink: 0,
+      transition: "all 0.2s",
+      marginTop: 1
+    }
+  }, checked && /*#__PURE__*/React.createElement("svg", {
+    width: "12",
+    height: "12",
+    viewBox: "0 0 12 12",
+    fill: "none"
+  }, /*#__PURE__*/React.createElement("path", {
+    d: "M2 6 L5 9 L10 3",
+    stroke: "white",
+    strokeWidth: "2",
+    strokeLinecap: "round",
+    strokeLinejoin: "round"
+  }))), /*#__PURE__*/React.createElement("p", {
+    style: {
+      margin: 0,
+      fontSize: 13,
+      color: C.inkSoft,
+      lineHeight: 1.7
+    }
+  }, "I have read and understood the", " ", /*#__PURE__*/React.createElement("span", {
+    onClick: function onClick(e) {
+      e.stopPropagation();
+      setScreen("privacy");
+    },
+    style: {
+      color: C.primary,
+      fontWeight: 700,
+      textDecoration: "underline"
+    }
+  }, "Privacy Policy"), " ", "and the", " ", /*#__PURE__*/React.createElement("span", {
+    onClick: function onClick(e) {
+      e.stopPropagation();
+      setScreen("disclaimer");
+    },
+    style: {
+      color: C.amber,
+      fontWeight: 700,
+      textDecoration: "underline"
+    }
+  }, "Medical Disclaimer"), ".", " ", "I understand that Bonda is an educational app, not a medical product, and that my child's data is stored on my device."))), error && /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: C.redL,
+      borderRadius: C.r,
+      padding: "10px 14px",
+      marginBottom: 12,
+      border: "1px solid ".concat(C.red, "25")
+    }
+  }, /*#__PURE__*/React.createElement("p", {
+    style: {
+      margin: 0,
+      color: C.red,
+      fontSize: 13,
+      fontWeight: 700
+    }
+  }, "\u26A0\uFE0F ", error)), /*#__PURE__*/React.createElement("button", {
+    onClick: accept,
+    style: {
+      width: "100%",
+      padding: "16px",
+      borderRadius: C.rL,
+      border: "none",
+      background: C.primary,
+      color: "white",
+      fontWeight: 800,
+      fontSize: 16,
+      cursor: "pointer",
+      fontFamily: C.font,
+      letterSpacing: "-0.01em"
+    }
+  }, "I Agree \u2014 Enter Bonda \u2192"), /*#__PURE__*/React.createElement("p", {
+    style: {
+      textAlign: "center",
+      marginTop: 12,
+      color: C.inkMuted,
+      fontSize: 11,
+      lineHeight: 1.6
+    }
+  }, "Bonda complies with Singapore's Personal Data Protection Act (PDPA) 2012", /*#__PURE__*/React.createElement("br", null), "and the PDPC Advisory Guidelines on Children's Personal Data (March 2024)."))));
+}
+
+// ═════════════════════════════════════════════════════════════
+//  2. PRIVACY POLICY SCREEN
+//  Full PDPA-compliant policy. Can be shown standalone
+//  or navigated to from ConsentGate or LegalHub.
+// ═════════════════════════════════════════════════════════════
+function PrivacyPolicyScreen(_ref5) {
+  var onBack = _ref5.onBack;
+  var appName = COMPLIANCE_CONFIG.appName,
+    dpoName = COMPLIANCE_CONFIG.dpoName,
+    dpoEmail = COMPLIANCE_CONFIG.dpoEmail,
+    policyDate = COMPLIANCE_CONFIG.policyDate;
+  var sections = [{
+    title: "Who we are",
+    accent: C.primary,
+    items: ["".concat(appName, " is a caregiver support app for parents of autistic children in Singapore."), "Developed and operated by: ".concat(dpoName), "Data Protection Officer (DPO): ".concat(dpoName), "DPO Email: ".concat(dpoEmail), "Governed by Singapore's Personal Data Protection Act (PDPA) 2012."]
+  }, {
+    title: "What personal data we collect",
+    accent: C.primary,
+    items: ["Child's name, age, and avatar — to personalise your experience", "Caregiver type (biological parent, foster parent, grandparent, other)", "Schedule items and completion history — stored on your device only", "Health notes (allergies, medications, visible marks) — stored on your device only", "Community display name, password, and avatar — for the Community feature", "Profile photos (optional) — stored on your device only", "We do NOT collect NRIC numbers, government ID documents, or HealthHub records."]
+  }, {
+    title: "Why we collect it (purpose limitation)",
+    accent: C.primary,
+    items: ["Child profile data: to personalise schedules, emotion guides, and behaviour guides", "Community account data: to enable parent-to-parent connection", "Health notes: to help you at medical appointments when HealthHub access is unavailable", "We do NOT use your data for advertising, profiling, or selling to any third party."]
+  }, {
+    title: "Where your data is stored",
+    accent: C.primary,
+    items: ["Child profiles, schedules, and health notes: stored in localStorage on YOUR device only.", "Community messages and accounts: stored in an encrypted shared storage service.", "Community data is NOT linked to your child's profile data.", "No data is transferred outside Singapore.", "Future versions will use Supabase (Singapore region) with row-level security."]
+  }, {
+    title: "Children's data — PDPC 2024 compliance",
+    accent: C.primary,
+    items: ["This app processes data about children under 18 years of age.", "You, the parent or guardian, provide consent on behalf of your child at account creation.", "Child profile data is NEVER made public or searchable — visible only to you.", "We apply data minimisation: we collect only what is strictly necessary.", "You can delete any child profile at any time from within the app.", "Complies with PDPC Advisory Guidelines on Children's Personal Data (March 2024)."]
+  }, {
+    title: "Your rights under the PDPA",
+    accent: C.primary,
+    items: ["Right to access personal data we hold: email ".concat(dpoEmail), "Right to correct inaccurate data: email ".concat(dpoEmail), "Right to withdraw consent and request data deletion at any time", "Right to lodge a complaint with the PDPC at pdpc.gov.sg", "We will respond to data access or correction requests within 30 days."]
+  }, {
+    title: "Data breach notification",
+    accent: C.red,
+    items: ["In the event of a data breach, we will notify affected users as soon as practicable.", "Mandatory breaches will be reported to the PDPC within 3 business days as required by law.", "Where children's data is affected, we will also notify the parent or guardian."]
+  }, {
+    title: "Changes to this policy",
+    accent: C.inkMuted,
+    items: ["Material changes will be notified within the app.", "Continued use after notification constitutes acceptance.", "Policy version: ".concat(COMPLIANCE_CONFIG.policyVersion, " \xB7 Last updated: ").concat(policyDate)]
+  }];
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      minHeight: "100vh",
+      background: C.canvas,
+      fontFamily: C.font,
+      overflowY: "auto"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      maxWidth: 480,
+      margin: "0 auto",
+      padding: "20px 20px 40px"
+    }
+  }, /*#__PURE__*/React.createElement(BackButton, {
+    onBack: onBack
+  }), /*#__PURE__*/React.createElement("h2", {
+    style: {
+      margin: "0 0 4px",
+      fontSize: 22,
+      fontWeight: 800,
+      color: C.ink
+    }
+  }, "Privacy Policy"), /*#__PURE__*/React.createElement("p", {
+    style: {
+      margin: "0 0 24px",
+      color: C.inkMuted,
+      fontSize: 12
+    }
+  }, "Version ", COMPLIANCE_CONFIG.policyVersion, " \xB7 ", policyDate, " \xB7 ", appName), sections.map(function (sec, i) {
+    return /*#__PURE__*/React.createElement(Section, {
+      key: i,
+      title: sec.title,
+      accent: sec.accent
+    }, /*#__PURE__*/React.createElement(BulletList, {
+      items: sec.items
+    }));
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: C.primaryL,
+      borderRadius: C.r,
+      padding: "14px 16px",
+      border: "1px solid ".concat(C.primary, "20")
+    }
+  }, /*#__PURE__*/React.createElement("p", {
+    style: {
+      margin: "0 0 4px",
+      fontWeight: 800,
+      color: C.primary,
+      fontSize: 13
+    }
+  }, "Data Protection Officer"), /*#__PURE__*/React.createElement("p", {
+    style: {
+      margin: "0 0 2px",
+      color: C.inkSoft,
+      fontSize: 13
+    }
+  }, dpoName), /*#__PURE__*/React.createElement("p", {
+    style: {
+      margin: 0,
+      color: C.primary,
+      fontSize: 13,
+      fontWeight: 700
+    }
+  }, "\uD83D\uDCE7 ", dpoEmail))));
+}
+
+// ═════════════════════════════════════════════════════════════
+//  3. MEDICAL DISCLAIMER SCREEN
+// ═════════════════════════════════════════════════════════════
+function MedicalDisclaimerScreen(_ref6) {
+  var onBack = _ref6.onBack;
+  var clauses = [{
+    title: "Educational purposes only",
+    accent: C.amber,
+    body: "All content in Bonda — including information about autism, emotions, behaviours, activities, and training strategies — is provided for general educational and informational purposes only. It is not intended to be used as medical, psychological, or clinical advice."
+  }, {
+    title: "Always consult a qualified professional",
+    accent: C.amber,
+    body: "Every autistic child is different. The information in this app is not tailored to your child's specific diagnosis, severity, comorbidities, or individual needs. Always consult a qualified healthcare professional, therapist, psychologist, or specialist for advice specific to your child."
+  }, {
+    title: "Do not delay seeking professional help",
+    accent: C.red,
+    body: "If you are concerned about your child's health, development, or safety, do not rely on this app instead of seeking professional assessment. In an emergency, call 995 (Singapore Emergency Services) or bring your child to the nearest hospital."
+  }, {
+    title: "Health Notes feature",
+    accent: C.amber,
+    body: "The Health Notes feature is designed to help you record basic observations to share with healthcare professionals. These notes do not constitute a medical record and must not be used to make clinical decisions."
+  }, {
+    title: "Subsidy and government information",
+    accent: C.inkMuted,
+    body: "Information about subsidies, grants, and government programmes is provided as general guidance only. Eligibility criteria, amounts, and processes may change. Always verify current information directly with the relevant agency (MSF, MOH, SG Enable)."
+  }, {
+    title: "Limitation of liability",
+    accent: C.inkMuted,
+    body: "To the maximum extent permitted by applicable Singapore law, ".concat(COMPLIANCE_CONFIG.appName, " and its developer (").concat(COMPLIANCE_CONFIG.dpoName, ") accept no liability for any loss, damage, or harm arising from reliance on any content in this app.")
+  }];
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      minHeight: "100vh",
+      background: C.canvas,
+      fontFamily: C.font,
+      overflowY: "auto"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      maxWidth: 480,
+      margin: "0 auto",
+      padding: "20px 20px 40px"
+    }
+  }, /*#__PURE__*/React.createElement(BackButton, {
+    onBack: onBack
+  }), /*#__PURE__*/React.createElement("h2", {
+    style: {
+      margin: "0 0 20px",
+      fontSize: 22,
+      fontWeight: 800,
+      color: C.ink
+    }
+  }, "Medical Disclaimer"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: C.amberL,
+      borderRadius: C.r,
+      padding: "14px 16px",
+      marginBottom: 20,
+      border: "1.5px solid ".concat(C.amber, "40")
+    }
+  }, /*#__PURE__*/React.createElement("p", {
+    style: {
+      margin: 0,
+      color: C.amber,
+      fontWeight: 800,
+      fontSize: 14,
+      lineHeight: 1.6
+    }
+  }, "\u2695\uFE0F Bonda is an educational app. It does not provide medical advice, diagnose conditions, or replace professional care.")), clauses.map(function (cl, i) {
+    return /*#__PURE__*/React.createElement(Section, {
+      key: i,
+      title: cl.title,
+      accent: cl.accent
+    }, /*#__PURE__*/React.createElement("p", {
+      style: {
+        margin: 0,
+        color: C.inkSoft,
+        fontSize: 13,
+        lineHeight: 1.75
+      }
+    }, cl.body));
+  })));
+}
+
+// ═════════════════════════════════════════════════════════════
+//  4. LEGAL HUB SCREEN
+//  Put a link to this in your app's settings or footer.
+//  Usage: <LegalHub onBack={() => ...} />
+// ═════════════════════════════════════════════════════════════
+function LegalHub(_ref7) {
+  var onBack = _ref7.onBack;
+  var _useState9 = useState(null),
+    _useState0 = _slicedToArray(_useState9, 2),
+    screen = _useState0[0],
+    setScreen = _useState0[1];
+  var dpoName = COMPLIANCE_CONFIG.dpoName,
+    dpoEmail = COMPLIANCE_CONFIG.dpoEmail;
+  if (screen === "privacy") return /*#__PURE__*/React.createElement(PrivacyPolicyScreen, {
+    onBack: function onBack() {
+      return setScreen(null);
+    }
+  });
+  if (screen === "disclaimer") return /*#__PURE__*/React.createElement(MedicalDisclaimerScreen, {
+    onBack: function onBack() {
+      return setScreen(null);
+    }
+  });
+  if (screen === "dpia") return /*#__PURE__*/React.createElement(DPIASummaryScreen, {
+    onBack: function onBack() {
+      return setScreen(null);
+    }
+  });
+  var items = [{
+    id: "privacy",
+    icon: "🔒",
+    label: "Privacy Policy",
+    sub: "How we collect, use and protect your data",
+    color: C.primary
+  }, {
+    id: "disclaimer",
+    icon: "⚕️",
+    label: "Medical Disclaimer",
+    sub: "Important information about app content",
+    color: C.amber
+  }, {
+    id: "dpia",
+    icon: "📋",
+    label: "Data Protection Impact Assessment",
+    sub: "Our PDPA compliance documentation",
+    color: C.inkMuted
+  }];
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      minHeight: "100vh",
+      background: C.canvas,
+      fontFamily: C.font,
+      overflowY: "auto"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      maxWidth: 480,
+      margin: "0 auto",
+      padding: "20px 20px 40px"
+    }
+  }, /*#__PURE__*/React.createElement(BackButton, {
+    onBack: onBack
+  }), /*#__PURE__*/React.createElement("h2", {
+    style: {
+      margin: "0 0 24px",
+      fontSize: 22,
+      fontWeight: 800,
+      color: C.ink
+    }
+  }, "Legal & Privacy"), items.map(function (item) {
+    return /*#__PURE__*/React.createElement("div", {
+      key: item.id,
+      onClick: function onClick() {
+        return setScreen(item.id);
+      },
+      style: {
+        display: "flex",
+        alignItems: "center",
+        gap: 14,
+        padding: "14px 16px",
+        background: C.surface,
+        borderRadius: C.r,
+        border: "1px solid ".concat(C.border),
+        marginBottom: 10,
+        cursor: "pointer"
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        width: 44,
+        height: 44,
+        borderRadius: 12,
+        background: item.color + "15",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontSize: 22,
+        flexShrink: 0
+      }
+    }, item.icon), /*#__PURE__*/React.createElement("div", {
+      style: {
+        flex: 1
+      }
+    }, /*#__PURE__*/React.createElement("p", {
+      style: {
+        margin: "0 0 2px",
+        fontWeight: 800,
+        color: C.ink,
+        fontSize: 14
+      }
+    }, item.label), /*#__PURE__*/React.createElement("p", {
+      style: {
+        margin: 0,
+        color: C.inkMuted,
+        fontSize: 12
+      }
+    }, item.sub)), /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: C.inkMuted,
+        fontSize: 20
+      }
+    }, "\u203A"));
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 20,
+      padding: "16px",
+      background: C.surface,
+      borderRadius: C.r,
+      border: "1px solid ".concat(C.border)
+    }
+  }, /*#__PURE__*/React.createElement("p", {
+    style: {
+      margin: "0 0 6px",
+      fontWeight: 800,
+      color: C.ink,
+      fontSize: 14
+    }
+  }, "Data Protection Officer"), /*#__PURE__*/React.createElement("p", {
+    style: {
+      margin: "0 0 4px",
+      color: C.inkSoft,
+      fontSize: 13
+    }
+  }, dpoName), /*#__PURE__*/React.createElement("p", {
+    style: {
+      margin: "0 0 12px",
+      color: C.primary,
+      fontSize: 13,
+      fontWeight: 700
+    }
+  }, "\uD83D\uDCE7 ", dpoEmail), /*#__PURE__*/React.createElement("p", {
+    style: {
+      margin: 0,
+      color: C.inkMuted,
+      fontSize: 11,
+      lineHeight: 1.6
+    }
+  }, "For data access, correction, or deletion requests \u2014 or any privacy concerns \u2014 email the DPO directly. We respond within 30 days.")), /*#__PURE__*/React.createElement("p", {
+    style: {
+      textAlign: "center",
+      marginTop: 20,
+      color: C.inkMuted,
+      fontSize: 11,
+      lineHeight: 1.6
+    }
+  }, "Bonda complies with Singapore's PDPA 2012 and the", /*#__PURE__*/React.createElement("br", null), "PDPC Advisory Guidelines on Children's Personal Data (March 2024).")));
+}
+
+// ═════════════════════════════════════════════════════════════
+//  5. DPIA SUMMARY SCREEN
+//  Internal compliance document. Accessible from LegalHub.
+// ═════════════════════════════════════════════════════════════
+function DPIASummaryScreen(_ref8) {
+  var onBack = _ref8.onBack;
+  var appName = COMPLIANCE_CONFIG.appName,
+    dpoName = COMPLIANCE_CONFIG.dpoName,
+    dpoEmail = COMPLIANCE_CONFIG.dpoEmail,
+    policyDate = COMPLIANCE_CONFIG.policyDate;
+  var items = [{
+    title: "1. Nature of the product",
+    points: ["".concat(appName, " is a mobile-first web application for caregivers of autistic children in Singapore."), "Provides educational content, scheduling, emotion/behaviour guides, subsidy info, and a parent community.", "Does NOT provide medical diagnosis, treatment, or telemedicine services.", "Assessed as a wellness/lifestyle app — NOT a Software as a Medical Device (SaMD) under HSA classification."]
+  }, {
+    title: "2. Data collected and purpose",
+    points: ["Child profiles: name, age, avatar, caregiver type — Purpose: personalise experience", "Schedule data: activity names, times, history — Purpose: daily routine management", "Health notes: allergies, medications, visible marks — Purpose: support parents at appointments", "Community accounts: display name, password, avatar — Purpose: parent community", "Profile photos (optional): base64 on device — Purpose: avatar personalisation", "All data is minimal and directly relevant to stated purpose (PDPA data minimisation obligation)."]
+  }, {
+    title: "3. Data subjects and risk level",
+    points: ["Primary data subjects: children under 18 — elevated risk category under PDPA.", "Secondary data subjects: adult caregivers (parents, foster parents, grandparents).", "Consent obtained from parents/guardians on behalf of child at profile creation.", "Complies with PDPC 2024 Advisory Guidelines on Children's Personal Data."]
+  }, {
+    title: "4. Data storage and security",
+    points: ["Child profiles, schedules, health notes: localStorage on user's own device — never transmitted.", "Community data: encrypted shared storage (window.storage) — not linked to child profiles.", "No cloud database in v1. Planned migration to Supabase (Singapore region) with row-level security.", "No data transferred outside Singapore.", "HTTPS enforced for all network communication."]
+  }, {
+    title: "5. Data minimisation",
+    points: ["No NRIC or government identity documents collected.", "No location/GPS data collected.", "No biometric data collected.", "Health notes are optional and wholly under parental control.", "Community accounts use display names only — not real names."]
+  }, {
+    title: "6. Consent mechanism",
+    points: ["Consent gate shown on first app launch — cannot be bypassed.", "User must tick checkbox confirming they have read Privacy Policy and Medical Disclaimer.", "Consent record stored in localStorage with version number and ISO timestamp.", "Re-consent triggered if policy version number changes.", "Child profile creation has separate consent checkbox for parental data processing agreement."]
+  }, {
+    title: "7. Risks identified and mitigations",
+    points: ["Risk: Health notes contain sensitive child health data. Mitigation: On-device only, never transmitted, clearly labelled as informal caregiver notes not medical records.", "Risk: Community messages visible to other registered parents. Mitigation: Display names only, child profiles never linked to community accounts, private DMs behind paid feature.", "Risk: Foster parent entering data about a child no longer in their care. Mitigation: UI reminder in Health Notes and Foster Hub screens.", "Risk: Data loss if user clears browser localStorage. Mitigation: Planned Supabase migration; current users advised to not rely on app as sole record."]
+  }, {
+    title: "8. Data Protection Officer",
+    points: ["DPO: ".concat(dpoName), "Email: ".concat(dpoEmail), "Accessible during Singapore business hours (Mon–Fri, 9am–6pm SGT).", "Responsible for PDPA requests, data breach notifications, and DPIA review."]
+  }, {
+    title: "9. Review schedule",
+    points: ["Before any update that changes data collection practices.", "Before migration to Supabase cloud storage.", "Before App Store / Google Play submission.", "Annually. Next scheduled review: ".concat(policyDate.replace("2025", "2026"), ".")]
+  }];
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      minHeight: "100vh",
+      background: C.canvas,
+      fontFamily: C.font,
+      overflowY: "auto"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      maxWidth: 480,
+      margin: "0 auto",
+      padding: "20px 20px 40px"
+    }
+  }, /*#__PURE__*/React.createElement(BackButton, {
+    onBack: onBack
+  }), /*#__PURE__*/React.createElement("h2", {
+    style: {
+      margin: "0 0 4px",
+      fontSize: 20,
+      fontWeight: 800,
+      color: C.ink
+    }
+  }, "Data Protection Impact Assessment"), /*#__PURE__*/React.createElement("p", {
+    style: {
+      margin: "0 0 24px",
+      color: C.inkMuted,
+      fontSize: 12
+    }
+  }, "DPIA conducted: ", policyDate, " \xB7 Prepared by: ", dpoName), items.map(function (sec, i) {
+    return /*#__PURE__*/React.createElement(Section, {
+      key: i,
+      title: sec.title,
+      accent: C.primary
+    }, /*#__PURE__*/React.createElement(BulletList, {
+      items: sec.points
+    }));
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: C.greenL,
+      borderRadius: C.r,
+      padding: "14px 16px",
+      border: "1px solid ".concat(C.green, "25")
+    }
+  }, /*#__PURE__*/React.createElement("p", {
+    style: {
+      margin: 0,
+      color: C.green,
+      fontSize: 12,
+      fontWeight: 700,
+      lineHeight: 1.6
+    }
+  }, "\u2705 This DPIA was prepared in accordance with the PDPC Advisory Guidelines on Children's Personal Data in the Digital Environment (March 2024) and the Personal Data Protection Act 2012 (Singapore)."))));
+}
+
+// ═════════════════════════════════════════════════════════════
+//  6. MEDICAL DISCLAIMER BANNER (inline, for content screens)
+//  Place this at the top of any screen with health content.
+//
+//  Usage: <MedicalDisclaimerBanner />
+// ═════════════════════════════════════════════════════════════
+function MedicalDisclaimerBanner() {
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 10,
+      alignItems: "flex-start",
+      padding: "10px 14px",
+      background: C.amberL,
+      borderRadius: C.r,
+      border: "1px solid ".concat(C.amber, "25"),
+      marginBottom: 16
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 14,
+      flexShrink: 0,
+      marginTop: 1
+    }
+  }, "\u2695\uFE0F"), /*#__PURE__*/React.createElement("p", {
+    style: {
+      margin: 0,
+      color: C.amber,
+      fontSize: 11,
+      fontWeight: 700,
+      lineHeight: 1.6
+    }
+  }, "Educational content only \u2014 not medical advice. Always consult a qualified professional for your child's specific needs."));
+}
+
+// ─────────────────────────────────────────────────────────────
+//  PREVIEW — shows ConsentGate wrapping a sample screen
+//  Remove this and use individual exports in your actual app
+// ─────────────────────────────────────────────────────────────
+function PreviewApp() {
+  return /*#__PURE__*/React.createElement(ConsentGate, null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      minHeight: "100vh",
+      background: "#F2FAF6",
+      fontFamily: "'Plus Jakarta Sans', sans-serif",
+      padding: 24
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      maxWidth: 480,
+      margin: "0 auto"
+    }
+  }, /*#__PURE__*/React.createElement("h2", {
+    style: {
+      color: "#065F46",
+      marginBottom: 8
+    }
+  }, "\u2705 Consent accepted!"), /*#__PURE__*/React.createElement("p", {
+    style: {
+      color: "#2D5A3D",
+      fontSize: 14,
+      lineHeight: 1.7,
+      marginBottom: 20
+    }
+  }, "The user has read and accepted the Privacy Policy and Medical Disclaimer. Your app renders here normally."), /*#__PURE__*/React.createElement(MedicalDisclaimerBanner, null), /*#__PURE__*/React.createElement("p", {
+    style: {
+      color: "#7BA08A",
+      fontSize: 13
+    }
+  }, "In your real app, place ", /*#__PURE__*/React.createElement("code", {
+    style: {
+      background: "#D4EAE0",
+      padding: "1px 6px",
+      borderRadius: 4
+    }
+  }, "<LegalHub />"), " in your settings screen, and ", /*#__PURE__*/React.createElement("code", {
+    style: {
+      background: "#D4EAE0",
+      padding: "1px 6px",
+      borderRadius: 4
+    }
+  }, "<MedicalDisclaimerBanner />"), " on any health content screen."))));
+}
+var rootEl = document.getElementById("root");
+if (rootEl) {
+  ReactDOM.createRoot(rootEl).render(React.createElement(PreviewApp));
+}
+
+  </script>
+</body>
+</html>

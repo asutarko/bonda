@@ -170,6 +170,9 @@ export function HomeScreen({ childCtx, setTab, push, account }) {
       )}
 
       <p style={{ textAlign: "center", marginTop: 28, marginBottom: 0, color: T.inkMuted, fontSize: 10, fontWeight: 600, letterSpacing: "0.05em" }}>◎ Bonda · Made with 💛 by Norena Darsana</p>
+      <button onClick={() => push("legalHub")} style={{ display: "block", width: "100%", background: "none", border: "none", color: T.inkMuted, fontWeight: 600, fontSize: 10, letterSpacing: "0.05em", cursor: "pointer", fontFamily: T.fontBody, marginTop: 4, textAlign: "center", textDecoration: "underline" }}>
+        Privacy Policy · Legal · DPO Contact
+      </button>
     </Page>
   );
 }

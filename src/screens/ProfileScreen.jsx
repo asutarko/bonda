@@ -6,7 +6,7 @@ import { T } from "../theme";
 import { Page, SectionLabel, Input, Select, FieldError, Btn, ComAvatar, COM_AVATAR_ILLUSTRATIONS } from "../ui";
 import { RELATIONSHIP_OPTIONS, OCCUPATION_OPTIONS, MARITAL_STATUS_OPTIONS } from "../data";
 
-export function EditProfileScreen({ account, pop }) {
+export function EditProfileScreen({ account, pop, push }) {
   const isExistingPhoto = !!(account?.avatar && (account.avatar.startsWith("data:") || account.avatar.startsWith("http")));
 
   const [avatar, setAvatar] = useState(isExistingPhoto ? "none" : (account?.avatar || "none"));
@@ -206,6 +206,10 @@ export function EditProfileScreen({ account, pop }) {
       {err && <p style={{ color: T.red, fontSize: 13, fontWeight: 700, margin: "-8px 0 12px" }}>{err}</p>}
       <Btn onClick={save} full disabled={saving}>{saving ? "Saving..." : "Save Changes"}</Btn>
       <Btn onClick={pop} full secondary style={{ marginTop: 10 }}>Cancel</Btn>
+
+      <button onClick={() => push("legalHub")} style={{ display: "block", width: "100%", background: "none", border: "none", color: T.inkMuted, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: T.fontBody, marginTop: 20, textAlign: "center" }}>
+        Privacy Policy · Legal · DPO Contact
+      </button>
     </Page>
   );
 }

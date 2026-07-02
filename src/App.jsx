@@ -17,6 +17,7 @@ import { ActivitiesScreen } from "./screens/ActivitiesScreen";
 import { TrainingScreen } from "./screens/TrainingScreen";
 import { EmotionsBehavioursScreen } from "./screens/EmotionsBehavioursGuide";
 import { EditProfileScreen } from "./screens/ProfileScreen";
+import { LegalHub } from "./components/bonda-compliance";
 
 export const NAV = [
   { id: "home",      label: "Home",      icon: "🏠" },
@@ -136,6 +137,7 @@ export default function Bonda() {
     editProfile: "Edit User Profile",
     emotionsGuide: "Emotions & Behaviour",
     carerLetter: "Foster Carer Letter",
+    legalHub: "Legal & Privacy",
   };
 
   const pageTitle = current ? TITLES[current] || "" : TITLES[tab];
@@ -159,10 +161,11 @@ export default function Bonda() {
       case "training":   return <TrainingScreen pop={pop} account={account} />;
       case "addChild":   return <AddChildScreen childCtx={childCtx} pop={pop} />;
       case "editChild":  return <EditChildScreen childCtx={childCtx} pop={pop} />;
-      case "editProfile": return <EditProfileScreen account={account} pop={pop} />;
+      case "editProfile": return <EditProfileScreen account={account} pop={pop} push={push} />;
       case "fosterHub":   return <FosterHubScreen pop={pop} push={push} />;
       case "carerLetter": return <CarerLetterScreen pop={pop} childCtx={childCtx} account={account} />;
       case "emotionsGuide": return <EmotionsBehavioursScreen pop={pop} />;
+      case "legalHub":    return <LegalHub onBack={pop} />;
       default:           return null;
     }
   };

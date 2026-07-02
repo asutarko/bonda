@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import { T } from "../theme";
 import { Page, SectionLabel, Card, Badge } from "../ui";
+import { MedicalDisclaimerBanner } from "../components/bonda-compliance";
 
 export const emotionFromRow = (row) => ({
   id: row.key,
@@ -56,6 +57,7 @@ export function EmotionsBehavioursScreen({ pop }) {
 
   return (
     <Page>
+      <MedicalDisclaimerBanner />
       <div style={{ display: "flex", background: T.border, borderRadius: T.r, padding: 3, gap: 3, marginBottom: 24 }}>
         {[["emotions","Emotions"],["behaviours","Behaviours"]].map(([v, l]) => (
           <button key={v} onClick={() => setSubTab(v)} style={{ flex: 1, padding: "10px", borderRadius: 9, background: subTab === v ? T.surface : "transparent", border: "none", fontWeight: 700, fontSize: 13, color: subTab === v ? T.ink : T.inkMuted, cursor: "pointer", fontFamily: T.fontBody, boxShadow: subTab === v ? T.shadow : "none", transition: "all 0.2s" }}>{l}</button>
