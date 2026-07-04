@@ -214,27 +214,6 @@ export function DevLogSection({ activeChild, updateChild }) {
 
       {!showForm && SHOW_ADD_OBSERVATION && <Btn onClick={startAdd} full style={{ marginBottom: 16 }}>+ Add Observation</Btn>}
 
-      {showForm && editingPromptQuestion && (
-        <Card style={{ marginBottom: 16 }}>
-          <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>{editingPromptQuestion.question}</p>
-          <Select
-            placeholder={editingPromptQuestion.allowMultiple ? undefined : "Select an answer"}
-            multiple={editingPromptQuestion.allowMultiple || undefined}
-            value={editingPromptQuestion.allowMultiple ? editPromptAnswer : (editPromptAnswer[0] || "")}
-            onChange={e => {
-              const ids = editingPromptQuestion.allowMultiple ? Array.from(e.target.selectedOptions, o => o.value) : (e.target.value ? [e.target.value] : []);
-              setEditPromptAnswer(ids);
-            }}
-            options={editingPromptQuestion.options.map(opt => ({ value: opt.id, label: opt.answer }))}
-          />
-
-          <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
-            <Btn onClick={saveEntry} disabled={!editPromptAnswer.length} style={{ flex: 1 }}>Save Changes</Btn>
-            <Btn onClick={resetForm} secondary style={{ flex: 1 }}>Cancel</Btn>
-          </div>
-        </Card>
-      )}
-
       {showForm && !editingPromptQuestion && (
         <Card style={{ marginBottom: 16 }}>
           <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>Category</p>
@@ -283,6 +262,30 @@ export function DevLogSection({ activeChild, updateChild }) {
           {devLog.map(entry => {
             const cat = devLogCategory(entry.category);
             const src = devLogSource(entry.source);
+            const question = entry.promptId ? faqQuestions.find(q => q.id === entry.promptId) : null;
+
+            if (editingId === entry.id && editingPromptQuestion) {
+              return (
+                <Card key={entry.id} style={{ padding: "14px 16px" }}>
+                  <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>{editingPromptQuestion.question}</p>
+                  <Select
+                    placeholder={editingPromptQuestion.allowMultiple ? undefined : "Select an answer"}
+                    multiple={editingPromptQuestion.allowMultiple || undefined}
+                    value={editingPromptQuestion.allowMultiple ? editPromptAnswer : (editPromptAnswer[0] || "")}
+                    onChange={e => {
+                      const ids = editingPromptQuestion.allowMultiple ? Array.from(e.target.selectedOptions, o => o.value) : (e.target.value ? [e.target.value] : []);
+                      setEditPromptAnswer(ids);
+                    }}
+                    options={editingPromptQuestion.options.map(opt => ({ value: opt.id, label: opt.answer }))}
+                  />
+                  <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+                    <Btn onClick={saveEntry} disabled={!editPromptAnswer.length} style={{ flex: 1 }}>Save Changes</Btn>
+                    <Btn onClick={resetForm} secondary style={{ flex: 1 }}>Cancel</Btn>
+                  </div>
+                </Card>
+              );
+            }
+
             return (
               <Card key={entry.id} style={{ padding: "14px 16px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, gap: 8, flexWrap: "wrap" }}>
@@ -292,6 +295,7 @@ export function DevLogSection({ activeChild, updateChild }) {
                     <p style={{ margin: 0, color: T.inkMuted, fontSize: 11, fontWeight: 600 }}>{new Date(entry.date).toLocaleDateString("en-SG", { weekday: "short", day: "numeric", month: "short", year: "numeric" })}</p>
                   </div>
                 </div>
+                {question && <p style={{ margin: "0 0 4px", color: T.inkMuted, fontSize: 12, fontWeight: 700, lineHeight: 1.5 }}>{question.question}</p>}
                 <p style={{ margin: "0 0 10px", color: T.ink, fontSize: 13, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{entry.note}</p>
                 <div style={{ display: "flex", gap: 14 }}>
                   <button onClick={() => startEdit(entry)} style={{ background: "none", border: "none", color: T.purple, fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: T.fontBody, padding: 0 }}>Edit</button>
