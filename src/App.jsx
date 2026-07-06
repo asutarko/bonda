@@ -163,7 +163,7 @@ export default function Bonda() {
       case "editChild":  return <EditChildScreen childCtx={childCtx} pop={pop} />;
       case "editProfile": return <EditProfileScreen account={account} pop={pop} push={push} />;
       case "fosterHub":   return <FosterHubScreen pop={pop} push={push} />;
-      case "carerLetter": return <CarerLetterScreen pop={pop} childCtx={childCtx} account={account} />;
+      case "carerLetter": return <CarerLetterScreen pop={pop} push={push} childCtx={childCtx} account={account} />;
       case "emotionsGuide": return <EmotionsBehavioursScreen pop={pop} />;
       case "legalHub":    return <LegalHub onBack={pop} />;
       default:           return null;

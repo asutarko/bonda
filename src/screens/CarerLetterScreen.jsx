@@ -3,10 +3,8 @@ import { jsPDF } from "jspdf";
 import { supabase } from "../lib/supabase";
 import { T } from "../theme";
 import { Page, SectionLabel, Card, Btn, Input, TextArea, Select } from "../ui";
-import { COUNTRY_OPTIONS } from "../data";
 
 const PLACEMENT_TYPE_OPTIONS = ["short-term", "long-term", "kinship", "emergency"];
-const OTHER_CLINIC = "__other__";
 
 const formatDate = (value) => {
   if (!value) return "";
@@ -96,7 +94,7 @@ const exportLetterToPdf = (text, fileName) => {
   doc.save(fileName);
 };
 
-export function CarerLetterScreen({ pop, childCtx, account }) {
+export function CarerLetterScreen({ pop, push, childCtx, account }) {
   const { children = [], activeChild } = childCtx || {};
   const [selectedChildId, setSelectedChildId] = useState(activeChild?.id || "");
   const selectedChild = children.find(c => c.id === selectedChildId) || activeChild || null;
@@ -105,13 +103,10 @@ export function CarerLetterScreen({ pop, childCtx, account }) {
   const [loadingTemplate, setLoadingTemplate] = useState(true);
   const [clinics, setClinics] = useState([]);
   const [psychologists, setPsychologists] = useState([]);
-  const [clinicId, setClinicId] = useState("");
-  const [psychologistId, setPsychologistId] = useState("");
-  const [customClinicName, setCustomClinicName] = useState("");
 
+  // Clinic name and location now come from the caregiver's own profile
+  // (set once in Edit Profile) instead of being retyped on every letter.
   const [recipientName, setRecipientName] = useState("");
-  const [country, setCountry] = useState("");
-  const [customCountry, setCustomCountry] = useState("");
   const [placementStartDate, setPlacementStartDate] = useState("");
   const [fosteringAgency, setFosteringAgency] = useState("");
   const [caseWorkerName, setCaseWorkerName] = useState("");
@@ -139,32 +134,21 @@ export function CarerLetterScreen({ pop, childCtx, account }) {
     load();
   }, []);
 
-  const clinicPsychologists = psychologists.filter(p => p.clinic_id === clinicId);
-  const selectedClinic = clinics.find(c => c.id === clinicId);
-  const selectedPsychologist = clinicPsychologists.find(p => p.id === psychologistId);
-
   // The admin app already assigns each child to a psychologist (children.psychologist_id),
   // so default the recipient to that assignment instead of making the caregiver pick it
-  // again — they can still swap to a different clinic/psychologist below if this letter
-  // is going somewhere else (e.g. a school).
+  // again — they can still overwrite the clinic name / recipient fields below if this
+  // letter is going somewhere else (e.g. a school).
   const assignedPsychologist = psychologists.find(p => p.id === selectedChild?.psychologistId) || null;
   const assignedClinic = assignedPsychologist ? clinics.find(c => c.id === assignedPsychologist.clinic_id) || null : null;
 
   useEffect(() => {
     if (!assignedPsychologist || !assignedClinic) return;
-    setClinicId(assignedClinic.id);
-    setPsychologistId(assignedPsychologist.id);
     setRecipientName(prev => prev || buildRecipientLabel(assignedClinic, assignedPsychologist));
   }, [selectedChild?.id, assignedPsychologist?.id, assignedClinic?.id]);
 
   const useClinicAsRecipient = () => {
-    if (clinicId === OTHER_CLINIC) {
-      if (!customClinicName.trim()) return;
-      setRecipientName(customClinicName.trim());
-      return;
-    }
-    if (!selectedClinic) return;
-    setRecipientName(buildRecipientLabel(selectedClinic, selectedPsychologist));
+    if (!account?.clinicName?.trim()) return;
+    setRecipientName(account.clinicName.trim());
   };
 
   const generateLetter = () => {
@@ -172,7 +156,7 @@ export function CarerLetterScreen({ pop, childCtx, account }) {
     const values = {
       date: formatDate(new Date()),
       recipientName: recipientName.trim() || "Recipient name / organisation",
-      location: (country === "Other" ? customCountry.trim() : country) || "to be confirmed",
+      location: account?.location?.trim() || "to be confirmed",
       childName: selectedChild.name,
       dob: selectedChild.dob ? formatDate(selectedChild.dob) : "to be confirmed",
       placementStartDate: placementStartDate ? formatDate(placementStartDate) : "to be confirmed",
@@ -224,19 +208,18 @@ export function CarerLetterScreen({ pop, childCtx, account }) {
         {assignedPsychologist && assignedClinic && (
           <p style={{ margin: "0 0 14px", color: T.purple, fontSize: 12, fontWeight: 700, lineHeight: 1.5 }}>✓ Auto-filled from {selectedChild.name}'s assigned psychologist — {assignedPsychologist.name} at {assignedClinic.name}. Change below if this letter is for someone else.</p>
         )}
-        <Select label="Clinic (optional)" placeholder="Select a clinic" value={clinicId} onChange={e => { setClinicId(e.target.value); setPsychologistId(""); }} options={[...clinics.map(c => ({ value: c.id, label: c.name })), { value: OTHER_CLINIC, label: "Other (type clinic name)" }]} />
-        {clinicId === OTHER_CLINIC && (
-          <Input label="Clinic name" placeholder="e.g. Sunrise Family Clinic" value={customClinicName} onChange={e => setCustomClinicName(e.target.value)} />
+        {account?.clinicName || account?.location ? (
+          <p style={{ margin: "0 0 14px", color: T.inkSoft, fontSize: 12, lineHeight: 1.5 }}>
+            Clinic: <strong>{account?.clinicName || "not set"}</strong> · Location: <strong>{account?.location || "not set"}</strong>
+            {" — "}<span onClick={() => push?.("editProfile")} style={{ color: T.purple, fontWeight: 700, textDecoration: "underline", cursor: "pointer" }}>edit in profile</span>
+          </p>
+        ) : (
+          <p style={{ margin: "0 0 14px", color: T.amber, fontSize: 12, fontWeight: 700, lineHeight: 1.5 }}>
+            Add your clinic name and location in <span onClick={() => push?.("editProfile")} style={{ textDecoration: "underline", cursor: "pointer" }}>Edit Profile</span> so they can be used here.
+          </p>
         )}
-        {clinicId && clinicId !== OTHER_CLINIC && (
-          <Select label="Psychologist (optional)" placeholder="Select a psychologist" value={psychologistId} onChange={e => setPsychologistId(e.target.value)} options={clinicPsychologists.map(p => ({ value: p.id, label: p.name }))} />
-        )}
-        {clinicId && <Btn secondary onClick={useClinicAsRecipient} style={{ marginBottom: 14 }}>Use as recipient</Btn>}
+        {account?.clinicName && <Btn secondary onClick={useClinicAsRecipient} style={{ marginBottom: 14 }}>Use clinic as recipient</Btn>}
         <Input label="Recipient name / organisation" placeholder="e.g. General Office, ABC Primary School" value={recipientName} onChange={e => setRecipientName(e.target.value)} />
-        <Select label="Location (country)" placeholder="Select country" value={country} onChange={e => setCountry(e.target.value)} options={COUNTRY_OPTIONS} />
-        {country === "Other" && (
-          <Input label="Country" placeholder="e.g. Vietnam" value={customCountry} onChange={e => setCustomCountry(e.target.value)} />
-        )}
       </Card>
 
       <SectionLabel style={{ marginBottom: 10 }}>Placement & Case Worker (if applicable)</SectionLabel>

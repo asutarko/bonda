@@ -213,4 +213,6 @@ export const accountFromUser = (u) => u ? {
   nationality: u.user_metadata?.nationality || "",
   maritalStatus: u.user_metadata?.maritalStatus || "",
   holderPass: u.user_metadata?.holderPass || "",
+  clinicName: u.user_metadata?.clinicName || "",
+  location: u.user_metadata?.location || "",
 } : null;
