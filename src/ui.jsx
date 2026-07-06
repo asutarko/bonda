@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { T } from "./theme";
 
 export const ActionIllustration = ({ type, size = 44 }) => {
@@ -270,35 +270,110 @@ export const TextArea = ({ label, hint, ...props }) => (
   </div>
 );
 
-// Dropdown select — same chrome as Input
+// Dropdown select with a search box — same chrome as Input.
+// Keeps the native-<select> onChange contract (e.target.value, and
+// e.target.selectedOptions for `multiple`) so existing call sites work unchanged.
 
-export const Select = ({ label, options, placeholder, ...props }) => (
-  <div style={{ marginBottom: 14 }}>
-    {label && <p style={{ margin: "0 0 6px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>{label}</p>}
-    <select
-      {...props}
-      style={{
-        width: "100%",
-        padding: "11px 14px",
-        borderRadius: T.r,
-        border: `1.5px solid ${T.border}`,
-        fontSize: 14,
-        fontFamily: T.fontBody,
-        color: T.ink,
-        background: T.canvas,
-        outline: "none",
-        boxSizing: "border-box",
-        cursor: "pointer",
-        ...(props.style || {}),
-      }}
-    >
-      {placeholder && <option value="">{placeholder}</option>}
-      {options.map(opt => (
-        <option key={opt.value ?? opt} value={opt.value ?? opt}>{opt.label ?? opt}</option>
-      ))}
-    </select>
-  </div>
-);
+export const Select = ({ label, options, placeholder, value, onChange, multiple, disabled, style }) => {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const rootRef = useRef(null);
+
+  const normalized = options.map(opt => (opt !== null && typeof opt === "object") ? opt : { value: opt, label: opt });
+  const selectedValues = multiple ? (Array.isArray(value) ? value : []) : null;
+  const selectedOption = !multiple ? normalized.find(o => o.value === value) : null;
+
+  const displayText = multiple
+    ? normalized.filter(o => selectedValues.includes(o.value)).map(o => o.label).join(", ")
+    : (selectedOption ? selectedOption.label : "");
+
+  const filtered = search.trim()
+    ? normalized.filter(o => String(o.label).toLowerCase().includes(search.trim().toLowerCase()))
+    : normalized;
+
+  useEffect(() => {
+    if (!open) return;
+    const onDocMouseDown = (e) => {
+      if (rootRef.current && !rootRef.current.contains(e.target)) {
+        setOpen(false);
+        setSearch("");
+      }
+    };
+    document.addEventListener("mousedown", onDocMouseDown);
+    return () => document.removeEventListener("mousedown", onDocMouseDown);
+  }, [open]);
+
+  const selectOption = (opt) => {
+    if (multiple) {
+      const next = selectedValues.includes(opt.value) ? selectedValues.filter(v => v !== opt.value) : [...selectedValues, opt.value];
+      onChange({ target: { value: next[0] || "", selectedOptions: next.map(v => ({ value: v })) } });
+    } else {
+      onChange({ target: { value: opt.value } });
+      setOpen(false);
+      setSearch("");
+    }
+  };
+
+  return (
+    <div ref={rootRef} style={{ marginBottom: 14, position: "relative" }}>
+      {label && <p style={{ margin: "0 0 6px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>{label}</p>}
+      <div
+        onClick={() => !disabled && setOpen(o => !o)}
+        style={{
+          width: "100%",
+          padding: "11px 14px",
+          borderRadius: T.r,
+          border: `1.5px solid ${open ? T.purple : T.border}`,
+          fontSize: 14,
+          fontFamily: T.fontBody,
+          color: displayText ? T.ink : T.inkMuted,
+          background: disabled ? T.border : T.canvas,
+          outline: "none",
+          boxSizing: "border-box",
+          cursor: disabled ? "default" : "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 8,
+          ...(style || {}),
+        }}
+      >
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{displayText || placeholder || "Select..."}</span>
+        <span style={{ fontSize: 10, color: T.inkMuted, flexShrink: 0 }}>{open ? "▲" : "▼"}</span>
+      </div>
+
+      {open && !disabled && (
+        <div style={{
+          position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 20,
+          background: T.surface, border: `1.5px solid ${T.border}`, borderRadius: T.r,
+          boxShadow: "0 8px 24px rgba(0,0,0,0.12)", maxHeight: 260, display: "flex", flexDirection: "column", overflow: "hidden",
+        }}>
+          <input
+            autoFocus
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search..."
+            style={{ padding: "10px 14px", border: "none", borderBottom: `1.5px solid ${T.border}`, fontSize: 14, fontFamily: T.fontBody, color: T.ink, outline: "none", boxSizing: "border-box" }}
+          />
+          <div style={{ overflowY: "auto" }}>
+            {filtered.length === 0 && <p style={{ margin: 0, padding: "12px 14px", fontSize: 13, color: T.inkMuted }}>No matches</p>}
+            {filtered.map(opt => {
+              const isSelected = multiple ? selectedValues.includes(opt.value) : opt.value === value;
+              return (
+                <div key={opt.value} onClick={() => selectOption(opt)}
+                  style={{ padding: "10px 14px", fontSize: 14, fontFamily: T.fontBody, cursor: "pointer", background: isSelected ? T.purpleL : "transparent", color: T.ink, display: "flex", alignItems: "center", gap: 8 }}>
+                  {multiple && <span>{isSelected ? "☑" : "☐"}</span>}
+                  <span>{opt.label}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 // Inline validation message — sits directly under the field it refers to
 

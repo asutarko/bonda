@@ -212,4 +212,5 @@ export const accountFromUser = (u) => u ? {
   occupation: u.user_metadata?.occupation || "",
   nationality: u.user_metadata?.nationality || "",
   maritalStatus: u.user_metadata?.maritalStatus || "",
+  holderPass: u.user_metadata?.holderPass || "",
 } : null;

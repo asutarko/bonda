@@ -4,7 +4,7 @@ import { supabase } from "../lib/supabase";
 import { uploadPhoto } from "../hooks";
 import { T } from "../theme";
 import { Page, SectionLabel, Input, Select, FieldError, Btn, ComAvatar, COM_AVATAR_ILLUSTRATIONS } from "../ui";
-import { RELATIONSHIP_OPTIONS, OCCUPATION_OPTIONS, MARITAL_STATUS_OPTIONS } from "../data";
+import { RELATIONSHIP_OPTIONS, OCCUPATION_OPTIONS, MARITAL_STATUS_OPTIONS, HOLDER_PASS_OPTIONS } from "../data";
 
 export function EditProfileScreen({ account, pop, push }) {
   const isExistingPhoto = !!(account?.avatar && (account.avatar.startsWith("data:") || account.avatar.startsWith("http")));
@@ -20,18 +20,12 @@ export function EditProfileScreen({ account, pop, push }) {
   const [occupation, setOccupation] = useState(initialOccupation);
   const [customOccupation, setCustomOccupation] = useState(initialCustomOccupation);
   const [nationality, setNationality] = useState(account?.nationality || "");
-  const [nationalityOptions, setNationalityOptions] = useState([]);
   const [maritalStatus, setMaritalStatus] = useState(account?.maritalStatus || "");
+  const [holderPass, setHolderPass] = useState(account?.holderPass || "");
   const [err, setErr] = useState("");
   const [errors, setErrors] = useState({});
   const [photoErr, setPhotoErr] = useState("");
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    supabase.from("nationalities").select("name").order("sort_order").then(({ data, error }) => {
-      if (!error && data) setNationalityOptions(data.map(n => n.name));
-    });
-  }, []);
 
   const videoRef = useRef(null);
   const streamRef = useRef(null);
@@ -100,9 +94,9 @@ export function EditProfileScreen({ account, pop, push }) {
       if (url) avatarValue = url;
     }
 
-    const { error } = await supabase.auth.updateUser({ data: { avatar: avatarValue, phone: phone.trim(), address: address.trim(), relationship, occupation: finalOccupation, nationality, maritalStatus } });
+    const { error } = await supabase.auth.updateUser({ data: { avatar: avatarValue, phone: phone.trim(), address: address.trim(), relationship, occupation: finalOccupation, nationality: nationality.trim(), maritalStatus, holderPass } });
     if (error) { setSaving(false); return setErr(error.message); }
-    await supabase.from("profiles").update({ avatar: avatarValue, phone: phone.trim(), address: address.trim(), relationship, occupation: finalOccupation, nationality, marital_status: maritalStatus }).eq("id", account.id);
+    await supabase.from("profiles").update({ avatar: avatarValue, phone: phone.trim(), address: address.trim(), relationship, occupation: finalOccupation, nationality: nationality.trim(), marital_status: maritalStatus, holder_pass: holderPass }).eq("id", account.id);
     setSaving(false);
     await Swal.fire({ icon: "success", title: "Data berhasil disimpan", confirmButtonColor: T.purple });
     pop();
@@ -200,8 +194,9 @@ export function EditProfileScreen({ account, pop, push }) {
           <FieldError>{errors.customOccupation}</FieldError>
         </div>
       )}
-      <Select label="Nationality" value={nationality} onChange={e => setNationality(e.target.value)} placeholder="Select nationality" options={nationalityOptions} />
+      <Input label="Nationality" value={nationality} onChange={e => setNationality(e.target.value)} placeholder="e.g. Indonesian, Singaporean" />
       <Select label="Marital Status" value={maritalStatus} onChange={e => setMaritalStatus(e.target.value)} placeholder="Select marital status" options={MARITAL_STATUS_OPTIONS} />
+      <Select label="Holder Pass" value={holderPass} onChange={e => setHolderPass(e.target.value)} placeholder="Select holder pass status" options={HOLDER_PASS_OPTIONS} />
 
       {err && <p style={{ color: T.red, fontSize: 13, fontWeight: 700, margin: "-8px 0 12px" }}>{err}</p>}
       <Btn onClick={save} full disabled={saving}>{saving ? "Saving..." : "Save Changes"}</Btn>

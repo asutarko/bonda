@@ -58,4 +58,10 @@ export const OCCUPATION_OPTIONS = ["Unemployed", "Homemaker", "Student", "Civil 
 
 export const MARITAL_STATUS_OPTIONS = ["Single", "Married", "Divorced", "Widowed"];
 
+// Singapore immigration/residency status of the caregiver.
+export const HOLDER_PASS_OPTIONS = ["Singapore Citizen", "Singapore PR", "Employment Pass", "S Pass", "Student Pass", "Foreigner"];
+
+// Country the carer letter's recipient is located in — "Other" reveals a free-text field.
+export const COUNTRY_OPTIONS = ["Singapore", "Indonesia", "Malaysia", "Other"];
+
 // Optional additional-needs profile, filled in by the parent in their own words.
