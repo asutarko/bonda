@@ -84,6 +84,9 @@ export function EditProfileScreen({ account, pop, push }) {
     if (!address.trim()) fe.address = "Please enter your home address.";
     if (!relationship) fe.relationship = "Please select your relationship to the child.";
     if (occupation === "Other" && !customOccupation.trim()) fe.customOccupation = "Please enter your occupation.";
+    if (!nationality.trim()) fe.nationality = "Please enter your nationality.";
+    if (!clinicName.trim()) fe.clinicName = "Please enter your clinic name.";
+    if (!location) fe.location = "Please select your location (country).";
     setErrors(fe);
     if (Object.keys(fe).length > 0) return;
     setErr(""); setSaving(true);
@@ -196,13 +199,16 @@ export function EditProfileScreen({ account, pop, push }) {
           <FieldError>{errors.customOccupation}</FieldError>
         </div>
       )}
-      <Input label="Nationality" value={nationality} onChange={e => setNationality(e.target.value)} placeholder="e.g. Indonesian, Singaporean" />
       <Select label="Marital Status" value={maritalStatus} onChange={e => setMaritalStatus(e.target.value)} placeholder="Select marital status" options={MARITAL_STATUS_OPTIONS} />
+      <Input label="Nationality" value={nationality} onChange={e => setNationality(e.target.value)} placeholder="e.g. Indonesian, Singaporean" />
+      <FieldError>{errors.nationality}</FieldError>
       <Select label="Holder Pass" value={holderPass} onChange={e => setHolderPass(e.target.value)} placeholder="Select holder pass status" options={HOLDER_PASS_OPTIONS} />
 
       <SectionLabel style={{ marginBottom: 10 }}>Clinic Details</SectionLabel>
       <Input label="Clinic name" value={clinicName} onChange={e => setClinicName(e.target.value)} placeholder="e.g. Sunrise Family Clinic" />
+      <FieldError>{errors.clinicName}</FieldError>
       <Select label="Location (country)" placeholder="Select country" value={location} onChange={e => setLocation(e.target.value)} options={COUNTRY_OPTIONS} />
+      <FieldError>{errors.location}</FieldError>
 
       {err && <p style={{ color: T.red, fontSize: 13, fontWeight: 700, margin: "-8px 0 12px" }}>{err}</p>}
       <Btn onClick={save} full disabled={saving}>{saving ? "Saving..." : "Save Changes"}</Btn>
