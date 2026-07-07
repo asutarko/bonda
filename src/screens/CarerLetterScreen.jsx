@@ -37,33 +37,64 @@ const roleLabelFor = (caregiverType, caregiverLabel) => {
 
 const titleCase = (s) => s.replace(/\b\w/g, c => c.toUpperCase());
 
-// Best-effort fill of the bracketed placeholders in the admin-managed template
-// (e.g. "[case worker name]") using keyword matching rather than an exact string
-// match, so small wording edits to the template from the admin app don't break this.
+// The admin app's editor saves rich text as HTML, but the PDF export just
+// draws plain lines of text — so strip tags here first, turning block
+// elements into line breaks instead of running everything together.
+const htmlToPlainText = (html) => {
+  if (!html || !/<[a-z][\s\S]*>/i.test(html)) return html || "";
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  doc.querySelectorAll("br").forEach(br => br.replaceWith("\n"));
+  doc.querySelectorAll("li").forEach(el => el.append("\n"));
+  doc.querySelectorAll("p, div, h1, h2, h3, h4, h5, h6, tr").forEach(el => el.append("\n\n"));
+  return (doc.body.textContent || "").replace(/\n{3,}/g, "\n\n").trim();
+};
+
+// Best-effort fill of the bracketed placeholders in the admin-managed template.
+// The admin app's editor lets whoever manages the template rename placeholders
+// freely (e.g. "[recipient name]" one week, "[Receiver_Name]" the next), so
+// instead of matching an exact string, every "[...]" is normalized (lowercased,
+// underscores → spaces) and matched against keywords for each field. Anything
+// that doesn't match a known field is left untouched rather than blanked out,
+// so an unrecognised placeholder stays visible for the caregiver to fill by hand.
+const normalizeBracket = (s) => s.toLowerCase().replace(/_/g, " ").replace(/['']/g, "").replace(/\s+/g, " ").trim();
+
 const fillTemplate = (content, values) => {
-  const rules = [
-    [/\[date\]/gi, values.date],
-    [/\[recipient name[^\]]*\]/gi, values.recipientName],
-    [/\[child'?s preferred name\]/gi, values.childName],
-    [/\[date of birth[^\]]*\]/gi, values.dob],
-    [/\[placement start date\]/gi, values.placementStartDate],
-    [/\[fostering agency[^\]]*\]/gi, values.fosteringAgency],
-    [/\[case worker name\]/gi, values.caseWorkerName],
-    [/\[case worker phone[^\]]*\]/gi, values.caseWorkerPhone],
-    [/\[case worker email[^\]]*\]/gi, values.caseWorkerEmail],
-    [/\[short-term[^\]]*\]/gi, values.placementType],
-    [/\[court order reference[^\]]*\]/gi, values.courtOrderRef],
-    [/\[non-verbal[^\]]*\/ verbal\]/gi, values.verbalText],
-    [/\[diagnosis[^\]]*\]/gi, values.diagnosis],
-    [/\[him \/ her \/ them\]/gi, values.pronoun],
-    [/\[your name\]/gi, values.yourName],
-    [/\[your phone number\]/gi, values.yourPhone],
-    [/\[your email\]/gi, values.yourEmail],
-    [/\[(location|country)[^\]]*\]/gi, values.location],
-    [/\bfoster carer\b/g, values.roleLabel],
-    [/^Foster Carer$/gm, titleCase(values.roleLabel)],
-  ];
-  return rules.reduce((text, [pattern, value]) => text.replace(pattern, value || ""), content);
+  const withBrackets = content.replace(/\[([^\]]+)\]/g, (match, inner) => {
+    const key = normalizeBracket(inner);
+    const has = (...words) => words.every(w => key.includes(w));
+
+    if (has("date") && has("birth")) return values.dob;
+    if (key === "date" || has("today") || has("letter", "date")) return values.date;
+    if (has("receiver") || has("recipient")) {
+      if (has("address")) return values.recipientAddress;
+      if (has("phone")) return values.recipientPhone;
+      return values.recipientName;
+    }
+    if (has("child") && has("name")) return values.childName;
+    if (has("placement") && has("start")) return values.placementStartDate;
+    if (has("placement") && (has("type") || has("status"))) return values.placementType;
+    if (has("fostering") || has("agency") || has("vwo")) return values.fosteringAgency;
+    if (has("case", "worker") || has("caseworker")) {
+      if (has("phone")) return values.caseWorkerPhone;
+      if (has("email")) return values.caseWorkerEmail;
+      return values.caseWorkerName;
+    }
+    if (has("court") && has("order")) return values.courtOrderRef;
+    if (has("verbal")) return values.verbalText;
+    if (has("diagnosis")) return values.diagnosis;
+    if (key === "pronoun" || key.includes("him") || key.includes("her")) return values.pronoun;
+    if (has("location") || has("country")) return values.location;
+    if (has("carer") || has("your") || has("parent")) {
+      if (has("phone")) return values.yourPhone;
+      if (has("email")) return values.yourEmail;
+      if (has("role")) return values.roleLabel;
+      return values.yourName;
+    }
+    return match;
+  });
+  return withBrackets
+    .replace(/\bfoster carer\b/g, values.roleLabel)
+    .replace(/^Foster Carer$/gm, titleCase(values.roleLabel));
 };
 
 const buildRecipientLabel = (clinic, psychologist) => {
@@ -107,6 +138,8 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
   // Clinic name and location now come from the caregiver's own profile
   // (set once in Edit Profile) instead of being retyped on every letter.
   const [recipientName, setRecipientName] = useState("");
+  const [recipientAddress, setRecipientAddress] = useState("");
+  const [recipientPhone, setRecipientPhone] = useState("");
   const [placementStartDate, setPlacementStartDate] = useState("");
   const [fosteringAgency, setFosteringAgency] = useState("");
   const [caseWorkerName, setCaseWorkerName] = useState("");
@@ -156,6 +189,8 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
     const values = {
       date: formatDate(new Date()),
       recipientName: recipientName.trim() || "Recipient name / organisation",
+      recipientAddress: recipientAddress.trim() || "to be confirmed",
+      recipientPhone: recipientPhone.trim() || "to be confirmed",
       location: account?.location?.trim() || "to be confirmed",
       childName: selectedChild.name,
       dob: selectedChild.dob ? formatDate(selectedChild.dob) : "to be confirmed",
@@ -174,7 +209,7 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
       yourPhone: account?.phone || "to be confirmed",
       yourEmail: account?.email || "",
     };
-    setLetterText(fillTemplate(template.content, values));
+    setLetterText(fillTemplate(htmlToPlainText(template.content), values));
   };
 
   const downloadPdf = () => {
@@ -220,6 +255,8 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
         )}
         {account?.clinicName && <Btn secondary onClick={useClinicAsRecipient} style={{ marginBottom: 14 }}>Use clinic as recipient</Btn>}
         <Input label="Recipient name / organisation" placeholder="e.g. General Office, ABC Primary School" value={recipientName} onChange={e => setRecipientName(e.target.value)} />
+        <Input label="Recipient address (optional)" placeholder="e.g. 123 Clinic Road, Singapore" value={recipientAddress} onChange={e => setRecipientAddress(e.target.value)} />
+        <Input label="Recipient phone (optional)" placeholder="e.g. 6123 4567" value={recipientPhone} onChange={e => setRecipientPhone(e.target.value)} />
       </Card>
 
       <SectionLabel style={{ marginBottom: 10 }}>Placement & Case Worker (if applicable)</SectionLabel>
