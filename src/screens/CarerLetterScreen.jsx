@@ -81,6 +81,12 @@ const fillTemplate = (content, values) => {
     if (has("clinic")) return values.clinic;
     if (key === "pronoun" || key.includes("him") || key.includes("her")) return values.pronoun;
     if (has("location") || has("country")) return values.location;
+    // Not something we hold data for (there's no "are you licensed" field on
+    // the child/account) — left bracketed so the caregiver states it themselves.
+    // Checked before the generic "carer" catch-all below, since the phrase
+    // "licensed foster carer" would otherwise match on "carer" and get
+    // wrongly filled with the caregiver's name.
+    if (has("licensed")) return match;
     if (has("carer") || has("your") || has("parent")) {
       if (has("phone")) return values.yourPhone;
       if (has("email")) return values.yourEmail;
@@ -126,6 +132,7 @@ const PLACEHOLDER_HELP = {
   "Your name": "Your full name, as the person signing this letter.",
   "Your phone": "Your contact phone number.",
   "Your email": "Your contact email address.",
+  "Licensed foster carer": "Whether you are an officially licensed/registered foster carer (e.g. state \"Yes\" or \"No\") — this isn't something we store automatically, so type it in directly.",
 };
 
 // For anything else left in brackets — placeholders the admin template author
@@ -139,8 +146,16 @@ const humanizePlaceholder = (raw) => raw
   .trim()
   .replace(/\b\w/g, c => c.toUpperCase());
 
+// Keyed by normalizeBracket() (same normalization fillTemplate uses) rather than
+// exact text, so admin-typed variants like "Licensed_Foster_Carer" or
+// "licensed foster carer" still match the "Licensed foster carer" entry above.
+const PLACEHOLDER_HELP_BY_KEY = Object.fromEntries(
+  Object.entries(PLACEHOLDER_HELP).map(([label, desc]) => [normalizeBracket(label), { label, desc }])
+);
+
 const describePlaceholder = (raw) => {
-  if (PLACEHOLDER_HELP[raw]) return { label: raw, desc: PLACEHOLDER_HELP[raw] };
+  const found = PLACEHOLDER_HELP_BY_KEY[normalizeBracket(raw)];
+  if (found) return found;
   return { label: humanizePlaceholder(raw), desc: "From the letter template — read the surrounding sentence to see what belongs here." };
 };
 
@@ -176,6 +191,8 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
   const [psychologists, setPsychologists] = useState([]);
 
   const [letterText, setLetterText] = useState("");
+  const [savingLetter, setSavingLetter] = useState(false);
+  const [savedAt, setSavedAt] = useState(null);
 
   useEffect(() => {
     const load = async () => {
@@ -192,6 +209,34 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
     };
     load();
   }, []);
+
+  // Load any previously saved letter for the selected child, so re-opening this
+  // screen (or switching child and back) doesn't lose earlier edits.
+  useEffect(() => {
+    setLetterText("");
+    setSavedAt(null);
+    if (!selectedChild) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase.from("carer_letters").select("content, updated_at").eq("child_id", selectedChild.id).maybeSingle();
+      if (!cancelled && data) {
+        setLetterText(data.content);
+        setSavedAt(data.updated_at);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [selectedChild?.id]);
+
+  const saveLetter = async (content) => {
+    if (!selectedChild || !account?.id) return;
+    setSavingLetter(true);
+    const { error } = await supabase.from("carer_letters").upsert(
+      { child_id: selectedChild.id, user_id: account.id, content, updated_at: new Date().toISOString() },
+      { onConflict: "child_id" }
+    );
+    setSavingLetter(false);
+    if (!error) setSavedAt(new Date().toISOString());
+  };
 
   // The admin app already assigns each child to a psychologist (children.psychologist_id),
   // so the recipient is whoever that assignment points to — the caregiver can still
@@ -231,8 +276,19 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
       yourPhone: account?.phone || "[Your phone]",
       yourEmail: account?.email || "[Your email]",
     };
-    setLetterText(fillTemplate(template.content, values));
+    const filled = fillTemplate(template.content, values);
+    setLetterText(filled);
+    saveLetter(filled);
   };
+
+  // Debounced auto-save while the caregiver edits in TinyMCE, so their changes
+  // persist without needing an explicit "Save" click.
+  useEffect(() => {
+    if (!letterText || !selectedChild) return;
+    const timer = setTimeout(() => saveLetter(letterText), 1200);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [letterText]);
 
   const downloadPdf = () => {
     if (!letterText.trim()) return;
@@ -276,7 +332,12 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
 
       {letterText && (
         <>
-          <SectionLabel style={{ marginBottom: 10 }}>Preview — edit freely before exporting</SectionLabel>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+            <SectionLabel style={{ marginBottom: 0 }}>Preview — edit freely before exporting</SectionLabel>
+            <span style={{ fontSize: 11, color: T.inkMuted }}>
+              {savingLetter ? "Saving..." : savedAt ? `Saved ${new Date(savedAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}` : ""}
+            </span>
+          </div>
 
           <Card style={{ marginBottom: 14 }}>
             <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>How to edit this letter</p>
