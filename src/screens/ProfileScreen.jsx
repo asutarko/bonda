@@ -4,7 +4,7 @@ import { supabase } from "../lib/supabase";
 import { uploadPhoto } from "../hooks";
 import { T } from "../theme";
 import { Page, SectionLabel, Input, Select, FieldError, Btn, ComAvatar, COM_AVATAR_ILLUSTRATIONS } from "../ui";
-import { RELATIONSHIP_OPTIONS, OCCUPATION_OPTIONS, MARITAL_STATUS_OPTIONS, HOLDER_PASS_OPTIONS, COUNTRY_OPTIONS } from "../data";
+import { RELATIONSHIP_OPTIONS, OCCUPATION_OPTIONS, MARITAL_STATUS_OPTIONS, HOLDER_PASS_OPTIONS } from "../data";
 
 export function EditProfileScreen({ account, pop, push }) {
   const isExistingPhoto = !!(account?.avatar && (account.avatar.startsWith("data:") || account.avatar.startsWith("http")));
@@ -24,6 +24,8 @@ export function EditProfileScreen({ account, pop, push }) {
   const [holderPass, setHolderPass] = useState(account?.holderPass || "");
   const [clinicName, setClinicName] = useState(account?.clinicName || "");
   const [location, setLocation] = useState(account?.location || "");
+  const [nationalityOptions, setNationalityOptions] = useState([]);
+  const [countryOptions, setCountryOptions] = useState([]);
   const [err, setErr] = useState("");
   const [errors, setErrors] = useState({});
   const [photoErr, setPhotoErr] = useState("");
@@ -45,6 +47,15 @@ export function EditProfileScreen({ account, pop, push }) {
     };
     check();
     return () => { if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop()); };
+  }, []);
+
+  useEffect(() => {
+    supabase.from("nationalities").select("name").order("sort_order").then(({ data }) => {
+      if (data) setNationalityOptions(data.map(n => n.name));
+    });
+    supabase.from("countries").select("name").order("sort_order").then(({ data }) => {
+      if (data) setCountryOptions(data.map(c => c.name));
+    });
   }, []);
 
   const openCamera = async () => {
@@ -84,7 +95,7 @@ export function EditProfileScreen({ account, pop, push }) {
     if (!address.trim()) fe.address = "Please enter your home address.";
     if (!relationship) fe.relationship = "Please select your relationship to the child.";
     if (occupation === "Other" && !customOccupation.trim()) fe.customOccupation = "Please enter your occupation.";
-    if (!nationality.trim()) fe.nationality = "Please enter your nationality.";
+    if (!nationality) fe.nationality = "Please select your nationality.";
     if (!clinicName.trim()) fe.clinicName = "Please enter your clinic name.";
     if (!location) fe.location = "Please select your location (country).";
     setErrors(fe);
@@ -200,14 +211,14 @@ export function EditProfileScreen({ account, pop, push }) {
         </div>
       )}
       <Select label="Marital Status" value={maritalStatus} onChange={e => setMaritalStatus(e.target.value)} placeholder="Select marital status" options={MARITAL_STATUS_OPTIONS} />
-      <Input label="Nationality" value={nationality} onChange={e => setNationality(e.target.value)} placeholder="e.g. Indonesian, Singaporean" />
+      <Select label="Nationality" placeholder="Select nationality" value={nationality} onChange={e => setNationality(e.target.value)} options={nationalityOptions} />
       <FieldError>{errors.nationality}</FieldError>
       <Select label="Holder Pass" value={holderPass} onChange={e => setHolderPass(e.target.value)} placeholder="Select holder pass status" options={HOLDER_PASS_OPTIONS} />
 
       <SectionLabel style={{ marginBottom: 10 }}>Clinic Details</SectionLabel>
       <Input label="Clinic name" value={clinicName} onChange={e => setClinicName(e.target.value)} placeholder="e.g. Sunrise Family Clinic" />
       <FieldError>{errors.clinicName}</FieldError>
-      <Select label="Location (country)" placeholder="Select country" value={location} onChange={e => setLocation(e.target.value)} options={COUNTRY_OPTIONS} />
+      <Select label="Location (country)" placeholder="Select country" value={location} onChange={e => setLocation(e.target.value)} options={countryOptions} />
       <FieldError>{errors.location}</FieldError>
 
       {err && <p style={{ color: T.red, fontSize: 13, fontWeight: 700, margin: "-8px 0 12px" }}>{err}</p>}

@@ -1,10 +1,17 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { jsPDF } from "jspdf";
+import { Editor } from "@tinymce/tinymce-react";
+import "tinymce/tinymce";
+import "tinymce/icons/default";
+import "tinymce/themes/silver";
+import "tinymce/models/dom";
+import "tinymce/plugins/lists";
+import "tinymce/plugins/link";
+import "tinymce/skins/ui/oxide/skin.css";
+import "tinymce/skins/content/default/content.css";
 import { supabase } from "../lib/supabase";
 import { T } from "../theme";
-import { Page, SectionLabel, Card, Btn, Input, TextArea, Select } from "../ui";
-
-const PLACEMENT_TYPE_OPTIONS = ["short-term", "long-term", "kinship", "emergency"];
+import { Page, SectionLabel, Card, Btn, Select } from "../ui";
 
 const formatDate = (value) => {
   if (!value) return "";
@@ -17,7 +24,7 @@ const verbalTextFor = (verbalStatus) => {
   if (verbalStatus === "verbal") return "verbal";
   if (verbalStatus === "nonverbal") return "non-verbal";
   if (verbalStatus === "mixed") return "an emerging communicator (uses some words and AAC/picture cards)";
-  return "verbal status to be confirmed";
+  return "[Verbal status]";
 };
 
 const pronounFor = (gender) => (gender === "Male" ? "him" : gender === "Female" ? "her" : "them");
@@ -36,18 +43,6 @@ const roleLabelFor = (caregiverType, caregiverLabel) => {
 };
 
 const titleCase = (s) => s.replace(/\b\w/g, c => c.toUpperCase());
-
-// The admin app's editor saves rich text as HTML, but the PDF export just
-// draws plain lines of text — so strip tags here first, turning block
-// elements into line breaks instead of running everything together.
-const htmlToPlainText = (html) => {
-  if (!html || !/<[a-z][\s\S]*>/i.test(html)) return html || "";
-  const doc = new DOMParser().parseFromString(html, "text/html");
-  doc.querySelectorAll("br").forEach(br => br.replaceWith("\n"));
-  doc.querySelectorAll("li").forEach(el => el.append("\n"));
-  doc.querySelectorAll("p, div, h1, h2, h3, h4, h5, h6, tr").forEach(el => el.append("\n\n"));
-  return (doc.body.textContent || "").replace(/\n{3,}/g, "\n\n").trim();
-};
 
 // Best-effort fill of the bracketed placeholders in the admin-managed template.
 // The admin app's editor lets whoever manages the template rename placeholders
@@ -82,6 +77,8 @@ const fillTemplate = (content, values) => {
     if (has("court") && has("order")) return values.courtOrderRef;
     if (has("verbal")) return values.verbalText;
     if (has("diagnosis")) return values.diagnosis;
+    if (has("allerg")) return values.allergies;
+    if (has("clinic")) return values.clinic;
     if (key === "pronoun" || key.includes("him") || key.includes("her")) return values.pronoun;
     if (has("location") || has("country")) return values.location;
     if (has("carer") || has("your") || has("parent")) {
@@ -92,9 +89,12 @@ const fillTemplate = (content, values) => {
     }
     return match;
   });
-  return withBrackets
-    .replace(/\bfoster carer\b/g, values.roleLabel)
-    .replace(/^Foster Carer$/gm, titleCase(values.roleLabel));
+  // Case-insensitive + tag-agnostic so this still matches when the phrase
+  // sits inside HTML markup (e.g. "<strong>Foster Carer</strong>"), not just
+  // on its own plain-text line.
+  return withBrackets.replace(/\bfoster carer\b/gi, (match) =>
+    match === "Foster Carer" ? titleCase(values.roleLabel) : values.roleLabel
+  );
 };
 
 const buildRecipientLabel = (clinic, psychologist) => {
@@ -103,26 +103,66 @@ const buildRecipientLabel = (clinic, psychologist) => {
   return `${attn}${clinic.name}${clinic.address ? `, ${clinic.address}` : ""}`;
 };
 
-const exportLetterToPdf = (text, fileName) => {
-  const doc = new jsPDF({ unit: "pt", format: "a4" });
+// Plain-language explanation for each of our own "[Field name]" fill-ins, shown
+// next to the checklist item so a caregiver who's never seen this letter before
+// knows what they're actually looking for, not just the field's technical name.
+const PLACEHOLDER_HELP = {
+  "Recipient name / organisation": "Who this letter is addressed to — e.g. the school, clinic, or agency name.",
+  "Recipient address": "The postal address of that recipient (optional — leave the bracket in place if not needed).",
+  "Recipient phone": "A contact phone number for that recipient (optional).",
+  "Location": "The city/country you and the child are based in.",
+  "Date of birth": "The child's date of birth.",
+  "Placement start date": "The date the child came into your care.",
+  "Fostering agency / VWO name": "The fostering agency or organisation responsible for this placement.",
+  "Case worker name": "The name of the child's assigned case worker / social worker.",
+  "Case worker phone": "A contact phone number for the case worker.",
+  "Case worker email": "A contact email for the case worker.",
+  "Placement status": "The type of placement — e.g. long-term, short-term, kinship, etc.",
+  "Court order reference, if applicable": "The court order or legal reference number, if one applies to this placement.",
+  "Verbal status": "Whether the child is verbal, non-verbal, or an emerging communicator.",
+  "Diagnosis, if applicable": "Any medical or developmental diagnosis relevant to this letter.",
+  "Known allergies / triggers": "Allergies or known triggers the reader should be aware of.",
+  "Clinic name": "The clinic or practice handling this child's care.",
+  "Your name": "Your full name, as the person signing this letter.",
+  "Your phone": "Your contact phone number.",
+  "Your email": "Your contact email address.",
+};
+
+// For anything else left in brackets — placeholders the admin template author
+// typed in directly (e.g. "Medical_Fee_Exemption_Card_number") that our filler
+// doesn't recognise — turn the raw text into something readable instead of
+// showing the caregiver a snake_case/camelCase token verbatim.
+const humanizePlaceholder = (raw) => raw
+  .replace(/_/g, " ")
+  .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+  .replace(/\s+/g, " ")
+  .trim()
+  .replace(/\b\w/g, c => c.toUpperCase());
+
+const describePlaceholder = (raw) => {
+  if (PLACEHOLDER_HELP[raw]) return { label: raw, desc: PLACEHOLDER_HELP[raw] };
+  return { label: humanizePlaceholder(raw), desc: "From the letter template — read the surrounding sentence to see what belongs here." };
+};
+
+// The preview is now edited as rich HTML in TinyMCE, so the PDF is rendered
+// straight from that HTML (via jsPDF's html2canvas-backed html() plugin)
+// instead of drawing plain text lines — this keeps bold/list/etc. formatting
+// the caregiver applied in the editor.
+const exportLetterToPdf = (html, fileName) => {
   const margin = 56;
-  const maxWidth = doc.internal.pageSize.getWidth() - margin * 2;
-  const pageHeight = doc.internal.pageSize.getHeight();
-  const lineHeight = 16;
-  doc.setFont("times", "normal");
-  doc.setFontSize(11);
+  const doc = new jsPDF({ unit: "pt", format: "a4" });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const wrapped = `<div style="font-family:'Times New Roman',Times,serif;font-size:12pt;line-height:1.5;color:#000;">${html}</div>`;
 
-  let y = margin;
-  text.split("\n").forEach((rawLine) => {
-    const wrapped = rawLine.trim() === "" ? [""] : doc.splitTextToSize(rawLine, maxWidth);
-    wrapped.forEach((line) => {
-      if (y > pageHeight - margin) { doc.addPage(); y = margin; }
-      if (line) doc.text(line, margin, y);
-      y += lineHeight;
-    });
+  doc.html(wrapped, {
+    x: margin,
+    y: margin,
+    width: pageWidth - margin * 2,
+    windowWidth: 700,
+    autoPaging: "text",
+    html2canvas: { scale: 0.75 },
+    callback: (pdf) => pdf.save(fileName),
   });
-
-  doc.save(fileName);
 };
 
 export function CarerLetterScreen({ pop, push, childCtx, account }) {
@@ -134,20 +174,6 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
   const [loadingTemplate, setLoadingTemplate] = useState(true);
   const [clinics, setClinics] = useState([]);
   const [psychologists, setPsychologists] = useState([]);
-
-  // Clinic name and location now come from the caregiver's own profile
-  // (set once in Edit Profile) instead of being retyped on every letter.
-  const [recipientName, setRecipientName] = useState("");
-  const [recipientAddress, setRecipientAddress] = useState("");
-  const [recipientPhone, setRecipientPhone] = useState("");
-  const [placementStartDate, setPlacementStartDate] = useState("");
-  const [fosteringAgency, setFosteringAgency] = useState("");
-  const [caseWorkerName, setCaseWorkerName] = useState("");
-  const [caseWorkerPhone, setCaseWorkerPhone] = useState("");
-  const [caseWorkerEmail, setCaseWorkerEmail] = useState("");
-  const [placementType, setPlacementType] = useState("");
-  const [courtOrderRef, setCourtOrderRef] = useState("");
-  const [diagnosis, setDiagnosis] = useState("");
 
   const [letterText, setLetterText] = useState("");
 
@@ -168,48 +194,44 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
   }, []);
 
   // The admin app already assigns each child to a psychologist (children.psychologist_id),
-  // so default the recipient to that assignment instead of making the caregiver pick it
-  // again — they can still overwrite the clinic name / recipient fields below if this
-  // letter is going somewhere else (e.g. a school).
+  // so the recipient is whoever that assignment points to — the caregiver can still
+  // hand-edit the recipient/placement/case-worker text directly in the letter preview
+  // below if this letter is going somewhere else (e.g. a school).
   const assignedPsychologist = psychologists.find(p => p.id === selectedChild?.psychologistId) || null;
   const assignedClinic = assignedPsychologist ? clinics.find(c => c.id === assignedPsychologist.clinic_id) || null : null;
 
-  useEffect(() => {
-    if (!assignedPsychologist || !assignedClinic) return;
-    setRecipientName(prev => prev || buildRecipientLabel(assignedClinic, assignedPsychologist));
-  }, [selectedChild?.id, assignedPsychologist?.id, assignedClinic?.id]);
-
-  const useClinicAsRecipient = () => {
-    if (!account?.clinicName?.trim()) return;
-    setRecipientName(account.clinicName.trim());
-  };
-
   const generateLetter = () => {
     if (!template || !selectedChild) return;
+    // Anything we don't actually have data for is left as a "[Bracketed]"
+    // placeholder rather than a vague "to be confirmed" — same convention as
+    // the template's own unfilled placeholders, so it's obvious in the TinyMCE
+    // preview exactly which bits the caregiver still needs to fill in by hand.
     const values = {
       date: formatDate(new Date()),
-      recipientName: recipientName.trim() || "Recipient name / organisation",
-      recipientAddress: recipientAddress.trim() || "to be confirmed",
-      recipientPhone: recipientPhone.trim() || "to be confirmed",
-      location: account?.location?.trim() || "to be confirmed",
+      recipientName: buildRecipientLabel(assignedClinic, assignedPsychologist) || account?.clinicName?.trim() || "[Recipient name / organisation]",
+      recipientAddress: assignedClinic?.address?.trim() || "[Recipient address]",
+      recipientPhone: assignedClinic?.phone?.trim() || "[Recipient phone]",
+      location: account?.location?.trim() || "[Location]",
       childName: selectedChild.name,
-      dob: selectedChild.dob ? formatDate(selectedChild.dob) : "to be confirmed",
-      placementStartDate: placementStartDate ? formatDate(placementStartDate) : "to be confirmed",
-      fosteringAgency: fosteringAgency.trim() || "to be confirmed",
-      caseWorkerName: caseWorkerName.trim() || "to be confirmed",
-      caseWorkerPhone: caseWorkerPhone.trim() || "to be confirmed",
-      caseWorkerEmail: caseWorkerEmail.trim() || "to be confirmed",
-      placementType: placementType || "to be confirmed",
-      courtOrderRef: courtOrderRef.trim() || "not applicable",
+      dob: selectedChild.dob ? formatDate(selectedChild.dob) : "[Date of birth]",
+      placementStartDate: selectedChild.placementStartDate ? formatDate(selectedChild.placementStartDate) : "[Placement start date]",
+      fosteringAgency: selectedChild.fosteringAgency?.trim() || "[Fostering agency / VWO name]",
+      caseWorkerName: selectedChild.caseWorkerName?.trim() || "[Case worker name]",
+      caseWorkerPhone: selectedChild.caseWorkerPhone?.trim() || "[Case worker phone]",
+      caseWorkerEmail: selectedChild.caseWorkerEmail?.trim() || "[Case worker email]",
+      placementType: selectedChild.placementType || "[Placement status]",
+      courtOrderRef: selectedChild.courtOrderRef?.trim() || "[Court order reference, if applicable]",
       verbalText: verbalTextFor(selectedChild.verbalStatus),
-      diagnosis: diagnosis.trim() || "assessment pending",
+      diagnosis: selectedChild.diagnosis?.trim() || "[Diagnosis, if applicable]",
+      allergies: selectedChild.knownTriggers?.trim() || "[Known allergies / triggers]",
+      clinic: assignedClinic?.name || "[Clinic name]",
       pronoun: pronounFor(selectedChild.gender),
       roleLabel: roleLabelFor(selectedChild.caregiverType, selectedChild.caregiverLabel),
-      yourName: account?.name || "",
-      yourPhone: account?.phone || "to be confirmed",
-      yourEmail: account?.email || "",
+      yourName: account?.name || "[Your name]",
+      yourPhone: account?.phone || "[Your phone]",
+      yourEmail: account?.email || "[Your email]",
     };
-    setLetterText(fillTemplate(htmlToPlainText(template.content), values));
+    setLetterText(fillTemplate(template.content, values));
   };
 
   const downloadPdf = () => {
@@ -217,6 +239,18 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
     const fileName = `${(selectedChild?.name || "carer").replace(/\s+/g, "_")}_carer_letter.pdf`;
     exportLetterToPdf(letterText, fileName);
   };
+
+  // Live checklist of everything still bracketed in the letter — both our own
+  // "[Field name]" fill-ins and any unrecognised placeholder left over from
+  // the template — so the caregiver has a concrete list of what to look for
+  // instead of having to scan the whole letter themselves. Recomputes as they
+  // edit, so items disappear once they've been replaced.
+  const missingPlaceholders = useMemo(() => {
+    if (!letterText) return [];
+    const found = new Set();
+    letterText.replace(/\[([^\]]+)\]/g, (match, inner) => { found.add(inner.trim()); return match; });
+    return [...found];
+  }, [letterText]);
 
   if (loadingTemplate) {
     return <Page><p style={{ color: T.inkSoft, fontSize: 13 }}>Loading letter template...</p></Page>;
@@ -232,51 +266,53 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
 
   return (
     <Page>
-      <p style={{ margin: "0 0 18px", color: T.inkSoft, fontSize: 13, lineHeight: 1.6 }}>Fill in the details below — we'll auto-fill what we already know about the child and your account, then build an editable letter you can export as a PDF.</p>
+      <p style={{ margin: "0 0 18px", color: T.inkSoft, fontSize: 13, lineHeight: 1.6 }}>We'll auto-fill the letter with what we already know about the child and your account — generate it, then edit anything (including the recipient and placement details) freely before exporting as a PDF.</p>
 
       {children.length > 1 && (
         <Select label="Child" value={selectedChildId || selectedChild.id} onChange={e => setSelectedChildId(e.target.value)} options={children.map(c => ({ value: c.id, label: c.name }))} />
       )}
-
-      <SectionLabel style={{ marginBottom: 10 }}>Recipient</SectionLabel>
-      <Card style={{ marginBottom: 14 }}>
-        {assignedPsychologist && assignedClinic && (
-          <p style={{ margin: "0 0 14px", color: T.purple, fontSize: 12, fontWeight: 700, lineHeight: 1.5 }}>✓ Auto-filled from {selectedChild.name}'s assigned psychologist — {assignedPsychologist.name} at {assignedClinic.name}. Change below if this letter is for someone else.</p>
-        )}
-        {account?.clinicName || account?.location ? (
-          <p style={{ margin: "0 0 14px", color: T.inkSoft, fontSize: 12, lineHeight: 1.5 }}>
-            Clinic: <strong>{account?.clinicName || "not set"}</strong> · Location: <strong>{account?.location || "not set"}</strong>
-            {" — "}<span onClick={() => push?.("editProfile")} style={{ color: T.purple, fontWeight: 700, textDecoration: "underline", cursor: "pointer" }}>edit in profile</span>
-          </p>
-        ) : (
-          <p style={{ margin: "0 0 14px", color: T.amber, fontSize: 12, fontWeight: 700, lineHeight: 1.5 }}>
-            Add your clinic name and location in <span onClick={() => push?.("editProfile")} style={{ textDecoration: "underline", cursor: "pointer" }}>Edit Profile</span> so they can be used here.
-          </p>
-        )}
-        {account?.clinicName && <Btn secondary onClick={useClinicAsRecipient} style={{ marginBottom: 14 }}>Use clinic as recipient</Btn>}
-        <Input label="Recipient name / organisation" placeholder="e.g. General Office, ABC Primary School" value={recipientName} onChange={e => setRecipientName(e.target.value)} />
-        <Input label="Recipient address (optional)" placeholder="e.g. 123 Clinic Road, Singapore" value={recipientAddress} onChange={e => setRecipientAddress(e.target.value)} />
-        <Input label="Recipient phone (optional)" placeholder="e.g. 6123 4567" value={recipientPhone} onChange={e => setRecipientPhone(e.target.value)} />
-      </Card>
-
-      <SectionLabel style={{ marginBottom: 10 }}>Placement & Case Worker (if applicable)</SectionLabel>
-      <Card style={{ marginBottom: 14 }}>
-        <Input label="Placement start date" type="date" value={placementStartDate} onChange={e => setPlacementStartDate(e.target.value)} />
-        <Input label="Fostering agency / VWO name" value={fosteringAgency} onChange={e => setFosteringAgency(e.target.value)} />
-        <Input label="Case worker name" value={caseWorkerName} onChange={e => setCaseWorkerName(e.target.value)} />
-        <Input label="Case worker phone" value={caseWorkerPhone} onChange={e => setCaseWorkerPhone(e.target.value)} />
-        <Input label="Case worker email" value={caseWorkerEmail} onChange={e => setCaseWorkerEmail(e.target.value)} />
-        <Select label="Placement status" placeholder="Select placement status (foster carers only)" value={placementType} onChange={e => setPlacementType(e.target.value)} options={PLACEMENT_TYPE_OPTIONS.map(o => ({ value: o, label: o }))} />
-        <Input label="Court order reference (if applicable)" value={courtOrderRef} onChange={e => setCourtOrderRef(e.target.value)} />
-        <Input label="Diagnosis (if applicable)" placeholder="e.g. Autism Spectrum Disorder" value={diagnosis} onChange={e => setDiagnosis(e.target.value)} />
-      </Card>
 
       <Btn full onClick={generateLetter} style={{ marginBottom: 20 }}>Generate Letter</Btn>
 
       {letterText && (
         <>
           <SectionLabel style={{ marginBottom: 10 }}>Preview — edit freely before exporting</SectionLabel>
-          <TextArea value={letterText} onChange={e => setLetterText(e.target.value)} rows={20} style={{ fontFamily: "inherit", whiteSpace: "pre-wrap" }} />
+
+          <Card style={{ marginBottom: 14 }}>
+            <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>How to edit this letter</p>
+            <p style={{ margin: "0 0 10px", fontSize: 12, color: T.inkSoft, lineHeight: 1.6 }}>
+              Anything shown in <strong style={{ color: T.amber }}>[brackets]</strong> below means we didn't have that information on file — click into the letter and type over it with the real detail. You can also freely rewrite, bold, or reformat any other part before exporting.
+            </p>
+            {missingPlaceholders.length > 0 ? (
+              <>
+                <p style={{ margin: "0 0 6px", fontSize: 12, fontWeight: 700, color: T.amber }}>Still needs filling in ({missingPlaceholders.length}):</p>
+                <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, color: T.inkSoft, lineHeight: 1.7 }}>
+                  {missingPlaceholders.map(p => {
+                    const { label, desc } = describePlaceholder(p);
+                    return <li key={p}><strong style={{ color: T.ink }}>{label}</strong> — {desc}</li>;
+                  })}
+                </ul>
+              </>
+            ) : (
+              <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: T.green }}>✓ No blanks left — give the letter one more read-through, then export.</p>
+            )}
+          </Card>
+
+          <div style={{ marginBottom: 14, borderRadius: T.r, overflow: "hidden", border: `1.5px solid ${T.border}` }}>
+            <Editor
+              licenseKey="gpl"
+              value={letterText}
+              onEditorChange={setLetterText}
+              init={{
+                height: 520,
+                menubar: false,
+                statusbar: false,
+                plugins: "lists link",
+                toolbar: "undo redo | bold italic underline | bullist numlist | link | removeformat",
+                content_style: `body { font-family: 'Times New Roman', Times, serif; font-size: 13px; line-height: 1.6; color: ${T.ink}; }`,
+              }}
+            />
+          </div>
           <Btn full onClick={downloadPdf}>Export to PDF</Btn>
         </>
       )}

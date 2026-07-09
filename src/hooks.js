@@ -20,6 +20,14 @@ export const childFromRow = (row) => ({
   knownTriggers: row.known_triggers || "",
   therapySchedule: row.therapy_schedule || "",
   dietProgram: row.diet_program || "",
+  diagnosis: row.diagnosis || "",
+  placementStartDate: row.placement_start_date || "",
+  fosteringAgency: row.fostering_agency || "",
+  placementType: row.placement_type || "",
+  courtOrderRef: row.court_order_ref || "",
+  caseWorkerName: row.case_worker_name || "",
+  caseWorkerPhone: row.case_worker_phone || "",
+  caseWorkerEmail: row.case_worker_email || "",
   psychologistId: row.psychologist_id || null,
   active: row.active ?? true,
   createdAt: row.created_at,
@@ -75,6 +83,14 @@ export function useChildren(userId) {
       known_triggers: child.hasSpecialNeeds ? (child.knownTriggers || "") : "",
       therapy_schedule: child.hasSpecialNeeds ? (child.therapySchedule || "") : "",
       diet_program: child.hasSpecialNeeds ? (child.dietProgram || "") : "",
+      diagnosis: child.diagnosis || "",
+      placement_start_date: child.placementStartDate || null,
+      fostering_agency: child.fosteringAgency || "",
+      placement_type: child.placementType || "",
+      court_order_ref: child.courtOrderRef || "",
+      case_worker_name: child.caseWorkerName || "",
+      case_worker_phone: child.caseWorkerPhone || "",
+      case_worker_email: child.caseWorkerEmail || "",
     }).select().single();
     if (error || !data) { if (error) console.error("Failed to add child profile:", error.message); return null; }
     const newChild = childFromRow(data);
@@ -104,6 +120,14 @@ export function useChildren(userId) {
     if ("knownTriggers" in patch) dbPatch.known_triggers = patch.knownTriggers;
     if ("therapySchedule" in patch) dbPatch.therapy_schedule = patch.therapySchedule;
     if ("dietProgram" in patch) dbPatch.diet_program = patch.dietProgram;
+    if ("diagnosis" in patch) dbPatch.diagnosis = patch.diagnosis;
+    if ("placementStartDate" in patch) dbPatch.placement_start_date = patch.placementStartDate || null;
+    if ("fosteringAgency" in patch) dbPatch.fostering_agency = patch.fosteringAgency;
+    if ("placementType" in patch) dbPatch.placement_type = patch.placementType;
+    if ("courtOrderRef" in patch) dbPatch.court_order_ref = patch.courtOrderRef;
+    if ("caseWorkerName" in patch) dbPatch.case_worker_name = patch.caseWorkerName;
+    if ("caseWorkerPhone" in patch) dbPatch.case_worker_phone = patch.caseWorkerPhone;
+    if ("caseWorkerEmail" in patch) dbPatch.case_worker_email = patch.caseWorkerEmail;
     supabase.from("children").update(dbPatch).eq("id", id).then(({ error }) => { if (error) console.error("Failed to save child profile:", error.message); });
   };
 

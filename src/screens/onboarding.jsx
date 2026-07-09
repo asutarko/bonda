@@ -4,7 +4,7 @@ import { supabase } from "../lib/supabase";
 import { uploadPhoto } from "../hooks";
 import { T } from "../theme";
 import { Page, SectionLabel, Card, Badge, Btn, Input, TextArea, Select, FieldError, Avatar, Accordion, PageHero, AvatarIllustrations, ChildAvatar, ComAvatar, ROOM_ICONS, ACTIVITY_TEXTAREA_STYLE, ActionIllustration, HeroIllustration } from "../ui";
-import { CHILD_AVATARS, DEFAULT_CHILDREN, DEFAULT_SCHEDULE, ROOM_COLORS, SOS_COLORS, VERBAL_STATUS_OPTIONS } from "../data";
+import { CHILD_AVATARS, DEFAULT_CHILDREN, DEFAULT_SCHEDULE, PLACEMENT_TYPE_OPTIONS, ROOM_COLORS, SOS_COLORS, VERBAL_STATUS_OPTIONS } from "../data";
 
 export function SpecialNeedsSection({
   verbalStatus, setVerbalStatus,
@@ -45,6 +45,34 @@ export function SpecialNeedsSection({
   );
 }
 
+// Optional, filled in once here so CarerLetterScreen can auto-fill a carer
+// letter from it instead of the caregiver retyping it on every letter.
+export function PlacementDetailsSection({
+  diagnosis, setDiagnosis,
+  placementStartDate, setPlacementStartDate,
+  fosteringAgency, setFosteringAgency,
+  placementType, setPlacementType,
+  courtOrderRef, setCourtOrderRef,
+  caseWorkerName, setCaseWorkerName,
+  caseWorkerPhone, setCaseWorkerPhone,
+  caseWorkerEmail, setCaseWorkerEmail,
+}) {
+  return (
+    <>
+      <SectionLabel style={{ marginBottom: 10 }}>Placement & Letter Details (optional)</SectionLabel>
+      <p style={{ margin: "0 0 12px", color: T.inkMuted, fontSize: 12, lineHeight: 1.5 }}>Fill in what applies — this auto-fills the carer letter (Generate Letter) so it doesn't need to be retyped every time.</p>
+      <Input label="Diagnosis" placeholder="e.g. Autism Spectrum Disorder" value={diagnosis} onChange={e => setDiagnosis(e.target.value)} />
+      <Input label="Placement start date" type="date" value={placementStartDate} onChange={e => setPlacementStartDate(e.target.value)} />
+      <Input label="Fostering agency / VWO name" value={fosteringAgency} onChange={e => setFosteringAgency(e.target.value)} />
+      <Select label="Placement status" placeholder="Select placement status (foster carers only)" value={placementType} onChange={e => setPlacementType(e.target.value)} options={PLACEMENT_TYPE_OPTIONS.map(o => ({ value: o, label: o }))} />
+      <Input label="Court order reference" value={courtOrderRef} onChange={e => setCourtOrderRef(e.target.value)} />
+      <Input label="Case worker name" value={caseWorkerName} onChange={e => setCaseWorkerName(e.target.value)} />
+      <Input label="Case worker phone" value={caseWorkerPhone} onChange={e => setCaseWorkerPhone(e.target.value)} />
+      <Input label="Case worker email" value={caseWorkerEmail} onChange={e => setCaseWorkerEmail(e.target.value)} />
+    </>
+  );
+}
+
 export function AddChildScreen({ childCtx, pop }) {
   const [name, setName] = useState("");
   const [emoji, setEmoji] = useState("none");
@@ -62,6 +90,14 @@ export function AddChildScreen({ childCtx, pop }) {
   const [therapySchedule, setTherapySchedule] = useState("");
   const [hasDiet, setHasDiet] = useState("No");
   const [dietProgram, setDietProgram] = useState("");
+  const [diagnosis, setDiagnosis] = useState("");
+  const [placementStartDate, setPlacementStartDate] = useState("");
+  const [fosteringAgency, setFosteringAgency] = useState("");
+  const [placementType, setPlacementType] = useState("");
+  const [courtOrderRef, setCourtOrderRef] = useState("");
+  const [caseWorkerName, setCaseWorkerName] = useState("");
+  const [caseWorkerPhone, setCaseWorkerPhone] = useState("");
+  const [caseWorkerEmail, setCaseWorkerEmail] = useState("");
   const [err, setErr] = useState("");
   const [errors, setErrors] = useState({});
   const [photoErr, setPhotoErr] = useState("");
@@ -140,7 +176,7 @@ export function AddChildScreen({ childCtx, pop }) {
     if (Object.keys(fe).length > 0) return;
     setErr(""); setSaving(true);
     const finalCaregiverLabel = caregiverType === "other" ? (caregiverLabel === "Others" ? customRelative.trim() : caregiverLabel.trim()) : "";
-    const id = await addChild({ name: name.trim(), emoji: photo || emoji, dob, gender, caregiverType, caregiverLabel: finalCaregiverLabel, hasSpecialNeeds: true, verbalStatus, knownTriggers: hasTriggers === "Yes" ? knownTriggers.trim() : "", therapySchedule: hasTherapy === "Yes" ? therapySchedule.trim() : "", dietProgram: hasDiet === "Yes" ? dietProgram.trim() : "" });
+    const id = await addChild({ name: name.trim(), emoji: photo || emoji, dob, gender, caregiverType, caregiverLabel: finalCaregiverLabel, hasSpecialNeeds: true, verbalStatus, knownTriggers: hasTriggers === "Yes" ? knownTriggers.trim() : "", therapySchedule: hasTherapy === "Yes" ? therapySchedule.trim() : "", dietProgram: hasDiet === "Yes" ? dietProgram.trim() : "", diagnosis: diagnosis.trim(), placementStartDate, fosteringAgency: fosteringAgency.trim(), placementType, courtOrderRef: courtOrderRef.trim(), caseWorkerName: caseWorkerName.trim(), caseWorkerPhone: caseWorkerPhone.trim(), caseWorkerEmail: caseWorkerEmail.trim() });
     setSaving(false);
     if (!id) return setErr("Could not save the profile. Please try again.");
     await Swal.fire({ icon: "success", title: "Data berhasil disimpan", confirmButtonColor: T.purple });
@@ -254,6 +290,8 @@ export function AddChildScreen({ childCtx, pop }) {
 
       <SpecialNeedsSection verbalStatus={verbalStatus} setVerbalStatus={setVerbalStatus} hasTriggers={hasTriggers} setHasTriggers={setHasTriggers} knownTriggers={knownTriggers} setKnownTriggers={setKnownTriggers} hasTherapy={hasTherapy} setHasTherapy={setHasTherapy} therapySchedule={therapySchedule} setTherapySchedule={setTherapySchedule} hasDiet={hasDiet} setHasDiet={setHasDiet} dietProgram={dietProgram} setDietProgram={setDietProgram} errors={errors} />
 
+      <PlacementDetailsSection diagnosis={diagnosis} setDiagnosis={setDiagnosis} placementStartDate={placementStartDate} setPlacementStartDate={setPlacementStartDate} fosteringAgency={fosteringAgency} setFosteringAgency={setFosteringAgency} placementType={placementType} setPlacementType={setPlacementType} courtOrderRef={courtOrderRef} setCourtOrderRef={setCourtOrderRef} caseWorkerName={caseWorkerName} setCaseWorkerName={setCaseWorkerName} caseWorkerPhone={caseWorkerPhone} setCaseWorkerPhone={setCaseWorkerPhone} caseWorkerEmail={caseWorkerEmail} setCaseWorkerEmail={setCaseWorkerEmail} />
+
       {err && <p style={{ color: T.red, fontSize: 13, fontWeight: 700, margin: "-8px 0 12px" }}>{err}</p>}
       <Btn onClick={save} full disabled={saving}>{saving ? "Saving..." : "Save Profile"}</Btn>
       <Btn onClick={pop} full secondary style={{ marginTop: 10 }}>Cancel</Btn>
@@ -294,6 +332,14 @@ export function ChildProfileForm({ childCtx, onSaved, onCancel, onDeleted, showH
   const [therapySchedule, setTherapySchedule] = useState(activeChild?.therapySchedule || "");
   const [hasDiet, setHasDiet] = useState(activeChild?.dietProgram ? "Yes" : "No");
   const [dietProgram, setDietProgram] = useState(activeChild?.dietProgram || "");
+  const [diagnosis, setDiagnosis] = useState(activeChild?.diagnosis || "");
+  const [placementStartDate, setPlacementStartDate] = useState(activeChild?.placementStartDate || "");
+  const [fosteringAgency, setFosteringAgency] = useState(activeChild?.fosteringAgency || "");
+  const [placementType, setPlacementType] = useState(activeChild?.placementType || "");
+  const [courtOrderRef, setCourtOrderRef] = useState(activeChild?.courtOrderRef || "");
+  const [caseWorkerName, setCaseWorkerName] = useState(activeChild?.caseWorkerName || "");
+  const [caseWorkerPhone, setCaseWorkerPhone] = useState(activeChild?.caseWorkerPhone || "");
+  const [caseWorkerEmail, setCaseWorkerEmail] = useState(activeChild?.caseWorkerEmail || "");
   const [err, setErr] = useState("");
   const [errors, setErrors] = useState({});
   const [photoErr, setPhotoErr] = useState("");
@@ -377,7 +423,7 @@ export function ChildProfileForm({ childCtx, onSaved, onCancel, onDeleted, showH
       const url = await uploadPhoto(emojiValue, "children", userId);
       if (url) emojiValue = url;
     }
-    updateChild(activeChild.id, { name: name.trim(), emoji: emojiValue, dob, gender, caregiverType, caregiverLabel: finalCaregiverLabel, hasSpecialNeeds: true, verbalStatus, knownTriggers: hasTriggers === "Yes" ? knownTriggers.trim() : "", therapySchedule: hasTherapy === "Yes" ? therapySchedule.trim() : "", dietProgram: hasDiet === "Yes" ? dietProgram.trim() : "" });
+    updateChild(activeChild.id, { name: name.trim(), emoji: emojiValue, dob, gender, caregiverType, caregiverLabel: finalCaregiverLabel, hasSpecialNeeds: true, verbalStatus, knownTriggers: hasTriggers === "Yes" ? knownTriggers.trim() : "", therapySchedule: hasTherapy === "Yes" ? therapySchedule.trim() : "", dietProgram: hasDiet === "Yes" ? dietProgram.trim() : "", diagnosis: diagnosis.trim(), placementStartDate, fosteringAgency: fosteringAgency.trim(), placementType, courtOrderRef: courtOrderRef.trim(), caseWorkerName: caseWorkerName.trim(), caseWorkerPhone: caseWorkerPhone.trim(), caseWorkerEmail: caseWorkerEmail.trim() });
     setSaving(false);
     await Swal.fire({ icon: "success", title: "Data berhasil disimpan", confirmButtonColor: T.purple });
     onSaved && onSaved();
@@ -497,6 +543,8 @@ export function ChildProfileForm({ childCtx, onSaved, onCancel, onDeleted, showH
       )}
 
       <SpecialNeedsSection verbalStatus={verbalStatus} setVerbalStatus={setVerbalStatus} hasTriggers={hasTriggers} setHasTriggers={setHasTriggers} knownTriggers={knownTriggers} setKnownTriggers={setKnownTriggers} hasTherapy={hasTherapy} setHasTherapy={setHasTherapy} therapySchedule={therapySchedule} setTherapySchedule={setTherapySchedule} hasDiet={hasDiet} setHasDiet={setHasDiet} dietProgram={dietProgram} setDietProgram={setDietProgram} errors={errors} />
+
+      <PlacementDetailsSection diagnosis={diagnosis} setDiagnosis={setDiagnosis} placementStartDate={placementStartDate} setPlacementStartDate={setPlacementStartDate} fosteringAgency={fosteringAgency} setFosteringAgency={setFosteringAgency} placementType={placementType} setPlacementType={setPlacementType} courtOrderRef={courtOrderRef} setCourtOrderRef={setCourtOrderRef} caseWorkerName={caseWorkerName} setCaseWorkerName={setCaseWorkerName} caseWorkerPhone={caseWorkerPhone} setCaseWorkerPhone={setCaseWorkerPhone} caseWorkerEmail={caseWorkerEmail} setCaseWorkerEmail={setCaseWorkerEmail} />
 
       {err && <p style={{ color: T.red, fontSize: 13, fontWeight: 700, margin: "-8px 0 12px" }}>{err}</p>}
       <Btn onClick={save} full disabled={saving}>{saving ? "Saving..." : "Save Changes"}</Btn>

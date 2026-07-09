@@ -48,6 +48,17 @@ alter table public.children add column if not exists age text not null default '
 -- can be assigned to the psychologist managing their case.
 alter table public.children add column if not exists psychologist_id uuid references public.clinic_psychologists (id) on delete set null;
 
+-- Placement/letter details, filled in once on the child profile so the carer letter
+-- (CarerLetterScreen) can auto-fill from here instead of being retyped every time.
+alter table public.children add column if not exists diagnosis text not null default '';
+alter table public.children add column if not exists placement_start_date date;
+alter table public.children add column if not exists fostering_agency text not null default '';
+alter table public.children add column if not exists placement_type text not null default '';
+alter table public.children add column if not exists court_order_ref text not null default '';
+alter table public.children add column if not exists case_worker_name text not null default '';
+alter table public.children add column if not exists case_worker_phone text not null default '';
+alter table public.children add column if not exists case_worker_email text not null default '';
+
 -- Whether this child profile is active. New profiles start inactive (pending review);
 -- the owning parent can view this but cannot set or change it themselves (enforced below) —
 -- only an admin account (profiles.role = 'admin', managed from the separate admin app)
