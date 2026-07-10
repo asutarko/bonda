@@ -191,8 +191,6 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
   const [psychologists, setPsychologists] = useState([]);
 
   const [letterText, setLetterText] = useState("");
-  const [savingLetter, setSavingLetter] = useState(false);
-  const [savedAt, setSavedAt] = useState(null);
 
   useEffect(() => {
     const load = async () => {
@@ -210,33 +208,9 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
     load();
   }, []);
 
-  // Load any previously saved letter for the selected child, so re-opening this
-  // screen (or switching child and back) doesn't lose earlier edits.
   useEffect(() => {
     setLetterText("");
-    setSavedAt(null);
-    if (!selectedChild) return;
-    let cancelled = false;
-    (async () => {
-      const { data } = await supabase.from("carer_letters").select("content, updated_at").eq("child_id", selectedChild.id).maybeSingle();
-      if (!cancelled && data) {
-        setLetterText(data.content);
-        setSavedAt(data.updated_at);
-      }
-    })();
-    return () => { cancelled = true; };
   }, [selectedChild?.id]);
-
-  const saveLetter = async (content) => {
-    if (!selectedChild || !account?.id) return;
-    setSavingLetter(true);
-    const { error } = await supabase.from("carer_letters").upsert(
-      { child_id: selectedChild.id, user_id: account.id, content, updated_at: new Date().toISOString() },
-      { onConflict: "child_id" }
-    );
-    setSavingLetter(false);
-    if (!error) setSavedAt(new Date().toISOString());
-  };
 
   // The admin app already assigns each child to a psychologist (children.psychologist_id),
   // so the recipient is whoever that assignment points to — the caregiver can still
@@ -278,17 +252,7 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
     };
     const filled = fillTemplate(template.content, values);
     setLetterText(filled);
-    saveLetter(filled);
   };
-
-  // Debounced auto-save while the caregiver edits in TinyMCE, so their changes
-  // persist without needing an explicit "Save" click.
-  useEffect(() => {
-    if (!letterText || !selectedChild) return;
-    const timer = setTimeout(() => saveLetter(letterText), 1200);
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [letterText]);
 
   const downloadPdf = () => {
     if (!letterText.trim()) return;
@@ -332,12 +296,7 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
 
       {letterText && (
         <>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-            <SectionLabel style={{ marginBottom: 0 }}>Preview — edit freely before exporting</SectionLabel>
-            <span style={{ fontSize: 11, color: T.inkMuted }}>
-              {savingLetter ? "Saving..." : savedAt ? `Saved ${new Date(savedAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}` : ""}
-            </span>
-          </div>
+          <SectionLabel>Preview — edit freely before exporting</SectionLabel>
 
           <Card style={{ marginBottom: 14 }}>
             <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>How to edit this letter</p>
