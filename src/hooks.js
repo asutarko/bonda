@@ -206,6 +206,66 @@ export const uploadPhoto = async (dataUrl, folder, ownerId) => {
   return data.publicUrl;
 };
 
+// Downscales an image file to fit within maxDim×maxDim and re-encodes it as
+// JPEG at the given quality, via canvas — cuts typical phone-camera photos
+// (3-8MB) down to a few hundred KB before they ever reach Supabase Storage,
+// which matters on the free plan's storage cap. Falls back to the original
+// file if decoding fails (e.g. unsupported format).
+export const compressImage = (file, maxDim = 800, quality = 0.75) => new Promise(resolve => {
+  const objectUrl = URL.createObjectURL(file);
+  const img = new Image();
+  img.onload = () => {
+    URL.revokeObjectURL(objectUrl);
+    const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+    const w = Math.round(img.width * scale) || 1;
+    const h = Math.round(img.height * scale) || 1;
+    const canvas = document.createElement("canvas");
+    canvas.width = w; canvas.height = h;
+    canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+    canvas.toBlob(blob => resolve(blob || file), "image/jpeg", quality);
+  };
+  img.onerror = () => { URL.revokeObjectURL(objectUrl); resolve(file); };
+  img.src = objectUrl;
+});
+
+// Community chat attachments are limited to images and Word/Excel/PDF
+// documents — no video, audio, or other file types. Checked by MIME type
+// first, falling back to the extension since some browsers/OSes report
+// generic MIME types (e.g. "application/octet-stream") for .doc/.xls files.
+const COMMUNITY_DOC_MIME_TO_EXT = {
+  "application/msword": "doc",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+  "application/vnd.ms-excel": "xls",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+  "application/pdf": "pdf",
+};
+const COMMUNITY_DOC_EXTS = ["doc", "docx", "xls", "xlsx", "pdf"];
+export const MAX_COMMUNITY_ATTACHMENT_BYTES = 10 * 1024 * 1024;
+
+// Returns "image", "document", or null (rejected) for a file picked for a
+// community chat attachment.
+export const classifyCommunityAttachment = file => {
+  if (!file) return null;
+  if (file.type.startsWith("image/")) return "image";
+  const ext = file.name.split(".").pop()?.toLowerCase();
+  if (COMMUNITY_DOC_MIME_TO_EXT[file.type] || COMMUNITY_DOC_EXTS.includes(ext)) return "document";
+  return null;
+};
+
+// Uploads a community chat attachment (an image Blob or a Word/Excel File)
+// to assets/community/ and returns its public URL. Every upload gets a
+// unique name — attachments accumulate rather than replacing each other.
+export const uploadCommunityAttachment = async (file, ownerId, kind) => {
+  if (!file) return null;
+  const ext = kind === "image" ? "jpg" : (COMMUNITY_DOC_MIME_TO_EXT[file.type] || file.name.split(".").pop().toLowerCase());
+  const contentType = kind === "image" ? "image/jpeg" : (file.type || "application/octet-stream");
+  const path = `assets/community/${ownerId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const { error } = await supabase.storage.from("public").upload(path, file, { contentType });
+  if (error) { console.error("Failed to upload community attachment:", error.message); return null; }
+  const { data } = supabase.storage.from("public").getPublicUrl(path);
+  return data.publicUrl;
+};
+
 export const forceSignOut = async () => {
   let failed = false;
   try {

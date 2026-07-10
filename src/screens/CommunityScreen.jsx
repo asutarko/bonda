@@ -3,9 +3,11 @@ import { supabase } from "../lib/supabase";
 import { T } from "../theme";
 import { Page, SectionLabel, Card, Badge, Btn, Input, TextArea, Avatar, Accordion, PageHero, AvatarIllustrations, ChildAvatar, ComAvatar, ROOM_ICONS, ACTIVITY_TEXTAREA_STYLE, ActionIllustration, HeroIllustration } from "../ui";
 import { CHILD_AVATARS, DEFAULT_CHILDREN, DEFAULT_SCHEDULE, ROOM_COLORS, SOS_COLORS, VERBAL_STATUS_OPTIONS } from "../data";
-import { forceSignOut } from "../hooks";
+import { forceSignOut, uploadCommunityAttachment, compressImage, classifyCommunityAttachment, MAX_COMMUNITY_ATTACHMENT_BYTES } from "../hooks";
 
-export function ChatUI({ msgs, input, setInput, onSend, onDelete, loading, color, bg, backFn, icon, label, sub, isGroup, account, dmPartner, endRef }) {
+const isDocAttachment = url => /\.(docx?|xlsx?|pdf)$/i.test(url || "");
+
+export function ChatUI({ msgs, input, setInput, onSend, onDelete, loading, color, bg, backFn, icon, label, sub, isGroup, account, dmPartner, endRef, attachment, onPickAttachment, onRemoveAttachment, attachError }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 130px)" }}>
       <div style={{ padding: "0 18px 12px", display: "flex", alignItems: "center", gap: 10 }}>
@@ -29,8 +31,16 @@ export function ChatUI({ msgs, input, setInput, onSend, onDelete, loading, color
                     {msg.author}
                   </p>
                 )}
-                <div style={{ background: isMe ? color : T.surface, color: isMe ? "white" : T.ink, borderRadius: isMe ? "16px 16px 4px 16px" : "16px 16px 16px 4px", padding: "10px 14px", boxShadow: T.shadow }}>
-                  <p style={{ margin: 0, fontSize: 14, lineHeight: 1.6, wordBreak: "break-word" }}>{msg.text}</p>
+                <div style={{ background: isMe ? color : T.surface, color: isMe ? "white" : T.ink, borderRadius: isMe ? "16px 16px 4px 16px" : "16px 16px 16px 4px", padding: msg.imageUrl && !isDocAttachment(msg.imageUrl) ? 6 : "10px 14px", boxShadow: T.shadow }}>
+                  {msg.imageUrl && (isDocAttachment(msg.imageUrl) ? (
+                    <a href={msg.imageUrl} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 8, color: "inherit", textDecoration: "none" }}>
+                      <span style={{ fontSize: 20 }}>📄</span>
+                      <span style={{ fontSize: 13, fontWeight: 700, wordBreak: "break-word", textDecoration: "underline" }}>{msg.fileName || "Document"}</span>
+                    </a>
+                  ) : (
+                    <img src={msg.imageUrl} alt="" style={{ display: "block", maxWidth: 220, maxHeight: 220, width: "100%", borderRadius: 12, objectFit: "cover" }} />
+                  ))}
+                  {msg.text && <p style={{ margin: msg.imageUrl && !isDocAttachment(msg.imageUrl) ? "6px 4px 0" : 0, fontSize: 14, lineHeight: 1.6, wordBreak: "break-word" }}>{msg.text}</p>}
                 </div>
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                   <p style={{ margin: 0, fontSize: 10, color: T.inkMuted }}>{msg.date} · {msg.time}</p>
@@ -42,10 +52,28 @@ export function ChatUI({ msgs, input, setInput, onSend, onDelete, loading, color
         })}
         <div ref={endRef} />
       </div>
+      {attachError && <p style={{ margin: "0 18px 6px", fontSize: 11, color: T.red, fontWeight: 700 }}>{attachError}</p>}
+      {attachment && (
+        <div style={{ padding: "0 18px 8px", display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ position: "relative" }}>
+            {attachment.kind === "image" ? (
+              <img src={attachment.url} alt="" style={{ width: 52, height: 52, objectFit: "cover", borderRadius: 10, border: `1.5px solid ${T.border}`, display: "block" }} />
+            ) : (
+              <div style={{ width: 52, height: 52, borderRadius: 10, border: `1.5px solid ${T.border}`, background: T.canvas, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>📄</div>
+            )}
+            <button onClick={onRemoveAttachment} style={{ position: "absolute", top: -6, right: -6, width: 18, height: 18, borderRadius: "50%", background: T.red, color: "white", border: "none", cursor: "pointer", fontSize: 11, lineHeight: 1, padding: 0 }}>×</button>
+          </div>
+          <p style={{ margin: 0, fontSize: 12, color: T.inkMuted, wordBreak: "break-word" }}>{attachment.kind === "image" ? "Image attached" : attachment.name}</p>
+        </div>
+      )}
       <div style={{ padding: "10px 18px 6px", background: T.surface, borderTop: `1px solid ${T.border}`, display: "flex", gap: 8, alignItems: "flex-end" }}>
         <ComAvatar value={account.avatar} size={28} active={true} borderColor={bg} />
+        <label style={{ width: 38, height: 38, borderRadius: "50%", background: T.canvas, border: `1.5px solid ${T.border}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0, fontSize: 16 }}>
+          📎
+          <input type="file" accept="image/*,.doc,.docx,.xls,.xlsx,.pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/pdf" onChange={onPickAttachment} style={{ display: "none" }} />
+        </label>
         <textarea value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSend(); } }} placeholder="Write a message… (Enter to send)" rows={1} style={{ flex: 1, padding: "9px 13px", borderRadius: T.r, border: `1.5px solid ${T.border}`, fontSize: 14, fontFamily: T.fontBody, color: T.ink, outline: "none", resize: "none", lineHeight: 1.5, background: T.canvas }} />
-        <button onClick={onSend} disabled={!input.trim()} style={{ width: 38, height: 38, borderRadius: "50%", background: input.trim() ? color : T.border, border: "none", cursor: input.trim() ? "pointer" : "default", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0, transition: "background 0.2s", color: "white" }}>›</button>
+        <button onClick={onSend} disabled={!input.trim() && !attachment} style={{ width: 38, height: 38, borderRadius: "50%", background: (input.trim() || attachment) ? color : T.border, border: "none", cursor: (input.trim() || attachment) ? "pointer" : "default", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0, transition: "background 0.2s", color: "white" }}>›</button>
       </div>
       <p style={{ textAlign: "center", color: T.inkMuted, fontSize: 10, margin: "2px 0 4px" }}>{isGroup ? "Visible to all parents · Be kind 💛" : `Private — only you and ${dmPartner?.name}`}</p>
     </div>
@@ -58,10 +86,32 @@ export function CommunityScreen({ account }) {
   const [showPaywall, setShowPaywall] = useState(false);
 
   const [activeRoom, setActiveRoom] = useState(null);
-  const [groupMsgs, setGroupMsgs] = useState([]); const [groupInput, setGroupInput] = useState(""); const [groupLoading, setGroupLoading] = useState(false);
+  const [groupMsgs, setGroupMsgs] = useState([]); const [groupInput, setGroupInput] = useState(""); const [groupLoading, setGroupLoading] = useState(false); const [groupAttachment, setGroupAttachment] = useState(null);
   const [allUsers, setAllUsers] = useState([]); const [dmPartner, setDmPartner] = useState(null);
   const [dmSearch, setDmSearch] = useState(""); const [dmSearchMatches, setDmSearchMatches] = useState(null);
-  const [dmMsgs, setDmMsgs] = useState([]); const [dmInput, setDmInput] = useState(""); const [dmLoading, setDmLoading] = useState(false);
+  const [dmMsgs, setDmMsgs] = useState([]); const [dmInput, setDmInput] = useState(""); const [dmLoading, setDmLoading] = useState(false); const [dmAttachment, setDmAttachment] = useState(null);
+  const [attachError, setAttachError] = useState(null);
+
+  // Picks a file for the chat's attachment preview; each chat (group/DM) keeps its own.
+  // Only images and Word/Excel documents are allowed — everything else (video, audio, etc.)
+  // is rejected. Images are compressed immediately so the preview and the eventual upload
+  // use the same small file.
+  const pickAttachment = setter => async e => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    const kind = classifyCommunityAttachment(file);
+    if (!kind) { setAttachError("Only images or Word/Excel/PDF documents can be attached."); return; }
+    if (file.size > MAX_COMMUNITY_ATTACHMENT_BYTES) { setAttachError("File is too large (max 10MB)."); return; }
+    setAttachError(null);
+    if (kind === "image") {
+      const compressed = await compressImage(file);
+      setter(prev => { if (prev?.url) URL.revokeObjectURL(prev.url); return { file: compressed, url: URL.createObjectURL(compressed), kind, name: file.name }; });
+    } else {
+      setter(prev => { if (prev?.url) URL.revokeObjectURL(prev.url); return { file, url: null, kind, name: file.name }; });
+    }
+  };
+  const clearAttachment = (setter, current) => { if (current?.url) URL.revokeObjectURL(current.url); setter(null); };
 
   const [rooms, setRooms] = useState([]);
   const [announcement, setAnnouncement] = useState(null);
@@ -92,7 +142,7 @@ export function CommunityScreen({ account }) {
 
   const dmKey = (a, b) => { const s = [a, b].sort(); return `dm_${s[0]}_${s[1]}`; };
 
-  const msgFromRow = m => ({ id: m.id, author: m.author_name, avatar: m.author_avatar, authorId: m.author_id, text: m.text, time: new Date(m.created_at).toLocaleTimeString("en-SG", { hour: "2-digit", minute: "2-digit" }), date: new Date(m.created_at).toLocaleDateString("en-SG", { day: "numeric", month: "short" }) });
+  const msgFromRow = m => ({ id: m.id, author: m.author_name, avatar: m.author_avatar, authorId: m.author_id, text: m.text, imageUrl: m.image_url, fileName: m.file_name, time: new Date(m.created_at).toLocaleTimeString("en-SG", { hour: "2-digit", minute: "2-digit" }), date: new Date(m.created_at).toLocaleDateString("en-SG", { day: "numeric", month: "short" }) });
 
   // Search private messages by content — finds which DM partners have a
   // message matching the search term so they show up even if their name doesn't match.
@@ -120,7 +170,7 @@ export function CommunityScreen({ account }) {
   const openGroup = async room => {
     leaveRoom();
     setActiveRoom(room); setGroupLoading(true); setView("groupchat");
-    const { data } = await supabase.from("messages").select("id,author_id,author_name,author_avatar,text,created_at").eq("room", `room_${room.id}`).order("created_at", { ascending: true }).limit(120);
+    const { data } = await supabase.from("messages").select("id,author_id,author_name,author_avatar,text,image_url,file_name,created_at").eq("room", `room_${room.id}`).order("created_at", { ascending: true }).limit(120);
     setGroupMsgs((data || []).map(msgFromRow));
     setGroupLoading(false);
     channelRef.current = supabase.channel(`room_${room.id}`)
@@ -130,9 +180,14 @@ export function CommunityScreen({ account }) {
   };
 
   const sendGroup = async () => {
-    const text = groupInput.trim(); if (!text) return;
-    setGroupInput("");
-    await supabase.from("messages").insert({ room: `room_${activeRoom.id}`, author_id: account.id, author_name: account.name, author_avatar: account.avatar || "none", text });
+    const text = groupInput.trim(); const attachment = groupAttachment;
+    if (!text && !attachment) return;
+    setGroupInput(""); setGroupAttachment(null);
+    const image_url = attachment ? await uploadCommunityAttachment(attachment.file, account.id, attachment.kind) : null;
+    if (attachment?.url) URL.revokeObjectURL(attachment.url);
+    if (attachment && !image_url) return;
+    const file_name = attachment?.kind === "document" ? attachment.name : null;
+    await supabase.from("messages").insert({ room: `room_${activeRoom.id}`, author_id: account.id, author_name: account.name, author_avatar: account.avatar || "none", text, image_url, file_name });
   };
 
   const deleteGroup = async id => {
@@ -151,7 +206,7 @@ export function CommunityScreen({ account }) {
     leaveRoom();
     setDmPartner(p); setDmLoading(true); setView("dm_chat");
     const key = dmKey(account.id, p.id);
-    const { data } = await supabase.from("messages").select("id,author_id,author_name,author_avatar,text,created_at").eq("room", key).order("created_at", { ascending: true }).limit(200);
+    const { data } = await supabase.from("messages").select("id,author_id,author_name,author_avatar,text,image_url,file_name,created_at").eq("room", key).order("created_at", { ascending: true }).limit(200);
     setDmMsgs((data || []).map(msgFromRow));
     setDmLoading(false);
     channelRef.current = supabase.channel(key)
@@ -161,9 +216,14 @@ export function CommunityScreen({ account }) {
   };
 
   const sendDM = async () => {
-    const text = dmInput.trim(); if (!text) return;
-    setDmInput("");
-    await supabase.from("messages").insert({ room: dmKey(account.id, dmPartner.id), author_id: account.id, author_name: account.name, author_avatar: account.avatar || "none", text });
+    const text = dmInput.trim(); const attachment = dmAttachment;
+    if (!text && !attachment) return;
+    setDmInput(""); setDmAttachment(null);
+    const image_url = attachment ? await uploadCommunityAttachment(attachment.file, account.id, attachment.kind) : null;
+    if (attachment?.url) URL.revokeObjectURL(attachment.url);
+    if (attachment && !image_url) return;
+    const file_name = attachment?.kind === "document" ? attachment.name : null;
+    await supabase.from("messages").insert({ room: dmKey(account.id, dmPartner.id), author_id: account.id, author_name: account.name, author_avatar: account.avatar || "none", text, image_url, file_name });
   };
 
   const deleteDM = async id => {
@@ -212,9 +272,9 @@ export function CommunityScreen({ account }) {
 
   if (view === "groupchat" && activeRoom) {
     const c = ROOM_COLORS[activeRoom.color_key] || ROOM_COLORS.purple;
-    return <div style={{ position: "relative" }}>{showPaywall && <Paywall />}<ChatUI msgs={groupMsgs} input={groupInput} setInput={setGroupInput} onSend={sendGroup} onDelete={deleteGroup} loading={groupLoading} color={c.color} bg={c.bg} backFn={() => { leaveRoom(); setView("home"); }} icon={null} label={activeRoom.label} sub={activeRoom.description} isGroup account={account} dmPartner={null} endRef={endRef} /></div>;
+    return <div style={{ position: "relative" }}>{showPaywall && <Paywall />}<ChatUI msgs={groupMsgs} input={groupInput} setInput={setGroupInput} onSend={sendGroup} onDelete={deleteGroup} loading={groupLoading} color={c.color} bg={c.bg} backFn={() => { leaveRoom(); setView("home"); }} icon={null} label={activeRoom.label} sub={activeRoom.description} isGroup account={account} dmPartner={null} endRef={endRef} attachment={groupAttachment} onPickAttachment={pickAttachment(setGroupAttachment)} onRemoveAttachment={() => clearAttachment(setGroupAttachment, groupAttachment)} attachError={attachError} /></div>;
   }
-  if (view === "dm_chat" && dmPartner) return <div style={{ position: "relative" }}>{showPaywall && <Paywall />}<ChatUI msgs={dmMsgs} input={dmInput} setInput={setDmInput} onSend={sendDM} onDelete={deleteDM} loading={dmLoading} color={T.purple} bg={T.purpleL} backFn={() => { leaveRoom(); setView("dm_list"); }} icon={dmPartner.avatar} label={dmPartner.name} sub="Private message" isGroup={false} account={account} dmPartner={dmPartner} endRef={endRef} /></div>;
+  if (view === "dm_chat" && dmPartner) return <div style={{ position: "relative" }}>{showPaywall && <Paywall />}<ChatUI msgs={dmMsgs} input={dmInput} setInput={setDmInput} onSend={sendDM} onDelete={deleteDM} loading={dmLoading} color={T.purple} bg={T.purpleL} backFn={() => { leaveRoom(); setView("dm_list"); }} icon={dmPartner.avatar} label={dmPartner.name} sub="Private message" isGroup={false} account={account} dmPartner={dmPartner} endRef={endRef} attachment={dmAttachment} onPickAttachment={pickAttachment(setDmAttachment)} onRemoveAttachment={() => clearAttachment(setDmAttachment, dmAttachment)} attachError={attachError} /></div>;
 
   if (view === "dm_list") {
     const others = allUsers.filter(u => u.id !== account.id);
