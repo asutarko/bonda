@@ -175,6 +175,16 @@ const exportLetterToPdf = (html, fileName) => {
     width: pageWidth - margin * 2,
     windowWidth: 700,
     autoPaging: "text",
+    // Without an explicit margin, jsPDF's pagination only reserves the
+    // top inset given to y for page 1 — every later page gets margin
+    // [0,0,0,0], so lines can be laid out flush against the raw page edge
+    // and their glyphs (descenders/ascenders) get visually clipped there.
+    // Only top/bottom are set (not left/right): x/width already position
+    // and constrain the content horizontally, and setting a right margin
+    // here too double-constrains it — jsPDF's per-page bounds check then
+    // silently drops trailing glyphs on lines that reach close to that
+    // edge (verified by rendering sample multi-page output).
+    margin: [margin, 0, margin, 0],
     html2canvas: { scale: 0.75 },
     callback: (pdf) => pdf.save(fileName),
   });
