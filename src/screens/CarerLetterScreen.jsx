@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { jsPDF } from "jspdf";
+import html2canvas from "html2canvas";
 import { Editor } from "@tinymce/tinymce-react";
 import "tinymce/tinymce";
 import "tinymce/icons/default";
@@ -7,6 +8,7 @@ import "tinymce/themes/silver";
 import "tinymce/models/dom";
 import "tinymce/plugins/lists";
 import "tinymce/plugins/link";
+import "tinymce/plugins/table";
 import "tinymce/skins/ui/oxide/skin.css";
 import "tinymce/skins/content/default/content.css";
 import { supabase } from "../lib/supabase";
@@ -159,35 +161,77 @@ const describePlaceholder = (raw) => {
   return { label: humanizePlaceholder(raw), desc: "From the letter template — read the surrounding sentence to see what belongs here." };
 };
 
-// The preview is now edited as rich HTML in TinyMCE, so the PDF is rendered
-// straight from that HTML (via jsPDF's html2canvas-backed html() plugin)
-// instead of drawing plain text lines — this keeps bold/list/etc. formatting
-// the caregiver applied in the editor.
-const exportLetterToPdf = (html, fileName) => {
-  const margin = 56;
+// The preview is edited as rich HTML in TinyMCE, so the PDF is rendered
+// straight from that HTML — but as a rasterized image per page (via
+// html2canvas), not through jsPDF's own doc.html() vector-text renderer.
+// jsPDF's html() has a long-standing upstream bug (parallax/jsPDF#3901):
+// with autoPaging "text", any inline tag (<strong>/<b>/<em>/...) makes the
+// text that follows drift further down the page, and the drift compounds
+// with every inline tag used earlier in the document — very visible here
+// since the letter's tables bold every row label. There's no working
+// upstream fix, so we sidestep the vector-text path entirely.
+const exportLetterToPdf = async (html, fileName) => {
+  const margin = 56; // pt
+  const scale = 2; // render resolution multiplier for crispness
+  const renderWidthPx = 1000;
+
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const pageWidth = doc.internal.pageSize.getWidth();
-  const wrapped = `<div style="font-family:'Times New Roman',Times,serif;font-size:12pt;line-height:1.5;color:#000;">${html}</div>`;
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const contentWidth = pageWidth - margin * 2;
+  const contentHeight = pageHeight - margin * 2;
 
-  doc.html(wrapped, {
-    x: margin,
-    y: margin,
-    width: pageWidth - margin * 2,
-    windowWidth: 700,
-    autoPaging: "text",
-    // Without an explicit margin, jsPDF's pagination only reserves the
-    // top inset given to y for page 1 — every later page gets margin
-    // [0,0,0,0], so lines can be laid out flush against the raw page edge
-    // and their glyphs (descenders/ascenders) get visually clipped there.
-    // Only top/bottom are set (not left/right): x/width already position
-    // and constrain the content horizontally, and setting a right margin
-    // here too double-constrains it — jsPDF's per-page bounds check then
-    // silently drops trailing glyphs on lines that reach close to that
-    // edge (verified by rendering sample multi-page output).
-    margin: [margin, 0, margin, 0],
-    html2canvas: { scale: 0.75 },
-    callback: (pdf) => pdf.save(fileName),
-  });
+  const container = document.createElement("div");
+  container.style.position = "fixed";
+  container.style.top = "-99999px";
+  container.style.left = "-99999px";
+  container.style.width = `${renderWidthPx}px`;
+  container.style.background = "#fff";
+  container.innerHTML = `<div style="font-family:'Times New Roman',Times,serif;font-size:12pt;line-height:1.5;color:#000;">${html}</div>`;
+  document.body.appendChild(container);
+
+  try {
+    if (document.fonts?.ready) await document.fonts.ready;
+    const canvas = await html2canvas(container, { scale, backgroundColor: "#ffffff", windowWidth: renderWidthPx });
+
+    // Never slice a page mid-row/mid-paragraph: collect every block-level
+    // element's top offset (in the container's own px, before the html2canvas
+    // scale multiplier) as a candidate page-break point, and always break on
+    // the latest candidate that still fits within one page's height.
+    const containerRect = container.getBoundingClientRect();
+    const breakPoints = Array.from(container.querySelectorAll("tr, p, h1, h2, h3, h4, li"))
+      .map(el => el.getBoundingClientRect().top - containerRect.top)
+      .filter(top => top > 0);
+    const containerHeightPx = containerRect.height;
+
+    const canvasPxPerPt = canvas.width / contentWidth;
+    const maxSlicePagePx = contentHeight * canvasPxPerPt;
+
+    let cursor = 0; // container-local px (unscaled)
+    let pageIndex = 0;
+    while (cursor < containerHeightPx - 0.5) {
+      const maxCursor = cursor + maxSlicePagePx / scale;
+      const candidates = breakPoints.filter(top => top > cursor + 1 && top <= maxCursor);
+      const breakAt = candidates.length ? candidates[candidates.length - 1] : Math.min(maxCursor, containerHeightPx);
+
+      const sliceTopPx = Math.round(cursor * scale);
+      const sliceHeightPx = Math.round(breakAt * scale) - sliceTopPx;
+      const sliceCanvas = document.createElement("canvas");
+      sliceCanvas.width = canvas.width;
+      sliceCanvas.height = sliceHeightPx;
+      sliceCanvas.getContext("2d").drawImage(canvas, 0, sliceTopPx, canvas.width, sliceHeightPx, 0, 0, canvas.width, sliceHeightPx);
+
+      if (pageIndex > 0) doc.addPage();
+      doc.addImage(sliceCanvas.toDataURL("image/png"), "PNG", margin, margin, contentWidth, sliceHeightPx / canvasPxPerPt);
+
+      cursor = breakAt;
+      pageIndex += 1;
+    }
+
+    doc.save(fileName);
+  } finally {
+    document.body.removeChild(container);
+  }
 };
 
 export function CarerLetterScreen({ pop, push, childCtx, account }) {
@@ -337,8 +381,8 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
                 height: 520,
                 menubar: false,
                 statusbar: false,
-                plugins: "lists link",
-                toolbar: "undo redo | bold italic underline | bullist numlist | link | removeformat",
+                plugins: "lists link table",
+                toolbar: "undo redo | bold italic underline | bullist numlist | link table | removeformat",
                 content_style: `body { font-family: 'Times New Roman', Times, serif; font-size: 13px; line-height: 1.6; color: ${T.ink}; }`,
               }}
             />
