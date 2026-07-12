@@ -181,14 +181,27 @@ const exportLetterToPdf = async (html, fileName) => {
   const contentWidth = pageWidth - margin * 2;
   const contentHeight = pageHeight - margin * 2;
 
+  // Rendered off-screen for html2canvas, but kept at real (0,0) coordinates
+  // inside a zero-size overflow:hidden wrapper rather than pushed out via
+  // `left: -99999px`. html2canvas has to allocate a canvas large enough to
+  // span from the element's position to the document's visible edge — with
+  // an offset that extreme, that canvas can exceed the browser's max canvas
+  // size, silently clipping/shifting the captured image so the letter ends
+  // up jammed against the right margin in the exported PDF.
+  const hider = document.createElement("div");
+  hider.style.position = "fixed";
+  hider.style.top = "0";
+  hider.style.left = "0";
+  hider.style.width = "0";
+  hider.style.height = "0";
+  hider.style.overflow = "hidden";
+
   const container = document.createElement("div");
-  container.style.position = "fixed";
-  container.style.top = "-99999px";
-  container.style.left = "-99999px";
   container.style.width = `${renderWidthPx}px`;
   container.style.background = "#fff";
   container.innerHTML = `<div style="font-family:'Times New Roman',Times,serif;font-size:12pt;line-height:1.5;color:#000;">${html}</div>`;
-  document.body.appendChild(container);
+  hider.appendChild(container);
+  document.body.appendChild(hider);
 
   try {
     if (document.fonts?.ready) await document.fonts.ready;
@@ -230,7 +243,7 @@ const exportLetterToPdf = async (html, fileName) => {
 
     doc.save(fileName);
   } finally {
-    document.body.removeChild(container);
+    document.body.removeChild(hider);
   }
 };
 
