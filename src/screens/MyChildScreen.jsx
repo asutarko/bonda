@@ -29,6 +29,12 @@ export const DEV_LOG_SOURCES = [
 
 export const devLogSource = key => DEV_LOG_SOURCES.find(s => s.key === key) || DEV_LOG_SOURCES[0];
 
+// Options like "Food allergy (specify)" or "Medication allergy (specify)" need
+// a free-text follow-up so the caregiver can say *which* allergy — everything
+// else in the Gentle Prompts list is a plain pick with no extra detail needed.
+const requiresSpecify = option => /\(specify\)/i.test(option?.answer || "");
+const selectedRequiresSpecify = (question, selectedIds) => (selectedIds || []).some(id => requiresSpecify(question.options.find(o => o.id === id)));
+
 // Age from date of birth, shown as months for babies and years for everyone else
 // — a "1 yr" label hides whether a toddler just turned 1 or is nearly 2.
 
@@ -64,6 +70,8 @@ export function DevLogSection({ activeChild, updateChild }) {
   const [source, setSource] = useState("carer");
   const [note, setNote] = useState("");
   const [pendingAnswers, setPendingAnswers] = useState({}); // questionId -> [optionId, ...] — held until "Submit Answers" is pressed
+  const [specifyText, setSpecifyText] = useState({}); // questionId -> free text for the selected "(specify)" option
+  const [editSpecifyText, setEditSpecifyText] = useState("");
   const [faqQuestions, setFaqQuestions] = useState([]);
   const [loadingFaq, setLoadingFaq] = useState(true);
 
@@ -95,7 +103,7 @@ export function DevLogSection({ activeChild, updateChild }) {
   const answeredPromptIds = devLog.filter(e => e.promptId).map(e => e.promptId);
   const activePrompts = faqQuestions.filter(q => !answeredPromptIds.includes(q.id));
 
-  const resetForm = () => { setShowForm(false); setEditingId(null); setEditingPromptId(null); setEditPromptAnswer([]); setCategory("other"); setSource("carer"); setNote(""); };
+  const resetForm = () => { setShowForm(false); setEditingId(null); setEditingPromptId(null); setEditPromptAnswer([]); setEditSpecifyText(""); setCategory("other"); setSource("carer"); setNote(""); };
 
   const startAdd = () => { resetForm(); setShowForm(true); };
   const startEdit = entry => {
@@ -109,6 +117,11 @@ export function DevLogSection({ activeChild, updateChild }) {
     // — fall back to matching options by label so the combobox still preselects.
     const answerIds = entry.optionIds || (question ? question.options.filter(o => (entry.note || "").split(", ").includes(o.answer)).map(o => o.id) : []);
     setEditPromptAnswer(answerIds);
+    // Specify answers were saved as "Label: detail" — pull the detail back out
+    // so re-editing doesn't lose what the caregiver typed.
+    const specifyOption = question ? question.options.find(o => answerIds.includes(o.id) && requiresSpecify(o)) : null;
+    const specifyPrefix = specifyOption ? `${specifyOption.answer}: ` : null;
+    setEditSpecifyText(specifyPrefix && (entry.note || "").startsWith(specifyPrefix) ? (entry.note || "").slice(specifyPrefix.length) : "");
     setShowForm(true);
   };
 
@@ -119,7 +132,9 @@ export function DevLogSection({ activeChild, updateChild }) {
   const saveEntry = () => {
     if (editingId && editingPromptQuestion) {
       if (!editPromptAnswer.length) return;
-      const finalNote = editingPromptQuestion.options.filter(o => editPromptAnswer.includes(o.id)).map(o => o.answer).join(", ");
+      const finalNote = editingPromptQuestion.options.filter(o => editPromptAnswer.includes(o.id))
+        .map(o => (requiresSpecify(o) && editSpecifyText.trim()) ? `${o.answer}: ${editSpecifyText.trim()}` : o.answer)
+        .join(", ");
       updateChild(activeChild.id, { devLog: devLog.map(e => e.id === editingId ? { ...e, note: finalNote, optionIds: editPromptAnswer } : e) });
       resetForm();
       return;
@@ -157,7 +172,9 @@ export function DevLogSection({ activeChild, updateChild }) {
       date: new Date().toISOString(),
       category: "other",
       source: "carer",
-      note: p.options.filter(o => pendingAnswers[p.id].includes(o.id)).map(o => o.answer).join(", "),
+      note: p.options.filter(o => pendingAnswers[p.id].includes(o.id))
+        .map(o => (requiresSpecify(o) && specifyText[p.id]?.trim()) ? `${o.answer}: ${specifyText[p.id].trim()}` : o.answer)
+        .join(", "),
       promptId: p.id,
       optionIds: pendingAnswers[p.id],
     }));
@@ -167,15 +184,20 @@ export function DevLogSection({ activeChild, updateChild }) {
     // option) so answers can be queried/reported on directly, instead of
     // only living inside the dev_log JSONB blob written above.
     const { data: { user } } = await supabase.auth.getUser();
-    const answerRows = answeredPrompts.flatMap(p => pendingAnswers[p.id].map(optionId => ({
-      child_id: activeChild.id,
-      question_id: p.id,
-      option_id: optionId,
-      answered_by: user?.id || null,
-    })));
+    const answerRows = answeredPrompts.flatMap(p => pendingAnswers[p.id].map(optionId => {
+      const option = p.options.find(o => o.id === optionId);
+      return {
+        child_id: activeChild.id,
+        question_id: p.id,
+        option_id: optionId,
+        answered_by: user?.id || null,
+        detail: (requiresSpecify(option) && specifyText[p.id]?.trim()) || null,
+      };
+    }));
     if (answerRows.length) await supabase.from("caregiver_faq_answers").insert(answerRows);
 
     setPendingAnswers({});
+    setSpecifyText({});
   };
 
   return (
@@ -204,6 +226,15 @@ export function DevLogSection({ activeChild, updateChild }) {
                     onChange={e => selectFaqOption(p, e)}
                     options={p.options.map(opt => ({ value: opt.id, label: opt.answer }))}
                   />
+                  {selectedRequiresSpecify(p, pendingAnswers[p.id]) && (
+                    <TextArea
+                      placeholder="Please specify..."
+                      rows={2}
+                      style={{ marginTop: 8 }}
+                      value={specifyText[p.id] || ""}
+                      onChange={e => setSpecifyText(prev => ({ ...prev, [p.id]: e.target.value }))}
+                    />
+                  )}
                 </Card>
               ))}
               <Btn onClick={submitFaqAnswers} disabled={!hasPendingAnswers} full>Submit Answers</Btn>
@@ -278,6 +309,15 @@ export function DevLogSection({ activeChild, updateChild }) {
                     }}
                     options={editingPromptQuestion.options.map(opt => ({ value: opt.id, label: opt.answer }))}
                   />
+                  {selectedRequiresSpecify(editingPromptQuestion, editPromptAnswer) && (
+                    <TextArea
+                      placeholder="Please specify..."
+                      rows={2}
+                      style={{ marginTop: 8 }}
+                      value={editSpecifyText}
+                      onChange={e => setEditSpecifyText(e.target.value)}
+                    />
+                  )}
                   <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
                     <Btn onClick={saveEntry} disabled={!editPromptAnswer.length} style={{ flex: 1 }}>Save Changes</Btn>
                     <Btn onClick={resetForm} secondary style={{ flex: 1 }}>Cancel</Btn>
