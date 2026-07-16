@@ -129,13 +129,29 @@ export function DevLogSection({ activeChild, updateChild }) {
   // was created — via the question's combobox — instead of the generic form.
   const editingPromptQuestion = editingPromptId ? faqQuestions.find(q => q.id === editingPromptId) : null;
 
-  const saveEntry = () => {
+  const saveEntry = async () => {
     if (editingId && editingPromptQuestion) {
       if (!editPromptAnswer.length) return;
-      const finalNote = editingPromptQuestion.options.filter(o => editPromptAnswer.includes(o.id))
+      const chosenOptions = editingPromptQuestion.options.filter(o => editPromptAnswer.includes(o.id));
+      const finalNote = chosenOptions
         .map(o => (requiresSpecify(o) && editSpecifyText.trim()) ? `${o.answer}: ${editSpecifyText.trim()}` : o.answer)
         .join(", ");
       updateChild(activeChild.id, { devLog: devLog.map(e => e.id === editingId ? { ...e, note: finalNote, optionIds: editPromptAnswer } : e) });
+
+      // caregiver_faq_answers has no update policy — replace this question's
+      // rows outright so they stay in sync with the edited selection instead
+      // of going stale next to the devLog note above.
+      const { data: { user } } = await supabase.auth.getUser();
+      await supabase.from("caregiver_faq_answers").delete().eq("child_id", activeChild.id).eq("question_id", editingPromptQuestion.id);
+      const answerRows = chosenOptions.map(o => ({
+        child_id: activeChild.id,
+        question_id: editingPromptQuestion.id,
+        option_id: o.id,
+        answered_by: user?.id || null,
+        detail: (requiresSpecify(o) && editSpecifyText.trim()) || null,
+      }));
+      if (answerRows.length) await supabase.from("caregiver_faq_answers").insert(answerRows);
+
       resetForm();
       return;
     }
@@ -150,7 +166,13 @@ export function DevLogSection({ activeChild, updateChild }) {
     resetForm();
   };
 
-  const deleteEntry = id => updateChild(activeChild.id, { devLog: devLog.filter(e => e.id !== id) });
+  const deleteEntry = async id => {
+    const entry = devLog.find(e => e.id === id);
+    updateChild(activeChild.id, { devLog: devLog.filter(e => e.id !== id) });
+    // Drop the matching caregiver_faq_answers rows too, otherwise they'd
+    // survive as orphaned answers to a question the devLog no longer shows.
+    if (entry?.promptId) await supabase.from("caregiver_faq_answers").delete().eq("child_id", activeChild.id).eq("question_id", entry.promptId);
+  };
 
   // Picking an answer just holds it in pendingAnswers — nothing is written to
   // Supabase until "Submit Answers" below saves everything picked so far in
