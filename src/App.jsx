@@ -173,7 +173,7 @@ export default function Bonda() {
 
   const profileMenu = (
     <div style={{ position: "relative", flexShrink: 0 }}>
-      <button onClick={() => setShowMenu(v => !v)} title="Menu" style={{ width: 30, height: 30, borderRadius: "50%", border: "none", background: "none", padding: 0, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+      <button onClick={() => setShowMenu(v => !v)} title="Menu" style={{ width: "clamp(26px, 7vw, 30px)", height: "clamp(26px, 7vw, 30px)", borderRadius: "50%", border: "none", background: "none", padding: 0, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
         <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
           <circle cx="9" cy="3.5" r="1.6" fill={T.purple}/>
           <circle cx="9" cy="9" r="1.6" fill={T.purple}/>
@@ -223,24 +223,24 @@ export default function Bonda() {
           {profileMenu}
         </div>
       ) : (
-        <div style={{ background: T.surface, borderBottom: `1px solid ${T.border}`, padding: "10px 18px 0", position: "sticky", top: 0, zIndex: 100 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, paddingBottom: 10 }}>
+        <div style={{ background: T.surface, borderBottom: `1px solid ${T.border}`, padding: "10px clamp(12px, 4vw, 18px) 0", position: "sticky", top: 0, zIndex: 100 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "clamp(6px, 2vw, 10px)", paddingBottom: 10 }}>
 
             <img
               src="/assets/images/3D - Logo - Green.png"
               alt="Bonda"
               onClick={() => setTab("home")}
-              style={{ width: 34, height: 34, borderRadius: "50%", objectFit: "cover", flexShrink: 0, cursor: "pointer" }}
+              style={{ width: "clamp(28px, 8vw, 34px)", height: "clamp(28px, 8vw, 34px)", borderRadius: "50%", objectFit: "cover", flexShrink: 0, cursor: "pointer" }}
             />
 
-            <div style={{ flex: 1 }}>
-              <p style={{ margin: 0, fontSize: 18, fontWeight: 800, color: T.purple, letterSpacing: "-0.03em", lineHeight: 1.1 }}>Bonda</p>
-              <p style={{ margin: 0, fontSize: 9, color: T.inkMuted, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>by Norena Darsana</p>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ margin: 0, fontSize: "clamp(15px, 4.2vw, 18px)", fontWeight: 800, color: T.purple, letterSpacing: "-0.03em", lineHeight: 1.1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>Bonda</p>
+              <p style={{ margin: 0, fontSize: "clamp(7.5px, 2.1vw, 9px)", color: T.inkMuted, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>by Norena Darsana</p>
             </div>
 
             {pageTitle !== "Bonda ◎" && pageTitle && (
-              <div style={{ background: T.purpleL, borderRadius: 99, padding: "4px 12px", flexShrink: 0, border: `1px solid ${T.purple}20` }}>
-                <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: T.purple }}>
+              <div style={{ background: T.purpleL, borderRadius: 99, padding: "4px clamp(8px, 2.5vw, 12px)", flexShrink: 0, border: `1px solid ${T.purple}20`, maxWidth: "38vw", overflow: "hidden" }}>
+                <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: T.purple, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                   {pageTitle.replace(/[◎💰🆘🎯⭐🧠📋💬]/g, "").trim()}
                 </p>
               </div>
@@ -249,7 +249,7 @@ export default function Bonda() {
             {profileMenu}
           </div>
 
-          <div style={{ height: 2.5, background: T.purple, width: 34, borderRadius: 99, marginBottom: 0, opacity: 0.35 }} />
+          <div style={{ height: 2.5, background: T.purple, width: "clamp(28px, 8vw, 34px)", borderRadius: 99, marginBottom: 0, opacity: 0.35 }} />
         </div>
       )}
 

@@ -10,7 +10,6 @@ import "tinymce/plugins/lists";
 import "tinymce/plugins/link";
 import "tinymce/plugins/table";
 import "tinymce/skins/ui/oxide/skin.css";
-import "tinymce/skins/content/default/content.css";
 import { supabase } from "../lib/supabase";
 import { T } from "../theme";
 import { Page, SectionLabel, Card, Btn, Select } from "../ui";
