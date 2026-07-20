@@ -179,7 +179,7 @@ export function AddChildScreen({ childCtx, pop }) {
     const id = await addChild({ name: name.trim(), emoji: photo || emoji, dob, gender, caregiverType, caregiverLabel: finalCaregiverLabel, hasSpecialNeeds: true, verbalStatus, knownTriggers: hasTriggers === "Yes" ? knownTriggers.trim() : "", therapySchedule: hasTherapy === "Yes" ? therapySchedule.trim() : "", dietProgram: hasDiet === "Yes" ? dietProgram.trim() : "", diagnosis: diagnosis.trim(), placementStartDate, fosteringAgency: fosteringAgency.trim(), placementType, courtOrderRef: courtOrderRef.trim(), caseWorkerName: caseWorkerName.trim(), caseWorkerPhone: caseWorkerPhone.trim(), caseWorkerEmail: caseWorkerEmail.trim() });
     setSaving(false);
     if (!id) return setErr("Could not save the profile. Please try again.");
-    await Swal.fire({ icon: "success", title: "Data berhasil disimpan", confirmButtonColor: T.purple });
+    await Swal.fire({ icon: "success", title: "Profile saved successfully", confirmButtonColor: T.purple });
     pop();
   };
 
@@ -425,7 +425,7 @@ export function ChildProfileForm({ childCtx, onSaved, onCancel, onDeleted, showH
     }
     updateChild(activeChild.id, { name: name.trim(), emoji: emojiValue, dob, gender, caregiverType, caregiverLabel: finalCaregiverLabel, hasSpecialNeeds: true, verbalStatus, knownTriggers: hasTriggers === "Yes" ? knownTriggers.trim() : "", therapySchedule: hasTherapy === "Yes" ? therapySchedule.trim() : "", dietProgram: hasDiet === "Yes" ? dietProgram.trim() : "", diagnosis: diagnosis.trim(), placementStartDate, fosteringAgency: fosteringAgency.trim(), placementType, courtOrderRef: courtOrderRef.trim(), caseWorkerName: caseWorkerName.trim(), caseWorkerPhone: caseWorkerPhone.trim(), caseWorkerEmail: caseWorkerEmail.trim() });
     setSaving(false);
-    await Swal.fire({ icon: "success", title: "Data berhasil disimpan", confirmButtonColor: T.purple });
+    await Swal.fire({ icon: "success", title: "Profile saved successfully", confirmButtonColor: T.purple });
     onSaved && onSaved();
   };
 

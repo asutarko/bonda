@@ -114,7 +114,7 @@ export function EditProfileScreen({ account, pop, push }) {
     if (error) { setSaving(false); return setErr(error.message); }
     await supabase.from("profiles").update({ avatar: avatarValue, phone: phone.trim(), address: address.trim(), relationship, occupation: finalOccupation, nationality: nationality.trim(), marital_status: maritalStatus, holder_pass: holderPass, clinic_name: clinicName.trim(), location: location.trim() }).eq("id", account.id);
     setSaving(false);
-    await Swal.fire({ icon: "success", title: "Data berhasil disimpan", confirmButtonColor: T.purple });
+    await Swal.fire({ icon: "success", title: "Profile saved successfully", confirmButtonColor: T.purple });
     pop();
   };
 

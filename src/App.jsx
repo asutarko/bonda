@@ -34,6 +34,7 @@ export default function Bonda() {
   const [account, setAccount] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [passwordRecovery, setPasswordRecovery] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -170,49 +171,87 @@ export default function Bonda() {
     }
   };
 
+  const profileMenu = (
+    <div style={{ position: "relative", flexShrink: 0 }}>
+      <button onClick={() => setShowMenu(v => !v)} title="Menu" style={{ width: 30, height: 30, borderRadius: "50%", border: "none", background: "none", padding: 0, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+          <circle cx="9" cy="3.5" r="1.6" fill={T.purple}/>
+          <circle cx="9" cy="9" r="1.6" fill={T.purple}/>
+          <circle cx="9" cy="14.5" r="1.6" fill={T.purple}/>
+        </svg>
+      </button>
+      {showMenu && (
+        <>
+          <div onClick={() => setShowMenu(false)} style={{ position: "fixed", inset: 0, zIndex: 150 }} />
+          <div style={{ position: "absolute", top: 36, right: 0, background: T.surface, borderRadius: T.r, boxShadow: T.shadowM, border: `1px solid ${T.border}`, minWidth: 180, zIndex: 151, overflow: "hidden" }}>
+            <button onClick={() => { setShowMenu(false); push("editProfile"); }} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "none", border: "none", cursor: "pointer", fontFamily: T.fontBody, textAlign: "left" }}>
+              <ComAvatar value={account.avatar} size={26} active={true} borderColor={T.purpleL} />
+              <span style={{ fontSize: 13, fontWeight: 700, color: T.ink }}>Edit Profile</span>
+            </button>
+            <div style={{ height: 1, background: T.border }} />
+            <button onClick={() => { setShowMenu(false); forceSignOut(); }} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "none", border: "none", cursor: "pointer", fontFamily: T.fontBody, textAlign: "left" }}>
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                <path d="M7 3 H4 a1 1 0 0 0 -1 1 v10 a1 1 0 0 0 1 1 h3" stroke={T.red} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+                <path d="M11.5 12.5 L15 9 L11.5 5.5" stroke={T.red} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+                <path d="M15 9 H6.5" stroke={T.red} strokeWidth="1.5" strokeLinecap="round" fill="none"/>
+              </svg>
+              <span style={{ fontSize: 13, fontWeight: 700, color: T.red }}>Logout</span>
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+
   return (
     <div style={{ minHeight: "100vh", background: T.canvas, fontFamily: T.fontBody, display: "flex", flexDirection: "column", maxWidth: 480, margin: "0 auto", position: "relative" }}>
       <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 
 
-      <div style={{ background: T.surface, borderBottom: `1px solid ${T.border}`, padding: "10px 18px 0", position: "sticky", top: 0, zIndex: 100 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, paddingBottom: 10 }}>
-
-          <img
-            src="/assets/images/3D - Logo - Green.png"
-            alt="Bonda"
-            onClick={() => current ? pop() : setTab("home")}
-            style={{ width: 34, height: 34, borderRadius: "50%", objectFit: "cover", flexShrink: 0, cursor: "pointer" }}
-          />
-
-          <div style={{ flex: 1 }}>
-            <p style={{ margin: 0, fontSize: 18, fontWeight: 800, color: T.purple, letterSpacing: "-0.03em", lineHeight: 1.1 }}>Bonda</p>
-            <p style={{ margin: 0, fontSize: 9, color: T.inkMuted, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>by Norena Darsana</p>
-          </div>
-
-          {pageTitle !== "Bonda ◎" && pageTitle && (
-            <div style={{ background: T.purpleL, borderRadius: 99, padding: "4px 12px", flexShrink: 0, border: `1px solid ${T.purple}20` }}>
-              <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: T.purple }}>
-                {pageTitle.replace(/[◎💰🆘🎯⭐🧠📋💬]/g, "").trim()}
-              </p>
-            </div>
-          )}
-
-          <button onClick={() => push("editProfile")} title="Edit profile" style={{ width: 30, height: 30, borderRadius: "50%", border: "none", padding: 0, background: "none", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer" }}>
-            <ComAvatar value={account.avatar} size={30} active={true} borderColor={T.purpleL} />
-          </button>
-
-          <button onClick={forceSignOut} title="Sign out" style={{ width: 30, height: 30, borderRadius: "50%", background: T.purpleL, border: "none", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer" }}>
-            <svg width="15" height="15" viewBox="0 0 18 18" fill="none">
-              <path d="M7 3 H4 a1 1 0 0 0 -1 1 v10 a1 1 0 0 0 1 1 h3" stroke={T.purple} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-              <path d="M11.5 12.5 L15 9 L11.5 5.5" stroke={T.purple} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-              <path d="M15 9 H6.5" stroke={T.purple} strokeWidth="1.5" strokeLinecap="round" fill="none"/>
+      {(current || tab !== "home") ? (
+        <div style={{ background: T.surface, borderBottom: `1px solid ${T.border}`, padding: "10px 18px", position: "sticky", top: 0, zIndex: 100, display: "flex", alignItems: "center", gap: 10 }}>
+          <button onClick={() => current ? pop() : setTab("home")} title="Back" style={{ width: 34, height: 34, borderRadius: "50%", border: "none", background: T.purpleL, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer" }}>
+            <svg width="17" height="17" viewBox="0 0 18 18" fill="none">
+              <path d="M11 3.5 L5 9 L11 14.5" stroke={T.purple} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
             </svg>
           </button>
-        </div>
 
-        <div style={{ height: 2.5, background: T.purple, width: 34, borderRadius: 99, marginBottom: 0, opacity: 0.35 }} />
-      </div>
+          <p style={{ flex: 1, margin: 0, fontSize: 16, fontWeight: 800, color: T.ink, letterSpacing: "-0.02em" }}>
+            {pageTitle}
+          </p>
+
+          {profileMenu}
+        </div>
+      ) : (
+        <div style={{ background: T.surface, borderBottom: `1px solid ${T.border}`, padding: "10px 18px 0", position: "sticky", top: 0, zIndex: 100 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, paddingBottom: 10 }}>
+
+            <img
+              src="/assets/images/3D - Logo - Green.png"
+              alt="Bonda"
+              onClick={() => setTab("home")}
+              style={{ width: 34, height: 34, borderRadius: "50%", objectFit: "cover", flexShrink: 0, cursor: "pointer" }}
+            />
+
+            <div style={{ flex: 1 }}>
+              <p style={{ margin: 0, fontSize: 18, fontWeight: 800, color: T.purple, letterSpacing: "-0.03em", lineHeight: 1.1 }}>Bonda</p>
+              <p style={{ margin: 0, fontSize: 9, color: T.inkMuted, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>by Norena Darsana</p>
+            </div>
+
+            {pageTitle !== "Bonda ◎" && pageTitle && (
+              <div style={{ background: T.purpleL, borderRadius: 99, padding: "4px 12px", flexShrink: 0, border: `1px solid ${T.purple}20` }}>
+                <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: T.purple }}>
+                  {pageTitle.replace(/[◎💰🆘🎯⭐🧠📋💬]/g, "").trim()}
+                </p>
+              </div>
+            )}
+
+            {profileMenu}
+          </div>
+
+          <div style={{ height: 2.5, background: T.purple, width: 34, borderRadius: 99, marginBottom: 0, opacity: 0.35 }} />
+        </div>
+      )}
 
 
       <div style={{ flex: 1, overflowY: "auto", paddingBottom: 8 }}>
