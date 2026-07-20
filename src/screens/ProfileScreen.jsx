@@ -4,7 +4,7 @@ import { supabase } from "../lib/supabase";
 import { uploadPhoto } from "../hooks";
 import { T } from "../theme";
 import { Page, SectionLabel, Input, Select, FieldError, Btn, ComAvatar, COM_AVATAR_ILLUSTRATIONS } from "../ui";
-import { RELATIONSHIP_OPTIONS, OCCUPATION_OPTIONS, MARITAL_STATUS_OPTIONS, HOLDER_PASS_OPTIONS } from "../data";
+import { RELATIONSHIP_OPTIONS, OCCUPATION_OPTIONS, MARITAL_STATUS_OPTIONS } from "../data";
 
 export function EditProfileScreen({ account, pop, push }) {
   const isExistingPhoto = !!(account?.avatar && (account.avatar.startsWith("data:") || account.avatar.startsWith("http")));
@@ -21,11 +21,7 @@ export function EditProfileScreen({ account, pop, push }) {
   const [customOccupation, setCustomOccupation] = useState(initialCustomOccupation);
   const [nationality, setNationality] = useState(account?.nationality || "");
   const [maritalStatus, setMaritalStatus] = useState(account?.maritalStatus || "");
-  const [holderPass, setHolderPass] = useState(account?.holderPass || "");
-  const [clinicName, setClinicName] = useState(account?.clinicName || "");
-  const [location, setLocation] = useState(account?.location || "");
   const [nationalityOptions, setNationalityOptions] = useState([]);
-  const [countryOptions, setCountryOptions] = useState([]);
   const [err, setErr] = useState("");
   const [errors, setErrors] = useState({});
   const [photoErr, setPhotoErr] = useState("");
@@ -52,9 +48,6 @@ export function EditProfileScreen({ account, pop, push }) {
   useEffect(() => {
     supabase.from("nationalities").select("name").order("sort_order").then(({ data }) => {
       if (data) setNationalityOptions(data.map(n => n.name));
-    });
-    supabase.from("countries").select("name").order("sort_order").then(({ data }) => {
-      if (data) setCountryOptions(data.map(c => c.name));
     });
   }, []);
 
@@ -96,8 +89,6 @@ export function EditProfileScreen({ account, pop, push }) {
     if (!relationship) fe.relationship = "Please select your relationship to the child.";
     if (occupation === "Other" && !customOccupation.trim()) fe.customOccupation = "Please enter your occupation.";
     if (!nationality) fe.nationality = "Please select your nationality.";
-    if (!clinicName.trim()) fe.clinicName = "Please enter your clinic name.";
-    if (!location) fe.location = "Please select your location (country).";
     setErrors(fe);
     if (Object.keys(fe).length > 0) return;
     setErr(""); setSaving(true);
@@ -110,9 +101,9 @@ export function EditProfileScreen({ account, pop, push }) {
       if (url) avatarValue = url;
     }
 
-    const { error } = await supabase.auth.updateUser({ data: { avatar: avatarValue, phone: phone.trim(), address: address.trim(), relationship, occupation: finalOccupation, nationality: nationality.trim(), maritalStatus, holderPass, clinicName: clinicName.trim(), location: location.trim() } });
+    const { error } = await supabase.auth.updateUser({ data: { avatar: avatarValue, phone: phone.trim(), address: address.trim(), relationship, occupation: finalOccupation, nationality: nationality.trim(), maritalStatus } });
     if (error) { setSaving(false); return setErr(error.message); }
-    await supabase.from("profiles").update({ avatar: avatarValue, phone: phone.trim(), address: address.trim(), relationship, occupation: finalOccupation, nationality: nationality.trim(), marital_status: maritalStatus, holder_pass: holderPass, clinic_name: clinicName.trim(), location: location.trim() }).eq("id", account.id);
+    await supabase.from("profiles").update({ avatar: avatarValue, phone: phone.trim(), address: address.trim(), relationship, occupation: finalOccupation, nationality: nationality.trim(), marital_status: maritalStatus }).eq("id", account.id);
     setSaving(false);
     await Swal.fire({ icon: "success", title: "Profile saved successfully", confirmButtonColor: T.purple });
     pop();
@@ -213,13 +204,6 @@ export function EditProfileScreen({ account, pop, push }) {
       <Select label="Marital Status" value={maritalStatus} onChange={e => setMaritalStatus(e.target.value)} placeholder="Select marital status" options={MARITAL_STATUS_OPTIONS} />
       <Select label="Nationality" placeholder="Select nationality" value={nationality} onChange={e => setNationality(e.target.value)} options={nationalityOptions} />
       <FieldError>{errors.nationality}</FieldError>
-      <Select label="Holder Pass" value={holderPass} onChange={e => setHolderPass(e.target.value)} placeholder="Select holder pass status" options={HOLDER_PASS_OPTIONS} />
-
-      <SectionLabel style={{ marginBottom: 10 }}>Clinic Details</SectionLabel>
-      <Input label="Clinic name" value={clinicName} onChange={e => setClinicName(e.target.value)} placeholder="e.g. Sunrise Family Clinic" />
-      <FieldError>{errors.clinicName}</FieldError>
-      <Select label="Location (country)" placeholder="Select country" value={location} onChange={e => setLocation(e.target.value)} options={countryOptions} />
-      <FieldError>{errors.location}</FieldError>
 
       {err && <p style={{ color: T.red, fontSize: 13, fontWeight: 700, margin: "-8px 0 12px" }}>{err}</p>}
       <Btn onClick={save} full disabled={saving}>{saving ? "Saving..." : "Save Changes"}</Btn>

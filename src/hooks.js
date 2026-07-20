@@ -28,6 +28,8 @@ export const childFromRow = (row) => ({
   caseWorkerName: row.case_worker_name || "",
   caseWorkerPhone: row.case_worker_phone || "",
   caseWorkerEmail: row.case_worker_email || "",
+  clinicName: row.clinic_name || "",
+  location: row.location || "",
   psychologistId: row.psychologist_id || null,
   active: row.active ?? true,
   createdAt: row.created_at,
@@ -91,6 +93,8 @@ export function useChildren(userId) {
       case_worker_name: child.caseWorkerName || "",
       case_worker_phone: child.caseWorkerPhone || "",
       case_worker_email: child.caseWorkerEmail || "",
+      clinic_name: child.clinicName || "",
+      location: child.location || "",
     }).select().single();
     if (error || !data) { if (error) console.error("Failed to add child profile:", error.message); return null; }
     const newChild = childFromRow(data);
@@ -128,6 +132,8 @@ export function useChildren(userId) {
     if ("caseWorkerName" in patch) dbPatch.case_worker_name = patch.caseWorkerName;
     if ("caseWorkerPhone" in patch) dbPatch.case_worker_phone = patch.caseWorkerPhone;
     if ("caseWorkerEmail" in patch) dbPatch.case_worker_email = patch.caseWorkerEmail;
+    if ("clinicName" in patch) dbPatch.clinic_name = patch.clinicName;
+    if ("location" in patch) dbPatch.location = patch.location;
     supabase.from("children").update(dbPatch).eq("id", id).then(({ error }) => { if (error) console.error("Failed to save child profile:", error.message); });
   };
 
@@ -296,7 +302,4 @@ export const accountFromUser = (u) => u ? {
   occupation: u.user_metadata?.occupation || "",
   nationality: u.user_metadata?.nationality || "",
   maritalStatus: u.user_metadata?.maritalStatus || "",
-  holderPass: u.user_metadata?.holderPass || "",
-  clinicName: u.user_metadata?.clinicName || "",
-  location: u.user_metadata?.location || "",
 } : null;

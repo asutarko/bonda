@@ -294,10 +294,10 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
     // preview exactly which bits the caregiver still needs to fill in by hand.
     const values = {
       date: formatDate(new Date()),
-      recipientName: buildRecipientLabel(assignedClinic, assignedPsychologist) || account?.clinicName?.trim() || "[Recipient name / organisation]",
+      recipientName: buildRecipientLabel(assignedClinic, assignedPsychologist) || selectedChild.clinicName?.trim() || "[Recipient name / organisation]",
       recipientAddress: assignedClinic?.address?.trim() || "[Recipient address]",
       recipientPhone: assignedClinic?.phone?.trim() || "[Recipient phone]",
-      location: account?.location?.trim() || "[Location]",
+      location: selectedChild.location?.trim() || "[Location]",
       childName: selectedChild.name,
       dob: selectedChild.dob ? formatDate(selectedChild.dob) : "[Date of birth]",
       placementStartDate: selectedChild.placementStartDate ? formatDate(selectedChild.placementStartDate) : "[Placement start date]",

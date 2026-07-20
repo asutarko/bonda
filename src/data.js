@@ -61,7 +61,4 @@ export const OCCUPATION_OPTIONS = ["Unemployed", "Homemaker", "Student", "Civil 
 
 export const MARITAL_STATUS_OPTIONS = ["Single", "Married", "Divorced", "Widowed"];
 
-// Singapore immigration/residency status of the caregiver.
-export const HOLDER_PASS_OPTIONS = ["Singapore Citizen", "Singapore PR", "Employment Pass", "S Pass", "Student Pass", "Foreigner"];
-
 // Optional additional-needs profile, filled in by the parent in their own words.

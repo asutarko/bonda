@@ -59,6 +59,11 @@ alter table public.children add column if not exists case_worker_name text not n
 alter table public.children add column if not exists case_worker_phone text not null default '';
 alter table public.children add column if not exists case_worker_email text not null default '';
 
+-- Clinic managing this child's case (was previously on the parent's own profile,
+-- but a caregiver can have children at different clinics, so it belongs per-child).
+alter table public.children add column if not exists clinic_name text not null default '';
+alter table public.children add column if not exists location text not null default '';
+
 -- Whether this child profile is active. New profiles start inactive (pending review);
 -- the owning parent can view this but cannot set or change it themselves (enforced below) —
 -- only an admin account (profiles.role = 'admin', managed from the separate admin app)

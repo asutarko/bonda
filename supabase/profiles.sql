@@ -15,9 +15,6 @@ create table if not exists public.profiles (
   occupation text not null default '',
   nationality text not null default '',
   marital_status text not null default '',
-  holder_pass text not null default '',
-  clinic_name text not null default '',
-  location text not null default '',
   created_at timestamptz not null default now()
 );
 
@@ -28,9 +25,14 @@ alter table public.profiles add column if not exists relationship text not null 
 alter table public.profiles add column if not exists occupation text not null default '';
 alter table public.profiles add column if not exists nationality text not null default '';
 alter table public.profiles add column if not exists marital_status text not null default '';
-alter table public.profiles add column if not exists holder_pass text not null default '';
-alter table public.profiles add column if not exists clinic_name text not null default '';
-alter table public.profiles add column if not exists location text not null default '';
+
+-- Clinic/location moved to a per-child field (see children.sql) since a
+-- caregiver can have children at different clinics.
+alter table public.profiles drop column if exists clinic_name;
+alter table public.profiles drop column if exists location;
+
+-- Holder pass status removed — not used anywhere in the app.
+alter table public.profiles drop column if exists holder_pass;
 
 alter table public.profiles enable row level security;
 
@@ -63,7 +65,7 @@ language plpgsql
 security definer set search_path = public
 as $$
 begin
-  insert into public.profiles (id, name, avatar, joined, gender, address, phone, relationship, occupation, nationality, marital_status, holder_pass, clinic_name, location)
+  insert into public.profiles (id, name, avatar, joined, gender, address, phone, relationship, occupation, nationality, marital_status)
   values (
     new.id,
     coalesce(new.raw_user_meta_data ->> 'name', new.email),
@@ -75,10 +77,7 @@ begin
     coalesce(new.raw_user_meta_data ->> 'relationship', ''),
     coalesce(new.raw_user_meta_data ->> 'occupation', ''),
     coalesce(new.raw_user_meta_data ->> 'nationality', ''),
-    coalesce(new.raw_user_meta_data ->> 'maritalStatus', ''),
-    coalesce(new.raw_user_meta_data ->> 'holderPass', ''),
-    coalesce(new.raw_user_meta_data ->> 'clinicName', ''),
-    coalesce(new.raw_user_meta_data ->> 'location', '')
+    coalesce(new.raw_user_meta_data ->> 'maritalStatus', '')
   )
   on conflict (id) do nothing;
   return new;
