@@ -15,13 +15,13 @@ export function SpecialNeedsSection({
 }) {
   return (
     <>
-      <Select label="Verbal status" value={verbalStatus} onChange={e => setVerbalStatus(e.target.value)} placeholder="Select verbal status" options={VERBAL_STATUS_OPTIONS.map(o => ({ value: o.key, label: o.label }))} />
+      <Select label={<>Verbal status <span style={{ color: T.red }}>*</span></>} value={verbalStatus} onChange={e => setVerbalStatus(e.target.value)} placeholder="Select verbal status" options={VERBAL_STATUS_OPTIONS.map(o => ({ value: o.key, label: o.label }))} />
       <FieldError>{errors.verbalStatus}</FieldError>
 
       <Select label="Known triggers?" value={hasTriggers} onChange={e => { setHasTriggers(e.target.value); if (e.target.value === "No") setKnownTriggers(""); }} options={["Yes", "No"]} />
       {hasTriggers === "Yes" && (
         <>
-          <TextArea label="Describe the known triggers" hint="Describe in your own words — e.g. loud noises, crowded places, sudden changes in routine." value={knownTriggers} onChange={e => setKnownTriggers(e.target.value)} placeholder="e.g. Loud noises, being rushed, scratchy clothing tags" />
+          <TextArea label={<>Describe the known triggers <span style={{ color: T.red }}>*</span></>} hint="Describe in your own words — e.g. loud noises, crowded places, sudden changes in routine." value={knownTriggers} onChange={e => setKnownTriggers(e.target.value)} placeholder="e.g. Loud noises, being rushed, scratchy clothing tags" />
           <FieldError>{errors.knownTriggers}</FieldError>
         </>
       )}
@@ -29,7 +29,7 @@ export function SpecialNeedsSection({
       <Select label="Therapy schedule?" value={hasTherapy} onChange={e => { setHasTherapy(e.target.value); if (e.target.value === "No") setTherapySchedule(""); }} options={["Yes", "No"]} />
       {hasTherapy === "Yes" && (
         <>
-          <TextArea label="Describe the therapy schedule" hint="e.g. which therapies, and which days/times." value={therapySchedule} onChange={e => setTherapySchedule(e.target.value)} placeholder="e.g. Speech therapy Tue 4pm, ABA Mon/Wed/Fri 3-5pm" />
+          <TextArea label={<>Describe the therapy schedule <span style={{ color: T.red }}>*</span></>} hint="e.g. which therapies, and which days/times." value={therapySchedule} onChange={e => setTherapySchedule(e.target.value)} placeholder="e.g. Speech therapy Tue 4pm, ABA Mon/Wed/Fri 3-5pm" />
           <FieldError>{errors.therapySchedule}</FieldError>
         </>
       )}
@@ -37,7 +37,7 @@ export function SpecialNeedsSection({
       <Select label="Diet program?" value={hasDiet} onChange={e => { setHasDiet(e.target.value); if (e.target.value === "No") setDietProgram(""); }} options={["Yes", "No"]} />
       {hasDiet === "Yes" && (
         <>
-          <TextArea label="Describe the diet program" hint="e.g. any special diet, allergy, or feeding program." value={dietProgram} onChange={e => setDietProgram(e.target.value)} placeholder="e.g. Gluten-free, casein-free (GFCF)" />
+          <TextArea label={<>Describe the diet program <span style={{ color: T.red }}>*</span></>} hint="e.g. any special diet, allergy, or feeding program." value={dietProgram} onChange={e => setDietProgram(e.target.value)} placeholder="e.g. Gluten-free, casein-free (GFCF)" />
           <FieldError>{errors.dietProgram}</FieldError>
         </>
       )}
@@ -543,22 +543,22 @@ export function ChildProfileForm({ childCtx, onSaved, onCancel, onDeleted, showH
         </>
       )}
 
-      <Input label="Child's name" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Aiden" />
+      <Input label={<>Child's name <span style={{ color: T.red }}>*</span></>} value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Aiden" />
       <FieldError>{errors.name}</FieldError>
-      <Input label="Date of birth" value={dob} onChange={e => setDob(e.target.value)} type="date" />
+      <Input label={<>Date of birth <span style={{ color: T.red }}>*</span></>} value={dob} onChange={e => setDob(e.target.value)} type="date" />
       <FieldError>{errors.dob}</FieldError>
-      <Select label="Gender" value={gender} onChange={e => setGender(e.target.value)} placeholder="Select gender" options={["Male", "Female"]} />
+      <Select label={<>Gender <span style={{ color: T.red }}>*</span></>} value={gender} onChange={e => setGender(e.target.value)} placeholder="Select gender" options={["Male", "Female"]} />
       <FieldError>{errors.gender}</FieldError>
 
       <Select label="Your relationship to this child" value={caregiverType} onChange={e => setCaregiverType(e.target.value)} options={CAREGIVER_TYPE_OPTIONS} />
 
       {caregiverType === "other" && (
         <div style={{ marginBottom: 14 }}>
-          <Select label="What is your relationship to this child?" value={caregiverLabel} onChange={e => setCaregiverLabel(e.target.value)} placeholder="Select relationship" options={OTHER_CAREGIVER_OPTIONS} />
+          <Select label={<>What is your relationship to this child? <span style={{ color: T.red }}>*</span></>} value={caregiverLabel} onChange={e => setCaregiverLabel(e.target.value)} placeholder="Select relationship" options={OTHER_CAREGIVER_OPTIONS} />
           <FieldError>{errors.relationshipDetail}</FieldError>
           {caregiverLabel === "Others" && (
             <div style={{ marginTop: 10 }}>
-              <Input value={customRelative} onChange={e => setCustomRelative(e.target.value)} placeholder="e.g. Cousin" />
+              <Input label={<>Please specify <span style={{ color: T.red }}>*</span></>} value={customRelative} onChange={e => setCustomRelative(e.target.value)} placeholder="e.g. Cousin" />
               <FieldError>{errors.customRelative}</FieldError>
             </div>
           )}
@@ -570,7 +570,8 @@ export function ChildProfileForm({ childCtx, onSaved, onCancel, onDeleted, showH
       <PlacementDetailsSection diagnosis={diagnosis} setDiagnosis={setDiagnosis} placementStartDate={placementStartDate} setPlacementStartDate={setPlacementStartDate} fosteringAgency={fosteringAgency} setFosteringAgency={setFosteringAgency} placementType={placementType} setPlacementType={setPlacementType} courtOrderRef={courtOrderRef} setCourtOrderRef={setCourtOrderRef} caseWorkerName={caseWorkerName} setCaseWorkerName={setCaseWorkerName} caseWorkerPhone={caseWorkerPhone} setCaseWorkerPhone={setCaseWorkerPhone} caseWorkerEmail={caseWorkerEmail} setCaseWorkerEmail={setCaseWorkerEmail} clinicName={clinicName} setClinicName={setClinicName} location={location} setLocation={setLocation} countryOptions={countryOptions} />
 
       {err && <p style={{ color: T.red, fontSize: 13, fontWeight: 700, margin: "-8px 0 12px" }}>{err}</p>}
-      <Btn onClick={save} full disabled={saving}>{saving ? "Saving..." : "Save Changes"}</Btn>
+      <Btn onClick={save} full disabled={saving} style={{ marginBottom: 6 }}>{saving ? "Saving..." : "Save Changes"}</Btn>
+      <p style={{ margin: "0 0 10px", fontSize: 11, color: T.inkMuted, textAlign: "center" }}><span style={{ color: T.red }}>*</span> required</p>
       {onCancel && <Btn onClick={onCancel} full secondary style={{ marginTop: 10 }}>Cancel</Btn>}
 
       <div style={{ height: 1, background: T.border, margin: "28px 0 20px" }} />

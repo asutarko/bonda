@@ -168,19 +168,20 @@ export function AuthScreen() {
         </>
       )}
 
-      <Input label="Your name (shown to other parents)" value={regName} onChange={e => setRegName(e.target.value)} placeholder="e.g. Sarah, Mum of Aiden" />
+      <Input label={<>Your name (shown to other parents) <span style={{ color: T.red }}>*</span></>} value={regName} onChange={e => setRegName(e.target.value)} placeholder="e.g. Sarah, Mum of Aiden" />
 
-      <Select label="Gender" value={regGender} onChange={e => setRegGender(e.target.value)} placeholder="Select gender" options={["Male", "Female"]} />
+      <Select label={<>Gender <span style={{ color: T.red }}>*</span></>} value={regGender} onChange={e => setRegGender(e.target.value)} placeholder="Select gender" options={["Male", "Female"]} />
 
-      <Input label="Phone number" type="tel" value={regPhone} onChange={e => setRegPhone(e.target.value)} placeholder="e.g. 9123 4567" />
-      <Input label="Home address" value={regAddress} onChange={e => setRegAddress(e.target.value)} placeholder="e.g. Blk 123 Ang Mo Kio Ave 3, #04-56" />
+      <Input label={<>Phone number <span style={{ color: T.red }}>*</span></>} type="tel" value={regPhone} onChange={e => setRegPhone(e.target.value)} placeholder="e.g. 9123 4567" />
+      <Input label={<>Home address <span style={{ color: T.red }}>*</span></>} value={regAddress} onChange={e => setRegAddress(e.target.value)} placeholder="e.g. Blk 123 Ang Mo Kio Ave 3, #04-56" />
 
-      <Select label="Relationship to the child" value={regRelationship} onChange={e => setRegRelationship(e.target.value)} placeholder="Select relationship" options={RELATIONSHIP_OPTIONS} />
+      <Select label={<>Relationship to the child <span style={{ color: T.red }}>*</span></>} value={regRelationship} onChange={e => setRegRelationship(e.target.value)} placeholder="Select relationship" options={RELATIONSHIP_OPTIONS} />
 
-      <Input label="Email" type="email" value={regEmail} onChange={e => setRegEmail(e.target.value)} placeholder="you@example.com" />
-      <Input label="Password (min 6 characters)" type="password" value={regPass} onChange={e => setRegPass(e.target.value)} placeholder="Create a password" />
+      <Input label={<>Email <span style={{ color: T.red }}>*</span></>} type="email" value={regEmail} onChange={e => setRegEmail(e.target.value)} placeholder="you@example.com" />
+      <Input label={<>Password (min 6 characters) <span style={{ color: T.red }}>*</span></>} type="password" value={regPass} onChange={e => setRegPass(e.target.value)} placeholder="Create a password" />
       {regErr && <p style={{ color: T.red, fontSize: 13, fontWeight: 700, margin: "-8px 0 12px" }}>{regErr}</p>}
-      <Btn onClick={register} full style={{ marginBottom: 10 }}>Create Account →</Btn>
+      <Btn onClick={register} full style={{ marginBottom: 6 }}>Create Account →</Btn>
+      <p style={{ margin: "0 0 10px", fontSize: 11, color: T.inkMuted, textAlign: "center" }}><span style={{ color: T.red }}>*</span> required</p>
       <Btn onClick={() => { setRegErr(""); setView("login"); }} full secondary>← Already have an account?</Btn>
     </Page>
   );
