@@ -289,6 +289,19 @@ export const forceSignOut = async () => {
   }
 };
 
+// Set right after a new account is created so the app knows to show the
+// mandatory compliance screen the first time that account's session loads —
+// even if email confirmation delays it to a later visit.
+const NEW_SIGNUP_KEY = "bonda_pending_compliance";
+export const markNewSignup = () => { try { localStorage.setItem(NEW_SIGNUP_KEY, "1"); } catch {} };
+export const consumeNewSignupFlag = () => {
+  try {
+    if (localStorage.getItem(NEW_SIGNUP_KEY) !== "1") return false;
+    localStorage.removeItem(NEW_SIGNUP_KEY);
+    return true;
+  } catch { return false; }
+};
+
 export const accountFromUser = (u) => u ? {
   id: u.id,
   name: u.user_metadata?.name || u.email,

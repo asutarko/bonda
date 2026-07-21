@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "../lib/supabase";
-import { uploadPhoto } from "../hooks";
+import { uploadPhoto, markNewSignup, consumeNewSignupFlag } from "../hooks";
 import { T } from "../theme";
 import { Page, SectionLabel, Card, Badge, Btn, Input, TextArea, Select, Avatar, Accordion, PageHero, AvatarIllustrations, ChildAvatar, ComAvatar, COM_AVATAR_ILLUSTRATIONS, ROOM_ICONS, ACTIVITY_TEXTAREA_STYLE, ActionIllustration, HeroIllustration } from "../ui";
 import { CHILD_AVATARS, DEFAULT_CHILDREN, DEFAULT_SCHEDULE, ROOM_COLORS, SOS_COLORS, VERBAL_STATUS_OPTIONS, RELATIONSHIP_OPTIONS } from "../data";
@@ -70,6 +70,10 @@ export function AuthScreen() {
     if (!regRelationship) return setRegErr("Please select your relationship to the child.");
     if (regPass.length < 6) return setRegErr("Password must be at least 6 characters.");
     const joined = new Date().toLocaleDateString("en-SG", { month: "short", year: "numeric" });
+    // Flag this as a fresh signup before calling signUp() — the client fires
+    // its SIGNED_IN auth-state event as part of processing that call, so the
+    // flag must already be in place for App.jsx to see it in time.
+    markNewSignup();
     // Sign up with a short avatar key first — never the raw photo, which would
     // get embedded into the JWT and blow past the 100KB header limit.
     const { data, error } = await supabase.auth.signUp({
@@ -77,7 +81,7 @@ export function AuthScreen() {
       password: regPass,
       options: { data: { name: regName.trim(), avatar: regAvatar, joined, gender: regGender, address: regAddress.trim(), phone: regPhone.trim(), relationship: regRelationship } },
     });
-    if (error) return setRegErr(error.message);
+    if (error) { consumeNewSignupFlag(); return setRegErr(error.message); }
     if (!data.session) {
       // Email confirmation required before the account can sign in
       setRegMsg("Account created! Check your email to confirm before signing in.");

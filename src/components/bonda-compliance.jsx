@@ -445,7 +445,7 @@ export function MedicalDisclaimerScreen({ onBack }) {
 //  Put a link to this in your app's settings or footer.
 //  Usage: <LegalHub onBack={() => ...} />
 // ═════════════════════════════════════════════════════════════
-export function LegalHub({ onBack }) {
+export function LegalHub({ onBack, mandatory = false, onAgree }) {
   const [screen, setScreen] = useState(null);
   const { dpoName, dpoEmail } = COMPLIANCE_CONFIG;
 
@@ -462,8 +462,19 @@ export function LegalHub({ onBack }) {
   return (
     <div style={{ minHeight: "100vh", background: C.canvas, fontFamily: C.font, overflowY: "auto" }}>
       <div style={{ maxWidth: 480, margin: "0 auto", padding: "20px 20px 40px" }}>
-        <BackButton onBack={onBack} />
-        <h2 style={{ margin: "0 0 24px", fontSize: 22, fontWeight: 800, color: C.ink }}>Legal & Privacy</h2>
+        {mandatory ? (
+          <>
+            <h2 style={{ margin: "0 0 4px", fontSize: 22, fontWeight: 800, color: C.ink }}>Before you start</h2>
+            <p style={{ margin: "0 0 24px", color: C.inkSoft, fontSize: 13, lineHeight: 1.7 }}>
+              Please review the Privacy Policy and Medical Disclaimer below before using Bonda.
+            </p>
+          </>
+        ) : (
+          <>
+            <BackButton onBack={onBack} />
+            <h2 style={{ margin: "0 0 24px", fontSize: 22, fontWeight: 800, color: C.ink }}>Legal & Privacy</h2>
+          </>
+        )}
 
         {items.map(item => (
           <div key={item.id} onClick={() => setScreen(item.id)}
@@ -492,6 +503,16 @@ export function LegalHub({ onBack }) {
           Bonda complies with Singapore's PDPA 2012 and the<br/>
           PDPC Advisory Guidelines on Children's Personal Data (March 2024).
         </p>
+
+        {mandatory && (
+          <button onClick={onAgree} style={{
+            width: "100%", marginTop: 20, padding: "16px", borderRadius: C.rL, border: "none",
+            background: C.primary, color: "white", fontWeight: 800, fontSize: 16,
+            cursor: "pointer", fontFamily: C.font, letterSpacing: "-0.01em",
+          }}>
+            I Understand — Continue to Bonda →
+          </button>
+        )}
       </div>
     </div>
   );

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { supabase } from "./lib/supabase";
 import { T } from "./theme";
 import { NavMark, ComAvatar } from "./ui";
-import { useChildren, useBackHandler, backHandlerStack, accountFromUser, forceSignOut } from "./hooks";
+import { useChildren, useBackHandler, backHandlerStack, accountFromUser, forceSignOut, consumeNewSignupFlag } from "./hooks";
 import { FosterHubScreen } from "./screens/FosterHubScreen";
 import { CarerLetterScreen } from "./screens/CarerLetterScreen";
 import { HomeScreen } from "./screens/HomeScreen";
@@ -35,17 +35,25 @@ export default function Bonda() {
   const [authLoading, setAuthLoading] = useState(true);
   const [passwordRecovery, setPasswordRecovery] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const [pendingCompliance, setPendingCompliance] = useState(false);
+
+  // Loads the account and, if it just came from a fresh registration, flags
+  // the mandatory compliance screen so it's shown before the app is usable.
+  const applyAccount = (acc) => {
+    setAccount(acc);
+    if (acc && consumeNewSignupFlag()) setPendingCompliance(true);
+  };
 
   useEffect(() => {
     let cancelled = false;
     supabase.auth.getSession().then(({ data }) => {
       if (cancelled) return;
-      setAccount(accountFromUser(data.session?.user));
+      applyAccount(accountFromUser(data.session?.user));
       setAuthLoading(false);
     });
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "PASSWORD_RECOVERY") setPasswordRecovery(true);
-      setAccount(accountFromUser(session?.user));
+      applyAccount(accountFromUser(session?.user));
       setAuthLoading(false);
     });
     return () => { cancelled = true; sub.subscription.unsubscribe(); };
@@ -116,6 +124,15 @@ export default function Bonda() {
       <div style={{ minHeight: "100vh", background: T.canvas, fontFamily: T.fontBody, display: "flex", flexDirection: "column", maxWidth: 480, margin: "0 auto", position: "relative" }}>
         <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
         <AuthScreen />
+      </div>
+    );
+  }
+
+  if (pendingCompliance) {
+    return (
+      <div style={{ minHeight: "100vh", background: T.canvas, fontFamily: T.fontBody, display: "flex", flexDirection: "column", maxWidth: 480, margin: "0 auto", position: "relative" }}>
+        <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+        <LegalHub mandatory onAgree={() => setPendingCompliance(false)} />
       </div>
     );
   }
