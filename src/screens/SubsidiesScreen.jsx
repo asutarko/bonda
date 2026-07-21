@@ -89,7 +89,7 @@ export function SubsidiesScreen({ pop, account }) {
       <p style={{ margin: "0 0 20px", color: T.inkSoft, fontSize: 14, lineHeight: 1.6 }}>Singapore government schemes that can dramatically reduce the cost of autism therapy and support.</p>
 
 
-      <Card style={{ marginBottom: 20, background: loadingNews ? T.canvas : T.greenL, border: `1px solid ${T.green}25` }}>
+      <div style={{ marginBottom: 20 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <div style={{ width: 8, height: 8, borderRadius: "50%", background: loadingNews ? T.amber : T.green }} />
@@ -97,18 +97,29 @@ export function SubsidiesScreen({ pop, account }) {
           </div>
         </div>
 
-        {loadingNews && <p style={{ margin: 0, color: T.inkSoft, fontSize: 13 }}>Loading latest updates...</p>}
-        {!loadingNews && news.length === 0 && <p style={{ margin: 0, color: T.inkSoft, fontSize: 13 }}>No updates yet. Tap a scheme below for verified information.</p>}
+        {loadingNews && (
+          <Card style={{ background: T.canvas }}><p style={{ margin: 0, color: T.inkSoft, fontSize: 13 }}>Loading latest updates...</p></Card>
+        )}
+        {!loadingNews && news.length === 0 && (
+          <Card style={{ background: T.greenL, border: `1px solid ${T.green}25` }}><p style={{ margin: 0, color: T.inkSoft, fontSize: 13 }}>No updates yet. Tap a scheme below for verified information.</p></Card>
+        )}
 
-        {!loadingNews && news.map((u, i) => (
-          <div key={u.id} style={{ padding: "8px 0", borderTop: i === 0 ? "none" : `1px solid rgba(0,0,0,0.06)`, display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
-            <div style={{ flex: 1 }}>
-              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>{u.is_new && <Badge color={T.green} bg={T.green + "20"}>NEW</Badge>}<p style={{ margin: 0, fontWeight: 700, color: T.ink, fontSize: 13 }}>{u.scheme}</p></div>
-              <p style={{ margin: "2px 0 0", color: T.inkSoft, fontSize: 12 }}>{u.headline}</p>
-            </div>
+        {!loadingNews && news.length > 0 && (
+          <div style={{ display: "flex", gap: 10, overflowX: "auto", scrollSnapType: "x mandatory", margin: "0 -18px", padding: "0 18px 4px" }}>
+            {news.map(u => (
+              <Card key={u.id} style={{ background: T.greenL, border: `1px solid ${T.green}25`, flexShrink: 0, width: 230, scrollSnapAlign: "start", padding: u.image_url ? 0 : undefined, overflow: "hidden" }}>
+                {u.image_url && (
+                  <img src={u.image_url} alt={u.scheme} style={{ width: "100%", height: 110, objectFit: "cover", display: "block" }} />
+                )}
+                <div style={{ padding: u.image_url ? "10px 14px 14px" : 0 }}>
+                  <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 4 }}>{u.is_new && <Badge color={T.green} bg={T.green + "20"}>NEW</Badge>}<p style={{ margin: 0, fontWeight: 700, color: T.ink, fontSize: 13 }}>{u.scheme}</p></div>
+                  <p style={{ margin: 0, color: T.inkSoft, fontSize: 12, lineHeight: 1.5 }}>{u.headline}</p>
+                </div>
+              </Card>
+            ))}
           </div>
-        ))}
-      </Card>
+        )}
+      </div>
 
       <Card style={{ background: T.ink, border: "none", marginBottom: 20 }}>
         <p style={{ margin: "0 0 6px", color: "rgba(255,255,255,0.5)", fontSize: 11, fontWeight: 700, textTransform: "uppercase" }}>Where to start</p>

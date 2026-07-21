@@ -62,8 +62,6 @@ export function PlacementDetailsSection({
 }) {
   return (
     <>
-      <SectionLabel style={{ marginBottom: 10 }}>Placement & Letter Details (optional)</SectionLabel>
-      <p style={{ margin: "0 0 12px", color: T.inkMuted, fontSize: 12, lineHeight: 1.5 }}>Fill in what applies — this auto-fills the carer letter (Generate Letter) so it doesn't need to be retyped every time.</p>
       <Input label="Diagnosis" placeholder="e.g. Autism Spectrum Disorder" value={diagnosis} onChange={e => setDiagnosis(e.target.value)} />
       <Input label="Placement start date" type="date" value={placementStartDate} onChange={e => setPlacementStartDate(e.target.value)} />
       <Input label="Fostering agency / VWO name" value={fosteringAgency} onChange={e => setFosteringAgency(e.target.value)} />

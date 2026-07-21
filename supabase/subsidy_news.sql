@@ -6,6 +6,7 @@ create table if not exists public.subsidy_news (
   id uuid primary key default gen_random_uuid(),
   scheme text not null,
   headline text not null,
+  image_url text,
   is_new boolean not null default true,
   sort_order int not null default 0,
   created_by uuid references auth.users (id) on delete set null,
