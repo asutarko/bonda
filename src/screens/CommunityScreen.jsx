@@ -52,30 +52,32 @@ export function ChatUI({ msgs, input, setInput, onSend, onDelete, loading, color
         })}
         <div ref={endRef} />
       </div>
-      {attachError && <p style={{ margin: "0 18px 6px", fontSize: 11, color: T.red, fontWeight: 700 }}>{attachError}</p>}
-      {attachment && (
-        <div style={{ padding: "0 18px 8px", display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ position: "relative" }}>
-            {attachment.kind === "image" ? (
-              <img src={attachment.url} alt="" style={{ width: 52, height: 52, objectFit: "cover", borderRadius: 10, border: `1.5px solid ${T.border}`, display: "block" }} />
-            ) : (
-              <div style={{ width: 52, height: 52, borderRadius: 10, border: `1.5px solid ${T.border}`, background: T.canvas, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>📄</div>
-            )}
-            <button onClick={onRemoveAttachment} style={{ position: "absolute", top: -6, right: -6, width: 18, height: 18, borderRadius: "50%", background: T.red, color: "white", border: "none", cursor: "pointer", fontSize: 11, lineHeight: 1, padding: 0 }}>×</button>
+      <div style={{ position: "sticky", bottom: 0, background: T.surface, zIndex: 5 }}>
+        {attachError && <p style={{ margin: "0 18px 6px", fontSize: 11, color: T.red, fontWeight: 700 }}>{attachError}</p>}
+        {attachment && (
+          <div style={{ padding: "0 18px 8px", display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ position: "relative" }}>
+              {attachment.kind === "image" ? (
+                <img src={attachment.url} alt="" style={{ width: 52, height: 52, objectFit: "cover", borderRadius: 10, border: `1.5px solid ${T.border}`, display: "block" }} />
+              ) : (
+                <div style={{ width: 52, height: 52, borderRadius: 10, border: `1.5px solid ${T.border}`, background: T.canvas, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>📄</div>
+              )}
+              <button onClick={onRemoveAttachment} style={{ position: "absolute", top: -6, right: -6, width: 18, height: 18, borderRadius: "50%", background: T.red, color: "white", border: "none", cursor: "pointer", fontSize: 11, lineHeight: 1, padding: 0 }}>×</button>
+            </div>
+            <p style={{ margin: 0, fontSize: 12, color: T.inkMuted, wordBreak: "break-word" }}>{attachment.kind === "image" ? "Image attached" : attachment.name}</p>
           </div>
-          <p style={{ margin: 0, fontSize: 12, color: T.inkMuted, wordBreak: "break-word" }}>{attachment.kind === "image" ? "Image attached" : attachment.name}</p>
+        )}
+        <div style={{ padding: "10px 18px 6px", borderTop: `1px solid ${T.border}`, display: "flex", gap: 8, alignItems: "flex-end" }}>
+          <ComAvatar value={account.avatar} size={28} active={true} borderColor={bg} />
+          <label style={{ width: 38, height: 38, borderRadius: "50%", background: T.canvas, border: `1.5px solid ${T.border}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0, fontSize: 16 }}>
+            📎
+            <input type="file" accept="image/*,.doc,.docx,.xls,.xlsx,.pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/pdf" onChange={onPickAttachment} style={{ display: "none" }} />
+          </label>
+          <textarea value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSend(); } }} placeholder="Write a message… (Enter to send)" rows={1} style={{ flex: 1, padding: "9px 13px", borderRadius: T.r, border: `1.5px solid ${T.border}`, fontSize: 14, fontFamily: T.fontBody, color: T.ink, outline: "none", resize: "none", lineHeight: 1.5, background: T.canvas }} />
+          <button onClick={onSend} disabled={!input.trim() && !attachment} style={{ width: 38, height: 38, borderRadius: "50%", background: (input.trim() || attachment) ? color : T.border, border: "none", cursor: (input.trim() || attachment) ? "pointer" : "default", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0, transition: "background 0.2s", color: "white" }}>›</button>
         </div>
-      )}
-      <div style={{ padding: "10px 18px 6px", background: T.surface, borderTop: `1px solid ${T.border}`, display: "flex", gap: 8, alignItems: "flex-end" }}>
-        <ComAvatar value={account.avatar} size={28} active={true} borderColor={bg} />
-        <label style={{ width: 38, height: 38, borderRadius: "50%", background: T.canvas, border: `1.5px solid ${T.border}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0, fontSize: 16 }}>
-          📎
-          <input type="file" accept="image/*,.doc,.docx,.xls,.xlsx,.pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/pdf" onChange={onPickAttachment} style={{ display: "none" }} />
-        </label>
-        <textarea value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSend(); } }} placeholder="Write a message… (Enter to send)" rows={1} style={{ flex: 1, padding: "9px 13px", borderRadius: T.r, border: `1.5px solid ${T.border}`, fontSize: 14, fontFamily: T.fontBody, color: T.ink, outline: "none", resize: "none", lineHeight: 1.5, background: T.canvas }} />
-        <button onClick={onSend} disabled={!input.trim() && !attachment} style={{ width: 38, height: 38, borderRadius: "50%", background: (input.trim() || attachment) ? color : T.border, border: "none", cursor: (input.trim() || attachment) ? "pointer" : "default", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0, transition: "background 0.2s", color: "white" }}>›</button>
+        <p style={{ textAlign: "center", color: T.inkMuted, fontSize: 10, margin: "2px 0 4px" }}>{isGroup ? "Visible to all parents · Be kind 💛" : `Private — only you and ${dmPartner?.name}`}</p>
       </div>
-      <p style={{ textAlign: "center", color: T.inkMuted, fontSize: 10, margin: "2px 0 4px" }}>{isGroup ? "Visible to all parents · Be kind 💛" : `Private — only you and ${dmPartner?.name}`}</p>
     </div>
   );
 }
@@ -174,7 +176,7 @@ export function CommunityScreen({ account }) {
     setGroupMsgs((data || []).map(msgFromRow));
     setGroupLoading(false);
     channelRef.current = supabase.channel(`room_${room.id}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `room=eq.room_${room.id}` }, p => setGroupMsgs(prev => [...prev, msgFromRow(p.new)].slice(-120)))
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `room=eq.room_${room.id}` }, p => setGroupMsgs(prev => prev.some(m => m.id === p.new.id) ? prev : [...prev, msgFromRow(p.new)].slice(-120)))
       .on("postgres_changes", { event: "DELETE", schema: "public", table: "messages", filter: `room=eq.room_${room.id}` }, p => setGroupMsgs(prev => prev.filter(m => m.id !== p.old.id)))
       .subscribe();
   };
@@ -187,7 +189,9 @@ export function CommunityScreen({ account }) {
     if (attachment?.url) URL.revokeObjectURL(attachment.url);
     if (attachment && !image_url) return;
     const file_name = attachment?.kind === "document" ? attachment.name : null;
-    await supabase.from("messages").insert({ room: `room_${activeRoom.id}`, author_id: account.id, author_name: account.name, author_avatar: account.avatar || "none", text, image_url, file_name });
+    const { data, error } = await supabase.from("messages").insert({ room: `room_${activeRoom.id}`, author_id: account.id, author_name: account.name, author_avatar: account.avatar || "none", text, image_url, file_name }).select("id,author_id,author_name,author_avatar,text,image_url,file_name,created_at").single();
+    if (error) { console.error(error); setAttachError("Could not send the message. Please try again."); return; }
+    setGroupMsgs(prev => prev.some(m => m.id === data.id) ? prev : [...prev, msgFromRow(data)]);
   };
 
   const deleteGroup = async id => {
@@ -210,7 +214,7 @@ export function CommunityScreen({ account }) {
     setDmMsgs((data || []).map(msgFromRow));
     setDmLoading(false);
     channelRef.current = supabase.channel(key)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `room=eq.${key}` }, p => setDmMsgs(prev => [...prev, msgFromRow(p.new)].slice(-200)))
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `room=eq.${key}` }, p => setDmMsgs(prev => prev.some(m => m.id === p.new.id) ? prev : [...prev, msgFromRow(p.new)].slice(-200)))
       .on("postgres_changes", { event: "DELETE", schema: "public", table: "messages", filter: `room=eq.${key}` }, p => setDmMsgs(prev => prev.filter(m => m.id !== p.old.id)))
       .subscribe();
   };
@@ -223,7 +227,9 @@ export function CommunityScreen({ account }) {
     if (attachment?.url) URL.revokeObjectURL(attachment.url);
     if (attachment && !image_url) return;
     const file_name = attachment?.kind === "document" ? attachment.name : null;
-    await supabase.from("messages").insert({ room: dmKey(account.id, dmPartner.id), author_id: account.id, author_name: account.name, author_avatar: account.avatar || "none", text, image_url, file_name });
+    const { data, error } = await supabase.from("messages").insert({ room: dmKey(account.id, dmPartner.id), author_id: account.id, author_name: account.name, author_avatar: account.avatar || "none", text, image_url, file_name }).select("id,author_id,author_name,author_avatar,text,image_url,file_name,created_at").single();
+    if (error) { console.error(error); setAttachError("Could not send the message. Please try again."); return; }
+    setDmMsgs(prev => prev.some(m => m.id === data.id) ? prev : [...prev, msgFromRow(data)]);
   };
 
   const deleteDM = async id => {
