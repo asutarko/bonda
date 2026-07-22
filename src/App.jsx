@@ -203,7 +203,7 @@ export default function Bonda() {
           <div style={{ position: "absolute", top: 36, right: 0, background: T.surface, borderRadius: T.r, boxShadow: T.shadowM, border: `1px solid ${T.border}`, minWidth: 180, zIndex: 151, overflow: "hidden" }}>
             <button onClick={() => { setShowMenu(false); push("editProfile"); }} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "none", border: "none", cursor: "pointer", fontFamily: T.fontBody, textAlign: "left" }}>
               <ComAvatar value={account.avatar} size={26} active={true} borderColor={T.purpleL} />
-              <span style={{ fontSize: 13, fontWeight: 700, color: T.ink }}>Edit Profile</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: T.ink }}>{account?.name || "Edit Profile"}</span>
             </button>
             <div style={{ height: 1, background: T.border }} />
             <button onClick={() => { setShowMenu(false); forceSignOut(); }} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "none", border: "none", cursor: "pointer", fontFamily: T.fontBody, textAlign: "left" }}>
