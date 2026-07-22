@@ -111,7 +111,7 @@ export function SubsidiesScreen({ pop, account }) {
                 {u.image_url && (
                   <img src={u.image_url} alt={u.scheme} style={{ width: "100%", height: 110, objectFit: "cover", display: "block" }} />
                 )}
-                <div style={{ padding: u.image_url ? "10px 14px 14px" : 0 }}>
+                <div style={{ padding: u.image_url ? "10px 14px 14px" : "14px" }}>
                   <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 4 }}>{u.is_new && <Badge color={T.green} bg={T.green + "20"}>NEW</Badge>}<p style={{ margin: 0, fontWeight: 700, color: T.ink, fontSize: 13 }}>{u.scheme}</p></div>
                   <p style={{ margin: 0, color: T.inkSoft, fontSize: 12, lineHeight: 1.5 }}>{u.headline}</p>
                 </div>
