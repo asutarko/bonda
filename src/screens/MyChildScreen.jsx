@@ -372,7 +372,7 @@ export function DevLogSection({ activeChild, updateChild }) {
   );
 }
 
-export function MyChildScreen({ childCtx }) {
+export function MyChildScreen({ childCtx, push }) {
   const [subTab, setSubTab] = useState("profile"); // profile | devlog
 
   const { activeChild, children, updateChild } = childCtx || {};
@@ -386,22 +386,46 @@ export function MyChildScreen({ childCtx }) {
     if (subTab === "devlog" && !isChildActive) setSubTab("profile");
   }, [activeChild?.id, isChildActive]);
 
+  if (!activeChild) return (
+    <Page style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "60vh" }}>
+      <div style={{ marginBottom: 28 }}>
+        <svg width="140" height="140" viewBox="0 0 140 140" fill="none">
+          <circle cx="70" cy="70" r="64" stroke={T.purple} strokeWidth="1" strokeDasharray="4 6" opacity="0.2"/>
+          <circle cx="70" cy="70" r="48" fill={T.purpleL} opacity="0.6"/>
+          <circle cx="70" cy="70" r="34" fill={T.purpleL}/>
+          <circle cx="70" cy="54" r="12" fill={T.surface} stroke={T.purple} strokeWidth="1.5"/>
+          <path d="M55 90 Q55 74 70 74 Q85 74 85 90" fill={T.surface} stroke={T.purple} strokeWidth="1.5" strokeLinejoin="round"/>
+          <circle cx="65.5" cy="53" r="1.5" fill={T.purple} opacity="0.5"/>
+          <circle cx="74.5" cy="53" r="1.5" fill={T.purple} opacity="0.5"/>
+          <path d="M65 58 Q70 61.5 75 58" fill="none" stroke={T.purple} strokeWidth="1.4" strokeLinecap="round" opacity="0.5"/>
+          <circle cx="98" cy="42" r="10" fill={T.purple}/>
+          <path d="M94 42 L102 42 M98 38 L98 46" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+          <circle cx="30" cy="52" r="3" fill={T.purple} opacity="0.15"/>
+          <circle cx="112" cy="90" r="4" fill={T.amber} opacity="0.25"/>
+          <circle cx="28" cy="96" r="5" fill={T.purple} opacity="0.1"/>
+          <circle cx="108" cy="50" r="2.5" fill={T.amber} opacity="0.2"/>
+        </svg>
+      </div>
+      <p style={{ fontWeight: 800, color: T.ink, fontSize: 19, margin: "0 0 10px", textAlign: "center", letterSpacing: "-0.02em" }}>No child profile yet</p>
+      <p style={{ color: T.inkSoft, fontSize: 14, textAlign: "center", lineHeight: 1.7, marginBottom: 28, maxWidth: 260 }}>Add your child's profile to build their personalised daily schedule and track their progress.</p>
+      <Btn onClick={() => push("addChild")} style={{ paddingLeft: 28, paddingRight: 28 }}>+ Add a Child Profile</Btn>
+    </Page>
+  );
+
   return (
     <Page>
       <MedicalDisclaimerBanner />
 
-      {activeChild && (
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: children?.length > 1 ? 6 : 20 }}>
-          <ChildAvatar value={activeChild.emoji} size={36} active={true} borderColor={T.purple} />
-          <p style={{ margin: 0, fontWeight: 800, color: T.ink, fontSize: 16 }}>{activeChild.name}</p>
-          {ageFromDob(activeChild.dob) && (
-            <span style={{ background: T.purpleL, color: T.purple, fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 99 }}>{ageFromDob(activeChild.dob)}</span>
-          )}
-          <span style={{ background: activeChild.active ? T.greenL : T.amberL, color: activeChild.active ? T.green : T.amber, fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 99 }}>{activeChild.active ? "Active" : "Pending approval"}</span>
-        </div>
-      )}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: children?.length > 1 ? 6 : 20 }}>
+        <ChildAvatar value={activeChild.emoji} size={36} active={true} borderColor={T.purple} />
+        <p style={{ margin: 0, fontWeight: 800, color: T.ink, fontSize: 16 }}>{activeChild.name}</p>
+        {ageFromDob(activeChild.dob) && (
+          <span style={{ background: T.purpleL, color: T.purple, fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 99 }}>{ageFromDob(activeChild.dob)}</span>
+        )}
+        <span style={{ background: activeChild.active ? T.greenL : T.amberL, color: activeChild.active ? T.green : T.amber, fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 99 }}>{activeChild.active ? "Active" : "Pending approval"}</span>
+      </div>
 
-      {activeChild && children?.length > 1 && (
+      {children?.length > 1 && (
         <p style={{ margin: "0 0 20px", color: T.inkMuted, fontSize: 12, lineHeight: 1.5 }}>Want to view another child's data? Tap them on the Home tab to switch.</p>
       )}
 
@@ -431,18 +455,16 @@ export function MyChildScreen({ childCtx }) {
         })}
       </div>
 
-      {activeChild && !isChildActive && (
+      {!isChildActive && (
         <p style={{ margin: "0 0 20px", color: T.inkMuted, fontSize: 12, lineHeight: 1.5 }}>Development log unlocks once {activeChild.name}'s profile is approved.</p>
       )}
 
-      {subTab === "profile" && activeChild && (
+      {subTab === "profile" && (
         <ChildProfileForm childCtx={childCtx} showHeader={false} />
       )}
 
       {subTab === "devlog" && (
-        activeChild
-          ? <DevLogSection activeChild={activeChild} updateChild={updateChild} />
-          : <p style={{ margin: 0, color: T.inkMuted, fontSize: 13, textAlign: "center", padding: "32px 0" }}>Add a child profile on the Home tab to start a development log.</p>
+        <DevLogSection activeChild={activeChild} updateChild={updateChild} />
       )}
     </Page>
   );

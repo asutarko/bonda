@@ -163,7 +163,7 @@ export default function Bonda() {
   const renderMain = () => {
     switch (tab) {
       case "home":      return <HomeScreen childCtx={childCtx} setTab={setTab} push={push} account={account} />;
-      case "mychild":   return <MyChildScreen childCtx={childCtx} />;
+      case "mychild":   return <MyChildScreen childCtx={childCtx} push={push} />;
       case "schedule":  return <ScheduleScreen childCtx={childCtx} push={push} />;
       case "community": return <CommunityScreen account={account} />;
       default:          return null;
