@@ -13,8 +13,7 @@ import { AuthScreen, ResetPasswordScreen } from "./screens/AuthScreen";
 import { CommunityScreen } from "./screens/CommunityScreen";
 import { SubsidiesScreen } from "./screens/SubsidiesScreen";
 import { SOSScreen } from "./screens/SOSScreen";
-import { ActivitiesScreen } from "./screens/ActivitiesScreen";
-import { TrainingScreen } from "./screens/TrainingScreen";
+import { DevelopmentGuideScreen } from "./screens/DevelopmentGuideScreen";
 import { EmotionsBehavioursScreen } from "./screens/EmotionsBehavioursGuide";
 import { EditProfileScreen } from "./screens/ProfileScreen";
 import { LegalHub } from "./components/bonda-compliance";
@@ -148,8 +147,7 @@ export default function Bonda() {
     community: "Community",
     subsidies: "Subsidies & Aid",
     sos: "Emergency Contacts",
-    activities: "Activity Guide",
-    training: "Behaviour Training",
+    devGuide: "Development & Behaviour Guide",
     addChild: "Add a Child",
     editChild: "Edit Profile",
     editProfile: "Edit User Profile",
@@ -175,8 +173,7 @@ export default function Bonda() {
     switch (current) {
       case "subsidies":  return <SubsidiesScreen pop={pop} account={account} />;
       case "sos":        return <SOSScreen pop={pop} account={account} />;
-      case "activities": return <ActivitiesScreen pop={pop} account={account} />;
-      case "training":   return <TrainingScreen pop={pop} account={account} />;
+      case "devGuide":   return <DevelopmentGuideScreen />;
       case "addChild":   return <AddChildScreen childCtx={childCtx} pop={pop} />;
       case "editChild":  return <EditChildScreen childCtx={childCtx} pop={pop} />;
       case "editProfile": return <EditProfileScreen account={account} pop={pop} push={push} />;

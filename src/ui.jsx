@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { T } from "./theme";
 
 export const ActionIllustration = ({ type, size = 44 }) => {
-  const bg = { subsidies: "#FEF3C7", sos: "#FEE2E2", activities: "#DCFCE7", training: "#EDE9FE" };
+  const bg = { subsidies: "#FEF3C7", sos: "#FEE2E2", devGuide: "#DCFCE7" };
   const illustrations = {
     foster: (
       <svg width={size} height={size} viewBox="0 0 80 80" style={{ display: "block" }}>
@@ -34,7 +34,7 @@ export const ActionIllustration = ({ type, size = 44 }) => {
         <rect x="16" y="58" width="48" height="3" rx="1.5" fill="#DC2626" opacity="0.2"/>
       </svg>
     ),
-    activities: (
+    devGuide: (
       <svg width={size} height={size} viewBox="0 0 80 80" style={{ display: "block" }}>
         <rect width="80" height="80" rx="14" fill="#DCFCE7"/>
         <rect x="18" y="46" width="8" height="18" rx="3" fill="#065F46"/>
@@ -46,19 +46,6 @@ export const ActionIllustration = ({ type, size = 44 }) => {
         <circle cx="46" cy="24" r="4" fill="#F2FAF6"/>
         <circle cx="58" cy="32" r="4" fill="#D97706"/>
         <path d="M22 44 Q34 26 46 24 Q52 23 58 32" fill="none" stroke="#D97706" strokeWidth="1.5" strokeLinecap="round" strokeDasharray="4 3"/>
-      </svg>
-    ),
-    training: (
-      <svg width={size} height={size} viewBox="0 0 80 80" style={{ display: "block" }}>
-        <rect width="80" height="80" rx="14" fill="#EDE9FE"/>
-        <rect x="20" y="20" width="40" height="30" rx="7" fill="#0A2218"/>
-        <rect x="25" y="25" width="30" height="20" rx="5" fill="#065F46"/>
-        <rect x="30" y="31" width="20" height="3" rx="1.5" fill="#1D9E75"/>
-        <rect x="30" y="37" width="14" height="2.5" rx="1.25" fill="#1D9E75" opacity="0.5"/>
-        <path d="M40 50 L34 60 L46 60 Z" fill="#0A2218"/>
-        <circle cx="28" cy="64" r="7" fill="#1D9E75" opacity="0.7"/>
-        <circle cx="40" cy="67" r="7" fill="#065F46"/>
-        <circle cx="52" cy="64" r="7" fill="#D97706" opacity="0.6"/>
       </svg>
     ),
     emotions: (

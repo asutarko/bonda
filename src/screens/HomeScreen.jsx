@@ -72,8 +72,7 @@ export function HomeScreen({ childCtx, setTab, push, account }) {
     { type: "letter", label: "Generate Carer Letter", desc: "Introduction letter for clinics & schools", action: () => push("carerLetter") },
     { type: "subsidies", label: "Subsidies & Grants", desc: "Singapore financial aid guide", action: () => push("subsidies") },
     { type: "sos", label: "Emergency Contacts", desc: "Singapore autism helplines", action: () => push("sos") },
-    { type: "activities", label: "Activity Guide", desc: "Research-backed home therapy", action: () => push("activities") },
-    { type: "training", label: "Behaviour Training", desc: "Teaching good behaviours", action: () => push("training") },
+    { type: "devGuide", label: "Development & Behaviour Guide", desc: "Home activities & behaviour training", action: () => push("devGuide") },
     { type: "emotions", label: "Emotion & Behaviour", desc: "Understand feelings & behaviours", action: () => push("emotionsGuide") },
   ];
 
