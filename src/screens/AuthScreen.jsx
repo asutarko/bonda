@@ -69,6 +69,13 @@ export function AuthScreen() {
     if (!regAddress.trim()) return setRegErr("Please enter your home address.");
     if (!regRelationship) return setRegErr("Please select your relationship to the child.");
     if (regPass.length < 6) return setRegErr("Password must be at least 6 characters.");
+
+    // Phone isn't checked by Supabase Auth (only email is) — look it up in
+    // profiles ourselves via an RPC, since anon clients can't select from
+    // profiles directly (see profiles.sql RLS policies).
+    const { data: phoneTaken } = await supabase.rpc("phone_registered", { check_phone: regPhone.trim() });
+    if (phoneTaken) return setRegErr("This phone number is already registered. Phone numbers must be unique.");
+
     const joined = new Date().toLocaleDateString("en-SG", { month: "short", year: "numeric" });
     // Flag this as a fresh signup before calling signUp() — the client fires
     // its SIGNED_IN auth-state event as part of processing that call, so the
@@ -81,7 +88,18 @@ export function AuthScreen() {
       password: regPass,
       options: { data: { name: regName.trim(), avatar: regAvatar, joined, gender: regGender, address: regAddress.trim(), phone: regPhone.trim(), relationship: regRelationship } },
     });
-    if (error) { consumeNewSignupFlag(); return setRegErr(error.message); }
+    if (error) {
+      consumeNewSignupFlag();
+      const dupe = /already registered|already exists|duplicate/i.test(error.message);
+      return setRegErr(dupe ? "This email is already registered. Please use a unique email address." : error.message);
+    }
+    // Supabase can return a look-alike "success" with no identities when the
+    // email already exists and confirmations are on, to avoid leaking which
+    // emails are registered — treat that the same as a duplicate-email error.
+    if (data.user && data.user.identities && data.user.identities.length === 0) {
+      consumeNewSignupFlag();
+      return setRegErr("This email is already registered. Please use a unique email address.");
+    }
     if (!data.session) {
       // Email confirmation required before the account can sign in
       setRegMsg("Account created! Check your email to confirm before signing in.");
