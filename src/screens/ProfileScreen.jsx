@@ -208,10 +208,6 @@ export function EditProfileScreen({ account, pop, push }) {
       {err && <p style={{ color: T.red, fontSize: 13, fontWeight: 700, margin: "-8px 0 12px" }}>{err}</p>}
       <Btn onClick={save} full disabled={saving}>{saving ? "Saving..." : "Save Changes"}</Btn>
       <Btn onClick={pop} full secondary style={{ marginTop: 10 }}>Cancel</Btn>
-
-      <button onClick={() => push("legalHub")} style={{ display: "block", width: "100%", background: "none", border: "none", color: T.inkMuted, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: T.fontBody, marginTop: 20, textAlign: "center" }}>
-        Privacy Policy · Legal · DPO Contact
-      </button>
     </Page>
   );
 }
