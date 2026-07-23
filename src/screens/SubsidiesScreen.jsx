@@ -24,6 +24,7 @@ export const subsidyFromRow = (row) => ({
 export function SubsidiesScreen({ pop, account }) {
   const [open, setOpen] = useState(null);
   const [detail, setDetail] = useState(null);
+  const [newsDetail, setNewsDetail] = useState(null);
   const [news, setNews] = useState([]);
   const [loadingNews, setLoadingNews] = useState(true);
   const [schemes, setSchemes] = useState([]);
@@ -44,6 +45,22 @@ export function SubsidiesScreen({ pop, account }) {
   };
 
   useEffect(() => { loadNews(); loadSchemes(); }, []);
+
+  if (newsDetail) return (
+    <Page>
+      <button onClick={() => setNewsDetail(null)} style={{ background: "none", border: "none", color: T.purple, fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: T.fontBody, padding: "0 0 16px", display: "flex", alignItems: "center", gap: 6 }}>← Latest Updates</button>
+      {newsDetail.image_url && (
+        <img src={newsDetail.image_url} alt={newsDetail.scheme} style={{ width: "100%", height: 180, objectFit: "cover", display: "block", borderRadius: T.rL, marginBottom: 16 }} />
+      )}
+      <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
+        {newsDetail.is_new && <Badge color={T.green} bg={T.green + "20"}>NEW</Badge>}
+        <p style={{ margin: 0, fontWeight: 700, color: T.inkMuted, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.03em" }}>{newsDetail.scheme}</p>
+      </div>
+      {newsDetail.body && (
+        <p style={{ margin: 0, color: T.inkSoft, fontSize: 14, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{newsDetail.body}</p>
+      )}
+    </Page>
+  );
 
   if (detail) return (
     <Page>
@@ -107,7 +124,7 @@ export function SubsidiesScreen({ pop, account }) {
         {!loadingNews && news.length > 0 && (
           <div style={{ display: "flex", gap: 10, overflowX: "auto", scrollSnapType: "x mandatory", margin: "0 -18px", padding: "0 18px 4px" }}>
             {news.map(u => (
-              <Card key={u.id} style={{ background: T.greenL, border: `1px solid ${T.green}25`, flexShrink: 0, width: 230, scrollSnapAlign: "start", padding: u.image_url ? 0 : undefined, overflow: "hidden" }}>
+              <Card key={u.id} onClick={() => setNewsDetail(u)} style={{ background: T.greenL, border: `1px solid ${T.green}25`, flexShrink: 0, width: 230, scrollSnapAlign: "start", padding: u.image_url ? 0 : undefined, overflow: "hidden", cursor: "pointer" }}>
                 {u.image_url && (
                   <img src={u.image_url} alt={u.scheme} style={{ width: "100%", height: 110, objectFit: "cover", display: "block" }} />
                 )}
