@@ -249,7 +249,6 @@ export default function Bonda() {
 
             <div style={{ flex: 1, minWidth: 0 }}>
               <p style={{ margin: 0, fontSize: "clamp(15px, 4.2vw, 18px)", fontWeight: 800, color: T.purple, letterSpacing: "-0.03em", lineHeight: 1.1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>Bonda</p>
-              <p style={{ margin: 0, fontSize: "clamp(7.5px, 2.1vw, 9px)", color: T.inkMuted, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>by Norena Darsana</p>
             </div>
 
             {pageTitle !== "Bonda ◎" && pageTitle && (
