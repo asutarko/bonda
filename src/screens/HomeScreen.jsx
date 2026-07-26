@@ -70,7 +70,7 @@ export function HomeScreen({ childCtx, setTab, push, account }) {
   const quickActions = [
     ...(isFoster ? [{ type: "foster", label: "Foster Parent Hub", desc: "HealthHub, CDA, school access guides", action: () => push("fosterHub"), isFoster: true }] : []),
     { type: "letter", label: "Generate Carer Letter", desc: "Introduction letter for clinics & schools", action: () => push("carerLetter") },
-    { type: "subsidies", label: "Subsidies & Grants", desc: "Singapore financial aid guide", action: () => push("subsidies") },
+    { type: "subsidies", label: "Support Directory", desc: "Singapore autism & caregiver contacts", action: () => push("subsidies") },
     { type: "sos", label: "Emergency Contacts", desc: "Singapore autism helplines", action: () => push("sos") },
     { type: "devGuide", label: "Development & Behaviour Guide", desc: "Home activities & behaviour training", action: () => push("devGuide") },
     { type: "emotions", label: "Emotion & Behaviour", desc: "Understand feelings & behaviours", action: () => push("emotionsGuide") },

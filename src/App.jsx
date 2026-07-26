@@ -11,7 +11,7 @@ import { AddChildScreen, EditChildScreen } from "./screens/onboarding";
 import { ScheduleScreen } from "./screens/ScheduleScreen";
 import { AuthScreen, ResetPasswordScreen } from "./screens/AuthScreen";
 import { CommunityScreen } from "./screens/CommunityScreen";
-import { SubsidiesScreen } from "./screens/SubsidiesScreen";
+import SupportDirectory from "./components/SupportDirectory";
 import { SOSScreen } from "./screens/SOSScreen";
 import { DevelopmentGuideScreen } from "./screens/DevelopmentGuideScreen";
 import { EmotionsBehavioursScreen } from "./screens/EmotionsBehavioursGuide";
@@ -145,7 +145,7 @@ export default function Bonda() {
     mychild: "My Child",
     schedule: "Schedule",
     community: "Community",
-    subsidies: "Subsidies & Aid",
+    subsidies: "Support Directory",
     sos: "Emergency Contacts",
     devGuide: "Development & Behaviour Guide",
     addChild: "Add a Child",
@@ -171,7 +171,7 @@ export default function Bonda() {
   const renderStack = () => {
     if (!current) return null;
     switch (current) {
-      case "subsidies":  return <SubsidiesScreen pop={pop} account={account} />;
+      case "subsidies":  return <SupportDirectory />;
       case "sos":        return <SOSScreen pop={pop} account={account} />;
       case "devGuide":   return <DevelopmentGuideScreen />;
       case "addChild":   return <AddChildScreen childCtx={childCtx} pop={pop} />;
