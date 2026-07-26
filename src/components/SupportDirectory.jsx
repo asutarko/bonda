@@ -287,6 +287,7 @@ export default function SupportDirectory() {
   const [flashCat, setFlashCat] = useState(null);
   const railRef = useRef(null);
   const flashTimer = useRef(null);
+  const drag = useRef({ down: false, moved: false, startX: 0, startScroll: 0 });
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -308,6 +309,30 @@ export default function SupportDirectory() {
     if (!el || !el.children.length) return;
     const step = el.children[0].offsetWidth + 12;
     setSlide(Math.round(el.scrollLeft / step));
+  };
+
+  // Mouse drag-to-scroll for the rail (touch already scrolls natively).
+  const onRailPointerDown = (e) => {
+    if (e.pointerType === "touch") return;
+    const el = railRef.current;
+    drag.current = { down: true, moved: false, startX: e.clientX, startScroll: el.scrollLeft };
+    el.style.scrollSnapType = "none"; // fighting mandatory snap during drag is what made it feel heavy
+    el.setPointerCapture(e.pointerId);
+  };
+  const onRailPointerMove = (e) => {
+    const st = drag.current;
+    if (!st.down) return;
+    const dx = e.clientX - st.startX;
+    if (Math.abs(dx) > 3) st.moved = true;
+    railRef.current.scrollLeft = st.startScroll - dx;
+  };
+  const onRailPointerUp = () => {
+    drag.current.down = false;
+    const el = railRef.current;
+    if (el) el.style.scrollSnapType = "";
+  };
+  const onRailClickCapture = (e) => {
+    if (drag.current.moved) { e.preventDefault(); e.stopPropagation(); drag.current.moved = false; }
   };
 
   const pick = (id) => { setActive(id); setOpen(false); };
@@ -376,7 +401,10 @@ export default function SupportDirectory() {
           {/* quick access */}
           <section className="bd-feat-wrap" aria-label="Start here">
             <p className="bd-eyebrow">Start here</p>
-            <div className="bd-rail" ref={railRef} onScroll={onRail}>
+            <div className="bd-rail" ref={railRef} onScroll={onRail}
+              onPointerDown={onRailPointerDown} onPointerMove={onRailPointerMove}
+              onPointerUp={onRailPointerUp} onPointerLeave={onRailPointerUp}
+              onClickCapture={onRailClickCapture}>
               {FEATURED.map((f) => <Featured key={f.id} item={f} onGo={onGo} />)}
             </div>
             <div className="bd-dots">
@@ -495,12 +523,14 @@ const CSS = `
 .bd-rail{
   display:flex; gap:12px; overflow-x:auto; scroll-snap-type:x mandatory;
   -webkit-overflow-scrolling:touch; scrollbar-width:none; margin:0 -18px; padding:0 18px 2px;
+  cursor:grab;
 }
+.bd-rail:active{cursor:grabbing;}
 .bd-rail::-webkit-scrollbar{display:none;}
 .bd-feat{
   scroll-snap-align:start; flex:0 0 84%; display:flex; align-items:center; gap:12px; text-align:left;
   background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:16px;
-  text-decoration:none; color:inherit; font:inherit; cursor:pointer;
+  text-decoration:none; color:inherit; font:inherit; cursor:pointer; user-select:none;
 }
 .bd-feat__body{flex:1; min-width:0;}
 .bd-feat__eyebrow{font-size:11px; font-weight:600; letter-spacing:0.05em; text-transform:uppercase; color:var(--teal);}
