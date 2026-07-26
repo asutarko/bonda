@@ -1,8 +1,6 @@
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import { supabase } from "../lib/supabase";
-import { uploadPhoto, markNewSignup, consumeNewSignupFlag } from "../hooks";
-import { ComAvatar, COM_AVATAR_ILLUSTRATIONS } from "../ui";
-import { RELATIONSHIP_OPTIONS } from "../data";
+import { markNewSignup, consumeNewSignupFlag } from "../hooks";
 
 const ACCENT = "#3E6E6A";
 const INK = "#23201C";
@@ -16,7 +14,7 @@ const FONT_TITLE = "'Fraunces', Georgia, serif";
 
 const AUTH_CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
-.bonda-auth { font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; color: ${INK}; }
+.bonda-auth { font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; color: ${INK}; overflow-x: hidden; }
 .bonda-auth .field-input, .bonda-auth .field-select {
   width: 100%; height: 50px; border-radius: 14px; border: 1.5px solid rgba(35,32,28,.14);
   background: #FFFFFF; padding: 0 14px; font-size: 15px; font-family: inherit; color: ${INK};
@@ -63,11 +61,14 @@ const AUTH_CSS = `
   justify-content: center; color: rgba(35,32,28,.4); border-radius: 999px; transition: color .2s ease;
 }
 .bonda-auth .eye-btn:hover { color: ${ACCENT}; }
-.bonda-auth .chip-btn { flex: 1 1 92px; border-radius: 999px; padding: 9px 10px; font-size: 12px;
-  font-weight: 700; cursor: pointer; font-family: inherit; display: flex; align-items: center;
-  justify-content: center; gap: 5px; }
 .bonda-auth .rise { animation: bondaAuthRise .48s cubic-bezier(.2,.75,.25,1) both; }
 @keyframes bondaAuthRise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+.bonda-auth .track { display: flex; width: 200%; pointer-events: none; }
+.bonda-auth .track-pane { flex: 0 0 50%; width: 50%; min-width: 0; box-sizing: border-box; }
+.bonda-auth .track.fwd { transform: translateX(0%); animation: bondaSlideFwd .38s cubic-bezier(.22,.61,.36,1) forwards; }
+.bonda-auth .track.back { transform: translateX(-50%); animation: bondaSlideBack .38s cubic-bezier(.22,.61,.36,1) forwards; }
+@keyframes bondaSlideFwd { to { transform: translateX(-50%); } }
+@keyframes bondaSlideBack { to { transform: translateX(0%); } }
 `;
 
 function FieldLabel({ children }) {
@@ -94,19 +95,6 @@ function PasswordField({ label, value, onChange, placeholder, autoComplete, onKe
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" /></svg>
         </button>
       </div>
-    </div>
-  );
-}
-
-function NativeSelect({ label, value, onChange, options, placeholder }) {
-  const norm = options.map(o => (o !== null && typeof o === "object") ? o : { value: o, label: o });
-  return (
-    <div style={{ marginBottom: 14 }}>
-      {label && <FieldLabel>{label}</FieldLabel>}
-      <select className="field-select" value={value} onChange={onChange}>
-        <option value="" disabled>{placeholder || "Select…"}</option>
-        {norm.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-      </select>
     </div>
   );
 }
@@ -146,13 +134,120 @@ function SuccessNote({ children }) {
   return <p style={{ background: SUCCESS_BG, color: SUCCESS_TX, fontSize: 13, fontWeight: 700, borderRadius: 12, padding: "10px 14px", margin: "0 0 14px" }}>{children}</p>;
 }
 
+const LEGAL_SECTIONS = [
+  {
+    key: "privacy", title: "Privacy Policy", sub: "How we collect, use and protect your data",
+    iconBg: "#E6EDEC", iconColor: "#2E5A56",
+    icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="10.5" width="16" height="10" rx="2.5" /><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5" /><circle cx="12" cy="15.5" r="1.4" /></svg>,
+    blocks: [
+      { label: "What we collect", text: "Your child's profile, the check-ins, schedules and notes you save, and basic usage data that keeps the app running." },
+      { label: "How we use it", text: "Only to run the features you use — tracking, reminders, resources and community. We never sell your data or use it for advertising." },
+      { label: "Your control", text: "Access, correct, export or delete your data any time by emailing the Data Protection Officer below. We respond within 30 days." },
+      { label: "Keeping it safe", text: "Data is encrypted in transit and stored securely. We keep it only while your account is active." },
+    ],
+  },
+  {
+    key: "medical", title: "Medical Disclaimer", sub: "Important information about app content",
+    iconBg: "#F3E7EA", iconColor: "#7A4651",
+    icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12h4l2 5 4-10 2 5h4" /></svg>,
+    blocks: [
+      { label: "Not a medical device", text: "Bonda is a wellness and education tool. Its content, check-ins and resources are for general support and do not diagnose, treat, or replace advice from a doctor, therapist or other qualified professional." },
+      { label: "Always consult a professional", text: "Speak to a qualified professional for decisions about your child's health, and seek urgent help in an emergency." },
+    ],
+  },
+  {
+    key: "dpia", title: "Data Protection Impact Assessment", sub: "Our PDPA compliance documentation",
+    iconBg: "#E9EAEC", iconColor: "#474C52",
+    icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="4" width="14" height="17" rx="2.5" /><path d="M9 4.5h6v2.5H9z" /><path d="M9 12l2 2 3.5-3.5" /></svg>,
+    blocks: [
+      { label: "What it covers", text: "Bonda has completed a DPIA in line with Singapore's PDPA 2012 and the PDPC Advisory Guidelines on Children's Personal Data (March 2024). It documents what data we handle, why, the risks to children's data, and the safeguards in place." },
+      { label: "Safeguards", text: "Data minimisation, consent, encryption and clear deletion rights. A full summary is available from our Data Protection Officer on request." },
+    ],
+  },
+];
+
+function AccordionItem({ section, open, onToggle }) {
+  return (
+    <div style={{ background: "#fff", border: "1.5px solid rgba(35,32,28,.12)", borderRadius: 16, overflow: "hidden", marginBottom: 12 }}>
+      <button type="button" onClick={onToggle} style={{ width: "100%", display: "flex", alignItems: "center", gap: 14, padding: 15, background: "transparent", border: "none", cursor: "pointer", textAlign: "left", fontFamily: "inherit" }}>
+        <span style={{ width: 44, height: 44, flex: "0 0 44px", borderRadius: 12, background: section.iconBg, color: section.iconColor, display: "flex", alignItems: "center", justifyContent: "center" }}>{section.icon}</span>
+        <span style={{ flex: 1, display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
+          <span style={{ fontWeight: 600, fontSize: 16, color: INK, lineHeight: 1.2 }}>{section.title}</span>
+          <span style={{ fontSize: 13, color: INK55, lineHeight: 1.35 }}>{section.sub}</span>
+        </span>
+        <span style={{ position: "relative", width: 20, height: 20, flex: "0 0 20px", color: open ? ACCENT : "rgba(35,32,28,.4)" }}>
+          <span style={{ position: "absolute", left: 2, right: 2, top: 9, height: 2, background: "currentColor", borderRadius: 2 }} />
+          <span style={{ position: "absolute", top: 2, bottom: 2, left: 9, width: 2, background: "currentColor", borderRadius: 2, transform: open ? "scaleY(0)" : "scaleY(1)", transition: "transform .25s ease" }} />
+        </span>
+      </button>
+      {open && (
+        <div style={{ padding: "2px 17px 18px", borderTop: "1px solid rgba(35,32,28,.12)" }}>
+          {section.blocks.map((b, i) => (
+            <div key={i} style={{ marginTop: 15 }}>
+              <p style={{ margin: "0 0 5px", fontSize: 11.5, fontWeight: 700, letterSpacing: ".08em", textTransform: "uppercase", color: ACCENT }}>{b.label}</p>
+              <p style={{ margin: 0, fontSize: 14, lineHeight: 1.58, color: INK70 }}>{b.text}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PolicyScreen({ onBack }) {
+  const [open, setOpen] = useState(new Set());
+  const toggle = (key) => setOpen(s => { const n = new Set(s); n.has(key) ? n.delete(key) : n.add(key); return n; });
+  return (
+    <div className="bonda-auth" style={{ height: "100vh", display: "flex", flexDirection: "column", background: CANVAS, boxSizing: "border-box" }}>
+      <style>{AUTH_CSS}</style>
+      <div style={{ flex: 1, overflowY: "auto", padding: "28px 22px 0" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 22 }}>
+          <BackButton onClick={onBack} />
+          <img src="/assets/images/3D - Logo - Green.png" alt="" style={{ height: 24, width: 24, borderRadius: "50%", objectFit: "cover" }} />
+          <span style={{ fontFamily: FONT_TITLE, fontWeight: 600, fontSize: 18, color: INK }}>Bonda</span>
+        </div>
+        <h2 style={{ margin: "0 0 10px", fontFamily: FONT_TITLE, fontWeight: 600, fontSize: 28, lineHeight: 1.1, letterSpacing: "-.012em", color: INK }}>Before you start</h2>
+        <p style={{ margin: "0 0 22px", color: INK55, fontSize: 14.5, lineHeight: 1.5 }}>Please review the items below before using Bonda. Tap any section to read more.</p>
+
+        {LEGAL_SECTIONS.map(sec => (
+          <AccordionItem key={sec.key} section={sec} open={open.has(sec.key)} onToggle={() => toggle(sec.key)} />
+        ))}
+
+        <div style={{ background: "#fff", border: "1.5px solid rgba(35,32,28,.12)", borderRadius: 16, padding: 18, margin: "20px 0 4px" }}>
+          <p style={{ margin: "0 0 10px", fontWeight: 700, fontSize: 16, color: INK }}>Data protection officer</p>
+          <p style={{ margin: "0 0 4px", fontSize: 15, color: INK }}>Norena Darsana</p>
+          <a href="mailto:norena@bondaapp.sg" style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 15, fontWeight: 700, color: ACCENT, textDecoration: "none" }}>
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5" /><path d="M4 7l8 6 8-6" /></svg>
+            norena@bondaapp.sg
+          </a>
+          <p style={{ margin: "12px 0 0", fontSize: 13, lineHeight: 1.55, color: INK55 }}>For data access, correction, or deletion requests — or any privacy concerns — email the DPO directly. We respond within 30 days.</p>
+        </div>
+
+        <p style={{ margin: "18px 6px 24px", textAlign: "center", fontSize: 12.5, lineHeight: 1.55, color: "rgba(35,32,28,.4)" }}>Bonda complies with Singapore's PDPA 2012 and the PDPC Advisory Guidelines on Children's Personal Data (March 2024).</p>
+      </div>
+      <div style={{ padding: "14px 22px 22px", borderTop: "1px solid rgba(35,32,28,.12)", background: CANVAS, flexShrink: 0 }}>
+        <button className="btn-primary" onClick={onBack}>Got it — back to welcome</button>
+      </div>
+    </div>
+  );
+}
+
 export function AuthScreen() {
   const [view, setView] = useState("welcome");
+  const [transition, setTransition] = useState(null); // { from, to, dir: "fwd" | "back" }
   const [loginEmail, setLoginEmail] = useState(""); const [loginPass, setLoginPass] = useState(""); const [loginErr, setLoginErr] = useState("");
-  const [regEmail, setRegEmail] = useState(""); const [regName, setRegName] = useState(""); const [regPass, setRegPass] = useState(""); const [regAvatar, setRegAvatar] = useState("none"); const [regErr, setRegErr] = useState(""); const [regMsg, setRegMsg] = useState(""); const [regPhoto, setRegPhoto] = useState(null); const [regShowCam, setRegShowCam] = useState(false); const [regCamReady, setRegCamReady] = useState(false); const [regCamOk, setRegCamOk] = useState(true); const regVideoRef = useRef(null); const regStreamRef = useRef(null);
-  const [regGender, setRegGender] = useState(""); const [regAddress, setRegAddress] = useState(""); const [regPhone, setRegPhone] = useState(""); const [regRelationship, setRegRelationship] = useState("");
-  const [regShowAvatarPicker, setRegShowAvatarPicker] = useState(false);
+  const [regEmail, setRegEmail] = useState(""); const [regName, setRegName] = useState(""); const [regPass, setRegPass] = useState(""); const [regErr, setRegErr] = useState(""); const [regMsg, setRegMsg] = useState("");
   const [forgotEmail, setForgotEmail] = useState(""); const [forgotErr, setForgotErr] = useState(""); const [forgotMsg, setForgotMsg] = useState("");
+  const [showLegal, setShowLegal] = useState(false);
+
+  const navigate = (to, dir) => {
+    if (to === view || transition) return;
+    setTransition({ from: view, to, dir });
+  };
+  const finishTransition = () => {
+    setView(t => transition ? transition.to : t);
+    setTransition(null);
+  };
 
   const login = async () => {
     setLoginErr("");
@@ -171,63 +266,23 @@ export function AuthScreen() {
     setForgotMsg("Check your email for a link to reset your password.");
   };
 
-  // Camera for register profile photo
-  useEffect(() => {
-    const check = async () => { try { const d = await navigator.mediaDevices.enumerateDevices(); setRegCamOk(d.some(x => x.kind === "videoinput")); } catch { setRegCamOk(false); } };
-    check();
-    return () => { if (regStreamRef.current) regStreamRef.current.getTracks().forEach(t => t.stop()); };
-  }, []);
-
-  const openRegCam = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
-      regStreamRef.current = stream;
-      setRegShowCam(true);
-      setTimeout(() => { if (regVideoRef.current) { regVideoRef.current.srcObject = stream; regVideoRef.current.onloadedmetadata = () => { regVideoRef.current.play(); setRegCamReady(true); }; } }, 100);
-    } catch { setRegCamOk(false); }
-  };
-
-  const stopRegCam = () => {
-    if (regStreamRef.current) { regStreamRef.current.getTracks().forEach(t => t.stop()); regStreamRef.current = null; }
-    setRegShowCam(false); setRegCamReady(false);
-  };
-
-  const takeRegPhoto = () => {
-    if (!regVideoRef.current) return;
-    const c = document.createElement("canvas");
-    c.width = regVideoRef.current.videoWidth || 300; c.height = regVideoRef.current.videoHeight || 300;
-    c.getContext("2d").drawImage(regVideoRef.current, 0, 0);
-    setRegPhoto(c.toDataURL("image/jpeg", 0.75));
-    stopRegCam();
-  };
+  if (showLegal) return <PolicyScreen onBack={() => setShowLegal(false)} />;
 
   const register = async () => {
     setRegErr(""); setRegMsg("");
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(regEmail.trim())) return setRegErr("Please enter a valid email address.");
     if (!regName.trim() || regName.trim().length < 2) return setRegErr("Name must be at least 2 characters.");
-    if (!regGender) return setRegErr("Please select your gender.");
-    if (!regPhone.trim()) return setRegErr("Please enter your phone number.");
-    if (!regAddress.trim()) return setRegErr("Please enter your home address.");
-    if (!regRelationship) return setRegErr("Please select your relationship to the child.");
     if (regPass.length < 6) return setRegErr("Password must be at least 6 characters.");
-
-    // Phone isn't checked by Supabase Auth (only email is) — look it up in
-    // profiles ourselves via an RPC, since anon clients can't select from
-    // profiles directly (see profiles.sql RLS policies).
-    const { data: phoneTaken } = await supabase.rpc("phone_registered", { check_phone: regPhone.trim() });
-    if (phoneTaken) return setRegErr("This phone number is already registered. Phone numbers must be unique.");
 
     const joined = new Date().toLocaleDateString("en-SG", { month: "short", year: "numeric" });
     // Flag this as a fresh signup before calling signUp() — the client fires
     // its SIGNED_IN auth-state event as part of processing that call, so the
     // flag must already be in place for App.jsx to see it in time.
     markNewSignup();
-    // Sign up with a short avatar key first — never the raw photo, which would
-    // get embedded into the JWT and blow past the 100KB header limit.
     const { data, error } = await supabase.auth.signUp({
       email: regEmail.trim(),
       password: regPass,
-      options: { data: { name: regName.trim(), avatar: regAvatar, joined, gender: regGender, address: regAddress.trim(), phone: regPhone.trim(), relationship: regRelationship } },
+      options: { data: { name: regName.trim(), avatar: "none", joined } },
     });
     if (error) {
       consumeNewSignupFlag();
@@ -244,30 +299,15 @@ export function AuthScreen() {
     if (!data.session) {
       // Email confirmation required before the account can sign in
       setRegMsg("Account created! Check your email to confirm before signing in.");
-      setView("login");
+      navigate("login", "back");
       return;
-    }
-    // If a real photo was taken/uploaded, store the file in Storage (assets/parents/)
-    // and replace the avatar with its public URL — keeping the JWT small.
-    if (regPhoto) {
-      const url = await uploadPhoto(regPhoto, "parents", data.user.id);
-      if (url) {
-        await supabase.auth.updateUser({ data: { avatar: url } });
-        await supabase.from("profiles").update({ avatar: url }).eq("id", data.user.id);
-      }
     }
     // On success, the top-level auth listener picks up the new session and switches to the main app.
   };
 
-  const chipPrimary = { background: ACCENT, color: "#fff", border: "none" };
-  const chipGhost = { background: "#fff", color: ACCENT, border: `1.5px solid ${ACCENT}` };
-  const chipDanger = { background: "transparent", color: ERROR, border: `1.5px solid ${ERROR}`, flex: "0 0 auto" };
-
-  let content;
-
-  if (view === "welcome") {
-    content = (
-      <div key="welcome" className="rise" style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", gap: 24 }}>
+  const renderView = (v) => {
+    if (v === "welcome") return (
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", gap: 24 }}>
         <div style={{ position: "relative", width: 150, height: 150, display: "flex", alignItems: "center", justifyContent: "center" }}>
           <div style={{ position: "absolute", inset: 6, borderRadius: "50%", background: `radial-gradient(circle at 50% 46%, rgba(62,110,106,.14), transparent 68%)` }} />
           <div style={{ position: "absolute", inset: 0, borderRadius: "50%", border: `1px dashed rgba(35,32,28,.18)` }} />
@@ -278,130 +318,166 @@ export function AuthScreen() {
           <p style={{ margin: "0 auto", maxWidth: "19rem", color: INK55, fontSize: 15.5, lineHeight: 1.5 }}>Track your child's journey and connect with other parents in Singapore.</p>
         </div>
         <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 12 }}>
-          <button className="btn-primary" onClick={() => setView("login")}>Sign in <span aria-hidden="true">→</span></button>
-          <button className="btn-ghost" onClick={() => { setRegErr(""); setRegMsg(""); setView("register"); }}>Create a free account</button>
+          <button className="btn-primary" onClick={() => navigate("login", "fwd")}>Sign in <span aria-hidden="true">→</span></button>
+          <button className="btn-ghost" onClick={() => { setRegErr(""); setRegMsg(""); navigate("register", "fwd"); }}>Create a free account</button>
         </div>
-        <p style={{ margin: 0, textAlign: "center", fontSize: 12.5, lineHeight: 1.55, color: INK55 }}>By creating an account or signing in, you agree to our Terms &amp; Conditions and Privacy Policy.</p>
+        <p style={{ margin: 0, textAlign: "center", fontSize: 12.5, lineHeight: 1.55, color: INK55 }}>
+          By creating an account or signing in, you agree to our<br />
+          <button type="button" className="link-accent" style={{ fontSize: "inherit", whiteSpace: "nowrap", textDecoration: "underline" }} onClick={() => setShowLegal(true)}>Terms &amp; Conditions</button> and{" "}
+          <button type="button" className="link-accent" style={{ fontSize: "inherit", whiteSpace: "nowrap", textDecoration: "underline" }} onClick={() => setShowLegal(true)}>Privacy Policy</button>.
+        </p>
       </div>
     );
-  } else if (view === "login") {
-    content = (
-      <div key="login" className="rise" style={{ display: "flex", flexDirection: "column" }}>
-        <TopBar onBack={() => { setLoginErr(""); setView("welcome"); }} />
+
+    if (v === "login") return (
+      <div style={{ display: "flex", flexDirection: "column" }}>
+        <TopBar onBack={() => { setLoginErr(""); navigate("welcome", "back"); }} />
         <ScreenHeading eyebrow="Sign in" title="Welcome back" subtitle="Pick up right where you left off." />
         {regMsg && <SuccessNote>{regMsg}</SuccessNote>}
         <TextField label="Email" type="email" inputMode="email" autoComplete="email" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} placeholder="you@example.com" />
         <PasswordField label="Password" autoComplete="current-password" value={loginPass} onChange={e => setLoginPass(e.target.value)} onKeyDown={e => e.key === "Enter" && login()} placeholder="Your password" />
         <div style={{ display: "flex", justifyContent: "flex-end", margin: "-6px 0 14px" }}>
-          <button type="button" className="link-accent" style={{ fontSize: 13 }} onClick={() => { setLoginErr(""); setForgotMsg(""); setForgotEmail(loginEmail); setView("forgot"); }}>Forgot password?</button>
+          <button type="button" className="link-accent" style={{ fontSize: 13 }} onClick={() => { setLoginErr(""); setForgotMsg(""); setForgotEmail(loginEmail); navigate("forgot", "fwd"); }}>Forgot password?</button>
         </div>
         {loginErr && <ErrorNote>{loginErr}</ErrorNote>}
         <button className="btn-primary" onClick={login}>Sign in <span aria-hidden="true">→</span></button>
         <p style={{ textAlign: "center", margin: "20px 0 0", fontSize: 14, color: INK55 }}>New here?{" "}
-          <button type="button" className="link-accent" onClick={() => { setLoginErr(""); setView("register"); }}>Create a free account</button>
+          <button type="button" className="link-accent" onClick={() => { setLoginErr(""); navigate("register", "fwd"); }}>Create a free account</button>
         </p>
       </div>
     );
-  } else if (view === "register") {
-    const isPhotoSelected = !!regPhoto;
-    content = (
-      <div key="register" className="rise" style={{ display: "flex", flexDirection: "column" }}>
-        <TopBar onBack={() => { setRegErr(""); setView("welcome"); }} />
+
+    if (v === "register") return (
+      <div style={{ display: "flex", flexDirection: "column" }}>
+        <TopBar onBack={() => { setRegErr(""); navigate("welcome", "back"); }} />
         <ScreenHeading eyebrow="Create account" title="Create your account" subtitle="A free space to track, learn, and connect." />
-
-        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16, padding: "16px", background: "#fff", border: "1.5px solid rgba(35,32,28,.12)", borderRadius: 16 }}>
-          <ComAvatar value={regPhoto || regAvatar} size={56} active borderColor={ACCENT} />
-          <div style={{ flex: 1 }}>
-            <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: INK70 }}>
-              {regPhoto ? "Photo added ✓ — or choose an avatar below" : "Add a real photo:"}
-            </p>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <label className="chip-btn" style={chipPrimary}>
-                + Upload
-                <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => {
-                  const file = e.target.files[0]; if (!file) return;
-                  if (file.size > 2 * 1024 * 1024) return;
-                  const reader = new FileReader();
-                  reader.onload = ev => setRegPhoto(ev.target.result);
-                  reader.readAsDataURL(file);
-                }} />
-              </label>
-              {regCamOk && (
-                <button type="button" className="chip-btn" style={chipGhost} onClick={openRegCam}>+ Camera</button>
-              )}
-              <button type="button" className="chip-btn" style={regShowAvatarPicker ? chipPrimary : chipGhost} onClick={() => setRegShowAvatarPicker(v => !v)}>+ Avatar</button>
-              {regPhoto && (
-                <button type="button" className="chip-btn" style={chipDanger} onClick={() => setRegPhoto(null)}>✕</button>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {regShowCam && (
-          <div style={{ marginBottom: 16, background: "#000", borderRadius: 16, overflow: "hidden" }}>
-            <video ref={regVideoRef} style={{ width: "100%", display: "block", aspectRatio: "4/3", objectFit: "cover" }} muted playsInline />
-            <div style={{ display: "flex", gap: 8, padding: "10px 12px", background: "#111" }}>
-              <button className="btn-primary" disabled={!regCamReady} onClick={takeRegPhoto} style={{ flex: 1, height: 44 }}>📸 Take Photo</button>
-              <button className="btn-ghost" onClick={stopRegCam} style={{ flex: 1, height: 44, borderColor: "rgba(255,255,255,.3)", color: "#fff" }}>Cancel</button>
-            </div>
-          </div>
-        )}
-
-        {regShowAvatarPicker && (
-          <>
-            <p style={{ margin: "0 0 10px", fontSize: 11, fontWeight: 700, color: INK55, textTransform: "uppercase", letterSpacing: ".08em" }}>Choose an illustrated avatar</p>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 18, opacity: isPhotoSelected ? 0.4 : 1, transition: "opacity 0.2s" }}>
-              {COM_AVATAR_ILLUSTRATIONS.map(av => {
-                const isActive = !isPhotoSelected && regAvatar === av.key;
-                return (
-                  <div key={av.key} onClick={() => { if (!isPhotoSelected) setRegAvatar(av.key); }}
-                    style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, cursor: isPhotoSelected ? "default" : "pointer" }}>
-                    <div style={{ border: `2.5px solid ${isActive ? ACCENT : "transparent"}`, borderRadius: "50%", padding: 1, transform: isActive ? "scale(1.08)" : "scale(1)", transition: "all 0.15s" }}>
-                      {av.render(isActive)}
-                    </div>
-                    <p style={{ margin: 0, fontSize: 9, fontWeight: isActive ? 800 : 600, color: isActive ? ACCENT : INK55, letterSpacing: "0.03em" }}>{av.label}</p>
-                  </div>
-                );
-              })}
-            </div>
-          </>
-        )}
-
-        <TextField label={<>Your name (shown to other parents) <span style={{ color: ERROR }}>*</span></>} value={regName} onChange={e => setRegName(e.target.value)} placeholder="e.g. Sarah, Mum of Aiden" />
-        <NativeSelect label={<>Gender <span style={{ color: ERROR }}>*</span></>} value={regGender} onChange={e => setRegGender(e.target.value)} placeholder="Select gender" options={["Male", "Female"]} />
-        <TextField label={<>Phone number <span style={{ color: ERROR }}>*</span></>} type="tel" value={regPhone} onChange={e => setRegPhone(e.target.value)} placeholder="e.g. 9123 4567" />
-        <TextField label={<>Home address <span style={{ color: ERROR }}>*</span></>} value={regAddress} onChange={e => setRegAddress(e.target.value)} placeholder="e.g. Blk 123 Ang Mo Kio Ave 3, #04-56" />
-        <NativeSelect label={<>Relationship to the child <span style={{ color: ERROR }}>*</span></>} value={regRelationship} onChange={e => setRegRelationship(e.target.value)} placeholder="Select relationship" options={RELATIONSHIP_OPTIONS} />
-        <TextField label={<>Email <span style={{ color: ERROR }}>*</span></>} type="email" value={regEmail} onChange={e => setRegEmail(e.target.value)} placeholder="you@example.com" />
-        <PasswordField label={<>Password (min 6 characters) <span style={{ color: ERROR }}>*</span></>} value={regPass} onChange={e => setRegPass(e.target.value)} placeholder="Create a password" />
+        <TextField label="Name" value={regName} onChange={e => setRegName(e.target.value)} placeholder="e.g. Sarah, Mum of Aiden" />
+        <TextField label="Email" type="email" inputMode="email" autoComplete="email" value={regEmail} onChange={e => setRegEmail(e.target.value)} placeholder="you@example.com" />
+        <PasswordField label="Password" autoComplete="new-password" value={regPass} onChange={e => setRegPass(e.target.value)} placeholder="Create a password" />
         {regErr && <ErrorNote>{regErr}</ErrorNote>}
         <button className="btn-primary" onClick={register}>Create account <span aria-hidden="true">→</span></button>
-        <p style={{ margin: "10px 0 0", fontSize: 11, color: INK55, textAlign: "center" }}><span style={{ color: ERROR }}>*</span> required</p>
-        <p style={{ textAlign: "center", margin: "16px 0 0", fontSize: 14, color: INK55 }}>Already have an account?{" "}
-          <button type="button" className="link-accent" onClick={() => { setRegErr(""); setView("login"); }}>Sign in</button>
+        <p style={{ textAlign: "center", margin: "20px 0 0", fontSize: 14, color: INK55 }}>Already have an account?{" "}
+          <button type="button" className="link-accent" onClick={() => { setRegErr(""); navigate("login", "back"); }}>Sign in</button>
         </p>
       </div>
     );
-  } else if (view === "forgot") {
-    content = (
-      <div key="forgot" className="rise" style={{ display: "flex", flexDirection: "column" }}>
-        <TopBar onBack={() => { setForgotErr(""); setForgotMsg(""); setView("login"); }} />
+
+    if (v === "forgot") return (
+      <div style={{ display: "flex", flexDirection: "column" }}>
+        <TopBar onBack={() => { setForgotErr(""); setForgotMsg(""); navigate("login", "back"); }} />
         <ScreenHeading eyebrow="Reset password" title="Forgot your password?" subtitle="Enter your email and we'll send you a link to reset it." />
         <TextField label="Email" type="email" value={forgotEmail} onChange={e => setForgotEmail(e.target.value)} onKeyDown={e => e.key === "Enter" && forgotPassword()} placeholder="you@example.com" />
         {forgotErr && <ErrorNote>{forgotErr}</ErrorNote>}
         {forgotMsg && <SuccessNote>{forgotMsg}</SuccessNote>}
         <button className="btn-primary" onClick={forgotPassword}>Send reset link <span aria-hidden="true">→</span></button>
         <p style={{ textAlign: "center", margin: "20px 0 0", fontSize: 14, color: INK55 }}>
-          <button type="button" className="link-accent" onClick={() => { setForgotErr(""); setForgotMsg(""); setView("login"); }}>← Back to sign in</button>
+          <button type="button" className="link-accent" onClick={() => { setForgotErr(""); setForgotMsg(""); navigate("login", "back"); }}>← Back to sign in</button>
         </p>
       </div>
     );
-  }
+
+    return null;
+  };
+
+  return (
+    <div className="bonda-auth" style={{ flex: 1, display: "flex", flexDirection: "column", background: CANVAS, padding: "28px 22px 26px", boxSizing: "border-box", position: "relative" }}>
+      <style>{AUTH_CSS}</style>
+      {transition ? (
+        <div className={`track ${transition.dir}`} onAnimationEnd={finishTransition}>
+          {transition.dir === "fwd" ? (
+            <>
+              <div className="track-pane">{renderView(transition.from)}</div>
+              <div className="track-pane">{renderView(transition.to)}</div>
+            </>
+          ) : (
+            <>
+              <div className="track-pane">{renderView(transition.to)}</div>
+              <div className="track-pane">{renderView(transition.from)}</div>
+            </>
+          )}
+        </div>
+      ) : (
+        <div className="rise" key={view} style={{ display: "flex", flexDirection: "column", flex: 1 }}>{renderView(view)}</div>
+      )}
+    </div>
+  );
+}
+
+// Dial codes for the countries Bonda's parents/caregivers most commonly come
+// from — not the full ISO list, just enough to cover the userbase.
+const PHONE_COUNTRIES = [
+  { iso: "SG", dial: "+65", name: "Singapore" },
+  { iso: "MY", dial: "+60", name: "Malaysia" },
+  { iso: "ID", dial: "+62", name: "Indonesia" },
+  { iso: "PH", dial: "+63", name: "Philippines" },
+  { iso: "IN", dial: "+91", name: "India" },
+  { iso: "CN", dial: "+86", name: "China" },
+  { iso: "MM", dial: "+95", name: "Myanmar" },
+  { iso: "BD", dial: "+880", name: "Bangladesh" },
+  { iso: "VN", dial: "+84", name: "Vietnam" },
+  { iso: "TH", dial: "+66", name: "Thailand" },
+  { iso: "LK", dial: "+94", name: "Sri Lanka" },
+  { iso: "NP", dial: "+977", name: "Nepal" },
+  { iso: "PK", dial: "+92", name: "Pakistan" },
+  { iso: "HK", dial: "+852", name: "Hong Kong" },
+  { iso: "TW", dial: "+886", name: "Taiwan" },
+  { iso: "KR", dial: "+82", name: "South Korea" },
+  { iso: "JP", dial: "+81", name: "Japan" },
+  { iso: "AU", dial: "+61", name: "Australia" },
+  { iso: "GB", dial: "+44", name: "United Kingdom" },
+  { iso: "US", dial: "+1", name: "United States" },
+];
+
+// Shown once, right after a fresh signup, before the account can enter the
+// app — collects the phone number that register() doesn't ask for up front.
+export function PhoneCaptureScreen({ account, onDone }) {
+  const [dial, setDial] = useState("+65");
+  const [phone, setPhone] = useState("");
+  const [err, setErr] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const canSubmit = phone.trim().length > 0;
+
+  const save = async () => {
+    setErr("");
+    const trimmed = phone.trim();
+    if (!trimmed) return setErr("Please enter your phone number.");
+    setSaving(true);
+    const fullPhone = `${dial}${trimmed.replace(/\s+/g, "")}`;
+    const { error } = await supabase.auth.updateUser({ data: { phone: fullPhone } });
+    if (error) { setSaving(false); return setErr(error.message); }
+    const { error: profileErr } = await supabase.from("profiles").update({ phone: fullPhone }).eq("id", account.id);
+    setSaving(false);
+    if (profileErr) {
+      const dupe = /duplicate key|unique constraint/i.test(profileErr.message);
+      return setErr(dupe ? "This phone number is already registered on another account." : profileErr.message);
+    }
+    onDone();
+  };
 
   return (
     <div className="bonda-auth" style={{ flex: 1, display: "flex", flexDirection: "column", background: CANVAS, padding: "28px 22px 26px", boxSizing: "border-box" }}>
       <style>{AUTH_CSS}</style>
-      {content}
+      <div className="rise" style={{ display: "flex", flexDirection: "column" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", marginBottom: 4 }}>
+          <img src="/assets/images/3D - Logo - Green.png" alt="Bonda" style={{ height: 28, width: 28, borderRadius: "50%", objectFit: "cover" }} />
+        </div>
+        <ScreenHeading eyebrow="One last step" title="What's your phone number?" subtitle="We'll save this to your profile so we can reach you if needed." />
+        <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
+          <div style={{ flex: "0 0 118px" }}>
+            <FieldLabel>Country</FieldLabel>
+            <select className="field-select" value={dial} onChange={e => setDial(e.target.value)} style={{ fontWeight: 600, color: INK70 }}>
+              {PHONE_COUNTRIES.map(c => <option key={c.iso} value={c.dial}>{c.iso} {c.dial}</option>)}
+            </select>
+          </div>
+          <div style={{ flex: 1 }}>
+            <FieldLabel>Phone number</FieldLabel>
+            <input className="field-input" type="tel" inputMode="tel" autoComplete="tel" value={phone} onChange={e => setPhone(e.target.value)} onKeyDown={e => e.key === "Enter" && canSubmit && save()} placeholder="8123 4567" />
+          </div>
+        </div>
+        {err && <ErrorNote>{err}</ErrorNote>}
+        <button className="btn-primary" onClick={save} disabled={!canSubmit || saving}>Continue <span aria-hidden="true">→</span></button>
+      </div>
     </div>
   );
 }

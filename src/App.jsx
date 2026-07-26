@@ -9,7 +9,7 @@ import { HomeScreen } from "./screens/HomeScreen";
 import { MyChildScreen } from "./screens/MyChildScreen";
 import { AddChildScreen, EditChildScreen } from "./screens/onboarding";
 import { ScheduleScreen } from "./screens/ScheduleScreen";
-import { AuthScreen, ResetPasswordScreen } from "./screens/AuthScreen";
+import { AuthScreen, ResetPasswordScreen, PhoneCaptureScreen } from "./screens/AuthScreen";
 import { CommunityScreen } from "./screens/CommunityScreen";
 import SupportDirectory from "./components/SupportDirectory";
 import { SOSScreen } from "./screens/SOSScreen";
@@ -34,13 +34,15 @@ export default function Bonda() {
   const [authLoading, setAuthLoading] = useState(true);
   const [passwordRecovery, setPasswordRecovery] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const [pendingPhone, setPendingPhone] = useState(false);
   const [pendingCompliance, setPendingCompliance] = useState(false);
 
   // Loads the account and, if it just came from a fresh registration, flags
-  // the mandatory compliance screen so it's shown before the app is usable.
+  // the mandatory phone-capture and compliance screens so they're shown
+  // before the app is usable.
   const applyAccount = (acc) => {
     setAccount(acc);
-    if (acc && consumeNewSignupFlag()) setPendingCompliance(true);
+    if (acc && consumeNewSignupFlag()) { setPendingPhone(true); setPendingCompliance(true); }
   };
 
   useEffect(() => {
@@ -123,6 +125,15 @@ export default function Bonda() {
       <div style={{ minHeight: "100vh", background: T.canvas, fontFamily: T.fontBody, display: "flex", flexDirection: "column", maxWidth: 480, margin: "0 auto", position: "relative" }}>
         <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
         <AuthScreen />
+      </div>
+    );
+  }
+
+  if (pendingPhone) {
+    return (
+      <div style={{ minHeight: "100vh", background: T.canvas, fontFamily: T.fontBody, display: "flex", flexDirection: "column", maxWidth: 480, margin: "0 auto", position: "relative" }}>
+        <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+        <PhoneCaptureScreen account={account} onDone={() => setPendingPhone(false)} />
       </div>
     );
   }
