@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Fragment } from "react";
 import { supabase } from "../lib/supabase";
 import { T } from "../theme";
 import { Page, SectionLabel, Card, Badge, Btn, Input, TextArea, Avatar, Accordion, PageHero, AvatarIllustrations, ChildAvatar, ComAvatar, ROOM_ICONS, ACTIVITY_TEXTAREA_STYLE, ActionIllustration, HeroIllustration } from "../ui";
@@ -10,20 +10,34 @@ const isDocAttachment = url => /\.(docx?|xlsx?|pdf)$/i.test(url || "");
 export function ChatUI({ msgs, input, setInput, onSend, onDelete, loading, color, bg, backFn, icon, label, sub, isGroup, account, dmPartner, endRef, attachment, onPickAttachment, onRemoveAttachment, attachError }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 130px)" }}>
-      <div style={{ padding: "0 18px 12px", display: "flex", alignItems: "center", gap: 10 }}>
-        <button onClick={backFn} style={{ background: "none", border: "none", color: T.purple, fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: T.fontBody, padding: 0, flexShrink: 0 }}>←</button>
-        <div style={{ background: bg, borderRadius: T.r, padding: "8px 14px", flex: 1 }}>
-          <p style={{ margin: 0, fontWeight: 800, color, fontSize: 14 }}>{icon} {label}</p>
-          <p style={{ margin: 0, color: T.inkMuted, fontSize: 11 }}>{sub}</p>
+      <div style={{ padding: "10px 18px 12px", display: "flex", alignItems: "center", gap: 12 }}>
+        <button onClick={backFn} aria-label="Back" style={{ width: 34, height: 34, borderRadius: "50%", border: "none", background: "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0, color: T.inkMuted }}>
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M11 3.5 L5 9 L11 14.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none"/></svg>
+        </button>
+        {isGroup ? (
+          <div style={{ width: 42, height: 42, borderRadius: 12, background: bg, color, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="7.5" cy="7" r="3"/><path d="M2.5 17c0-3.2 2.2-5 5-5s5 1.8 5 5"/><path d="M13.5 12.6c2.4.2 4 1.8 4 4.4"/><path d="M12.6 4.4A2.7 2.7 0 0 1 14.7 9"/></svg>
+          </div>
+        ) : (
+          <ComAvatar value={icon} size={42} active={false} borderColor={T.border} />
+        )}
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <p style={{ margin: 0, fontWeight: 700, fontSize: 16, color: T.ink }}>{label}</p>
+          <p style={{ margin: "2px 0 0", fontSize: 12.5, color: T.inkMuted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{sub}</p>
         </div>
       </div>
       <div style={{ flex: 1, overflowY: "auto", padding: "0 18px", display: "flex", flexDirection: "column", gap: 10 }}>
         {loading && <p style={{ textAlign: "center", color: T.inkMuted, padding: 24, fontSize: 14 }}>Loading...</p>}
         {!loading && msgs.length === 0 && <div style={{ textAlign: "center", padding: "48px 20px" }}><div style={{ fontSize: 40, marginBottom: 12 }}>💬</div><p style={{ fontWeight: 700, color: T.ink, fontSize: 15 }}>No messages yet</p><p style={{ color: T.inkMuted, fontSize: 13 }}>{isGroup ? "Be the first to post!" : "Start a private conversation!"}</p></div>}
-        {msgs.map(msg => {
+        {msgs.map((msg, i) => {
           const isMe = msg.authorId ? msg.authorId === account.id : msg.author === account.name;
+          const showSep = i === 0 || msgs[i - 1].date !== msg.date;
           return (
-            <div key={msg.id} style={{ display: "flex", flexDirection: isMe ? "row-reverse" : "row", gap: 8, alignItems: "flex-end" }}>
+            <Fragment key={msg.id}>
+              {showSep && (
+                <p style={{ alignSelf: "center", margin: "2px 0 4px", fontSize: 11, fontWeight: 700, letterSpacing: "0.03em", color: T.inkMuted, background: T.surface, border: `1px solid ${T.border}`, padding: "4px 12px", borderRadius: 999 }}>{msg.date}</p>
+              )}
+              <div style={{ display: "flex", flexDirection: isMe ? "row-reverse" : "row", gap: 8, alignItems: "flex-end" }}>
               {!isMe && <ComAvatar value={msg.avatar} size={32} active={false} />}
               <div style={{ maxWidth: "74%", display: "flex", flexDirection: "column", alignItems: isMe ? "flex-end" : "flex-start", gap: 2 }}>
                 {!isMe && (
@@ -31,7 +45,7 @@ export function ChatUI({ msgs, input, setInput, onSend, onDelete, loading, color
                     {msg.author}
                   </p>
                 )}
-                <div style={{ background: isMe ? color : T.surface, color: isMe ? "white" : T.ink, borderRadius: isMe ? "16px 16px 4px 16px" : "16px 16px 16px 4px", padding: msg.imageUrl && !isDocAttachment(msg.imageUrl) ? 6 : "10px 14px", boxShadow: T.shadow }}>
+                <div style={{ background: isMe ? color : T.surface, color: isMe ? "white" : T.ink, borderRadius: isMe ? "18px 18px 6px 18px" : "18px 18px 18px 6px", padding: msg.imageUrl && !isDocAttachment(msg.imageUrl) ? 6 : "10px 14px", boxShadow: T.shadow }}>
                   {msg.imageUrl && (isDocAttachment(msg.imageUrl) ? (
                     <a href={msg.imageUrl} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 8, color: "inherit", textDecoration: "none" }}>
                       <span style={{ fontSize: 20 }}>📄</span>
@@ -43,11 +57,12 @@ export function ChatUI({ msgs, input, setInput, onSend, onDelete, loading, color
                   {msg.text && <p style={{ margin: msg.imageUrl && !isDocAttachment(msg.imageUrl) ? "6px 4px 0" : 0, fontSize: 14, lineHeight: 1.6, wordBreak: "break-word" }}>{msg.text}</p>}
                 </div>
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  <p style={{ margin: 0, fontSize: 10, color: T.inkMuted }}>{msg.date} · {msg.time}</p>
+                  <p style={{ margin: 0, fontSize: 10, color: T.inkMuted }}>{msg.time}</p>
                   {isMe && <button onClick={() => onDelete(msg.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 10, color: T.red, fontWeight: 700, fontFamily: T.fontBody, padding: 0 }}>Delete</button>}
                 </div>
               </div>
-            </div>
+              </div>
+            </Fragment>
           );
         })}
         <div ref={endRef} />
@@ -67,16 +82,20 @@ export function ChatUI({ msgs, input, setInput, onSend, onDelete, loading, color
             <p style={{ margin: 0, fontSize: 12, color: T.inkMuted, wordBreak: "break-word" }}>{attachment.kind === "image" ? "Image attached" : attachment.name}</p>
           </div>
         )}
-        <div style={{ padding: "10px 18px 6px", borderTop: `1px solid ${T.border}`, display: "flex", gap: 8, alignItems: "flex-end" }}>
-          <ComAvatar value={account.avatar} size={28} active={true} borderColor={bg} />
-          <label style={{ width: 38, height: 38, borderRadius: "50%", background: T.canvas, border: `1.5px solid ${T.border}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0, fontSize: 16 }}>
+        <div style={{ padding: "10px 12px 6px", borderTop: `1px solid ${T.border}`, display: "flex", gap: 8, alignItems: "center" }}>
+          <ComAvatar value={account.avatar} size={40} active={true} borderColor={bg} />
+          <label style={{ width: 38, height: 38, borderRadius: "50%", background: "transparent", border: `1.5px solid ${T.border}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0, fontSize: 16, color: T.inkMuted }}>
             📎
             <input type="file" accept="image/*,.doc,.docx,.xls,.xlsx,.pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/pdf" onChange={onPickAttachment} style={{ display: "none" }} />
           </label>
-          <textarea value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSend(); } }} placeholder="Write a message… (Enter to send)" rows={1} style={{ flex: 1, padding: "9px 13px", borderRadius: T.r, border: `1.5px solid ${T.border}`, fontSize: 14, fontFamily: T.fontBody, color: T.ink, outline: "none", resize: "none", lineHeight: 1.5, background: T.canvas }} />
-          <button onClick={onSend} disabled={!input.trim() && !attachment} style={{ width: 38, height: 38, borderRadius: "50%", background: (input.trim() || attachment) ? color : T.border, border: "none", cursor: (input.trim() || attachment) ? "pointer" : "default", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0, transition: "background 0.2s", color: "white" }}>›</button>
+          <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", background: T.surface, border: `1.5px solid ${T.border}`, borderRadius: 22, padding: "0 5px 0 16px" }}>
+            <textarea value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSend(); } }} placeholder="Write a message… (Enter to send)" rows={1} style={{ flex: 1, minWidth: 0, padding: "11px 6px", border: "none", outline: "none", background: "transparent", fontSize: 14, fontFamily: T.fontBody, color: T.ink, resize: "none", lineHeight: 1.5 }} />
+            <button onClick={onSend} disabled={!input.trim() && !attachment} style={{ width: 34, height: 34, borderRadius: "50%", background: (input.trim() || attachment) ? color : T.border, border: "none", cursor: (input.trim() || attachment) ? "pointer" : "default", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0, transition: "background 0.2s", color: "white" }}>›</button>
+          </div>
         </div>
-        <p style={{ textAlign: "center", color: T.inkMuted, fontSize: 10, margin: "2px 0 4px" }}>{isGroup ? "Visible to all parents · Be kind 💛" : `Private — only you and ${dmPartner?.name}`}</p>
+        {!isGroup && (
+          <p style={{ textAlign: "center", color: T.inkMuted, fontSize: 10, margin: "2px 0 4px" }}>{`Private — only you and ${dmPartner?.name}`}</p>
+        )}
       </div>
     </div>
   );
