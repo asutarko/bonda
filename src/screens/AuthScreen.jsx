@@ -1,13 +1,154 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "../lib/supabase";
 import { uploadPhoto, markNewSignup, consumeNewSignupFlag } from "../hooks";
-import { T } from "../theme";
-import { Page, SectionLabel, Card, Badge, Btn, Input, TextArea, Select, Avatar, Accordion, PageHero, AvatarIllustrations, ChildAvatar, ComAvatar, COM_AVATAR_ILLUSTRATIONS, ROOM_ICONS, ACTIVITY_TEXTAREA_STYLE, ActionIllustration, HeroIllustration } from "../ui";
-import { CHILD_AVATARS, DEFAULT_CHILDREN, DEFAULT_SCHEDULE, ROOM_COLORS, SOS_COLORS, VERBAL_STATUS_OPTIONS, RELATIONSHIP_OPTIONS } from "../data";
+import { ComAvatar, COM_AVATAR_ILLUSTRATIONS } from "../ui";
+import { RELATIONSHIP_OPTIONS } from "../data";
+
+const ACCENT = "#3E6E6A";
+const INK = "#23201C";
+const INK70 = "rgba(35,32,28,.70)";
+const INK55 = "rgba(35,32,28,.55)";
+const CANVAS = "#F4F1EB";
+const ERROR = "#B4544F";
+const SUCCESS_BG = "#E6EDEC";
+const SUCCESS_TX = "#2E5A56";
+const FONT_TITLE = "'Fraunces', Georgia, serif";
+
+const AUTH_CSS = `
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+.bonda-auth { font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; color: ${INK}; }
+.bonda-auth .field-input, .bonda-auth .field-select {
+  width: 100%; height: 50px; border-radius: 14px; border: 1.5px solid rgba(35,32,28,.14);
+  background: #FFFFFF; padding: 0 14px; font-size: 15px; font-family: inherit; color: ${INK};
+  outline: none; transition: border-color .18s ease, box-shadow .18s ease; box-sizing: border-box;
+}
+.bonda-auth .field-input:focus, .bonda-auth .field-select:focus {
+  border-color: ${ACCENT}; box-shadow: 0 0 0 3px rgba(62,110,106,.16);
+}
+.bonda-auth .field-input::placeholder { color: rgba(35,32,28,.4); }
+.bonda-auth .field-select {
+  appearance: none; -webkit-appearance: none; cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2323201C' stroke-opacity='0.45' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 14px center; padding-right: 40px;
+}
+.bonda-auth .btn-primary {
+  height: 52px; border-radius: 999px; border: none; background: ${ACCENT}; color: #fff;
+  font-weight: 700; font-size: 15px; width: 100%; cursor: pointer; font-family: inherit;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  transition: background .2s ease, transform .12s ease;
+}
+.bonda-auth .btn-primary:hover { background: #345f5b; }
+.bonda-auth .btn-primary:active { transform: scale(.985); }
+.bonda-auth .btn-primary:disabled { opacity: .45; cursor: default; }
+.bonda-auth .btn-ghost {
+  height: 52px; border-radius: 999px; border: 1.5px solid rgba(35,32,28,.2); background: transparent;
+  color: ${INK}; font-weight: 700; font-size: 15px; width: 100%; cursor: pointer; font-family: inherit;
+  transition: border-color .2s ease, color .2s ease;
+}
+.bonda-auth .btn-ghost:hover { border-color: ${ACCENT}; color: ${ACCENT}; }
+.bonda-auth .link-accent {
+  background: none; border: 0; padding: 0; cursor: pointer; font-family: inherit;
+  color: ${ACCENT}; font-weight: 700;
+}
+.bonda-auth .link-accent:hover { text-decoration: underline; }
+.bonda-auth .back-btn {
+  width: 42px; height: 42px; flex: 0 0 42px; border-radius: 999px; background: #fff;
+  border: 1.5px solid rgba(35,32,28,.12); display: flex; align-items: center; justify-content: center;
+  cursor: pointer; color: ${INK}; transition: border-color .2s ease, color .2s ease;
+}
+.bonda-auth .back-btn:hover { border-color: ${ACCENT}; color: ${ACCENT}; }
+.bonda-auth .eye-btn {
+  position: absolute; right: 6px; top: 50%; transform: translateY(-50%); width: 36px; height: 36px;
+  border: 0; background: transparent; cursor: pointer; display: flex; align-items: center;
+  justify-content: center; color: rgba(35,32,28,.4); border-radius: 999px; transition: color .2s ease;
+}
+.bonda-auth .eye-btn:hover { color: ${ACCENT}; }
+.bonda-auth .chip-btn { flex: 1 1 92px; border-radius: 999px; padding: 9px 10px; font-size: 12px;
+  font-weight: 700; cursor: pointer; font-family: inherit; display: flex; align-items: center;
+  justify-content: center; gap: 5px; }
+.bonda-auth .rise { animation: bondaAuthRise .48s cubic-bezier(.2,.75,.25,1) both; }
+@keyframes bondaAuthRise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+`;
+
+function FieldLabel({ children }) {
+  return <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: INK70, margin: "0 0 7px 2px" }}>{children}</label>;
+}
+
+function TextField({ label, style, ...props }) {
+  return (
+    <div style={{ marginBottom: 14 }}>
+      {label && <FieldLabel>{label}</FieldLabel>}
+      <input className="field-input" style={style} {...props} />
+    </div>
+  );
+}
+
+function PasswordField({ label, value, onChange, placeholder, autoComplete, onKeyDown }) {
+  const [show, setShow] = useState(false);
+  return (
+    <div style={{ marginBottom: 14 }}>
+      {label && <FieldLabel>{label}</FieldLabel>}
+      <div style={{ position: "relative" }}>
+        <input className="field-input" style={{ paddingRight: 48 }} type={show ? "text" : "password"} value={value} onChange={onChange} placeholder={placeholder} autoComplete={autoComplete} onKeyDown={onKeyDown} />
+        <button type="button" className="eye-btn" onClick={() => setShow(v => !v)} aria-label={show ? "Hide password" : "Show password"}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" /></svg>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function NativeSelect({ label, value, onChange, options, placeholder }) {
+  const norm = options.map(o => (o !== null && typeof o === "object") ? o : { value: o, label: o });
+  return (
+    <div style={{ marginBottom: 14 }}>
+      {label && <FieldLabel>{label}</FieldLabel>}
+      <select className="field-select" value={value} onChange={onChange}>
+        <option value="" disabled>{placeholder || "Select…"}</option>
+        {norm.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+      </select>
+    </div>
+  );
+}
+
+function BackButton({ onClick }) {
+  return (
+    <button type="button" className="back-btn" onClick={onClick} aria-label="Back">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
+    </button>
+  );
+}
+
+function TopBar({ onBack }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 4 }}>
+      <BackButton onClick={onBack} />
+      <img src="/assets/images/3D - Logo - Green.png" alt="Bonda" style={{ height: 28, width: 28, borderRadius: "50%", objectFit: "cover", marginLeft: "auto" }} />
+    </div>
+  );
+}
+
+function ScreenHeading({ eyebrow, title, subtitle }) {
+  return (
+    <div style={{ margin: "22px 0 18px" }}>
+      <p style={{ margin: "0 0 8px", fontSize: 12.5, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: ACCENT }}>{eyebrow}</p>
+      <h2 style={{ margin: "0 0 8px", fontFamily: FONT_TITLE, fontWeight: 600, fontSize: 27, lineHeight: 1.15, letterSpacing: "-.01em", color: INK }}>{title}</h2>
+      {subtitle && <p style={{ margin: 0, color: INK55, fontSize: 14.5, lineHeight: 1.5 }}>{subtitle}</p>}
+    </div>
+  );
+}
+
+function ErrorNote({ children }) {
+  return <p style={{ color: ERROR, fontSize: 13, fontWeight: 700, margin: "-6px 0 12px" }}>{children}</p>;
+}
+
+function SuccessNote({ children }) {
+  return <p style={{ background: SUCCESS_BG, color: SUCCESS_TX, fontSize: 13, fontWeight: 700, borderRadius: 12, padding: "10px 14px", margin: "0 0 14px" }}>{children}</p>;
+}
 
 export function AuthScreen() {
-  const [view, setView] = useState("login");
-  const [loginEmail, setLoginEmail] = useState(""); const [loginPass, setLoginPass] = useState(""); const [loginErr, setLoginErr] = useState(""); const [showLoginPass, setShowLoginPass] = useState(false);
+  const [view, setView] = useState("welcome");
+  const [loginEmail, setLoginEmail] = useState(""); const [loginPass, setLoginPass] = useState(""); const [loginErr, setLoginErr] = useState("");
   const [regEmail, setRegEmail] = useState(""); const [regName, setRegName] = useState(""); const [regPass, setRegPass] = useState(""); const [regAvatar, setRegAvatar] = useState("none"); const [regErr, setRegErr] = useState(""); const [regMsg, setRegMsg] = useState(""); const [regPhoto, setRegPhoto] = useState(null); const [regShowCam, setRegShowCam] = useState(false); const [regCamReady, setRegCamReady] = useState(false); const [regCamOk, setRegCamOk] = useState(true); const regVideoRef = useRef(null); const regStreamRef = useRef(null);
   const [regGender, setRegGender] = useState(""); const [regAddress, setRegAddress] = useState(""); const [regPhone, setRegPhone] = useState(""); const [regRelationship, setRegRelationship] = useState("");
   const [regShowAvatarPicker, setRegShowAvatarPicker] = useState(false);
@@ -118,187 +259,150 @@ export function AuthScreen() {
     // On success, the top-level auth listener picks up the new session and switches to the main app.
   };
 
-  if (view === "register") return (
-    <Page>
-      <h2 style={{ margin: "0 0 4px", color: T.ink, fontSize: 22, fontWeight: 800 }}>Create Account</h2>
-      <p style={{ margin: "0 0 24px", color: T.inkSoft, fontSize: 14 }}>Join the Bonda parent community.</p>
+  const chipPrimary = { background: ACCENT, color: "#fff", border: "none" };
+  const chipGhost = { background: "#fff", color: ACCENT, border: `1.5px solid ${ACCENT}` };
+  const chipDanger = { background: "transparent", color: ERROR, border: `1.5px solid ${ERROR}`, flex: "0 0 auto" };
 
-      <SectionLabel style={{ marginBottom: 10 }}>Profile Picture</SectionLabel>
+  let content;
 
-
-      <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 14, padding: "14px 16px", background: T.purpleL, borderRadius: T.r }}>
-        <ComAvatar value={regPhoto || regAvatar} size={60} active borderColor={T.purple} />
-        <div style={{ flex: 1 }}>
-          <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>
-            {regPhoto ? "Photo added ✓ — or choose an avatar below" : "Add a real photo:"}
-          </p>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <label style={{ flex: "1 1 92px", background: T.purple, color: "white", borderRadius: T.r, padding: "8px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
-              + Upload
-              <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => {
-                const file = e.target.files[0]; if (!file) return;
-                if (file.size > 2 * 1024 * 1024) return;
-                const reader = new FileReader();
-                reader.onload = ev => setRegPhoto(ev.target.result);
-                reader.readAsDataURL(file);
-              }} />
-            </label>
-            {regCamOk && (
-              <button onClick={openRegCam} style={{ flex: "1 1 92px", background: T.surface, color: T.purple, border: `1.5px solid ${T.purple}`, borderRadius: T.r, padding: "8px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
-                + Camera
-              </button>
-            )}
-            <button onClick={() => setRegShowAvatarPicker(v => !v)} style={{ flex: "1 1 92px", background: regShowAvatarPicker ? T.purple : T.surface, color: regShowAvatarPicker ? "white" : T.purple, border: `1.5px solid ${T.purple}`, borderRadius: T.r, padding: "8px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
-              + Avatar
-            </button>
-            {regPhoto && (
-              <button onClick={() => setRegPhoto(null)} style={{ background: T.redL, color: T.red, border: "none", borderRadius: T.r, padding: "8px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody }}>✕</button>
-            )}
-          </div>
+  if (view === "welcome") {
+    content = (
+      <div key="welcome" className="rise" style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", gap: 24 }}>
+        <div style={{ position: "relative", width: 150, height: 150, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ position: "absolute", inset: 6, borderRadius: "50%", background: `radial-gradient(circle at 50% 46%, rgba(62,110,106,.14), transparent 68%)` }} />
+          <div style={{ position: "absolute", inset: 0, borderRadius: "50%", border: `1px dashed rgba(35,32,28,.18)` }} />
+          <img src="/assets/images/3D - Logo - Green.png" alt="Bonda" style={{ position: "relative", width: "62%", height: "62%", objectFit: "contain" }} />
         </div>
+        <div>
+          <h1 style={{ margin: "0 0 10px", fontFamily: FONT_TITLE, fontWeight: 600, fontSize: "clamp(28px,7vw,34px)", lineHeight: 1.08, letterSpacing: "-.012em", color: INK }}>Welcome to Bonda</h1>
+          <p style={{ margin: "0 auto", maxWidth: "19rem", color: INK55, fontSize: 15.5, lineHeight: 1.5 }}>Track your child's journey and connect with other parents in Singapore.</p>
+        </div>
+        <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 12 }}>
+          <button className="btn-primary" onClick={() => setView("login")}>Sign in <span aria-hidden="true">→</span></button>
+          <button className="btn-ghost" onClick={() => { setRegErr(""); setRegMsg(""); setView("register"); }}>Create a free account</button>
+        </div>
+        <p style={{ margin: 0, textAlign: "center", fontSize: 12.5, lineHeight: 1.55, color: INK55 }}>By creating an account or signing in, you agree to our Terms &amp; Conditions and Privacy Policy.</p>
       </div>
+    );
+  } else if (view === "login") {
+    content = (
+      <div key="login" className="rise" style={{ display: "flex", flexDirection: "column" }}>
+        <TopBar onBack={() => { setLoginErr(""); setView("welcome"); }} />
+        <ScreenHeading eyebrow="Sign in" title="Welcome back" subtitle="Pick up right where you left off." />
+        {regMsg && <SuccessNote>{regMsg}</SuccessNote>}
+        <TextField label="Email" type="email" inputMode="email" autoComplete="email" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} placeholder="you@example.com" />
+        <PasswordField label="Password" autoComplete="current-password" value={loginPass} onChange={e => setLoginPass(e.target.value)} onKeyDown={e => e.key === "Enter" && login()} placeholder="Your password" />
+        <div style={{ display: "flex", justifyContent: "flex-end", margin: "-6px 0 14px" }}>
+          <button type="button" className="link-accent" style={{ fontSize: 13 }} onClick={() => { setLoginErr(""); setForgotMsg(""); setForgotEmail(loginEmail); setView("forgot"); }}>Forgot password?</button>
+        </div>
+        {loginErr && <ErrorNote>{loginErr}</ErrorNote>}
+        <button className="btn-primary" onClick={login}>Sign in <span aria-hidden="true">→</span></button>
+        <p style={{ textAlign: "center", margin: "20px 0 0", fontSize: 14, color: INK55 }}>New here?{" "}
+          <button type="button" className="link-accent" onClick={() => { setLoginErr(""); setView("register"); }}>Create a free account</button>
+        </p>
+      </div>
+    );
+  } else if (view === "register") {
+    const isPhotoSelected = !!regPhoto;
+    content = (
+      <div key="register" className="rise" style={{ display: "flex", flexDirection: "column" }}>
+        <TopBar onBack={() => { setRegErr(""); setView("welcome"); }} />
+        <ScreenHeading eyebrow="Create account" title="Create your account" subtitle="A free space to track, learn, and connect." />
 
-
-      {regShowCam && (
-        <div style={{ marginBottom: 14, background: "#000", borderRadius: T.r, overflow: "hidden" }}>
-          <video ref={regVideoRef} style={{ width: "100%", display: "block", aspectRatio: "4/3", objectFit: "cover" }} muted playsInline />
-          <div style={{ display: "flex", gap: 8, padding: "10px 12px", background: "#111" }}>
-            <Btn onClick={takeRegPhoto} disabled={!regCamReady} style={{ flex: 1, background: regCamReady ? T.green : T.border }}>📸 Take Photo</Btn>
-            <Btn onClick={stopRegCam} secondary style={{ flex: 1 }}>Cancel</Btn>
+        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16, padding: "16px", background: "#fff", border: "1.5px solid rgba(35,32,28,.12)", borderRadius: 16 }}>
+          <ComAvatar value={regPhoto || regAvatar} size={56} active borderColor={ACCENT} />
+          <div style={{ flex: 1 }}>
+            <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: INK70 }}>
+              {regPhoto ? "Photo added ✓ — or choose an avatar below" : "Add a real photo:"}
+            </p>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <label className="chip-btn" style={chipPrimary}>
+                + Upload
+                <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => {
+                  const file = e.target.files[0]; if (!file) return;
+                  if (file.size > 2 * 1024 * 1024) return;
+                  const reader = new FileReader();
+                  reader.onload = ev => setRegPhoto(ev.target.result);
+                  reader.readAsDataURL(file);
+                }} />
+              </label>
+              {regCamOk && (
+                <button type="button" className="chip-btn" style={chipGhost} onClick={openRegCam}>+ Camera</button>
+              )}
+              <button type="button" className="chip-btn" style={regShowAvatarPicker ? chipPrimary : chipGhost} onClick={() => setRegShowAvatarPicker(v => !v)}>+ Avatar</button>
+              {regPhoto && (
+                <button type="button" className="chip-btn" style={chipDanger} onClick={() => setRegPhoto(null)}>✕</button>
+              )}
+            </div>
           </div>
         </div>
-      )}
 
-
-      {regShowAvatarPicker && (
-        <>
-          <SectionLabel style={{ marginBottom: 10 }}>Choose an illustrated avatar</SectionLabel>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 24, opacity: regPhoto ? 0.4 : 1, transition: "opacity 0.2s" }}>
-            {COM_AVATAR_ILLUSTRATIONS.map(av => {
-              const isActive = !regPhoto && regAvatar === av.key;
-              return (
-                <div key={av.key} onClick={() => { if (!regPhoto) setRegAvatar(av.key); }}
-                  style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, cursor: regPhoto ? "default" : "pointer" }}>
-                  <div style={{ border: `2.5px solid ${isActive ? T.purple : "transparent"}`, borderRadius: "50%", padding: 1, transform: isActive ? "scale(1.08)" : "scale(1)", transition: "all 0.15s" }}>
-                    {av.render(isActive)}
-                  </div>
-                  <p style={{ margin: 0, fontSize: 9, fontWeight: isActive ? 800 : 600, color: isActive ? T.purple : T.inkMuted, letterSpacing: "0.03em" }}>{av.label}</p>
-                </div>
-              );
-            })}
+        {regShowCam && (
+          <div style={{ marginBottom: 16, background: "#000", borderRadius: 16, overflow: "hidden" }}>
+            <video ref={regVideoRef} style={{ width: "100%", display: "block", aspectRatio: "4/3", objectFit: "cover" }} muted playsInline />
+            <div style={{ display: "flex", gap: 8, padding: "10px 12px", background: "#111" }}>
+              <button className="btn-primary" disabled={!regCamReady} onClick={takeRegPhoto} style={{ flex: 1, height: 44 }}>📸 Take Photo</button>
+              <button className="btn-ghost" onClick={stopRegCam} style={{ flex: 1, height: 44, borderColor: "rgba(255,255,255,.3)", color: "#fff" }}>Cancel</button>
+            </div>
           </div>
-        </>
-      )}
+        )}
 
-      <Input label={<>Your name (shown to other parents) <span style={{ color: T.red }}>*</span></>} value={regName} onChange={e => setRegName(e.target.value)} placeholder="e.g. Sarah, Mum of Aiden" />
+        {regShowAvatarPicker && (
+          <>
+            <p style={{ margin: "0 0 10px", fontSize: 11, fontWeight: 700, color: INK55, textTransform: "uppercase", letterSpacing: ".08em" }}>Choose an illustrated avatar</p>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 18, opacity: isPhotoSelected ? 0.4 : 1, transition: "opacity 0.2s" }}>
+              {COM_AVATAR_ILLUSTRATIONS.map(av => {
+                const isActive = !isPhotoSelected && regAvatar === av.key;
+                return (
+                  <div key={av.key} onClick={() => { if (!isPhotoSelected) setRegAvatar(av.key); }}
+                    style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, cursor: isPhotoSelected ? "default" : "pointer" }}>
+                    <div style={{ border: `2.5px solid ${isActive ? ACCENT : "transparent"}`, borderRadius: "50%", padding: 1, transform: isActive ? "scale(1.08)" : "scale(1)", transition: "all 0.15s" }}>
+                      {av.render(isActive)}
+                    </div>
+                    <p style={{ margin: 0, fontSize: 9, fontWeight: isActive ? 800 : 600, color: isActive ? ACCENT : INK55, letterSpacing: "0.03em" }}>{av.label}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
 
-      <Select label={<>Gender <span style={{ color: T.red }}>*</span></>} value={regGender} onChange={e => setRegGender(e.target.value)} placeholder="Select gender" options={["Male", "Female"]} />
-
-      <Input label={<>Phone number <span style={{ color: T.red }}>*</span></>} type="tel" value={regPhone} onChange={e => setRegPhone(e.target.value)} placeholder="e.g. 9123 4567" />
-      <Input label={<>Home address <span style={{ color: T.red }}>*</span></>} value={regAddress} onChange={e => setRegAddress(e.target.value)} placeholder="e.g. Blk 123 Ang Mo Kio Ave 3, #04-56" />
-
-      <Select label={<>Relationship to the child <span style={{ color: T.red }}>*</span></>} value={regRelationship} onChange={e => setRegRelationship(e.target.value)} placeholder="Select relationship" options={RELATIONSHIP_OPTIONS} />
-
-      <Input label={<>Email <span style={{ color: T.red }}>*</span></>} type="email" value={regEmail} onChange={e => setRegEmail(e.target.value)} placeholder="you@example.com" />
-      <Input label={<>Password (min 6 characters) <span style={{ color: T.red }}>*</span></>} type="password" value={regPass} onChange={e => setRegPass(e.target.value)} placeholder="Create a password" />
-      {regErr && <p style={{ color: T.red, fontSize: 13, fontWeight: 700, margin: "-8px 0 12px" }}>{regErr}</p>}
-      <Btn onClick={register} full style={{ marginBottom: 6 }}>Create Account →</Btn>
-      <p style={{ margin: "0 0 10px", fontSize: 11, color: T.inkMuted, textAlign: "center" }}><span style={{ color: T.red }}>*</span> required</p>
-      <Btn onClick={() => { setRegErr(""); setView("login"); }} full secondary>← Already have an account?</Btn>
-    </Page>
-  );
-
-  if (view === "forgot") return (
-    <Page>
-      <h2 style={{ margin: "0 0 4px", color: T.ink, fontSize: 22, fontWeight: 800 }}>Reset Password</h2>
-      <p style={{ margin: "0 0 24px", color: T.inkSoft, fontSize: 14 }}>Enter your email and we'll send you a link to reset your password.</p>
-      <Input label="Email" type="email" value={forgotEmail} onChange={e => setForgotEmail(e.target.value)} onKeyDown={e => e.key === "Enter" && forgotPassword()} placeholder="you@example.com" />
-      {forgotErr && <p style={{ color: T.red, fontSize: 13, fontWeight: 700, margin: "-8px 0 12px" }}>{forgotErr}</p>}
-      {forgotMsg && <p style={{ color: T.green, fontSize: 13, fontWeight: 700, margin: "-8px 0 12px" }}>{forgotMsg}</p>}
-      <Btn onClick={forgotPassword} full style={{ marginBottom: 10 }}>Send Reset Link →</Btn>
-      <Btn onClick={() => { setForgotErr(""); setForgotMsg(""); setView("login"); }} full secondary>← Back to sign in</Btn>
-    </Page>
-  );
+        <TextField label={<>Your name (shown to other parents) <span style={{ color: ERROR }}>*</span></>} value={regName} onChange={e => setRegName(e.target.value)} placeholder="e.g. Sarah, Mum of Aiden" />
+        <NativeSelect label={<>Gender <span style={{ color: ERROR }}>*</span></>} value={regGender} onChange={e => setRegGender(e.target.value)} placeholder="Select gender" options={["Male", "Female"]} />
+        <TextField label={<>Phone number <span style={{ color: ERROR }}>*</span></>} type="tel" value={regPhone} onChange={e => setRegPhone(e.target.value)} placeholder="e.g. 9123 4567" />
+        <TextField label={<>Home address <span style={{ color: ERROR }}>*</span></>} value={regAddress} onChange={e => setRegAddress(e.target.value)} placeholder="e.g. Blk 123 Ang Mo Kio Ave 3, #04-56" />
+        <NativeSelect label={<>Relationship to the child <span style={{ color: ERROR }}>*</span></>} value={regRelationship} onChange={e => setRegRelationship(e.target.value)} placeholder="Select relationship" options={RELATIONSHIP_OPTIONS} />
+        <TextField label={<>Email <span style={{ color: ERROR }}>*</span></>} type="email" value={regEmail} onChange={e => setRegEmail(e.target.value)} placeholder="you@example.com" />
+        <PasswordField label={<>Password (min 6 characters) <span style={{ color: ERROR }}>*</span></>} value={regPass} onChange={e => setRegPass(e.target.value)} placeholder="Create a password" />
+        {regErr && <ErrorNote>{regErr}</ErrorNote>}
+        <button className="btn-primary" onClick={register}>Create account <span aria-hidden="true">→</span></button>
+        <p style={{ margin: "10px 0 0", fontSize: 11, color: INK55, textAlign: "center" }}><span style={{ color: ERROR }}>*</span> required</p>
+        <p style={{ textAlign: "center", margin: "16px 0 0", fontSize: 14, color: INK55 }}>Already have an account?{" "}
+          <button type="button" className="link-accent" onClick={() => { setRegErr(""); setView("login"); }}>Sign in</button>
+        </p>
+      </div>
+    );
+  } else if (view === "forgot") {
+    content = (
+      <div key="forgot" className="rise" style={{ display: "flex", flexDirection: "column" }}>
+        <TopBar onBack={() => { setForgotErr(""); setForgotMsg(""); setView("login"); }} />
+        <ScreenHeading eyebrow="Reset password" title="Forgot your password?" subtitle="Enter your email and we'll send you a link to reset it." />
+        <TextField label="Email" type="email" value={forgotEmail} onChange={e => setForgotEmail(e.target.value)} onKeyDown={e => e.key === "Enter" && forgotPassword()} placeholder="you@example.com" />
+        {forgotErr && <ErrorNote>{forgotErr}</ErrorNote>}
+        {forgotMsg && <SuccessNote>{forgotMsg}</SuccessNote>}
+        <button className="btn-primary" onClick={forgotPassword}>Send reset link <span aria-hidden="true">→</span></button>
+        <p style={{ textAlign: "center", margin: "20px 0 0", fontSize: 14, color: INK55 }}>
+          <button type="button" className="link-accent" onClick={() => { setForgotErr(""); setForgotMsg(""); setView("login"); }}>← Back to sign in</button>
+        </p>
+      </div>
+    );
+  }
 
   return (
-    <Page>
-      <div style={{ textAlign: "center", marginBottom: 28 }}>
-
-        <div style={{ margin: "0 auto 20px", display: "flex", justifyContent: "center" }}>
-          <svg width="120" height="120" viewBox="0 0 120 120" fill="none">
-
-            <circle cx="60" cy="60" r="56" stroke={T.purple} strokeWidth="1" strokeDasharray="4 6" opacity="0.18"/>
-
-            <circle cx="60" cy="60" r="44" fill={T.purpleL}/>
-
-
-            <circle cx="38" cy="44" r="10" fill={T.surface} stroke={T.purple} strokeWidth="1.4"/>
-
-            <circle cx="35" cy="43" r="1.2" fill={T.purple} opacity="0.4"/>
-            <circle cx="41" cy="43" r="1.2" fill={T.purple} opacity="0.4"/>
-            <path d="M35 47 Q38 49.5 41 47" fill="none" stroke={T.purple} strokeWidth="1.2" strokeLinecap="round" opacity="0.4"/>
-
-            <path d="M26 72 Q26 60 38 60 Q50 60 50 72" fill={T.surface} stroke={T.purple} strokeWidth="1.4" strokeLinejoin="round"/>
-
-
-            <circle cx="82" cy="44" r="10" fill={T.surface} stroke={T.purple} strokeWidth="1.4"/>
-
-            <circle cx="79" cy="43" r="1.2" fill={T.purple} opacity="0.4"/>
-            <circle cx="85" cy="43" r="1.2" fill={T.purple} opacity="0.4"/>
-            <path d="M79 47 Q82 49.5 85 47" fill="none" stroke={T.purple} strokeWidth="1.2" strokeLinecap="round" opacity="0.4"/>
-
-            <path d="M70 72 Q70 60 82 60 Q94 60 94 72" fill={T.surface} stroke={T.purple} strokeWidth="1.4" strokeLinejoin="round"/>
-
-
-            <path d="M48 50 Q60 38 72 50" fill="none" stroke={T.purple} strokeWidth="1.6" strokeLinecap="round" strokeDasharray="3 4" opacity="0.45"/>
-
-
-            <rect x="49" y="54" width="22" height="14" rx="4" fill={T.purple} opacity="0.85"/>
-            <path d="M56 68 L54 72 L60 68" fill={T.purple} opacity="0.85"/>
-
-            <circle cx="55" cy="61" r="1.5" fill="white"/>
-            <circle cx="60" cy="61" r="1.5" fill="white"/>
-            <circle cx="65" cy="61" r="1.5" fill="white"/>
-
-
-            <circle cx="97" cy="35" r="5" fill={T.amber} opacity="0.25"/>
-            <circle cx="23" cy="82" r="4" fill={T.amber} opacity="0.18"/>
-            <circle cx="95" cy="82" r="3" fill={T.purple} opacity="0.12"/>
-          </svg>
-        </div>
-        <h2 style={{ margin: "0 0 8px", color: T.ink, fontSize: 22, fontWeight: 800 }}>Welcome to Bonda</h2>
-        <p style={{ margin: 0, color: T.inkSoft, fontSize: 14, lineHeight: 1.6 }}>Sign in to track your child's journey and connect with other parents in Singapore.</p>
-      </div>
-      {regMsg && <p style={{ color: T.green, fontSize: 13, fontWeight: 700, margin: "0 0 12px" }}>{regMsg}</p>}
-      <Input label="Email" type="email" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} placeholder="you@example.com" />
-      <div style={{ marginBottom: 14 }}>
-        <p style={{ margin: "0 0 6px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>Password</p>
-        <div style={{ position: "relative" }}>
-          <input
-            type={showLoginPass ? "text" : "password"}
-            value={loginPass}
-            onChange={e => setLoginPass(e.target.value)}
-            onKeyDown={e => e.key === "Enter" && login()}
-            placeholder="Enter your password"
-            style={{ width: "100%", padding: "11px 44px 11px 14px", borderRadius: T.r, border: `1.5px solid ${T.border}`, fontSize: 14, fontFamily: T.fontBody, color: T.ink, background: T.canvas, outline: "none", boxSizing: "border-box" }}
-          />
-          <button type="button" onClick={() => setShowLoginPass(v => !v)} aria-label={showLoginPass ? "Hide password" : "Show password"}
-            style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", padding: 4, lineHeight: 1, fontSize: 16, color: T.inkMuted }}>
-            {showLoginPass ? "🙈" : "👁️"}
-          </button>
-        </div>
-      </div>
-      <button onClick={() => { setLoginErr(""); setForgotMsg(""); setForgotEmail(loginEmail); setView("forgot"); }} style={{ display: "block", width: "100%", textAlign: "right", background: "none", border: "none", color: T.purple, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody, padding: 0, margin: "-8px 0 12px" }}>Forgot password?</button>
-      {loginErr && <p style={{ color: T.red, fontSize: 13, fontWeight: 700, margin: "-8px 0 12px" }}>{loginErr}</p>}
-      <Btn onClick={login} full style={{ marginBottom: 10 }}>Sign In →</Btn>
-      <Btn onClick={() => { setLoginErr(""); setView("register"); }} full secondary>New here? Create a free account</Btn>
-      <div style={{ marginTop: 24, padding: "14px 16px", background: T.purpleL, borderRadius: T.r }}>
-        <p style={{ margin: "0 0 8px", fontWeight: 800, color: T.purple, fontSize: 13 }}>Inside Bonda</p>
-        <p style={{ margin: "0 0 5px", color: T.inkSoft, fontSize: 12, fontWeight: 600 }}>My Child — track your child's schedule, emotions, and progress</p>
-        <p style={{ margin: "0 0 5px", color: T.inkSoft, fontSize: 12, fontWeight: 600 }}>Singapore Resources — subsidies, schools, therapists</p>
-        <p style={{ margin: 0, color: T.inkSoft, fontSize: 12, fontWeight: 600 }}>Community — connect and message other parents</p>
-      </div>
-    </Page>
+    <div className="bonda-auth" style={{ flex: 1, display: "flex", flexDirection: "column", background: CANVAS, padding: "28px 22px 26px", boxSizing: "border-box" }}>
+      <style>{AUTH_CSS}</style>
+      {content}
+    </div>
   );
 }
 
@@ -319,14 +423,16 @@ export function ResetPasswordScreen({ onDone }) {
   };
 
   return (
-    <Page>
-      <h2 style={{ margin: "0 0 4px", color: T.ink, fontSize: 22, fontWeight: 800 }}>Set a New Password</h2>
-      <p style={{ margin: "0 0 24px", color: T.inkSoft, fontSize: 14 }}>Choose a new password for your account.</p>
-      <Input label="New password (min 6 characters)" type="password" value={pass} onChange={e => setPass(e.target.value)} placeholder="Enter new password" />
-      <Input label="Confirm password" type="password" value={confirm} onChange={e => setConfirm(e.target.value)} onKeyDown={e => e.key === "Enter" && save()} placeholder="Re-enter new password" />
-      {err && <p style={{ color: T.red, fontSize: 13, fontWeight: 700, margin: "-8px 0 12px" }}>{err}</p>}
-      {msg && <p style={{ color: T.green, fontSize: 13, fontWeight: 700, margin: "-8px 0 12px" }}>{msg}</p>}
-      <Btn onClick={save} full>Update Password →</Btn>
-    </Page>
+    <div className="bonda-auth" style={{ flex: 1, display: "flex", flexDirection: "column", background: CANVAS, padding: "28px 22px 26px", boxSizing: "border-box" }}>
+      <style>{AUTH_CSS}</style>
+      <div className="rise" style={{ display: "flex", flexDirection: "column" }}>
+        <ScreenHeading eyebrow="Reset password" title="Set a new password" subtitle="Choose a new password for your account." />
+        <PasswordField label="New password (min 6 characters)" value={pass} onChange={e => setPass(e.target.value)} placeholder="Enter new password" />
+        <PasswordField label="Confirm password" value={confirm} onChange={e => setConfirm(e.target.value)} onKeyDown={e => e.key === "Enter" && save()} placeholder="Re-enter new password" />
+        {err && <ErrorNote>{err}</ErrorNote>}
+        {msg && <SuccessNote>{msg}</SuccessNote>}
+        <button className="btn-primary" onClick={save}>Update password <span aria-hidden="true">→</span></button>
+      </div>
+    </div>
   );
 }
