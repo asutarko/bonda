@@ -195,16 +195,19 @@ export function HomeScreen({ childCtx, setTab, push, account }) {
         ) : (
           <div>
             <SectionLabel action={<button onClick={() => push("addChild")} style={{ background: "none", border: "none", color: T.purple, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody }}>+ Add child</button>}>My Children</SectionLabel>
-            <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 4 }}>
-              {children.map(c => (
-                <div key={c.id} onClick={() => switchChild(c.id)} style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 6, cursor: "pointer" }}>
-                  <div style={{ transition: "all 0.2s" }}>
-                    <ChildAvatar value={c.emoji} size={52} active={activeChild?.id === c.id} borderColor={activeChild?.id === c.id ? T.purple : "transparent"} />
-                  </div>
-                  <p style={{ margin: 0, fontSize: 11, fontWeight: activeChild?.id === c.id ? 800 : 600, color: activeChild?.id === c.id ? T.purple : T.inkMuted, whiteSpace: "nowrap" }}>{c.name}</p>
-                </div>
-              ))}
-            </div>
+            <Card style={{ padding: "16px 14px" }}>
+              <div style={{ display: "flex", gap: 14, overflowX: "auto", paddingBottom: 2 }}>
+                {children.map(c => {
+                  const active = activeChild?.id === c.id;
+                  return (
+                    <div key={c.id} onClick={() => switchChild(c.id)} style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 6, cursor: "pointer" }}>
+                      <ChildAvatar value={c.emoji} size={52} active={active} borderColor={active ? T.purple : "transparent"} />
+                      <p style={{ margin: 0, fontSize: 11, fontWeight: active ? 800 : 600, color: active ? T.purple : T.inkSoft, whiteSpace: "nowrap" }}>{c.name}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </Card>
           </div>
         )}
       </div>

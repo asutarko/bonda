@@ -117,7 +117,7 @@ export function FosterHubScreen({ pop, push }) {
       </div>
 
 
-      <Card onClick={() => push("carerLetter")} style={{ marginBottom: 20, display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }}>
+      <Card onClick={() => push("carerLetter")} style={{ marginBottom: 12, display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }}>
         <div style={{ width: 36, height: 36, borderRadius: 10, background: T.purpleL, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
             <path d="M3 3.5 H15 V14.5 H3 Z" stroke={T.purple} strokeWidth="1.4" fill="none" strokeLinejoin="round"/>
@@ -127,6 +127,19 @@ export function FosterHubScreen({ pop, push }) {
         <div style={{ flex: 1 }}>
           <p style={{ margin: "0 0 2px", fontWeight: 800, color: T.ink, fontSize: 14 }}>Generate Foster Carer Letter</p>
           <p style={{ margin: 0, color: T.inkSoft, fontSize: 12, lineHeight: 1.5 }}>Auto-filled with your child's details — export a ready-to-print PDF.</p>
+        </div>
+        <span style={{ color: T.purple, fontSize: 18 }}>→</span>
+      </Card>
+
+      <Card onClick={() => push("documents")} style={{ marginBottom: 20, display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }}>
+        <div style={{ width: 36, height: 36, borderRadius: 10, background: T.purpleL, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+            <path d="M2.5 4a1.5 1.5 0 0 1 1.5-1.5h3l1.5 2h6a1.5 1.5 0 0 1 1.5 1.5v7A1.5 1.5 0 0 1 14.5 14.5h-11A1.5 1.5 0 0 1 2 13Z" stroke={T.purple} strokeWidth="1.3" strokeLinejoin="round"/>
+          </svg>
+        </div>
+        <div style={{ flex: 1 }}>
+          <p style={{ margin: "0 0 2px", fontWeight: 800, color: T.ink, fontSize: 14 }}>Documents</p>
+          <p style={{ margin: 0, color: T.inkSoft, fontSize: 12, lineHeight: 1.5 }}>Every saved letter and file for the children in your care, in one place.</p>
         </div>
         <span style={{ color: T.purple, fontSize: 18 }}>→</span>
       </Card>

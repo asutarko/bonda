@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Bonda — Carer letter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --canvas:#F4F1EB; --card:#FFFFFF; --ink:#23201C;
+    --accent:#3E6E6A; --accent-press:#345F5B;
+    --ink-70:rgba(35,32,28,.70); --ink-55:rgba(35,32,28,.55); --ink-40:rgba(35,32,28,.40);
+    --line:rgba(35,32,28,.12); --line-strong:rgba(35,32,28,.20); --focus:rgba(62,110,106,.16);
+    --bracket:#B5651D; --bracket-bg:#F6ECDF;
+    --tag-teal-bg:#E6EDEC; --tag-teal-tx:#2E5A56;
+    --tag-rose-bg:#F5E7E6; --tag-rose-tx:#9C4A42;
+    --tag-indigo-bg:#E7E8F5; --tag-indigo-tx:#4A4A9C;
+    --tag-blue-bg:#E3EEF6; --tag-blue-tx:#31648A;
+    --tag-violet-bg:#EEE6F5; --tag-violet-tx:#6B3F94;
+    --tag-slate-bg:#E9EAE7; --tag-slate-tx:#54554F;
+    --font-title:"Fraunces",Georgia,serif;
+    --font-body:"Plus Jakarta Sans",system-ui,-apple-system,sans-serif;
+    --font-mono:"JetBrains Mono",ui-monospace,monospace;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{background:var(--canvas);color:var(--ink);font-family:var(--font-body);line-height:1.5;-webkit-font-smoothing:antialiased;}
+  .phone{max-width:440px;margin:0 auto;min-height:100vh;background:var(--canvas);position:relative;}
+  .screen{display:none;padding:calc(env(safe-area-inset-top) + 20px) 20px calc(env(safe-area-inset-bottom) + 40px);}
+  .screen.active{display:block;}
+
+  /* ---------- app bar ---------- */
+  .appbar{display:flex;align-items:center;gap:14px;padding:4px 0 18px;}
+  .back{width:44px;height:44px;border-radius:999px;border:0;background:var(--tag-teal-bg);color:var(--accent);
+    display:grid;place-items:center;cursor:pointer;flex:0 0 auto;font-size:20px;transition:background .15s;}
+  .back:hover{background:#dde7e5;}
+  .appbar h1{font-family:var(--font-title);font-weight:600;font-size:23px;letter-spacing:-.01em;margin:0;flex:1;line-height:1.1;}
+  .kebab{width:40px;height:40px;border:0;background:none;color:var(--ink-55);cursor:pointer;font-size:20px;border-radius:999px;}
+  .kebab:hover{background:var(--tag-teal-bg);}
+  .bar-line{height:1px;background:var(--line);margin:-6px -20px 22px;}
+
+  /* ---------- home ---------- */
+  .home-head{margin:4px 0 22px;}
+  .home-head .eyebrow{font-size:11.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);margin:0 0 6px;}
+  .home-head h1{font-family:var(--font-title);font-weight:600;font-size:30px;letter-spacing:-.015em;margin:0;}
+  .home-head p{margin:8px 0 0;color:var(--ink-55);font-size:14.5px;}
+  .tiles{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .tile{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px 16px;text-align:left;cursor:pointer;
+    display:flex;flex-direction:column;gap:14px;min-height:118px;transition:transform .12s,box-shadow .12s,border-color .12s;font-family:var(--font-body);}
+  .tile:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(35,32,28,.07);border-color:var(--line-strong);}
+  .tile:active{transform:translateY(0);}
+  .tile.dim{opacity:.62;cursor:default;}
+  .tile.dim:hover{transform:none;box-shadow:none;border-color:var(--line);}
+  .ticon{width:52px;height:52px;border-radius:14px;background:var(--tag-teal-bg);display:grid;place-items:center;color:var(--accent);}
+  .tile b{font-size:15px;font-weight:600;color:var(--ink);}
+  .tile .soon{font-size:11px;font-weight:600;color:var(--ink-40);margin-top:auto;}
+
+  /* ---------- generic content card ---------- */
+  .note-lede{color:var(--ink-70);font-size:15px;line-height:1.6;margin:2px 0 26px;}
+  .label{display:block;font-size:13px;font-weight:700;color:var(--ink-70);letter-spacing:.02em;margin:0 0 8px;}
+  .req{color:var(--bracket);}
+  select,input[type=text],input[type=tel],input[type=email],input[type=date],textarea{
+    width:100%;font-family:var(--font-body);font-size:15px;color:var(--ink);background:var(--card);
+    border:1px solid var(--line-strong);border-radius:14px;padding:15px 16px;appearance:none;transition:border-color .15s,box-shadow .15s;}
+  textarea{min-height:66px;resize:vertical;line-height:1.5;}
+  select:focus,input:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 4px var(--focus);}
+  .selwrap{position:relative;}
+  .selwrap::after{content:"▾";position:absolute;right:16px;top:50%;transform:translateY(-50%);color:var(--accent);pointer-events:none;font-size:13px;}
+  .field{margin-bottom:16px;}
+  .field .hint{font-size:12.5px;color:var(--ink-40);margin:7px 2px 0;}
+  .err{font-size:12.5px;color:var(--bracket);margin:7px 2px 0;display:none;}
+  .field.invalid input,.field.invalid select{border-color:var(--bracket);}
+  .field.invalid .err{display:block;}
+
+  /* ---------- yes/no toggle + reveal ---------- */
+  .toggle-row{display:flex;align-items:center;justify-content:space-between;gap:12px;}
+  .tg-label{font-size:15px;font-weight:600;color:var(--ink);}
+  .toggle{display:flex;align-items:center;gap:10px;flex:0 0 auto;}
+  .toggle span{font-size:14px;font-weight:600;color:var(--ink-40);transition:color .15s;}
+  .toggle span.act{color:var(--ink);}
+  .switch{width:52px;height:30px;border-radius:999px;border:0;background:var(--line-strong);position:relative;cursor:pointer;transition:background .18s;padding:0;flex:0 0 auto;}
+  .switch::after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:999px;background:#fff;transition:transform .18s;box-shadow:0 1px 3px rgba(35,32,28,.28);}
+  .switch.on{background:var(--accent);}
+  .switch.on::after{transform:translateX(22px);}
+  .reveal{margin-top:10px;}
+  .divider{height:1px;background:var(--line);margin:4px 0 16px;}
+
+  /* ---------- multi-select dropdown ---------- */
+  .msx{position:relative;}
+  .msx-control{width:100%;min-height:52px;background:var(--card);border:1px solid var(--line-strong);border-radius:14px;
+    padding:8px 42px 8px 12px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;cursor:pointer;font-family:var(--font-body);
+    text-align:left;transition:border-color .15s,box-shadow .15s;}
+  .msx.open .msx-control{border-color:var(--accent);box-shadow:0 0 0 4px var(--focus);}
+  .msx-tags{display:flex;flex-wrap:wrap;gap:6px;align-items:center;}
+  .msx-ph{color:var(--ink-40);font-size:15px;}
+  .msx-chev{position:absolute;right:14px;top:26px;transform:translateY(-50%);color:var(--accent);font-size:13px;pointer-events:none;transition:transform .2s;}
+  .msx.open .msx-chev{transform:translateY(-50%) rotate(180deg);}
+  .msx-tag{display:inline-flex;align-items:center;gap:6px;background:var(--tag-teal-bg);color:var(--tag-teal-tx);
+    border-radius:999px;padding:6px 10px;font-size:13px;font-weight:600;line-height:1;}
+  .msx-tag .x{cursor:pointer;font-weight:700;opacity:.75;font-size:14px;}
+  .msx-tag .x:hover{opacity:1;}
+  .msx-menu{display:none;position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:20;background:var(--card);
+    border:1px solid var(--line);border-radius:14px;box-shadow:0 12px 30px rgba(35,32,28,.14);padding:6px;max-height:260px;overflow:auto;}
+  .msx.open .msx-menu{display:block;}
+  .msx-opt{width:100%;text-align:left;background:none;border:0;border-radius:10px;padding:11px 12px 11px 38px;
+    font-size:14.5px;font-family:var(--font-body);color:var(--ink);cursor:pointer;position:relative;line-height:1.2;}
+  .msx-opt:hover{background:var(--tag-teal-bg);}
+  .msx-opt.sel{color:var(--accent);font-weight:600;}
+  .msx-opt.sel::before{content:"✓";position:absolute;left:14px;top:11px;color:var(--accent);font-weight:700;}
+  .msx-other{border-top:1px solid var(--line);border-radius:0;margin-top:4px;padding-left:14px;color:var(--accent);font-weight:600;}
+  .msx-otherwrap{display:none;gap:8px;padding:8px 4px 4px;}
+  .msx-otherwrap input{flex:1;min-width:0;padding:11px 12px;font-size:14px;border-radius:10px;}
+  .msx-otherwrap button{border:0;background:var(--accent);color:#fff;border-radius:10px;padding:0 16px;font-weight:700;font-size:14px;cursor:pointer;font-family:var(--font-body);flex:0 0 auto;}
+
+  .group{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:20px 18px 6px;margin-bottom:16px;}
+  .group > .glabel{font-family:var(--font-title);font-weight:600;font-size:18px;margin:0 0 4px;}
+  .group > .gsub{font-size:13px;color:var(--ink-55);margin:0 0 18px;}
+
+  .btn{width:100%;border:0;border-radius:16px;padding:17px 20px;font-family:var(--font-body);font-size:16px;font-weight:700;
+    cursor:pointer;background:var(--accent);color:#fff;transition:background .15s;letter-spacing:.01em;}
+  .btn:hover{background:var(--accent-press);}
+  .btn.ghost{background:transparent;color:var(--accent);border:1px solid var(--line-strong);}
+  .btn.ghost:hover{background:var(--tag-teal-bg);}
+  .btn:disabled{background:#cfcabf;cursor:not-allowed;}
+  .btn-row{margin-top:22px;display:flex;flex-direction:column;gap:10px;}
+
+  .empty{background:var(--card);border:1px dashed var(--line-strong);border-radius:18px;padding:26px 20px;text-align:center;margin-bottom:22px;}
+  .empty .em-ic{width:52px;height:52px;border-radius:14px;background:var(--tag-teal-bg);color:var(--accent);display:grid;place-items:center;margin:0 auto 14px;}
+  .empty b{display:block;font-family:var(--font-title);font-weight:600;font-size:19px;margin-bottom:6px;}
+  .empty p{margin:0;color:var(--ink-55);font-size:14px;}
+
+  /* ---------- preview: how-to panel (expandable) ---------- */
+  .eyebrow2{font-size:11.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-40);margin:2px 0 12px;}
+  .howto{background:var(--card);border:1px solid var(--line);border-radius:18px;overflow:hidden;margin-bottom:18px;}
+  .howto-head{width:100%;border:0;background:none;cursor:pointer;display:flex;align-items:center;gap:12px;
+    padding:18px 18px;font-family:var(--font-body);text-align:left;}
+  .howto-head .ht-ic{width:34px;height:34px;border-radius:10px;background:var(--tag-teal-bg);color:var(--accent);display:grid;place-items:center;flex:0 0 auto;}
+  .howto-head b{flex:1;font-family:var(--font-title);font-weight:600;font-size:17px;color:var(--ink);}
+  .howto-head .count{font-size:12px;font-weight:700;color:var(--bracket);background:var(--bracket-bg);padding:4px 10px;border-radius:999px;white-space:nowrap;}
+  .chev{color:var(--ink-40);transition:transform .22s;font-size:14px;}
+  .howto.open .chev{transform:rotate(180deg);}
+  .howto-body{max-height:0;overflow:hidden;transition:max-height .28s ease;}
+  .howto.open .howto-body{max-height:1600px;}
+  .howto-inner{padding:0 18px 20px;}
+  .howto-inner p{font-size:14px;color:var(--ink-70);line-height:1.6;margin:0 0 14px;}
+  .howto-inner .bk{white-space:nowrap;}
+  .fill-title{font-size:13px;font-weight:700;color:var(--bracket);margin:16px 0 10px;}
+  .fill-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:11px;}
+  .fill-list li{font-size:13.5px;line-height:1.5;color:var(--ink-70);padding-left:16px;position:relative;}
+  .fill-list li::before{content:"";position:absolute;left:0;top:8px;width:5px;height:5px;border-radius:999px;background:var(--bracket);}
+  .fill-list li b{color:var(--ink);font-weight:600;}
+  .fill-done{font-size:13.5px;color:var(--accent);font-weight:600;padding:4px 0;}
+
+  /* ---------- preview: editor ---------- */
+  .editor{background:var(--card);border:1px solid var(--line);border-radius:18px;overflow:hidden;}
+  .toolbar{display:flex;align-items:center;gap:2px;padding:10px 8px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--card);z-index:2;}
+  .tb{width:38px;height:38px;border:0;background:none;border-radius:10px;cursor:pointer;color:var(--ink-70);display:grid;place-items:center;font-size:15px;font-family:var(--font-body);}
+  .tb:hover{background:var(--tag-teal-bg);color:var(--ink);}
+  .tb.strong{font-weight:800;}
+  .tb.em{font-style:italic;font-family:var(--font-title);}
+  .tb.un{text-decoration:underline;}
+  .tb-sep{width:1px;height:22px;background:var(--line);margin:0 6px;}
+  .doc{padding:22px 20px 26px;font-family:var(--font-title);color:var(--ink);font-size:15px;line-height:1.55;outline:none;}
+  .doc:focus{outline:none;}
+  .doc h2.d-title{font-size:22px;font-weight:600;margin:0 0 14px;letter-spacing:-.01em;}
+  .doc .d-sub{font-style:italic;color:var(--ink-70);margin:0 0 20px;font-size:14.5px;}
+  .doc h3{font-family:var(--font-body);font-weight:700;font-size:14px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink);margin:26px 0 12px;}
+  .doc p{margin:0 0 12px;}
+  .doc .block{font-style:italic;margin:0 0 18px;}
+  .doc .block .lbl{color:var(--ink);font-style:normal;}
+  table.d-tab{width:100%;border-collapse:collapse;margin:0 0 8px;}
+  table.d-tab td{border:1px solid var(--line-strong);padding:11px 13px;vertical-align:top;font-size:14px;}
+  table.d-tab td.k{font-family:var(--font-body);font-weight:700;width:44%;color:var(--ink);}
+  table.d-tab td.v{font-style:italic;color:var(--ink-70);}
+  .doc ul.d-ul{margin:0 0 16px;padding-left:20px;}
+  .doc ul.d-ul li{margin:0 0 7px;}
+  .fv{font-style:italic;color:var(--ink);}
+  .bk{color:var(--bracket);background:var(--bracket-bg);border-radius:5px;padding:0 4px;font-style:normal;font-weight:500;font-size:.94em;}
+  .doc .prepared{font-size:13px;color:var(--ink-55);margin-top:20px;}
+  .doc .prepared em{color:var(--ink-70);}
+
+  .sticky-cta{position:sticky;bottom:0;background:linear-gradient(to top,var(--canvas) 74%,rgba(244,241,235,0));padding:16px 0 4px;margin-top:16px;}
+
+  .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;
+    font-size:13.5px;font-weight:600;padding:12px 18px;border-radius:12px;opacity:0;transition:.25s;pointer-events:none;z-index:50;max-width:88%;}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+  .demo-reset{position:fixed;top:10px;right:10px;font-size:11px;font-weight:600;color:var(--ink-40);background:rgba(255,255,255,.7);
+    border:1px solid var(--line);border-radius:999px;padding:5px 11px;cursor:pointer;z-index:40;font-family:var(--font-body);}
+  .demo-reset:hover{color:var(--ink);}
+
+  /* ---------- documents ---------- */
+  .cdg{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:8px 16px 14px;margin-bottom:16px;}
+  .cdg-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 0 6px;}
+  .cdg-head b{font-family:var(--font-title);font-weight:600;font-size:18px;}
+  .cdg-head .cdg-count{font-size:12px;font-weight:600;color:var(--ink-40);}
+  .doc-row{display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--line);cursor:pointer;}
+  .doc-row:hover .doc-title{color:var(--accent);}
+  .doc-ic{width:40px;height:40px;border-radius:11px;display:grid;place-items:center;flex:0 0 auto;}
+  .doc-meta{flex:1;min-width:0;}
+  .doc-title{font-size:14.5px;font-weight:600;color:var(--ink);line-height:1.25;}
+  .doc-sub{font-size:12.5px;color:var(--ink-55);margin-top:2px;}
+  .doc-act{font-size:12.5px;font-weight:700;color:var(--accent);flex:0 0 auto;white-space:nowrap;}
+  .doc-badge{font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--tag-teal-tx);background:var(--tag-teal-bg);padding:3px 8px;border-radius:999px;margin-left:6px;}
+  .doc-empty{font-size:13.5px;color:var(--ink-55);padding:14px 0 6px;border-top:1px solid var(--line);line-height:1.5;}
+  .add-doc{display:flex;align-items:center;gap:8px;width:100%;margin-top:12px;border:1px dashed var(--line-strong);background:none;
+    color:var(--accent);border-radius:12px;padding:12px;font-family:var(--font-body);font-weight:600;font-size:14px;cursor:pointer;justify-content:center;}
+  .add-doc:hover{background:var(--tag-teal-bg);}
+  .docs-empty{background:var(--card);border:1px dashed var(--line-strong);border-radius:18px;padding:28px 20px;text-align:center;}
+  .docs-empty .em-ic{width:52px;height:52px;border-radius:14px;background:var(--tag-teal-bg);color:var(--accent);display:grid;place-items:center;margin:0 auto 14px;}
+  .docs-empty b{display:block;font-family:var(--font-title);font-weight:600;font-size:19px;margin-bottom:6px;}
+  .docs-empty p{margin:0 0 18px;color:var(--ink-55);font-size:14px;}
+
+  /* tag tones for doc icons */
+  .tone-teal{background:var(--tag-teal-bg);color:var(--tag-teal-tx);}
+  .tone-rose{background:var(--tag-rose-bg);color:var(--tag-rose-tx);}
+  .tone-indigo{background:var(--tag-indigo-bg);color:var(--tag-indigo-tx);}
+  .tone-blue{background:var(--tag-blue-bg);color:var(--tag-blue-tx);}
+  .tone-violet{background:var(--tag-violet-bg);color:var(--tag-violet-tx);}
+  .tone-slate{background:var(--tag-slate-bg);color:var(--tag-slate-tx);}
+
+  /* ---------- bottom sheet ---------- */
+  .sheet-overlay{position:fixed;inset:0;background:rgba(35,32,28,.34);z-index:60;display:none;align-items:flex-end;justify-content:center;}
+  .sheet-overlay.open{display:flex;}
+  .sheet{width:100%;max-width:440px;background:var(--canvas);border-radius:22px 22px 0 0;padding:10px 22px calc(env(safe-area-inset-bottom) + 26px);
+    box-shadow:0 -10px 40px rgba(35,32,28,.2);animation:sheetUp .24s ease;}
+  @keyframes sheetUp{from{transform:translateY(30px);opacity:.6}to{transform:translateY(0);opacity:1}}
+  .sheet-grip{width:40px;height:4px;border-radius:999px;background:var(--line-strong);margin:6px auto 16px;}
+  .sheet-title{font-family:var(--font-title);font-weight:600;font-size:21px;margin:0 0 4px;}
+  .sheet-sub{margin:0 0 18px;color:var(--ink-55);font-size:14px;}
+
+  @media print{
+    body,.phone{background:#fff;max-width:none;}
+    .screen{padding:0;}
+    .appbar,.bar-line,.eyebrow2,.howto,.toolbar,.sticky-cta,.demo-reset,.toast,.sheet-overlay{display:none !important;}
+    .editor{border:0;border-radius:0;}
+    .doc{padding:0;font-size:12pt;}
+    .bk{background:none;}
+  }
+</style>
+</head>
+<body>
+<div class="phone">
+
+  <!-- ============ HOME ============ -->
+  <section class="screen active" id="s-home">
+    <div class="home-head">
+      <h1>Carer letter &amp; Documents</h1>
+    </div>
+    <div class="tiles">
+      <button class="tile" onclick="openCarerLetter()">
+        <span class="ticon">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m3.5 7 8.5 6 8.5-6"/></svg>
+        </span>
+        <b>Carer letter</b>
+      </button>
+      <button class="tile" onclick="go('documents')">
+        <span class="ticon"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h11l5 5v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Z"/><path d="M14 4v5h5"/></svg></span>
+        <b>Documents</b>
+      </button>
+    </div>
+  </section>
+
+  <!-- ============ DOCUMENTS ============ -->
+  <section class="screen" id="s-documents">
+    <div class="appbar">
+      <button class="back" onclick="go('home')">‹</button>
+      <h1>Documents</h1>
+      <button class="kebab">⋮</button>
+    </div>
+    <div class="bar-line"></div>
+    <p class="note-lede">Every letter and file for the children in your care, saved in one place. Show them to a school, clinic, or agency whenever they're needed.</p>
+    <div id="doc-list"></div>
+  </section>
+
+  <!-- ============ CHILD PROFILE ============ -->
+  <section class="screen" id="s-profile">
+    <div class="appbar">
+      <button class="back" onclick="go('home')">‹</button>
+      <h1 id="profile-title">Add a child</h1>
+      <button class="kebab">⋮</button>
+    </div>
+    <div class="bar-line"></div>
+    <p class="note-lede" id="profile-lede">Before you can make a carer letter, add the child and your own details. We'll reuse these so the letter fills itself in — you won't have to retype anything.</p>
+
+    <form id="profile-form" onsubmit="return saveProfile(event)">
+      <div class="group">
+        <div class="glabel">Your details</div>
+        <div class="gsub">These appear as the carer on every letter you create.</div>
+        <div class="field"><label class="label">Your name <span class="req">*</span></label><input type="text" id="c_name" autocomplete="name"><div class="err">Please enter your name.</div></div>
+        <div class="field"><label class="label">Your phone <span class="req">*</span></label><input type="tel" id="c_phone" autocomplete="tel"><div class="err">Please enter a phone number.</div></div>
+        <div class="field"><label class="label">Are you a licensed / registered foster carer?</label>
+          <div class="selwrap"><select id="c_licensed"><option value="">Prefer to fill in later</option><option value="Licensed foster carer">Yes — licensed / registered</option><option value="Foster carer (not licensed)">No</option></select></div></div>
+        <div class="field"><label class="label">Fostering agency / VWO name</label><input type="text" id="c_agency"><div class="hint">Leave blank if you're not sure — you can type it into the letter later.</div></div>
+      </div>
+
+      <div class="group">
+        <div class="glabel">Child's details</div>
+        <div class="gsub">Only name and date of birth are required to start.</div>
+        <div class="field"><label class="label">Name used <span class="req">*</span></label><input type="text" id="k_name"><div class="err">Please enter the child's name.</div></div>
+        <div class="field"><label class="label">Date of birth <span class="req">*</span></label><input type="date" id="k_dob"><div class="err">Please enter a date of birth.</div></div>
+        <div class="field"><label class="label">In my care since</label><input type="date" id="k_start"><div class="hint">The date the child came into your care.</div></div>
+        <div class="field"><label class="label">How they communicate</label>
+          <div class="msx" id="msx_comm">
+            <button type="button" class="msx-control" onclick="msxToggle('comm')"><span class="msx-tags" id="tags_comm"><span class="msx-ph">Tap to select</span></span></button>
+            <span class="msx-chev">▾</span>
+            <div class="msx-menu" id="msxmenu_comm">
+              <button type="button" class="msx-opt" data-val="Verbal" onclick="msxPick('comm','Verbal')">Verbal</button>
+              <button type="button" class="msx-opt" data-val="Some words" onclick="msxPick('comm','Some words')">Some words</button>
+              <button type="button" class="msx-opt" data-val="Minimally verbal" onclick="msxPick('comm','Minimally verbal')">Minimally verbal</button>
+              <button type="button" class="msx-opt" data-val="Non-verbal" onclick="msxPick('comm','Non-verbal')">Non-verbal</button>
+              <button type="button" class="msx-opt" data-val="Picture cards (AAC)" onclick="msxPick('comm','Picture cards (AAC)')">Picture cards (AAC)</button>
+              <button type="button" class="msx-opt" data-val="Sign language" onclick="msxPick('comm','Sign language')">Sign language</button>
+              <button type="button" class="msx-opt" data-val="Gestures" onclick="msxPick('comm','Gestures')">Gestures</button>
+              <button type="button" class="msx-opt msx-other" onclick="msxOther('comm')">+ Other…</button>
+              <div class="msx-otherwrap" id="msxother_comm"><input type="text" id="msxin_comm" placeholder="Describe it" onkeydown="msxOtherKey(event,'comm')"><button type="button" onclick="msxAddOther('comm')">Add</button></div>
+            </div>
+          </div>
+          <div class="hint">Choose any that apply.</div>
+        </div>
+
+        <div class="field">
+          <div class="toggle-row"><span class="tg-label">Has a diagnosis?</span>
+            <div class="toggle"><span class="tg-no act">No</span>
+              <button type="button" class="switch" id="sw_diag" aria-pressed="false" onclick="toggleSwitch('diag')"></button>
+              <span class="tg-yes">Yes</span></div>
+          </div>
+          <div class="reveal" id="rev_diag" style="display:none">
+            <div class="divider"></div>
+            <label class="label">Diagnosis <span style="font-weight:400;color:var(--ink-40)">— choose any that apply</span></label>
+            <div class="msx" id="msx_diag">
+              <button type="button" class="msx-control" onclick="msxToggle('diag')"><span class="msx-tags" id="tags_diag"><span class="msx-ph">Tap to select</span></span></button>
+              <span class="msx-chev">▾</span>
+              <div class="msx-menu" id="msxmenu_diag">
+                <button type="button" class="msx-opt" data-val="Autism" onclick="msxPick('diag','Autism')">Autism</button>
+                <button type="button" class="msx-opt" data-val="ADHD" onclick="msxPick('diag','ADHD')">ADHD</button>
+                <button type="button" class="msx-opt" data-val="Global developmental delay" onclick="msxPick('diag','Global developmental delay')">Global developmental delay</button>
+                <button type="button" class="msx-opt" data-val="Down syndrome" onclick="msxPick('diag','Down syndrome')">Down syndrome</button>
+                <button type="button" class="msx-opt" data-val="Speech / language delay" onclick="msxPick('diag','Speech / language delay')">Speech / language delay</button>
+                <button type="button" class="msx-opt" data-val="Intellectual disability" onclick="msxPick('diag','Intellectual disability')">Intellectual disability</button>
+                <button type="button" class="msx-opt" data-val="Cerebral palsy" onclick="msxPick('diag','Cerebral palsy')">Cerebral palsy</button>
+                <button type="button" class="msx-opt" data-val="Anxiety" onclick="msxPick('diag','Anxiety')">Anxiety</button>
+                <button type="button" class="msx-opt msx-other" onclick="msxOther('diag')">+ Other…</button>
+                <div class="msx-otherwrap" id="msxother_diag"><input type="text" id="msxin_diag" placeholder="Specify diagnosis" onkeydown="msxOtherKey(event,'diag')"><button type="button" onclick="msxAddOther('diag')">Add</button></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="toggle-row"><span class="tg-label">Any known allergies?</span>
+            <div class="toggle"><span class="tg-no act">No</span>
+              <button type="button" class="switch" id="sw_allergy" aria-pressed="false" onclick="toggleSwitch('allergy')"></button>
+              <span class="tg-yes">Yes</span></div>
+          </div>
+          <div class="reveal" id="rev_allergy" style="display:none">
+            <div class="divider"></div>
+            <label class="label">Known allergies / triggers <span style="font-weight:400;color:var(--ink-40)">— choose any that apply</span></label>
+            <div class="msx" id="msx_allergy">
+              <button type="button" class="msx-control" onclick="msxToggle('allergy')"><span class="msx-tags" id="tags_allergy"><span class="msx-ph">Tap to select</span></span></button>
+              <span class="msx-chev">▾</span>
+              <div class="msx-menu" id="msxmenu_allergy">
+                <button type="button" class="msx-opt" data-val="Peanuts / nuts" onclick="msxPick('allergy','Peanuts / nuts')">Peanuts / nuts</button>
+                <button type="button" class="msx-opt" data-val="Dairy" onclick="msxPick('allergy','Dairy')">Dairy</button>
+                <button type="button" class="msx-opt" data-val="Eggs" onclick="msxPick('allergy','Eggs')">Eggs</button>
+                <button type="button" class="msx-opt" data-val="Seafood" onclick="msxPick('allergy','Seafood')">Seafood</button>
+                <button type="button" class="msx-opt" data-val="Dust / pollen" onclick="msxPick('allergy','Dust / pollen')">Dust / pollen</button>
+                <button type="button" class="msx-opt" data-val="Loud noise (sensory)" onclick="msxPick('allergy','Loud noise (sensory)')">Loud noise (sensory)</button>
+                <button type="button" class="msx-opt" data-val="Medication allergy" onclick="msxPick('allergy','Medication allergy')">Medication allergy</button>
+                <button type="button" class="msx-opt msx-other" onclick="msxOther('allergy')">+ Other…</button>
+                <div class="msx-otherwrap" id="msxother_allergy"><input type="text" id="msxin_allergy" placeholder="Specify allergy or trigger" onkeydown="msxOtherKey(event,'allergy')"><button type="button" onclick="msxAddOther('allergy')">Add</button></div>
+              </div>
+            </div>
+            <div class="hint">Toggle off states "no known allergies" in the letter.</div>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="toggle-row"><span class="tg-label">On regular medication?</span>
+            <div class="toggle"><span class="tg-no act">No</span>
+              <button type="button" class="switch" id="sw_meds" aria-pressed="false" onclick="toggleSwitch('meds')"></button>
+              <span class="tg-yes">Yes</span></div>
+          </div>
+          <div class="reveal" id="rev_meds" style="display:none">
+            <div class="divider"></div>
+            <label class="label">Medications <span style="font-weight:400;color:var(--ink-40)">— add each one</span></label>
+            <div class="msx" id="msx_meds">
+              <button type="button" class="msx-control" onclick="msxToggle('meds')"><span class="msx-tags" id="tags_meds"><span class="msx-ph">Tap to select</span></span></button>
+              <span class="msx-chev">▾</span>
+              <div class="msx-menu" id="msxmenu_meds">
+                <button type="button" class="msx-opt" data-val="Melatonin" onclick="msxPick('meds','Melatonin')">Melatonin</button>
+                <button type="button" class="msx-opt" data-val="ADHD medication" onclick="msxPick('meds','ADHD medication')">ADHD medication</button>
+                <button type="button" class="msx-opt" data-val="Antihistamine" onclick="msxPick('meds','Antihistamine')">Antihistamine</button>
+                <button type="button" class="msx-opt" data-val="Asthma inhaler" onclick="msxPick('meds','Asthma inhaler')">Asthma inhaler</button>
+                <button type="button" class="msx-opt msx-other" onclick="msxOther('meds')">+ Other (name &amp; dose)…</button>
+                <div class="msx-otherwrap" id="msxother_meds"><input type="text" id="msxin_meds" placeholder="e.g. Melatonin 3mg at night" onkeydown="msxOtherKey(event,'meds')"><button type="button" onclick="msxAddOther('meds')">Add</button></div>
+              </div>
+            </div>
+            <div class="hint">Use "Other" to record the exact name and dosage.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="glabel">Case worker <span style="font-weight:400;color:var(--ink-40);font-size:13px;">— optional</span></div>
+        <div class="gsub">The child's assigned case worker / social worker. Services often call to verify.</div>
+        <div class="field"><label class="label">Name</label><input type="text" id="w_name"></div>
+        <div class="field"><label class="label">Phone</label><input type="tel" id="w_phone"></div>
+        <div class="field"><label class="label">Email</label><input type="email" id="w_email"></div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn" type="submit">Save &amp; preview letter</button>
+      </div>
+    </form>
+  </section>
+
+  <!-- ============ SETUP (pick child + generate) ============ -->
+  <section class="screen" id="s-setup">
+    <div class="appbar">
+      <button class="back" onclick="go('home')">‹</button>
+      <h1>Foster Carer Letter</h1>
+      <button class="kebab">⋮</button>
+    </div>
+    <div class="bar-line"></div>
+    <p class="note-lede">We'll auto-fill the letter with what we already know about the child and your account — generate it, then edit anything (including the recipient and placement details) freely before exporting as a PDF.</p>
+    <div class="field"><label class="label">Child</label>
+      <div class="selwrap"><select id="pick-child"></select></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn" onclick="generateLetter()">Generate letter</button>
+      <button class="btn ghost" onclick="go('profile', true)">+ Add another child</button>
+    </div>
+  </section>
+
+  <!-- ============ PREVIEW ============ -->
+  <section class="screen" id="s-preview">
+    <div class="appbar">
+      <button class="back" onclick="go('setup')">‹</button>
+      <h1>Foster Carer Letter</h1>
+      <button class="kebab">⋮</button>
+    </div>
+    <div class="bar-line"></div>
+
+    <p class="eyebrow2">Preview — edit freely before exporting</p>
+
+    <div class="howto open" id="howto">
+      <button class="howto-head" onclick="toggleHowto()">
+        <span class="ht-ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg></span>
+        <b>How to edit this letter</b>
+        <span class="count" id="fill-count">0</span>
+        <span class="chev">▾</span>
+      </button>
+      <div class="howto-body">
+        <div class="howto-inner">
+          <p>Anything shown in an <span class="bk">[orange bracket]</span> below means we didn't have that detail on file — tap into the letter and type over it with the real information. You can also rewrite, bold, or reformat any other part before exporting.</p>
+          <div class="fill-title" id="fill-title">Still needs filling in</div>
+          <ul class="fill-list" id="fill-list"></ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="editor">
+      <div class="toolbar">
+        <button class="tb" title="Undo" onmousedown="cmd(event,'undo')">↶</button>
+        <button class="tb" title="Redo" onmousedown="cmd(event,'redo')">↷</button>
+        <span class="tb-sep"></span>
+        <button class="tb strong" title="Bold" onmousedown="cmd(event,'bold')">B</button>
+        <button class="tb em" title="Italic" onmousedown="cmd(event,'italic')">I</button>
+        <button class="tb un" title="Underline" onmousedown="cmd(event,'underline')">U</button>
+        <span class="tb-sep"></span>
+        <button class="tb" title="Bulleted list" onmousedown="cmd(event,'insertUnorderedList')">•☰</button>
+        <button class="tb" title="Numbered list" onmousedown="cmd(event,'insertOrderedList')">1☰</button>
+      </div>
+      <div class="doc" id="letter" contenteditable="true" spellcheck="false" oninput="recount()"></div>
+    </div>
+
+    <div class="sticky-cta">
+      <button class="btn" onclick="exportPDF()">Export to PDF</button>
+    </div>
+  </section>
+
+</div>
+
+<button class="demo-reset" onclick="resetDemo()">Reset demo</button>
+<div class="toast" id="toast"></div>
+
+<div class="sheet-overlay" id="doc-sheet" onclick="if(event.target===this)closeDocSheet()">
+  <div class="sheet">
+    <div class="sheet-grip"></div>
+    <h3 class="sheet-title">Add a document</h3>
+    <p class="sheet-sub">For <b id="sheet-child">this child</b></p>
+    <label class="label">Document name</label>
+    <input type="text" id="doc-title" placeholder="e.g. Medical Fee Exemption Card">
+    <label class="label" style="margin-top:14px">Category</label>
+    <div class="selwrap"><select id="doc-cat">
+      <option>Medical</option><option>Placement</option><option>School</option><option>Identity</option><option>Other</option>
+    </select></div>
+    <div class="hint">Preview only — this records the document in the list; it doesn't upload a file.</div>
+    <div class="btn-row" style="margin-top:18px">
+      <button class="btn" onclick="saveDoc()">Save to documents</button>
+      <button class="btn ghost" onclick="closeDocSheet()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---------------- state ---------------- */
+const state = { carer:null, children:[], selectedId:null, documents:[] };
+let seq = 1;
+
+function esc(s){ return String(s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+function fmtDate(iso){
+  if(!iso) return "";
+  const d = new Date(iso+"T00:00:00");
+  if(isNaN(d)) return iso;
+  const m=["January","February","March","April","May","June","July","August","September","October","November","December"];
+  return d.getDate()+" "+m[d.getMonth()]+" "+d.getFullYear();
+}
+function today(){ const d=new Date(); const m=["January","February","March","April","May","June","July","August","September","October","November","December"]; return d.getDate()+" "+m[d.getMonth()]+" "+d.getFullYear(); }
+
+/* ---------------- navigation ---------------- */
+function go(name, forceAdd){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('s-'+name).classList.add('active');
+  window.scrollTo(0,0);
+  if(name==='profile'){
+    const first = state.children.length===0 && !forceAdd;
+    document.getElementById('profile-title').textContent = state.children.length? 'Add a child':'Set up your first letter';
+    document.getElementById('profile-lede').textContent = first
+      ? "Before you can make a carer letter, add the child and your own details. We'll reuse these so the letter fills itself in — you won't have to retype anything."
+      : "Add another child's details. Your carer details are already saved and will be reused.";
+  }
+  if(name==='setup') refreshPicker();
+  if(name==='documents') renderDocuments();
+}
+
+function openCarerLetter(){
+  if(state.children.length===0){ go('profile'); toast("Add a child first — it takes a minute."); }
+  else go('setup');
+}
+
+/* ---------------- documents ---------------- */
+const DOC_CATS = {
+  'Carer letter':{tone:'teal',icon:'mail'},
+  'Medical':{tone:'rose',icon:'heart'},
+  'Placement':{tone:'indigo',icon:'home'},
+  'School':{tone:'blue',icon:'cap'},
+  'Identity':{tone:'violet',icon:'id'},
+  'Other':{tone:'slate',icon:'file'}
+};
+function docIcon(name){
+  const p={
+    mail:'<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m3.5 7 8.5 6 8.5-6"/>',
+    heart:'<path d="M12 20s-7-4.5-7-9.5A3.5 3.5 0 0 1 12 8a3.5 3.5 0 0 1 7 2.5C19 15.5 12 20 12 20Z"/>',
+    home:'<path d="M4 11 12 4l8 7"/><path d="M6 10v9h12v-9"/>',
+    cap:'<path d="M12 4 2 9l10 5 10-5-10-5Z"/><path d="M6 11v5c0 1 2.7 2.5 6 2.5s6-1.5 6-2.5v-5"/>',
+    id:'<rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="9" cy="12" r="2.2"/><path d="M14 10h4M14 14h4"/>',
+    file:'<path d="M6 3h8l4 4v14H6Z"/><path d="M14 3v4h4"/>'
+  };
+  return '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+(p[name]||p.file)+'</svg>';
+}
+function saveLetterDoc(child){
+  let d=state.documents.find(x=>x.childId===child.id && x.kind==='letter');
+  if(d){ d.date=today(); }
+  else state.documents.push({id:seq++, childId:child.id, kind:'letter', title:'Foster carer letter', category:'Carer letter', date:today()});
+}
+function renderDocuments(){
+  const wrap=document.getElementById('doc-list');
+  wrap.innerHTML='';
+  if(state.children.length===0){
+    wrap.innerHTML='<div class="docs-empty"><div class="em-ic">'+docIcon('file')+'</div><b>No documents yet</b><p>Add a child and create their carer letter — it\'ll be saved here automatically.</p><button class="btn" onclick="go(\'profile\')">Add a child</button></div>';
+    return;
+  }
+  state.children.forEach(child=>{
+    const docs=state.documents.filter(d=>d.childId===child.id)
+      .sort((a,b)=> (a.kind==='letter'?-1:0)-(b.kind==='letter'?-1:0));
+    const group=document.createElement('div'); group.className='cdg';
+    const head=document.createElement('div'); head.className='cdg-head';
+    head.innerHTML='<b>'+esc(child.name)+'</b><span class="cdg-count">'+docs.length+' file'+(docs.length===1?'':'s')+'</span>';
+    group.appendChild(head);
+
+    if(docs.length===0){
+      const e=document.createElement('div'); e.className='doc-empty';
+      e.textContent='No files yet — generate a carer letter or add a document below.';
+      group.appendChild(e);
+    } else docs.forEach(d=>{
+      const cat=DOC_CATS[d.category]||DOC_CATS['Other'];
+      const row=document.createElement('div'); row.className='doc-row';
+      const badge = d.kind==='letter' ? '<span class="doc-badge">Auto-saved</span>' : '';
+      row.innerHTML=
+        '<span class="doc-ic tone-'+cat.tone+'">'+docIcon(cat.icon)+'</span>'+
+        '<span class="doc-meta"><span class="doc-title">'+esc(d.title)+badge+'</span>'+
+        '<span class="doc-sub">'+esc(d.category)+' · '+esc(d.date)+'</span></span>'+
+        '<span class="doc-act">'+(d.kind==='letter'?'Open':'View')+' ›</span>';
+      if(d.kind==='letter') row.onclick=()=>generateLetter(child.id);
+      else row.onclick=()=>toast('Preview only — file viewing isn\'t wired up yet.');
+      group.appendChild(row);
+    });
+
+    const add=document.createElement('button'); add.className='add-doc';
+    add.innerHTML='<span style="font-size:17px;line-height:1">＋</span> Add document';
+    add.onclick=()=>openAddDoc(child.id);
+    group.appendChild(add);
+    wrap.appendChild(group);
+  });
+}
+let addDocChildId=null;
+function openAddDoc(childId){
+  addDocChildId=childId;
+  const child=state.children.find(c=>c.id===childId);
+  document.getElementById('sheet-child').textContent=child?child.name:'this child';
+  document.getElementById('doc-title').value='';
+  document.getElementById('doc-cat').selectedIndex=0;
+  document.getElementById('doc-sheet').classList.add('open');
+}
+function closeDocSheet(){ document.getElementById('doc-sheet').classList.remove('open'); }
+function saveDoc(){
+  const title=document.getElementById('doc-title').value.trim();
+  if(!title){ toast('Give the document a name.'); return; }
+  const category=document.getElementById('doc-cat').value;
+  state.documents.push({id:seq++, childId:addDocChildId, kind:'file', title, category, date:today()});
+  closeDocSheet();
+  renderDocuments();
+  toast('Saved to documents.');
+}
+
+/* ---------------- profile ---------------- */
+function val(id){ return document.getElementById(id).value.trim(); }
+function markInvalid(id, bad){ document.getElementById(id).closest('.field').classList.toggle('invalid', bad); }
+
+/* ---- multi-select dropdown + yes/no toggle ---- */
+const NEG = {diag:'None diagnosed', allergy:'None known', meds:'None'};
+const msxSel = {comm:[], diag:[], allergy:[], meds:[]};
+
+function closeAllMsx(){ document.querySelectorAll('.msx.open').forEach(m=>m.classList.remove('open')); }
+function msxToggle(field){
+  const box=document.getElementById('msx_'+field);
+  const willOpen=!box.classList.contains('open');
+  closeAllMsx();
+  if(willOpen) box.classList.add('open');
+}
+function msxPick(field,v){
+  const arr=msxSel[field]; const i=arr.indexOf(v);
+  if(i>=0) arr.splice(i,1); else arr.push(v);
+  renderTags(field);
+}
+function msxOther(field){ const w=document.getElementById('msxother_'+field); w.style.display='flex'; document.getElementById('msxin_'+field).focus(); }
+function msxOtherKey(e,field){ if(e.key==='Enter'){ e.preventDefault(); msxAddOther(field); } }
+function msxAddOther(field){
+  const inp=document.getElementById('msxin_'+field); const v=inp.value.trim(); if(!v) return;
+  if(!msxSel[field].includes(v)) msxSel[field].push(v);
+  inp.value=''; renderTags(field); inp.focus();
+}
+function renderTags(field){
+  const cont=document.getElementById('tags_'+field); const sel=msxSel[field];
+  cont.innerHTML='';
+  if(sel.length===0){ cont.innerHTML='<span class="msx-ph">Tap to select</span>'; }
+  else sel.forEach(v=>{
+    const tag=document.createElement('span'); tag.className='msx-tag'; tag.appendChild(document.createTextNode(v));
+    const x=document.createElement('span'); x.className='x'; x.textContent='×';
+    x.onclick=(e)=>{ e.stopPropagation(); msxSel[field]=msxSel[field].filter(z=>z!==v); renderTags(field); };
+    tag.appendChild(x); cont.appendChild(tag);
+  });
+  const menu=document.getElementById('msxmenu_'+field);
+  if(menu) menu.querySelectorAll('.msx-opt[data-val]').forEach(o=>o.classList.toggle('sel', sel.includes(o.dataset.val)));
+}
+document.addEventListener('click', e=>{ if(!e.target.closest('.msx')) closeAllMsx(); });
+function setSwitch(field, on){
+  const sw=document.getElementById('sw_'+field);
+  sw.classList.toggle('on', on); sw.setAttribute('aria-pressed', on?'true':'false');
+  const row=sw.closest('.toggle');
+  row.querySelector('.tg-no').classList.toggle('act', !on);
+  row.querySelector('.tg-yes').classList.toggle('act', on);
+  document.getElementById('rev_'+field).style.display = on?'block':'none';
+}
+function toggleSwitch(field){ setSwitch(field, !document.getElementById('sw_'+field).classList.contains('on')); }
+
+function commValue(){ return msxSel.comm.join(', '); }
+function pickValue(field){
+  if(!document.getElementById('sw_'+field).classList.contains('on')) return NEG[field];
+  return msxSel[field].join(', ');
+}
+function resetChildFields(){
+  ['comm','diag','allergy','meds'].forEach(f=>{
+    msxSel[f]=[]; renderTags(f);
+    const ow=document.getElementById('msxother_'+f); if(ow) ow.style.display='none';
+    const oi=document.getElementById('msxin_'+f); if(oi) oi.value='';
+  });
+  closeAllMsx();
+  ['diag','allergy','meds'].forEach(f=>setSwitch(f,false));
+}
+
+function saveProfile(e){
+  e.preventDefault();
+  let ok=true;
+  const need=[['c_name',!val('c_name')],['c_phone',!val('c_phone')],['k_name',!val('k_name')],['k_dob',!val('k_dob')]];
+  need.forEach(([id,bad])=>{ markInvalid(id,bad); if(bad) ok=false; });
+  if(!ok){ toast("Please fill in the required fields."); return false; }
+
+  state.carer = {
+    name:val('c_name'), phone:val('c_phone'),
+    licensed:val('c_licensed'), agency:val('c_agency'),
+    wName:val('w_name'), wPhone:val('w_phone'), wEmail:val('w_email')
+  };
+  const child = {
+    id:seq++, name:val('k_name'), dob:fmtDate(val('k_dob')),
+    start:fmtDate(val('k_start')), comm:commValue(), diag:pickValue('diag'),
+    allergy:pickValue('allergy'), meds:pickValue('meds')
+  };
+  state.children.push(child);
+  state.selectedId = child.id;
+  document.getElementById('profile-form').reset();
+  resetChildFields();
+  document.querySelectorAll('.field.invalid').forEach(f=>f.classList.remove('invalid'));
+  generateLetter(child.id);
+  toast(child.name+"'s letter is ready — edit and export below.");
+  return false;
+}
+
+/* ---------------- setup ---------------- */
+function refreshPicker(){
+  const sel=document.getElementById('pick-child');
+  sel.innerHTML='';
+  state.children.forEach(c=>{ const o=document.createElement('option'); o.value=c.id; o.textContent=c.name; sel.appendChild(o); });
+  if(state.selectedId) sel.value=state.selectedId;
+}
+
+/* ---------------- letter build ---------------- */
+function f(v, label){
+  if(v && String(v).trim()) return '<span class="fv">'+esc(v)+'</span>';
+  return '<span class="bk">['+esc(label)+']</span>';
+}
+function role(c){
+  if(c.carer && c.carer.licensed) return '<span class="fv">'+esc(c.carer.licensed)+'</span>';
+  return '<span class="bk">[Licensed foster carer]</span>';
+}
+
+function generateLetter(childId){
+  const id = (childId!=null) ? childId : parseInt(document.getElementById('pick-child').value,10);
+  const c=state.children.find(x=>x.id===id); if(!c) return;
+  state.selectedId=id;
+  saveLetterDoc(c);
+  const cr=state.carer||{};
+
+  const html = `
+    <h2 class="d-title">Foster carer letter</h2>
+    <p class="d-sub">Show this at schools, clinics, pharmacies, or any service for this child.</p>
+
+    <p class="block"><span class="lbl">To</span><br>
+      ${f('', 'Recipient name / organisation')}<br>
+      ${f('', 'Recipient address')}<br>
+      ${f('', 'Recipient phone')}</p>
+
+    <h3>The child</h3>
+    <table class="d-tab"><tbody>
+      <tr><td class="k">Name used</td><td class="v">${f(c.name,'Child name')}</td></tr>
+      <tr><td class="k">Date of birth</td><td class="v">${f(c.dob,'Date of birth')}</td></tr>
+      <tr><td class="k">In my care since</td><td class="v">${f(c.start,'Placement start date')}</td></tr>
+    </tbody></table>
+
+    <h3>Who I am</h3>
+    <table class="d-tab"><tbody>
+      <tr><td class="k">My name</td><td class="v">${f(cr.name,'Your name')}</td></tr>
+      <tr><td class="k">My phone</td><td class="v">${f(cr.phone,'Your phone')}</td></tr>
+      <tr><td class="k">My role</td><td class="v">${cr.licensed? '<span class="fv">'+esc(cr.licensed)+'</span>' : '<span class="bk">[Licensed foster carer]</span>'}</td></tr>
+      <tr><td class="k">Placed by</td><td class="v">${f(cr.agency,'Fostering agency / VWO name')}</td></tr>
+    </tbody></table>
+
+    <h3>Case worker — call to verify</h3>
+    <table class="d-tab"><tbody>
+      <tr><td class="k">Name</td><td class="v">${f(cr.wName,'Case worker name')}</td></tr>
+      <tr><td class="k">Phone</td><td class="v">${f(cr.wPhone,'Case worker phone')}</td></tr>
+      <tr><td class="k">Email</td><td class="v">${f(cr.wEmail,'Case worker email')}</td></tr>
+      <tr><td class="k">Agency</td><td class="v">${f(cr.agency,'Fostering agency / VWO name')}</td></tr>
+    </tbody></table>
+
+    <h3>Medical fees</h3>
+    <p>This child holds a <b>Medical Fee Exemption Card</b> issued by the Ministry of Social and Family Development.</p>
+    <p>The card covers standard treatment at government polyclinics, public hospitals, and Community Health Assist Scheme GP and dental clinics. It does not cover optional vaccinations, non-standard drugs, or special medical equipment — please contact the case worker for these.</p>
+    <table class="d-tab"><tbody>
+      <tr><td class="k">Card number</td><td class="v">${f('','Medical Fee Exemption Card number')}</td></tr>
+    </tbody></table>
+
+    <h3>Mental health professionals</h3>
+    <p>The following specialists are currently involved in this child's care. Please coordinate with them directly or through the case worker.</p>
+    <table class="d-tab"><tbody>
+      <tr><td class="k">Psychiatrist name</td><td class="v">${f('','Psychiatrist full name')}</td></tr>
+      <tr><td class="k">Clinic or hospital</td><td class="v">${f('','Clinic name')}</td></tr>
+      <tr><td class="k">Next appointment</td><td class="v">${f('','Date of appointment')}</td></tr>
+      <tr><td class="k">Therapist or centre</td><td class="v">${f('','Early Intervention Programme')}</td></tr>
+      <tr><td class="k">Next appointment</td><td class="v">${f('','Date of next appointment')}</td></tr>
+    </tbody></table>
+
+    <h3>What I can do</h3>
+    <ul class="d-ul">
+      <li>Bring this child to medical, dental, and therapy appointments</li>
+      <li>Give consent for routine medical and dental treatment</li>
+      <li>Receive updates about this child's health, progress, and school matters</li>
+      <li>Sign everyday school permission forms</li>
+      <li>Collect prescribed medications from the pharmacy</li>
+    </ul>
+
+    <h3>What needs approval first</h3>
+    <p>The following require consent from the natural parents or the Ministry of Social and Family Development. Please contact the case worker above.</p>
+    <ul class="d-ul">
+      <li>Invasive or non-routine medical procedures — including surgery, circumcision, and non-standard vaccinations</li>
+      <li>Passport application — the natural parent's written consent is required</li>
+      <li>Overseas travel — including school trips — the case manager must obtain consent first</li>
+      <li>Respite care arrangements — must be approved by the Ministry in advance</li>
+      <li>Any document that legally requires a parent's signature</li>
+    </ul>
+
+    <h3>About this child</h3>
+    <table class="d-tab"><tbody>
+      <tr><td class="k">How they communicate</td><td class="v">${f(c.comm,'How they communicate')}</td></tr>
+      <tr><td class="k">Diagnosis</td><td class="v">${f(c.diag,'Diagnosis, if applicable')}</td></tr>
+      <tr><td class="k">Known allergies</td><td class="v">${f(c.allergy,'Known allergies / triggers')}</td></tr>
+      <tr><td class="k">Current medications</td><td class="v">${f(c.meds,'Medications')}</td></tr>
+    </tbody></table>
+    <p style="font-style:italic;color:var(--ink-70)">This child recently moved into my care. Please be patient — they may need extra time to feel comfortable in new places.</p>
+    <p class="prepared">Letter prepared: <em>${today()}</em></p>
+  `;
+  document.getElementById('letter').innerHTML = html;
+  go('preview');
+  document.getElementById('howto').classList.add('open');
+  recount();
+}
+
+/* ---------------- expandable panel + live count ---------------- */
+function toggleHowto(){ document.getElementById('howto').classList.toggle('open'); }
+
+function recount(){
+  const doc=document.getElementById('letter');
+  const text=doc.innerText||'';
+  const matches=text.match(/\[[^\]\n]+\]/g)||[];
+  const seen=new Set(); const list=[];
+  matches.forEach(m=>{ const label=m.slice(1,-1).trim(); if(!seen.has(label)){ seen.add(label); list.push(label);} });
+
+  document.getElementById('fill-count').textContent = list.length;
+  const title=document.getElementById('fill-title');
+  const ul=document.getElementById('fill-list');
+  ul.innerHTML='';
+  if(list.length===0){
+    title.style.display='none';
+    ul.innerHTML='<div class="fill-done">✓ Nothing left to fill in — ready to export.</div>';
+  } else {
+    title.style.display='block';
+    title.textContent='Still needs filling in ('+list.length+')';
+    list.forEach(label=>{ const li=document.createElement('li'); li.innerHTML='<b>'+esc(label)+'</b>'; ul.appendChild(li); });
+  }
+}
+
+/* ---------------- toolbar ---------------- */
+function cmd(e,c){ e.preventDefault(); document.getElementById('letter').focus(); document.execCommand(c,false,null); recount(); }
+
+/* ---------------- export ---------------- */
+function exportPDF(){
+  const n=(document.getElementById('letter').innerText.match(/\[[^\]\n]+\]/g)||[]).length;
+  if(n>0){ toast(n+" field"+(n>1?"s":"")+" still in brackets — printing anyway."); }
+  setTimeout(()=>window.print(), 350);
+}
+
+/* ---------------- misc ---------------- */
+let toastT;
+function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),2600); }
+function resetDemo(){ state.carer=null; state.children=[]; state.selectedId=null; state.documents=[]; seq=1; document.getElementById('profile-form').reset(); resetChildFields(); document.querySelectorAll('.field.invalid').forEach(f=>f.classList.remove('invalid')); closeDocSheet(); go('home'); toast("Demo reset — no child on file."); }
+</script>
+</body>
+</html>

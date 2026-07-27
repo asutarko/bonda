@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { jsPDF } from "jspdf";
 import html2canvas from "html2canvas";
 import { Editor } from "@tinymce/tinymce-react";
@@ -12,7 +12,7 @@ import "tinymce/plugins/table";
 import "tinymce/skins/ui/oxide/skin.css";
 import { supabase } from "../lib/supabase";
 import { T } from "../theme";
-import { Page, SectionLabel, Card, Btn, Select } from "../ui";
+import { Page, SectionLabel, Card, Btn, Select, Badge } from "../ui";
 
 const formatDate = (value) => {
   if (!value) return "";
@@ -103,6 +103,12 @@ const fillTemplate = (content, values) => {
     match === "Foster Carer" ? titleCase(values.roleLabel) : values.roleLabel
   );
 };
+
+// Anything still bracketed after fillTemplate is, by definition, unfilled — wrap
+// it so it reads as a highlighted placeholder in the editor and exported PDF
+// instead of plain text that's easy to miss (styled via the "bonda-bk" class
+// added to TinyMCE's content_style below).
+const highlightBrackets = (html) => html.replace(/\[([^\]]+)\]/g, '<span class="bonda-bk">[$1]</span>');
 
 const buildRecipientLabel = (clinic, psychologist) => {
   if (!clinic) return "";
@@ -198,7 +204,11 @@ const exportLetterToPdf = async (html, fileName) => {
   const container = document.createElement("div");
   container.style.width = `${renderWidthPx}px`;
   container.style.background = "#fff";
-  container.innerHTML = `<div style="font-family:'Times New Roman',Times,serif;font-size:12pt;line-height:1.5;color:#000;">${html}</div>`;
+  // The "bonda-bk" highlight on unfilled placeholders (see highlightBrackets)
+  // is meant for the in-app editor — a printed letter shouldn't have an orange
+  // highlight box, just the plain bracketed text, same as the mockup's own
+  // `@media print { .bk { background: none } }` rule.
+  container.innerHTML = `<style>.bonda-bk{background:none!important;padding:0!important;color:${T.amber}!important;}</style><div style="font-family:'Times New Roman',Times,serif;font-size:12pt;line-height:1.5;color:#000;">${html}</div>`;
   hider.appendChild(container);
   document.body.appendChild(hider);
 
@@ -257,6 +267,10 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
   const [psychologists, setPsychologists] = useState([]);
 
   const [letterText, setLetterText] = useState("");
+  const [howtoOpen, setHowtoOpen] = useState(true);
+  const saveTimer = useRef(null);
+
+  useEffect(() => () => clearTimeout(saveTimer.current), []);
 
   useEffect(() => {
     const load = async () => {
@@ -276,6 +290,15 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
 
   useEffect(() => {
     setLetterText("");
+    if (!selectedChild) return;
+    let cancelled = false;
+    // Reload whatever was last saved for this child (see persistLetter below) so
+    // the letter survives a refresh/relogin instead of resetting to blank —
+    // "carer_letters" already existed in the schema for exactly this but was
+    // never wired up.
+    supabase.from("carer_letters").select("content").eq("child_id", selectedChild.id).maybeSingle()
+      .then(({ data }) => { if (!cancelled && data?.content) setLetterText(data.content); });
+    return () => { cancelled = true; };
   }, [selectedChild?.id]);
 
   // The admin app already assigns each child to a psychologist (children.psychologist_id),
@@ -284,6 +307,24 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
   // below if this letter is going somewhere else (e.g. a school).
   const assignedPsychologist = psychologists.find(p => p.id === selectedChild?.psychologistId) || null;
   const assignedClinic = assignedPsychologist ? clinics.find(c => c.id === assignedPsychologist.clinic_id) || null : null;
+
+  // Upsert into "carer_letters" (unique on child_id) so the generated/edited
+  // letter survives a refresh and backs the auto-saved "Carer letter" row on
+  // the Documents screen.
+  const persistLetter = async (content) => {
+    if (!selectedChild || !account?.id) return;
+    await supabase.from("carer_letters").upsert(
+      { user_id: account.id, child_id: selectedChild.id, content, updated_at: new Date().toISOString() },
+      { onConflict: "child_id" }
+    );
+  };
+
+  const handleEditorChange = (html) => {
+    setLetterText(html);
+    if (!selectedChild) return;
+    clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => persistLetter(html), 800);
+  };
 
   const generateLetter = () => {
     if (!template || !selectedChild) return;
@@ -316,8 +357,10 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
       yourPhone: account?.phone || "[Your phone]",
       yourEmail: account?.email || "[Your email]",
     };
-    const filled = fillTemplate(template.content, values);
+    const filled = highlightBrackets(fillTemplate(template.content, values));
     setLetterText(filled);
+    clearTimeout(saveTimer.current);
+    persistLetter(filled);
   };
 
   const downloadPdf = () => {
@@ -352,6 +395,19 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
 
   return (
     <Page>
+      {/* Light reskin of TinyMCE's default oxide-skin chrome (grey/blue) so the
+          toolbar reads as part of the Bonda system instead of a generic widget.
+          Scoped to this screen — TinyMCE isn't used anywhere else in the app. */}
+      <style>{`
+        .tox.tox-tinymce { border: none !important; border-radius: 0 !important; }
+        .tox .tox-toolbar__primary, .tox .tox-toolbar-overlord { background: ${T.canvas} !important; }
+        .tox .tox-toolbar__group { border: none !important; }
+        .tox .tox-tbtn { border-radius: 8px !important; margin: 2px !important; }
+        .tox .tox-tbtn:hover { background: ${T.purpleL} !important; color: ${T.purple} !important; }
+        .tox .tox-tbtn--enabled, .tox .tox-tbtn--enabled:hover { background: ${T.purpleL} !important; color: ${T.purple} !important; }
+        .tox .tox-edit-area__iframe { background: ${T.surface} !important; }
+      `}</style>
+
       <p style={{ margin: "0 0 18px", color: T.inkSoft, fontSize: 13, lineHeight: 1.6 }}>We'll auto-fill the letter with what we already know about the child and your account — generate it, then edit anything (including the recipient and placement details) freely before exporting as a PDF.</p>
 
       {children.length > 1 && (
@@ -364,23 +420,37 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
         <>
           <SectionLabel>Preview — edit freely before exporting</SectionLabel>
 
-          <Card style={{ marginBottom: 14 }}>
-            <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>How to edit this letter</p>
-            <p style={{ margin: "0 0 10px", fontSize: 12, color: T.inkSoft, lineHeight: 1.6 }}>
-              Anything shown in <strong style={{ color: T.amber }}>[brackets]</strong> below means we didn't have that information on file — click into the letter and type over it with the real detail. You can also freely rewrite, bold, or reformat any other part before exporting.
-            </p>
-            {missingPlaceholders.length > 0 ? (
-              <>
-                <p style={{ margin: "0 0 6px", fontSize: 12, fontWeight: 700, color: T.amber }}>Still needs filling in ({missingPlaceholders.length}):</p>
-                <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, color: T.inkSoft, lineHeight: 1.7 }}>
-                  {missingPlaceholders.map(p => {
-                    const { label, desc } = describePlaceholder(p);
-                    return <li key={p}><strong style={{ color: T.ink }}>{label}</strong> — {desc}</li>;
-                  })}
-                </ul>
-              </>
-            ) : (
-              <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: T.green }}>✓ No blanks left — give the letter one more read-through, then export.</p>
+          <Card style={{ marginBottom: 14, padding: 0, overflow: "hidden" }}>
+            <div
+              onClick={() => setHowtoOpen(o => !o)}
+              style={{ padding: "14px 16px", display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }}
+            >
+              <div style={{ width: 34, height: 34, borderRadius: 10, background: T.purpleL, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={T.purple} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+              </div>
+              <p style={{ flex: 1, margin: 0, fontFamily: T.fontDisplay, fontWeight: 600, fontSize: 15, color: T.ink }}>How to edit this letter</p>
+              <Badge color={T.amber} bg={T.amberL}>{missingPlaceholders.length}</Badge>
+              <span style={{ color: T.inkMuted, fontSize: 11, transform: howtoOpen ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>▾</span>
+            </div>
+            {howtoOpen && (
+              <div style={{ padding: "0 16px 16px" }}>
+                <p style={{ margin: "0 0 10px", fontSize: 12, color: T.inkSoft, lineHeight: 1.6 }}>
+                  Anything shown in <strong style={{ color: T.amber, background: T.amberL, borderRadius: 5, padding: "0 4px" }}>[brackets]</strong> below means we didn't have that information on file — click into the letter and type over it with the real detail. You can also freely rewrite, bold, or reformat any other part before exporting.
+                </p>
+                {missingPlaceholders.length > 0 ? (
+                  <>
+                    <p style={{ margin: "0 0 6px", fontSize: 12, fontWeight: 700, color: T.amber }}>Still needs filling in ({missingPlaceholders.length}):</p>
+                    <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, color: T.inkSoft, lineHeight: 1.7 }}>
+                      {missingPlaceholders.map(p => {
+                        const { label, desc } = describePlaceholder(p);
+                        return <li key={p}><strong style={{ color: T.ink }}>{label}</strong> — {desc}</li>;
+                      })}
+                    </ul>
+                  </>
+                ) : (
+                  <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: T.green }}>✓ No blanks left — give the letter one more read-through, then export.</p>
+                )}
+              </div>
             )}
           </Card>
 
@@ -388,14 +458,24 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
             <Editor
               licenseKey="gpl"
               value={letterText}
-              onEditorChange={setLetterText}
+              onEditorChange={handleEditorChange}
               init={{
                 height: 520,
                 menubar: false,
                 statusbar: false,
                 plugins: "lists link table",
                 toolbar: "undo redo | bold italic underline | bullist numlist | link table | removeformat",
-                content_style: `body { font-family: 'Times New Roman', Times, serif; font-size: 13px; line-height: 1.6; color: ${T.ink}; }`,
+                content_style: `
+                  body { font-family: 'Times New Roman', Times, serif; font-size: 13px; line-height: 1.65; color: ${T.ink}; }
+                  h1,h2,h3,h4 { font-family: ${T.fontDisplay}; font-weight: 600; letter-spacing: -0.01em; margin: 20px 0 10px; color: ${T.ink}; }
+                  h1 { font-size: 20px; } h2 { font-size: 18px; } h3 { font-size: 15px; } h4 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; }
+                  p { margin: 0 0 12px; }
+                  table { border-collapse: collapse; width: 100%; margin: 0 0 14px; }
+                  td, th { border: 1px solid ${T.border}; padding: 8px 10px; vertical-align: top; font-size: 13px; text-align: left; }
+                  ul, ol { margin: 0 0 14px; padding-left: 20px; }
+                  li { margin: 0 0 6px; }
+                  .bonda-bk { color: ${T.amber}; background: ${T.amberL}; border-radius: 5px; padding: 0 4px; font-weight: 600; }
+                `,
               }}
             />
           </div>
