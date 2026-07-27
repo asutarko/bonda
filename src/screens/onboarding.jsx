@@ -3,7 +3,7 @@ import Swal from "sweetalert2";
 import { supabase } from "../lib/supabase";
 import { uploadPhoto } from "../hooks";
 import { T } from "../theme";
-import { Page, SectionLabel, Card, Badge, Btn, Input, TextArea, Select, FieldError, Avatar, Accordion, PageHero, AvatarIllustrations, ChildAvatar, ComAvatar, ROOM_ICONS, ACTIVITY_TEXTAREA_STYLE, ActionIllustration, HeroIllustration } from "../ui";
+import { Page, SectionLabel, Card, Badge, Btn, Input, TextArea, Select, FieldError, Avatar, Accordion, FormSection, ToggleField, PageHero, AvatarIllustrations, ChildAvatar, ComAvatar, ROOM_ICONS, ACTIVITY_TEXTAREA_STYLE, ActionIllustration, HeroIllustration } from "../ui";
 import { CHILD_AVATARS, DEFAULT_CHILDREN, DEFAULT_SCHEDULE, PLACEMENT_TYPE_OPTIONS, ROOM_COLORS, SOS_COLORS, VERBAL_STATUS_OPTIONS } from "../data";
 
 export function SpecialNeedsSection({
@@ -18,7 +18,7 @@ export function SpecialNeedsSection({
       <Select label={<>Verbal status <span style={{ color: T.red }}>*</span></>} value={verbalStatus} onChange={e => setVerbalStatus(e.target.value)} placeholder="Select verbal status" options={VERBAL_STATUS_OPTIONS.map(o => ({ value: o.key, label: o.label }))} />
       <FieldError>{errors.verbalStatus}</FieldError>
 
-      <Select label="Known triggers?" value={hasTriggers} onChange={e => { setHasTriggers(e.target.value); if (e.target.value === "No") setKnownTriggers(""); }} options={["Yes", "No"]} />
+      <ToggleField label="Known triggers?" on={hasTriggers === "Yes"} onChange={v => { setHasTriggers(v ? "Yes" : "No"); if (!v) setKnownTriggers(""); }} />
       {hasTriggers === "Yes" && (
         <>
           <TextArea label={<>Describe the known triggers <span style={{ color: T.red }}>*</span></>} hint="Describe in your own words — e.g. loud noises, crowded places, sudden changes in routine." value={knownTriggers} onChange={e => setKnownTriggers(e.target.value)} placeholder="e.g. Loud noises, being rushed, scratchy clothing tags" />
@@ -26,7 +26,7 @@ export function SpecialNeedsSection({
         </>
       )}
 
-      <Select label="Therapy schedule?" value={hasTherapy} onChange={e => { setHasTherapy(e.target.value); if (e.target.value === "No") setTherapySchedule(""); }} options={["Yes", "No"]} />
+      <ToggleField label="Therapy schedule?" on={hasTherapy === "Yes"} onChange={v => { setHasTherapy(v ? "Yes" : "No"); if (!v) setTherapySchedule(""); }} />
       {hasTherapy === "Yes" && (
         <>
           <TextArea label={<>Describe the therapy schedule <span style={{ color: T.red }}>*</span></>} hint="e.g. which therapies, and which days/times." value={therapySchedule} onChange={e => setTherapySchedule(e.target.value)} placeholder="e.g. Speech therapy Tue 4pm, ABA Mon/Wed/Fri 3-5pm" />
@@ -34,7 +34,7 @@ export function SpecialNeedsSection({
         </>
       )}
 
-      <Select label="Diet program?" value={hasDiet} onChange={e => { setHasDiet(e.target.value); if (e.target.value === "No") setDietProgram(""); }} options={["Yes", "No"]} />
+      <ToggleField label="Diet program?" on={hasDiet === "Yes"} onChange={v => { setHasDiet(v ? "Yes" : "No"); if (!v) setDietProgram(""); }} />
       {hasDiet === "Yes" && (
         <>
           <TextArea label={<>Describe the diet program <span style={{ color: T.red }}>*</span></>} hint="e.g. any special diet, allergy, or feeding program." value={dietProgram} onChange={e => setDietProgram(e.target.value)} placeholder="e.g. Gluten-free, casein-free (GFCF)" />
@@ -199,52 +199,47 @@ export function AddChildScreen({ childCtx, pop }) {
 
   return (
     <Page>
-      <h2 style={{ margin: "0 0 6px", fontSize: 20, fontWeight: 800, color: T.ink }}>Add a Child Profile</h2>
-      <p style={{ margin: "0 0 24px", color: T.inkSoft, fontSize: 14, lineHeight: 1.6 }}>Each child gets their own schedule, emotion log, and history. You can switch between children anytime.</p>
+      <h1 style={{ margin: "6px 0 20px", fontFamily: T.fontDisplay, fontWeight: 600, fontSize: 26, lineHeight: 1.15, letterSpacing: "-0.01em", color: T.ink }}>Add a child profile</h1>
+      <p style={{ margin: "-12px 0 20px", color: T.inkSoft, fontSize: 14, lineHeight: 1.6 }}>Each child gets their own schedule, emotion log, and history. You can switch between children anytime.</p>
 
-      <SectionLabel style={{ marginBottom: 10 }}>Profile Picture</SectionLabel>
-
-
-      <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16, padding: "14px 16px", background: T.purpleL, borderRadius: T.r }}>
-
-        <ChildAvatar value={photo || emoji} size={60} active={true} borderColor={T.purple} />
-        <div style={{ flex: 1 }}>
-          <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>
-            {isPhotoSelected ? "Photo added ✓ — or choose an avatar below" : "Add a real photo (optional) — or pick an avatar below"}
-          </p>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-
-            <label onClick={() => setShowAvatarPicker(false)} style={{ flex: "1 1 92px", background: T.purple, color: "white", borderRadius: T.r, padding: "8px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", textAlign: "center", fontFamily: T.fontBody, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
-              <span style={{ fontSize: 15 }}>+</span> Upload
-              <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => {
-                const file = e.target.files[0];
-                if (!file) return;
-                if (file.size > 2 * 1024 * 1024) return setPhotoErr("Photo must be under 2 MB.");
-                const reader = new FileReader();
-                reader.onload = ev => { setPhoto(ev.target.result); setPhotoErr(""); };
-                reader.readAsDataURL(file);
-              }} />
-            </label>
-
-            {cameraSupported && (
-              <button onClick={() => { setShowAvatarPicker(false); openCamera(); }} style={{ flex: "1 1 92px", background: T.surface, color: T.purple, borderRadius: T.r, padding: "8px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", border: `1.5px solid ${T.purple}`, fontFamily: T.fontBody, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
-                <span style={{ fontSize: 15 }}>+</span> Camera
-              </button>
-            )}
-
-            <button onClick={() => setShowAvatarPicker(v => !v)} style={{ flex: "1 1 92px", background: showAvatarPicker ? T.purple : T.surface, color: showAvatarPicker ? "white" : T.purple, borderRadius: T.r, padding: "8px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", border: `1.5px solid ${T.purple}`, fontFamily: T.fontBody, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
-              <span style={{ fontSize: 15 }}>+</span> Avatar
-            </button>
-
-            {isPhotoSelected && (
-              <button onClick={() => { setPhoto(null); }} style={{ background: T.redL, color: T.red, borderRadius: T.r, padding: "8px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", border: "none", fontFamily: T.fontBody }}>✕</button>
-            )}
-          </div>
-          {photoErr && <p style={{ margin: "6px 0 0", color: T.red, fontSize: 11, fontWeight: 700 }}>{photoErr}</p>}
-
+      <div style={{ background: T.purpleL, border: `1px solid ${T.border}`, borderRadius: T.rL, padding: "24px 18px", textAlign: "center", marginBottom: 18 }}>
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 14 }}>
+          <ChildAvatar value={photo || emoji} size={88} active={true} borderColor={T.purple} />
         </div>
-      </div>
 
+        <p style={{ margin: "0 0 12px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>
+          {isPhotoSelected ? "Photo added ✓ — or choose an avatar below" : "Add a real photo (optional) — or pick an avatar below"}
+        </p>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
+
+          <label onClick={() => setShowAvatarPicker(false)} style={{ background: T.purple, color: "white", borderRadius: 99, padding: "10px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", textAlign: "center", fontFamily: T.fontBody, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
+            <span style={{ fontSize: 15 }}>+</span> Upload
+            <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => {
+              const file = e.target.files[0];
+              if (!file) return;
+              if (file.size > 2 * 1024 * 1024) return setPhotoErr("Photo must be under 2 MB.");
+              const reader = new FileReader();
+              reader.onload = ev => { setPhoto(ev.target.result); setPhotoErr(""); };
+              reader.readAsDataURL(file);
+            }} />
+          </label>
+
+          {cameraSupported && (
+            <button onClick={() => { setShowAvatarPicker(false); openCamera(); }} style={{ background: T.surface, color: T.purple, borderRadius: 99, padding: "10px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", border: `1.5px solid ${T.purple}`, fontFamily: T.fontBody, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
+              <span style={{ fontSize: 15 }}>+</span> Camera
+            </button>
+          )}
+
+          <button onClick={() => setShowAvatarPicker(v => !v)} style={{ background: showAvatarPicker ? T.purple : T.surface, color: showAvatarPicker ? "white" : T.purple, borderRadius: 99, padding: "10px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", border: `1.5px solid ${T.purple}`, fontFamily: T.fontBody, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
+            <span style={{ fontSize: 15 }}>+</span> Avatar
+          </button>
+
+          {isPhotoSelected && (
+            <button onClick={() => { setPhoto(null); }} style={{ background: "transparent", color: T.red, borderRadius: 99, padding: "10px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", border: "none", fontFamily: T.fontBody }}>Remove photo</button>
+          )}
+        </div>
+        {photoErr && <p style={{ margin: "8px 0 0", color: T.red, fontSize: 11, fontWeight: 700 }}>{photoErr}</p>}
+      </div>
 
       {showCamera && (
         <div style={{ marginBottom: 16, background: "#000", borderRadius: T.r, overflow: "hidden" }}>
@@ -277,32 +272,37 @@ export function AddChildScreen({ childCtx, pop }) {
         </>
       )}
 
-      <Input label="Child's name" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Aiden" />
-      <FieldError>{errors.name}</FieldError>
-      <Input label="Date of birth" value={dob} onChange={e => setDob(e.target.value)} type="date" />
-      <FieldError>{errors.dob}</FieldError>
-      <Select label="Gender" value={gender} onChange={e => setGender(e.target.value)} placeholder="Select gender" options={["Male", "Female"]} />
-      <FieldError>{errors.gender}</FieldError>
+      <FormSection title="General information">
+        <Input label="Child's name" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Aiden" />
+        <FieldError>{errors.name}</FieldError>
+        <Input label="Date of birth" value={dob} onChange={e => setDob(e.target.value)} type="date" />
+        <FieldError>{errors.dob}</FieldError>
+        <Select label="Gender" value={gender} onChange={e => setGender(e.target.value)} placeholder="Select gender" options={["Male", "Female"]} />
+        <FieldError>{errors.gender}</FieldError>
 
+        <Select label="Your relationship to this child" value={caregiverType} onChange={e => setCaregiverType(e.target.value)} options={CAREGIVER_TYPE_OPTIONS} />
 
-      <Select label="Your relationship to this child" value={caregiverType} onChange={e => setCaregiverType(e.target.value)} options={CAREGIVER_TYPE_OPTIONS} />
+        {caregiverType === "other" && (
+          <div style={{ marginBottom: 14 }}>
+            <Select label="What is your relationship to this child?" value={caregiverLabel} onChange={e => setCaregiverLabel(e.target.value)} placeholder="Select relationship" options={OTHER_CAREGIVER_OPTIONS} />
+            <FieldError>{errors.relationshipDetail}</FieldError>
+            {caregiverLabel === "Others" && (
+              <div style={{ marginTop: 10 }}>
+                <Input value={customRelative} onChange={e => setCustomRelative(e.target.value)} placeholder="e.g. Cousin" />
+                <FieldError>{errors.customRelative}</FieldError>
+              </div>
+            )}
+          </div>
+        )}
+      </FormSection>
 
-      {caregiverType === "other" && (
-        <div style={{ marginBottom: 14 }}>
-          <Select label="What is your relationship to this child?" value={caregiverLabel} onChange={e => setCaregiverLabel(e.target.value)} placeholder="Select relationship" options={OTHER_CAREGIVER_OPTIONS} />
-          <FieldError>{errors.relationshipDetail}</FieldError>
-          {caregiverLabel === "Others" && (
-            <div style={{ marginTop: 10 }}>
-              <Input value={customRelative} onChange={e => setCustomRelative(e.target.value)} placeholder="e.g. Cousin" />
-              <FieldError>{errors.customRelative}</FieldError>
-            </div>
-          )}
-        </div>
-      )}
+      <FormSection title="About your child">
+        <SpecialNeedsSection verbalStatus={verbalStatus} setVerbalStatus={setVerbalStatus} hasTriggers={hasTriggers} setHasTriggers={setHasTriggers} knownTriggers={knownTriggers} setKnownTriggers={setKnownTriggers} hasTherapy={hasTherapy} setHasTherapy={setHasTherapy} therapySchedule={therapySchedule} setTherapySchedule={setTherapySchedule} hasDiet={hasDiet} setHasDiet={setHasDiet} dietProgram={dietProgram} setDietProgram={setDietProgram} errors={errors} />
+      </FormSection>
 
-      <SpecialNeedsSection verbalStatus={verbalStatus} setVerbalStatus={setVerbalStatus} hasTriggers={hasTriggers} setHasTriggers={setHasTriggers} knownTriggers={knownTriggers} setKnownTriggers={setKnownTriggers} hasTherapy={hasTherapy} setHasTherapy={setHasTherapy} therapySchedule={therapySchedule} setTherapySchedule={setTherapySchedule} hasDiet={hasDiet} setHasDiet={setHasDiet} dietProgram={dietProgram} setDietProgram={setDietProgram} errors={errors} />
-
-      <PlacementDetailsSection diagnosis={diagnosis} setDiagnosis={setDiagnosis} placementStartDate={placementStartDate} setPlacementStartDate={setPlacementStartDate} fosteringAgency={fosteringAgency} setFosteringAgency={setFosteringAgency} placementType={placementType} setPlacementType={setPlacementType} courtOrderRef={courtOrderRef} setCourtOrderRef={setCourtOrderRef} caseWorkerName={caseWorkerName} setCaseWorkerName={setCaseWorkerName} caseWorkerPhone={caseWorkerPhone} setCaseWorkerPhone={setCaseWorkerPhone} caseWorkerEmail={caseWorkerEmail} setCaseWorkerEmail={setCaseWorkerEmail} clinicName={clinicName} setClinicName={setClinicName} location={location} setLocation={setLocation} countryOptions={countryOptions} />
+      <FormSection title="Placement & care details" defaultOpen={false}>
+        <PlacementDetailsSection diagnosis={diagnosis} setDiagnosis={setDiagnosis} placementStartDate={placementStartDate} setPlacementStartDate={setPlacementStartDate} fosteringAgency={fosteringAgency} setFosteringAgency={setFosteringAgency} placementType={placementType} setPlacementType={setPlacementType} courtOrderRef={courtOrderRef} setCourtOrderRef={setCourtOrderRef} caseWorkerName={caseWorkerName} setCaseWorkerName={setCaseWorkerName} caseWorkerPhone={caseWorkerPhone} setCaseWorkerPhone={setCaseWorkerPhone} caseWorkerEmail={caseWorkerEmail} setCaseWorkerEmail={setCaseWorkerEmail} clinicName={clinicName} setClinicName={setClinicName} location={location} setLocation={setLocation} countryOptions={countryOptions} />
+      </FormSection>
 
       {err && <p style={{ color: T.red, fontSize: 13, fontWeight: 700, margin: "-8px 0 12px" }}>{err}</p>}
       <Btn onClick={save} full disabled={saving}>{saving ? "Saving..." : "Save Profile"}</Btn>

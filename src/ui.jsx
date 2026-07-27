@@ -383,6 +383,62 @@ export const Avatar = ({ src, size = 36, bg = T.purpleL, border = "transparent" 
   );
 };
 
+// Collapsible form section — accent-headed card used to group related fields
+// (e.g. Add/Edit Child Profile). Defaults open; pass defaultOpen={false} to collapse.
+
+export const FormSection = ({ title, defaultOpen = true, children }) => {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div style={{ background: T.surface, borderRadius: T.rL, border: `1px solid ${T.border}`, overflow: "hidden", marginBottom: 16 }}>
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        aria-expanded={open}
+        style={{
+          width: "100%", boxSizing: "border-box", display: "flex", alignItems: "center",
+          justifyContent: "space-between", gap: 12, background: T.purple, color: "white",
+          fontFamily: T.fontDisplay, fontWeight: 600, fontSize: 17, letterSpacing: "-0.005em",
+          padding: "14px 18px", border: "none", cursor: "pointer", textAlign: "left",
+        }}
+      >
+        <span>{title}</span>
+        <svg width="14" height="9" viewBox="0 0 12 8" style={{ flexShrink: 0, transform: open ? "rotate(180deg)" : "none", transition: "transform 0.18s" }}>
+          <path d="M1 1l5 5 5-5" stroke="white" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+      {open && <div style={{ padding: "16px 16px 4px" }}>{children}</div>}
+    </div>
+  );
+};
+
+// Yes/No pill toggle — swap-in for a Select with ["Yes","No"] options
+
+export const ToggleField = ({ label, on, onChange }) => (
+  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 14 }}>
+    <span style={{ fontSize: 13, fontWeight: 700, color: T.inkSoft }}>{label}</span>
+    <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+      <span style={{ fontSize: 11, fontWeight: 700, color: on ? T.inkMuted : T.purple }}>No</span>
+      <button
+        type="button"
+        onClick={() => onChange(!on)}
+        aria-pressed={on}
+        aria-label={label}
+        style={{
+          width: 44, height: 25, borderRadius: 99, border: "none", cursor: "pointer",
+          background: on ? T.purple : T.border, position: "relative", padding: 0, transition: "background 0.18s", flexShrink: 0,
+        }}
+      >
+        <span style={{
+          position: "absolute", top: 2.5, left: 2.5, width: 20, height: 20, borderRadius: 99,
+          background: "white", boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+          transform: on ? "translateX(19px)" : "translateX(0)", transition: "transform 0.18s",
+        }} />
+      </button>
+      <span style={{ fontSize: 11, fontWeight: 700, color: on ? T.purple : T.inkMuted }}>Yes</span>
+    </div>
+  </div>
+);
+
 // Accordion item
 
 export const Accordion = ({ icon, title, children, accentColor = T.purple }) => {
