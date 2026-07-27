@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import { markNewSignup, consumeNewSignupFlag } from "../hooks";
 
@@ -232,6 +232,8 @@ function PolicyScreen({ onBack }) {
   );
 }
 
+const OTP_TTL_MS = 2 * 60 * 1000; // 2 minutes to enter the code before it expires
+
 export function AuthScreen() {
   const [view, setView] = useState("welcome");
   const [transition, setTransition] = useState(null); // { from, to, dir: "fwd" | "back" }
@@ -239,6 +241,21 @@ export function AuthScreen() {
   const [regEmail, setRegEmail] = useState(""); const [regName, setRegName] = useState(""); const [regPass, setRegPass] = useState(""); const [regErr, setRegErr] = useState(""); const [regMsg, setRegMsg] = useState("");
   const [forgotEmail, setForgotEmail] = useState(""); const [forgotErr, setForgotErr] = useState(""); const [forgotMsg, setForgotMsg] = useState("");
   const [showLegal, setShowLegal] = useState(false);
+
+  const [otpCode, setOtpCode] = useState(""); const [otpErr, setOtpErr] = useState(""); const [otpMsg, setOtpMsg] = useState("");
+  const [otpExpiresAt, setOtpExpiresAt] = useState(null);
+  const [otpSecondsLeft, setOtpSecondsLeft] = useState(0);
+  const [otpVerifying, setOtpVerifying] = useState(false);
+  const [otpResending, setOtpResending] = useState(false);
+
+  // Ticks the "code expires in mm:ss" countdown whenever an OTP is pending.
+  useEffect(() => {
+    if (!otpExpiresAt) return;
+    const tick = () => setOtpSecondsLeft(Math.max(0, Math.round((otpExpiresAt - Date.now()) / 1000)));
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [otpExpiresAt]);
 
   const navigate = (to, dir) => {
     if (to === view || transition) return;
@@ -297,12 +314,35 @@ export function AuthScreen() {
       return setRegErr("This email is already registered. Please use a unique email address.");
     }
     if (!data.session) {
-      // Email confirmation required before the account can sign in
-      setRegMsg("Account created! Check your email to confirm before signing in.");
-      navigate("login", "back");
+      // Email confirmation required before the account can sign in — collect
+      // the OTP code we just emailed instead of dropping the user on login.
+      setOtpCode(""); setOtpErr(""); setOtpMsg("");
+      setOtpExpiresAt(Date.now() + OTP_TTL_MS);
+      navigate("otp", "fwd");
       return;
     }
     // On success, the top-level auth listener picks up the new session and switches to the main app.
+  };
+
+  const verifyOtp = async () => {
+    setOtpErr("");
+    const code = otpCode.trim();
+    if (!/^\d{6}$/.test(code)) return setOtpErr("Enter the 6-digit code sent to your email.");
+    setOtpVerifying(true);
+    const { error } = await supabase.auth.verifyOtp({ email: regEmail.trim(), token: code, type: "signup" });
+    setOtpVerifying(false);
+    if (error) return setOtpErr(/expired/i.test(error.message) ? "This code has expired. Request a new one." : error.message);
+    // On success, the top-level auth listener picks up the new session and switches to the main app.
+  };
+
+  const resendOtp = async () => {
+    setOtpErr(""); setOtpMsg(""); setOtpResending(true);
+    const { error } = await supabase.auth.resend({ type: "signup", email: regEmail.trim() });
+    setOtpResending(false);
+    if (error) return setOtpErr(error.message);
+    setOtpCode("");
+    setOtpExpiresAt(Date.now() + OTP_TTL_MS);
+    setOtpMsg("We've sent a new code to your email.");
   };
 
   const renderView = (v) => {
@@ -361,6 +401,34 @@ export function AuthScreen() {
         </p>
       </div>
     );
+
+    if (v === "otp") {
+      const canResend = otpSecondsLeft <= 0;
+      const mm = String(Math.floor(otpSecondsLeft / 60)).padStart(2, "0");
+      const ss = String(otpSecondsLeft % 60).padStart(2, "0");
+      return (
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          <TopBar onBack={() => { setOtpErr(""); setOtpMsg(""); setOtpExpiresAt(null); navigate("register", "back"); }} />
+          <ScreenHeading eyebrow="Verify your email" title="Enter your code" subtitle={`We've sent a 6-digit code to ${regEmail.trim()}.`} />
+          <TextField label="Verification code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={otpCode}
+            onChange={e => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+            onKeyDown={e => e.key === "Enter" && otpCode.trim().length === 6 && verifyOtp()}
+            placeholder="123456" style={{ letterSpacing: "0.5em", fontWeight: 700, textAlign: "center", fontSize: 20 }} />
+          {otpErr && <ErrorNote>{otpErr}</ErrorNote>}
+          {otpMsg && <SuccessNote>{otpMsg}</SuccessNote>}
+          <button className="btn-primary" onClick={verifyOtp} disabled={otpVerifying || otpCode.trim().length !== 6}>
+            {otpVerifying ? "Verifying…" : "Verify code"} <span aria-hidden="true">→</span>
+          </button>
+          <div style={{ textAlign: "center", margin: "20px 0 0" }}>
+            {canResend ? (
+              <button type="button" className="link-accent" onClick={resendOtp} disabled={otpResending}>{otpResending ? "Sending…" : "Resend code"}</button>
+            ) : (
+              <p style={{ margin: 0, fontSize: 13, color: INK55 }}>Didn't get it? You can request a new code in <strong style={{ color: INK }}>{mm}:{ss}</strong></p>
+            )}
+          </div>
+        </div>
+      );
+    }
 
     if (v === "forgot") return (
       <div style={{ display: "flex", flexDirection: "column" }}>
@@ -429,31 +497,115 @@ const PHONE_COUNTRIES = [
 ];
 
 // Shown once, right after a fresh signup, before the account can enter the
-// app — collects the phone number that register() doesn't ask for up front.
+// app — collects the phone number that register() doesn't ask for up front,
+// then confirms it by emailing a one-time code to the account's (already
+// verified) email address before letting the user through.
 export function PhoneCaptureScreen({ account, onDone }) {
+  const [step, setStep] = useState("phone"); // "phone" | "verify"
   const [dial, setDial] = useState("+65");
   const [phone, setPhone] = useState("");
   const [err, setErr] = useState("");
   const [saving, setSaving] = useState(false);
 
+  const [otpCode, setOtpCode] = useState(""); const [otpErr, setOtpErr] = useState(""); const [otpMsg, setOtpMsg] = useState("");
+  const [otpExpiresAt, setOtpExpiresAt] = useState(null);
+  const [otpSecondsLeft, setOtpSecondsLeft] = useState(0);
+  const [otpVerifying, setOtpVerifying] = useState(false);
+  const [otpResending, setOtpResending] = useState(false);
+
+  useEffect(() => {
+    if (!otpExpiresAt) return;
+    const tick = () => setOtpSecondsLeft(Math.max(0, Math.round((otpExpiresAt - Date.now()) / 1000)));
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [otpExpiresAt]);
+
   const canSubmit = phone.trim().length > 0;
+
+  const sendOtp = async () => {
+    const { error } = await supabase.auth.signInWithOtp({ email: account.email, options: { shouldCreateUser: false } });
+    if (error) return setErr(error.message);
+    setOtpCode(""); setOtpErr(""); setOtpMsg("");
+    setOtpExpiresAt(Date.now() + OTP_TTL_MS);
+    setStep("verify");
+  };
 
   const save = async () => {
     setErr("");
     const trimmed = phone.trim();
     if (!trimmed) return setErr("Please enter your phone number.");
+    if (!/^\d+$/.test(trimmed.replace(/\s+/g, ""))) return setErr("Phone number must contain numbers only. Please use numbers.");
     setSaving(true);
     const fullPhone = `${dial}${trimmed.replace(/\s+/g, "")}`;
     const { error } = await supabase.auth.updateUser({ data: { phone: fullPhone } });
     if (error) { setSaving(false); return setErr(error.message); }
     const { error: profileErr } = await supabase.from("profiles").update({ phone: fullPhone }).eq("id", account.id);
-    setSaving(false);
     if (profileErr) {
+      setSaving(false);
       const dupe = /duplicate key|unique constraint/i.test(profileErr.message);
       return setErr(dupe ? "This phone number is already registered on another account." : profileErr.message);
     }
+    await sendOtp();
+    setSaving(false);
+  };
+
+  const verifyOtp = async () => {
+    setOtpErr("");
+    const code = otpCode.trim();
+    if (!/^\d{6}$/.test(code)) return setOtpErr("Enter the 6-digit code sent to your email.");
+    setOtpVerifying(true);
+    const { error } = await supabase.auth.verifyOtp({ email: account.email, token: code, type: "email" });
+    setOtpVerifying(false);
+    if (error) return setOtpErr(/expired/i.test(error.message) ? "This code has expired. Request a new one." : error.message);
     onDone();
   };
+
+  const resendOtp = async () => {
+    setOtpErr(""); setOtpMsg(""); setOtpResending(true);
+    const { error } = await supabase.auth.signInWithOtp({ email: account.email, options: { shouldCreateUser: false } });
+    setOtpResending(false);
+    if (error) return setOtpErr(error.message);
+    setOtpCode("");
+    setOtpExpiresAt(Date.now() + OTP_TTL_MS);
+    setOtpMsg("We've sent a new code to your email.");
+  };
+
+  if (step === "verify") {
+    const canResend = otpSecondsLeft <= 0;
+    const mm = String(Math.floor(otpSecondsLeft / 60)).padStart(2, "0");
+    const ss = String(otpSecondsLeft % 60).padStart(2, "0");
+    return (
+      <div className="bonda-auth" style={{ flex: 1, display: "flex", flexDirection: "column", background: CANVAS, padding: "28px 22px 26px", boxSizing: "border-box" }}>
+        <style>{AUTH_CSS}</style>
+        <div className="rise" style={{ display: "flex", flexDirection: "column" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", marginBottom: 4 }}>
+            <img src="/assets/images/3D - Logo - Green.png" alt="Bonda" style={{ height: 28, width: 28, borderRadius: "50%", objectFit: "cover" }} />
+          </div>
+          <ScreenHeading eyebrow="One last step" title="Confirm your phone number" subtitle={`We've sent a 6-digit code to ${account.email} to confirm this is really you.`} />
+          <TextField label="Verification code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={otpCode}
+            onChange={e => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+            onKeyDown={e => e.key === "Enter" && otpCode.trim().length === 6 && verifyOtp()}
+            placeholder="123456" style={{ letterSpacing: "0.5em", fontWeight: 700, textAlign: "center", fontSize: 20 }} />
+          {otpErr && <ErrorNote>{otpErr}</ErrorNote>}
+          {otpMsg && <SuccessNote>{otpMsg}</SuccessNote>}
+          <button className="btn-primary" onClick={verifyOtp} disabled={otpVerifying || otpCode.trim().length !== 6}>
+            {otpVerifying ? "Verifying…" : "Verify code"} <span aria-hidden="true">→</span>
+          </button>
+          <div style={{ textAlign: "center", margin: "20px 0 0" }}>
+            {canResend ? (
+              <button type="button" className="link-accent" onClick={resendOtp} disabled={otpResending}>{otpResending ? "Sending…" : "Resend code"}</button>
+            ) : (
+              <p style={{ margin: 0, fontSize: 13, color: INK55 }}>Didn't get it? You can request a new code in <strong style={{ color: INK }}>{mm}:{ss}</strong></p>
+            )}
+          </div>
+          <p style={{ textAlign: "center", margin: "16px 0 0", fontSize: 13, color: INK55 }}>
+            <button type="button" className="link-accent" style={{ fontSize: "inherit" }} onClick={() => { setOtpErr(""); setOtpMsg(""); setOtpExpiresAt(null); setStep("phone"); }}>← Edit phone number</button>
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bonda-auth" style={{ flex: 1, display: "flex", flexDirection: "column", background: CANVAS, padding: "28px 22px 26px", boxSizing: "border-box" }}>
@@ -462,7 +614,7 @@ export function PhoneCaptureScreen({ account, onDone }) {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", marginBottom: 4 }}>
           <img src="/assets/images/3D - Logo - Green.png" alt="Bonda" style={{ height: 28, width: 28, borderRadius: "50%", objectFit: "cover" }} />
         </div>
-        <ScreenHeading eyebrow="One last step" title="What's your phone number?" subtitle="We'll save this to your profile so we can reach you if needed." />
+        <ScreenHeading eyebrow="One last step" title="What's your phone number?" subtitle="We'll save this to your profile and send a code to your email to confirm it." />
         <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
           <div style={{ flex: "0 0 118px" }}>
             <FieldLabel>Country</FieldLabel>
@@ -472,11 +624,16 @@ export function PhoneCaptureScreen({ account, onDone }) {
           </div>
           <div style={{ flex: 1 }}>
             <FieldLabel>Phone number</FieldLabel>
-            <input className="field-input" type="tel" inputMode="tel" autoComplete="tel" value={phone} onChange={e => setPhone(e.target.value)} onKeyDown={e => e.key === "Enter" && canSubmit && save()} placeholder="8123 4567" />
+            <input className="field-input" type="tel" inputMode="tel" autoComplete="tel" value={phone} onChange={e => {
+              const raw = e.target.value;
+              if (raw !== "" && !/^[\d\s]*$/.test(raw)) { setErr("Phone number must contain numbers only. Please use numbers."); return; }
+              setErr("");
+              setPhone(raw);
+            }} onKeyDown={e => e.key === "Enter" && canSubmit && save()} placeholder="8123 4567" />
           </div>
         </div>
         {err && <ErrorNote>{err}</ErrorNote>}
-        <button className="btn-primary" onClick={save} disabled={!canSubmit || saving}>Continue <span aria-hidden="true">→</span></button>
+        <button className="btn-primary" onClick={save} disabled={!canSubmit || saving}>{saving ? "Sending code…" : "Continue"} <span aria-hidden="true">→</span></button>
       </div>
     </div>
   );
