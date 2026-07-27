@@ -1,55 +1,102 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Fragment } from "react";
 import { supabase } from "../lib/supabase";
 import { T } from "../theme";
 import { Page, SectionLabel, Card, Badge, Btn, Input, TextArea, Avatar, Accordion, PageHero, AvatarIllustrations, ChildAvatar, ComAvatar, ROOM_ICONS, ACTIVITY_TEXTAREA_STYLE, ActionIllustration, HeroIllustration } from "../ui";
 import { CHILD_AVATARS, DEFAULT_CHILDREN, DEFAULT_SCHEDULE, ROOM_COLORS, SOS_COLORS, VERBAL_STATUS_OPTIONS } from "../data";
-import { forceSignOut } from "../hooks";
+import { forceSignOut, uploadCommunityAttachment, compressImage, classifyCommunityAttachment, MAX_COMMUNITY_ATTACHMENT_BYTES } from "../hooks";
 
-export function ChatUI({ msgs, input, setInput, onSend, onDelete, loading, color, bg, backFn, icon, label, sub, isGroup, account, dmPartner, endRef, adminIds, isAdmin }) {
+const isDocAttachment = url => /\.(docx?|xlsx?|pdf)$/i.test(url || "");
+
+export function ChatUI({ msgs, input, setInput, onSend, onDelete, loading, color, bg, backFn, icon, label, sub, isGroup, account, dmPartner, endRef, attachment, onPickAttachment, onRemoveAttachment, attachError }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 130px)" }}>
-      <div style={{ padding: "0 18px 12px", display: "flex", alignItems: "center", gap: 10 }}>
-        <button onClick={backFn} style={{ background: "none", border: "none", color: T.purple, fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: T.fontBody, padding: 0, flexShrink: 0 }}>←</button>
-        <div style={{ background: bg, borderRadius: T.r, padding: "8px 14px", flex: 1 }}>
-          <p style={{ margin: 0, fontWeight: 800, color, fontSize: 14 }}>{icon} {label}</p>
-          <p style={{ margin: 0, color: T.inkMuted, fontSize: 11 }}>{sub}</p>
+      <div style={{ padding: "10px 18px 12px", display: "flex", alignItems: "center", gap: 12 }}>
+        <button onClick={backFn} aria-label="Back" style={{ width: 34, height: 34, borderRadius: "50%", border: "none", background: "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0, color: T.inkMuted }}>
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M11 3.5 L5 9 L11 14.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none"/></svg>
+        </button>
+        {isGroup ? (
+          <div style={{ width: 42, height: 42, borderRadius: 12, background: bg, color, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="7.5" cy="7" r="3"/><path d="M2.5 17c0-3.2 2.2-5 5-5s5 1.8 5 5"/><path d="M13.5 12.6c2.4.2 4 1.8 4 4.4"/><path d="M12.6 4.4A2.7 2.7 0 0 1 14.7 9"/></svg>
+          </div>
+        ) : (
+          <ComAvatar value={icon} size={42} active={false} borderColor={T.border} />
+        )}
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <p style={{ margin: 0, fontWeight: 700, fontSize: 16, color: T.ink }}>{label}</p>
+          <p style={{ margin: "2px 0 0", fontSize: 12.5, color: T.inkMuted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{sub}</p>
         </div>
       </div>
       <div style={{ flex: 1, overflowY: "auto", padding: "0 18px", display: "flex", flexDirection: "column", gap: 10 }}>
         {loading && <p style={{ textAlign: "center", color: T.inkMuted, padding: 24, fontSize: 14 }}>Loading...</p>}
         {!loading && msgs.length === 0 && <div style={{ textAlign: "center", padding: "48px 20px" }}><div style={{ fontSize: 40, marginBottom: 12 }}>💬</div><p style={{ fontWeight: 700, color: T.ink, fontSize: 15 }}>No messages yet</p><p style={{ color: T.inkMuted, fontSize: 13 }}>{isGroup ? "Be the first to post!" : "Start a private conversation!"}</p></div>}
-        {msgs.map(msg => {
+        {msgs.map((msg, i) => {
           const isMe = msg.authorId ? msg.authorId === account.id : msg.author === account.name;
-          const authorIsAdmin = adminIds?.has(msg.authorId);
+          const showSep = i === 0 || msgs[i - 1].date !== msg.date;
           return (
-            <div key={msg.id} style={{ display: "flex", flexDirection: isMe ? "row-reverse" : "row", gap: 8, alignItems: "flex-end" }}>
+            <Fragment key={msg.id}>
+              {showSep && (
+                <p style={{ alignSelf: "center", margin: "2px 0 4px", fontSize: 11, fontWeight: 700, letterSpacing: "0.03em", color: T.inkMuted, background: T.surface, border: `1px solid ${T.border}`, padding: "4px 12px", borderRadius: 999 }}>{msg.date}</p>
+              )}
+              <div style={{ display: "flex", flexDirection: isMe ? "row-reverse" : "row", gap: 8, alignItems: "flex-end" }}>
               {!isMe && <ComAvatar value={msg.avatar} size={32} active={false} />}
               <div style={{ maxWidth: "74%", display: "flex", flexDirection: "column", alignItems: isMe ? "flex-end" : "flex-start", gap: 2 }}>
                 {!isMe && (
                   <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: T.inkMuted, paddingLeft: 2, display: "flex", alignItems: "center", gap: 5 }}>
                     {msg.author}
-                    {authorIsAdmin && <Badge color={T.purple}>Admin</Badge>}
                   </p>
                 )}
-                <div style={{ background: isMe ? color : T.surface, color: isMe ? "white" : T.ink, borderRadius: isMe ? "16px 16px 4px 16px" : "16px 16px 16px 4px", padding: "10px 14px", boxShadow: T.shadow }}>
-                  <p style={{ margin: 0, fontSize: 14, lineHeight: 1.6, wordBreak: "break-word" }}>{msg.text}</p>
+                <div style={{ background: isMe ? color : T.surface, color: isMe ? "white" : T.ink, borderRadius: isMe ? "18px 18px 6px 18px" : "18px 18px 18px 6px", padding: msg.imageUrl && !isDocAttachment(msg.imageUrl) ? 6 : "10px 14px", boxShadow: T.shadow }}>
+                  {msg.imageUrl && (isDocAttachment(msg.imageUrl) ? (
+                    <a href={msg.imageUrl} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 8, color: "inherit", textDecoration: "none" }}>
+                      <span style={{ fontSize: 20 }}>📄</span>
+                      <span style={{ fontSize: 13, fontWeight: 700, wordBreak: "break-word", textDecoration: "underline" }}>{msg.fileName || "Document"}</span>
+                    </a>
+                  ) : (
+                    <img src={msg.imageUrl} alt="" style={{ display: "block", maxWidth: 220, maxHeight: 220, width: "100%", borderRadius: 12, objectFit: "cover" }} />
+                  ))}
+                  {msg.text && <p style={{ margin: msg.imageUrl && !isDocAttachment(msg.imageUrl) ? "6px 4px 0" : 0, fontSize: 14, lineHeight: 1.6, wordBreak: "break-word" }}>{msg.text}</p>}
                 </div>
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  <p style={{ margin: 0, fontSize: 10, color: T.inkMuted }}>{msg.date} · {msg.time}</p>
-                  {(isMe || isAdmin) && <button onClick={() => onDelete(msg.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 10, color: T.red, fontWeight: 700, fontFamily: T.fontBody, padding: 0 }}>Delete</button>}
+                  <p style={{ margin: 0, fontSize: 10, color: T.inkMuted }}>{msg.time}</p>
+                  {isMe && <button onClick={() => onDelete(msg.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 10, color: T.red, fontWeight: 700, fontFamily: T.fontBody, padding: 0 }}>Delete</button>}
                 </div>
               </div>
-            </div>
+              </div>
+            </Fragment>
           );
         })}
         <div ref={endRef} />
       </div>
-      <div style={{ padding: "10px 18px 6px", background: T.surface, borderTop: `1px solid ${T.border}`, display: "flex", gap: 8, alignItems: "flex-end" }}>
-        <ComAvatar value={account.avatar} size={28} active={true} borderColor={bg} />
-        <textarea value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSend(); } }} placeholder="Write a message… (Enter to send)" rows={1} style={{ flex: 1, padding: "9px 13px", borderRadius: T.r, border: `1.5px solid ${T.border}`, fontSize: 14, fontFamily: T.fontBody, color: T.ink, outline: "none", resize: "none", lineHeight: 1.5, background: T.canvas }} />
-        <button onClick={onSend} disabled={!input.trim()} style={{ width: 38, height: 38, borderRadius: "50%", background: input.trim() ? color : T.border, border: "none", cursor: input.trim() ? "pointer" : "default", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0, transition: "background 0.2s", color: "white" }}>›</button>
+      <div style={{ position: "sticky", bottom: 0, background: T.surface, zIndex: 5 }}>
+        {attachError && <p style={{ margin: "0 18px 6px", fontSize: 11, color: T.red, fontWeight: 700 }}>{attachError}</p>}
+        {attachment && (
+          <div style={{ padding: "0 18px 8px", display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ position: "relative" }}>
+              {attachment.kind === "image" ? (
+                <img src={attachment.url} alt="" style={{ width: 52, height: 52, objectFit: "cover", borderRadius: 10, border: `1.5px solid ${T.border}`, display: "block" }} />
+              ) : (
+                <div style={{ width: 52, height: 52, borderRadius: 10, border: `1.5px solid ${T.border}`, background: T.canvas, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>📄</div>
+              )}
+              <button onClick={onRemoveAttachment} style={{ position: "absolute", top: -6, right: -6, width: 18, height: 18, borderRadius: "50%", background: T.red, color: "white", border: "none", cursor: "pointer", fontSize: 11, lineHeight: 1, padding: 0 }}>×</button>
+            </div>
+            <p style={{ margin: 0, fontSize: 12, color: T.inkMuted, wordBreak: "break-word" }}>{attachment.kind === "image" ? "Image attached" : attachment.name}</p>
+          </div>
+        )}
+        <div style={{ padding: "10px 12px 6px", borderTop: `1px solid ${T.border}`, display: "flex", gap: 8, alignItems: "center" }}>
+          <ComAvatar value={account.avatar} size={40} active={true} borderColor={bg} />
+          <label style={{ width: 38, height: 38, borderRadius: "50%", background: "transparent", border: `1.5px solid ${T.border}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0, fontSize: 16, color: T.inkMuted }}>
+            📎
+            <input type="file" accept="image/*,.doc,.docx,.xls,.xlsx,.pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/pdf" onChange={onPickAttachment} style={{ display: "none" }} />
+          </label>
+          <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", background: T.surface, border: `1.5px solid ${T.border}`, borderRadius: 22, padding: "0 5px 0 16px" }}>
+            <textarea value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSend(); } }} placeholder="Write a message… (Enter to send)" rows={1} style={{ flex: 1, minWidth: 0, padding: "11px 6px", border: "none", outline: "none", background: "transparent", fontSize: 14, fontFamily: T.fontBody, color: T.ink, resize: "none", lineHeight: 1.5 }} />
+            <button onClick={onSend} disabled={!input.trim() && !attachment} style={{ width: 34, height: 34, borderRadius: "50%", background: (input.trim() || attachment) ? color : T.border, border: "none", cursor: (input.trim() || attachment) ? "pointer" : "default", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0, transition: "background 0.2s", color: "white" }}>›</button>
+          </div>
+        </div>
+        {!isGroup && (
+          <p style={{ textAlign: "center", color: T.inkMuted, fontSize: 10, margin: "2px 0 4px" }}>{`Private — only you and ${dmPartner?.name}`}</p>
+        )}
       </div>
-      <p style={{ textAlign: "center", color: T.inkMuted, fontSize: 10, margin: "2px 0 4px" }}>{isGroup ? "Visible to all parents · Be kind 💛" : `Private — only you and ${dmPartner?.name}`}</p>
     </div>
   );
 }
@@ -58,20 +105,37 @@ export function CommunityScreen({ account }) {
   const [view, setView] = useState("home");
   const [dmPremium, setDmPremium] = useState(() => { try { return localStorage.getItem(`cb_premium_${account.name.toLowerCase()}`) === "true"; } catch { return false; } });
   const [showPaywall, setShowPaywall] = useState(false);
-  const isAdmin = account.role === "admin";
 
   const [activeRoom, setActiveRoom] = useState(null);
-  const [groupMsgs, setGroupMsgs] = useState([]); const [groupInput, setGroupInput] = useState(""); const [groupLoading, setGroupLoading] = useState(false);
+  const [groupMsgs, setGroupMsgs] = useState([]); const [groupInput, setGroupInput] = useState(""); const [groupLoading, setGroupLoading] = useState(false); const [groupAttachment, setGroupAttachment] = useState(null);
   const [allUsers, setAllUsers] = useState([]); const [dmPartner, setDmPartner] = useState(null);
   const [dmSearch, setDmSearch] = useState(""); const [dmSearchMatches, setDmSearchMatches] = useState(null);
-  const [dmMsgs, setDmMsgs] = useState([]); const [dmInput, setDmInput] = useState(""); const [dmLoading, setDmLoading] = useState(false);
+  const [dmMsgs, setDmMsgs] = useState([]); const [dmInput, setDmInput] = useState(""); const [dmLoading, setDmLoading] = useState(false); const [dmAttachment, setDmAttachment] = useState(null);
+  const [attachError, setAttachError] = useState(null);
+
+  // Picks a file for the chat's attachment preview; each chat (group/DM) keeps its own.
+  // Only images and Word/Excel documents are allowed — everything else (video, audio, etc.)
+  // is rejected. Images are compressed immediately so the preview and the eventual upload
+  // use the same small file.
+  const pickAttachment = setter => async e => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    const kind = classifyCommunityAttachment(file);
+    if (!kind) { setAttachError("Only images or Word/Excel/PDF documents can be attached."); return; }
+    if (file.size > MAX_COMMUNITY_ATTACHMENT_BYTES) { setAttachError("File is too large (max 10MB)."); return; }
+    setAttachError(null);
+    if (kind === "image") {
+      const compressed = await compressImage(file);
+      setter(prev => { if (prev?.url) URL.revokeObjectURL(prev.url); return { file: compressed, url: URL.createObjectURL(compressed), kind, name: file.name }; });
+    } else {
+      setter(prev => { if (prev?.url) URL.revokeObjectURL(prev.url); return { file, url: null, kind, name: file.name }; });
+    }
+  };
+  const clearAttachment = (setter, current) => { if (current?.url) URL.revokeObjectURL(current.url); setter(null); };
 
   const [rooms, setRooms] = useState([]);
-  const [adminIds, setAdminIds] = useState(() => new Set());
   const [announcement, setAnnouncement] = useState(null);
-  const [showRoomManager, setShowRoomManager] = useState(false);
-  const [editingRoom, setEditingRoom] = useState(null); // null = closed, {} = new room, {...row} = editing
-  const [announcementInput, setAnnouncementInput] = useState("");
 
   const endRef = useRef(null);
   const channelRef = useRef(null);
@@ -95,14 +159,11 @@ export function CommunityScreen({ account }) {
   useEffect(() => {
     loadRooms();
     loadAnnouncement();
-    supabase.from("profiles").select("id").eq("role", "admin").then(({ data }) => {
-      setAdminIds(new Set((data || []).map(p => p.id)));
-    });
   }, []);
 
   const dmKey = (a, b) => { const s = [a, b].sort(); return `dm_${s[0]}_${s[1]}`; };
 
-  const msgFromRow = m => ({ id: m.id, author: m.author_name, avatar: m.author_avatar, authorId: m.author_id, text: m.text, time: new Date(m.created_at).toLocaleTimeString("en-SG", { hour: "2-digit", minute: "2-digit" }), date: new Date(m.created_at).toLocaleDateString("en-SG", { day: "numeric", month: "short" }) });
+  const msgFromRow = m => ({ id: m.id, author: m.author_name, avatar: m.author_avatar, authorId: m.author_id, text: m.text, imageUrl: m.image_url, fileName: m.file_name, time: new Date(m.created_at).toLocaleTimeString("en-SG", { hour: "2-digit", minute: "2-digit" }), date: new Date(m.created_at).toLocaleDateString("en-SG", { day: "numeric", month: "short" }) });
 
   // Search private messages by content — finds which DM partners have a
   // message matching the search term so they show up even if their name doesn't match.
@@ -130,25 +191,31 @@ export function CommunityScreen({ account }) {
   const openGroup = async room => {
     leaveRoom();
     setActiveRoom(room); setGroupLoading(true); setView("groupchat");
-    const { data } = await supabase.from("messages").select("id,author_id,author_name,author_avatar,text,created_at").eq("room", `room_${room.id}`).order("created_at", { ascending: true }).limit(120);
+    const { data } = await supabase.from("messages").select("id,author_id,author_name,author_avatar,text,image_url,file_name,created_at").eq("room", `room_${room.id}`).order("created_at", { ascending: true }).limit(120);
     setGroupMsgs((data || []).map(msgFromRow));
     setGroupLoading(false);
     channelRef.current = supabase.channel(`room_${room.id}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `room=eq.room_${room.id}` }, p => setGroupMsgs(prev => [...prev, msgFromRow(p.new)].slice(-120)))
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `room=eq.room_${room.id}` }, p => setGroupMsgs(prev => prev.some(m => m.id === p.new.id) ? prev : [...prev, msgFromRow(p.new)].slice(-120)))
       .on("postgres_changes", { event: "DELETE", schema: "public", table: "messages", filter: `room=eq.room_${room.id}` }, p => setGroupMsgs(prev => prev.filter(m => m.id !== p.old.id)))
       .subscribe();
   };
 
   const sendGroup = async () => {
-    const text = groupInput.trim(); if (!text) return;
-    setGroupInput("");
-    await supabase.from("messages").insert({ room: `room_${activeRoom.id}`, author_id: account.id, author_name: account.name, author_avatar: account.avatar || "none", text });
+    const text = groupInput.trim(); const attachment = groupAttachment;
+    if (!text && !attachment) return;
+    setGroupInput(""); setGroupAttachment(null);
+    const image_url = attachment ? await uploadCommunityAttachment(attachment.file, account.id, attachment.kind) : null;
+    if (attachment?.url) URL.revokeObjectURL(attachment.url);
+    if (attachment && !image_url) return;
+    const file_name = attachment?.kind === "document" ? attachment.name : null;
+    const { data, error } = await supabase.from("messages").insert({ room: `room_${activeRoom.id}`, author_id: account.id, author_name: account.name, author_avatar: account.avatar || "none", text, image_url, file_name }).select("id,author_id,author_name,author_avatar,text,image_url,file_name,created_at").single();
+    if (error) { console.error(error); setAttachError("Could not send the message. Please try again."); return; }
+    setGroupMsgs(prev => prev.some(m => m.id === data.id) ? prev : [...prev, msgFromRow(data)]);
   };
 
   const deleteGroup = async id => {
     setGroupMsgs(prev => prev.filter(m => m.id !== id));
-    const q = supabase.from("messages").delete().eq("id", id);
-    await (isAdmin ? q : q.eq("author_id", account.id));
+    await supabase.from("messages").delete().eq("id", id).eq("author_id", account.id);
   };
 
   const openDMList = async () => {
@@ -162,60 +229,34 @@ export function CommunityScreen({ account }) {
     leaveRoom();
     setDmPartner(p); setDmLoading(true); setView("dm_chat");
     const key = dmKey(account.id, p.id);
-    const { data } = await supabase.from("messages").select("id,author_id,author_name,author_avatar,text,created_at").eq("room", key).order("created_at", { ascending: true }).limit(200);
+    const { data } = await supabase.from("messages").select("id,author_id,author_name,author_avatar,text,image_url,file_name,created_at").eq("room", key).order("created_at", { ascending: true }).limit(200);
     setDmMsgs((data || []).map(msgFromRow));
     setDmLoading(false);
     channelRef.current = supabase.channel(key)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `room=eq.${key}` }, p => setDmMsgs(prev => [...prev, msgFromRow(p.new)].slice(-200)))
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `room=eq.${key}` }, p => setDmMsgs(prev => prev.some(m => m.id === p.new.id) ? prev : [...prev, msgFromRow(p.new)].slice(-200)))
       .on("postgres_changes", { event: "DELETE", schema: "public", table: "messages", filter: `room=eq.${key}` }, p => setDmMsgs(prev => prev.filter(m => m.id !== p.old.id)))
       .subscribe();
   };
 
   const sendDM = async () => {
-    const text = dmInput.trim(); if (!text) return;
-    setDmInput("");
-    await supabase.from("messages").insert({ room: dmKey(account.id, dmPartner.id), author_id: account.id, author_name: account.name, author_avatar: account.avatar || "none", text });
+    const text = dmInput.trim(); const attachment = dmAttachment;
+    if (!text && !attachment) return;
+    setDmInput(""); setDmAttachment(null);
+    const image_url = attachment ? await uploadCommunityAttachment(attachment.file, account.id, attachment.kind) : null;
+    if (attachment?.url) URL.revokeObjectURL(attachment.url);
+    if (attachment && !image_url) return;
+    const file_name = attachment?.kind === "document" ? attachment.name : null;
+    const { data, error } = await supabase.from("messages").insert({ room: dmKey(account.id, dmPartner.id), author_id: account.id, author_name: account.name, author_avatar: account.avatar || "none", text, image_url, file_name }).select("id,author_id,author_name,author_avatar,text,image_url,file_name,created_at").single();
+    if (error) { console.error(error); setAttachError("Could not send the message. Please try again."); return; }
+    setDmMsgs(prev => prev.some(m => m.id === data.id) ? prev : [...prev, msgFromRow(data)]);
   };
 
   const deleteDM = async id => {
     setDmMsgs(prev => prev.filter(m => m.id !== id));
-    const q = supabase.from("messages").delete().eq("id", id);
-    await (isAdmin ? q : q.eq("author_id", account.id));
+    await supabase.from("messages").delete().eq("id", id).eq("author_id", account.id);
   };
 
   const purchase = () => { try { localStorage.setItem(`cb_premium_${account.name.toLowerCase()}`, "true"); } catch {} setDmPremium(true); setShowPaywall(false); setTimeout(openDMList, 300); };
-
-  const saveRoom = async () => {
-    const r = editingRoom;
-    if (!r?.label?.trim()) return;
-    const payload = { label: r.label.trim(), description: (r.description || "").trim(), icon_key: r.icon_key || "community", color_key: r.color_key || "purple" };
-    if (r.id) {
-      await supabase.from("community_rooms").update(payload).eq("id", r.id);
-    } else {
-      await supabase.from("community_rooms").insert({ ...payload, sort_order: rooms.length });
-    }
-    setEditingRoom(null);
-    await loadRooms();
-  };
-
-  const deleteRoom = async id => {
-    await supabase.from("community_rooms").delete().eq("id", id);
-    await loadRooms();
-  };
-
-  const postAnnouncement = async () => {
-    const text = announcementInput.trim();
-    if (!text) return;
-    await supabase.from("community_announcements").insert({ text, created_by: account.id });
-    setAnnouncementInput("");
-    await loadAnnouncement();
-  };
-
-  const clearAnnouncement = async () => {
-    if (!announcement) return;
-    await supabase.from("community_announcements").delete().eq("id", announcement.id);
-    setAnnouncement(null);
-  };
 
   const Paywall = () => (
     <div style={{ position: "fixed", inset: 0, background: "rgba(26,26,46,0.7)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
@@ -256,9 +297,9 @@ export function CommunityScreen({ account }) {
 
   if (view === "groupchat" && activeRoom) {
     const c = ROOM_COLORS[activeRoom.color_key] || ROOM_COLORS.purple;
-    return <div style={{ position: "relative" }}>{showPaywall && <Paywall />}<ChatUI msgs={groupMsgs} input={groupInput} setInput={setGroupInput} onSend={sendGroup} onDelete={deleteGroup} loading={groupLoading} color={c.color} bg={c.bg} backFn={() => { leaveRoom(); setView("home"); }} icon={null} label={activeRoom.label} sub={activeRoom.description} isGroup account={account} dmPartner={null} endRef={endRef} adminIds={adminIds} isAdmin={isAdmin} /></div>;
+    return <div style={{ position: "relative" }}>{showPaywall && <Paywall />}<ChatUI msgs={groupMsgs} input={groupInput} setInput={setGroupInput} onSend={sendGroup} onDelete={deleteGroup} loading={groupLoading} color={c.color} bg={c.bg} backFn={() => { leaveRoom(); setView("home"); }} icon={null} label={activeRoom.label} sub={activeRoom.description} isGroup account={account} dmPartner={null} endRef={endRef} attachment={groupAttachment} onPickAttachment={pickAttachment(setGroupAttachment)} onRemoveAttachment={() => clearAttachment(setGroupAttachment, groupAttachment)} attachError={attachError} /></div>;
   }
-  if (view === "dm_chat" && dmPartner) return <div style={{ position: "relative" }}>{showPaywall && <Paywall />}<ChatUI msgs={dmMsgs} input={dmInput} setInput={setDmInput} onSend={sendDM} onDelete={deleteDM} loading={dmLoading} color={T.purple} bg={T.purpleL} backFn={() => { leaveRoom(); setView("dm_list"); }} icon={dmPartner.avatar} label={dmPartner.name} sub="Private message" isGroup={false} account={account} dmPartner={dmPartner} endRef={endRef} adminIds={adminIds} isAdmin={isAdmin} /></div>;
+  if (view === "dm_chat" && dmPartner) return <div style={{ position: "relative" }}>{showPaywall && <Paywall />}<ChatUI msgs={dmMsgs} input={dmInput} setInput={setDmInput} onSend={sendDM} onDelete={deleteDM} loading={dmLoading} color={T.purple} bg={T.purpleL} backFn={() => { leaveRoom(); setView("dm_list"); }} icon={dmPartner.avatar} label={dmPartner.name} sub="Private message" isGroup={false} account={account} dmPartner={dmPartner} endRef={endRef} attachment={dmAttachment} onPickAttachment={pickAttachment(setDmAttachment)} onRemoveAttachment={() => clearAttachment(setDmAttachment, dmAttachment)} attachError={attachError} /></div>;
 
   if (view === "dm_list") {
     const others = allUsers.filter(u => u.id !== account.id);
@@ -316,7 +357,6 @@ export function CommunityScreen({ account }) {
             <p style={{ margin: "0 0 2px", color: T.purple, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em" }}>📌 Announcement</p>
             <p style={{ margin: 0, color: T.ink, fontSize: 13, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{announcement.text}</p>
           </div>
-          {isAdmin && <button onClick={clearAnnouncement} style={{ background: "none", border: "none", cursor: "pointer", color: T.purple, fontSize: 12, fontWeight: 700, fontFamily: T.fontBody, padding: 0, flexShrink: 0 }}>✕</button>}
         </div>
       )}
 
@@ -324,26 +364,13 @@ export function CommunityScreen({ account }) {
         <p style={{ margin: 0, color: T.amber, fontSize: 12, fontWeight: 700, lineHeight: 1.6 }}>💛 Be kind and supportive. Everyone here is doing their best.</p>
       </div>
 
-      {isAdmin && (
-        <div style={{ background: T.ink, borderRadius: T.rL, padding: 16, marginBottom: 24 }}>
-          <p style={{ margin: "0 0 10px", color: "white", fontWeight: 800, fontSize: 13 }}>⚙️ Admin controls</p>
-          {!announcement && (
-            <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-              <textarea value={announcementInput} onChange={e => setAnnouncementInput(e.target.value)} placeholder="Post a pinned announcement…" rows={1} style={{ flex: 1, padding: "9px 13px", borderRadius: T.r, border: "none", fontSize: 13, fontFamily: T.fontBody, color: T.ink, outline: "none", resize: "none", lineHeight: 1.5, background: "rgba(255,255,255,0.92)" }} />
-              <button onClick={postAnnouncement} disabled={!announcementInput.trim()} style={{ background: T.purple, color: "white", border: "none", borderRadius: T.r, padding: "0 16px", fontWeight: 700, fontSize: 12, cursor: announcementInput.trim() ? "pointer" : "default", fontFamily: T.fontBody, opacity: announcementInput.trim() ? 1 : 0.5 }}>Post</button>
-            </div>
-          )}
-          <button onClick={() => { setShowRoomManager(s => !s); setEditingRoom(null); }} style={{ background: "rgba(255,255,255,0.1)", color: "white", border: "none", borderRadius: T.r, padding: "8px 14px", fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: T.fontBody }}>{showRoomManager ? "Done managing rooms" : "Manage Group Rooms"}</button>
-        </div>
-      )}
-
       <SectionLabel style={{ marginBottom: 10 }}>Group Rooms</SectionLabel>
       <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 24 }}>
         {rooms.map(r => {
           const c = ROOM_COLORS[r.color_key] || ROOM_COLORS.purple;
           const iconFn = ROOM_ICONS[r.icon_key] || ROOM_ICONS.community;
           return (
-            <Card key={r.id} onClick={() => !showRoomManager && openGroup(r)}>
+            <Card key={r.id} onClick={() => openGroup(r)}>
               <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
                 <div style={{ width: 44, height: 44, borderRadius: 12, background: c.bg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, border: `1px solid ${c.color}20` }}>
                   {iconFn(c.color)}
@@ -352,55 +379,11 @@ export function CommunityScreen({ account }) {
                   <p style={{ margin: "0 0 3px", fontWeight: 800, color: c.color, fontSize: 14 }}>{r.label}</p>
                   <p style={{ margin: 0, color: T.inkMuted, fontSize: 12 }}>{r.description}</p>
                 </div>
-                {showRoomManager ? (
-                  <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-                    <button onClick={(e) => { e.stopPropagation(); setEditingRoom({ ...r }); }} style={{ background: T.purpleL, color: T.purple, border: "none", borderRadius: 8, padding: "6px 10px", fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: T.fontBody }}>Edit</button>
-                    <button onClick={(e) => { e.stopPropagation(); deleteRoom(r.id); }} style={{ background: T.redL, color: T.red, border: "none", borderRadius: 8, padding: "6px 10px", fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: T.fontBody }}>Delete</button>
-                  </div>
-                ) : (
-                  <span style={{ color: T.inkMuted, fontSize: 20 }}>›</span>
-                )}
+                <span style={{ color: T.inkMuted, fontSize: 20 }}>›</span>
               </div>
             </Card>
           );
         })}
-
-        {showRoomManager && editingRoom === null && (
-          <Btn onClick={() => setEditingRoom({ label: "", description: "", icon_key: "community", color_key: "purple" })} secondary full>+ New Room</Btn>
-        )}
-
-        {showRoomManager && editingRoom && (
-          <Card style={{ padding: 16 }}>
-            <p style={{ margin: "0 0 10px", fontWeight: 800, color: T.ink, fontSize: 13 }}>{editingRoom.id ? "Edit Room" : "New Room"}</p>
-            <Input label="Name" value={editingRoom.label} onChange={e => setEditingRoom(r => ({ ...r, label: e.target.value }))} placeholder="e.g. New Parents" />
-            <Input label="Description" value={editingRoom.description} onChange={e => setEditingRoom(r => ({ ...r, description: e.target.value }))} placeholder="Short description" />
-            <p style={{ margin: "0 0 6px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>Icon</p>
-            <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
-              {Object.keys(ROOM_ICONS).map(key => {
-                const c = ROOM_COLORS[editingRoom.color_key] || ROOM_COLORS.purple;
-                const active = editingRoom.icon_key === key;
-                return (
-                  <button key={key} onClick={() => setEditingRoom(r => ({ ...r, icon_key: key }))} style={{ width: 40, height: 40, borderRadius: 10, background: active ? c.bg : T.canvas, border: `1.5px solid ${active ? c.color : T.border}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
-                    {ROOM_ICONS[key](c.color)}
-                  </button>
-                );
-              })}
-            </div>
-            <p style={{ margin: "0 0 6px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>Color</p>
-            <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-              {Object.entries(ROOM_COLORS).map(([key, c]) => {
-                const active = editingRoom.color_key === key;
-                return (
-                  <button key={key} onClick={() => setEditingRoom(r => ({ ...r, color_key: key }))} style={{ width: 32, height: 32, borderRadius: "50%", background: c.color, border: active ? `2.5px solid ${T.ink}` : "2.5px solid transparent", cursor: "pointer" }} />
-                );
-              })}
-            </div>
-            <div style={{ display: "flex", gap: 8 }}>
-              <Btn onClick={saveRoom} style={{ flex: 1 }} disabled={!editingRoom.label.trim()}>Save</Btn>
-              <Btn onClick={() => setEditingRoom(null)} secondary style={{ flex: 1 }}>Cancel</Btn>
-            </div>
-          </Card>
-        )}
       </div>
 
       <SectionLabel style={{ marginBottom: 10 }}>Private Messages</SectionLabel>

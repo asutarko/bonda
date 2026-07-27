@@ -1,41 +1,77 @@
 import { useState, useEffect, useRef } from "react";
+import Swal from "sweetalert2";
 import { supabase } from "../lib/supabase";
 import { uploadPhoto } from "../hooks";
 import { T } from "../theme";
-import { Page, SectionLabel, Card, Badge, Btn, Input, TextArea, Avatar, Accordion, PageHero, AvatarIllustrations, ChildAvatar, ComAvatar, ROOM_ICONS, ACTIVITY_TEXTAREA_STYLE, ActionIllustration, HeroIllustration } from "../ui";
-import { CHILD_AVATARS, DEFAULT_CHILDREN, DEFAULT_SCHEDULE, ROOM_COLORS, SOS_COLORS, VERBAL_STATUS_OPTIONS } from "../data";
+import { Page, SectionLabel, Card, Badge, Btn, Input, TextArea, Select, FieldError, Avatar, Accordion, FormSection, ToggleField, PageHero, AvatarIllustrations, ChildAvatar, ComAvatar, ROOM_ICONS, ACTIVITY_TEXTAREA_STYLE, ActionIllustration, HeroIllustration } from "../ui";
+import { CHILD_AVATARS, DEFAULT_CHILDREN, DEFAULT_SCHEDULE, PLACEMENT_TYPE_OPTIONS, ROOM_COLORS, SOS_COLORS, VERBAL_STATUS_OPTIONS } from "../data";
 
-export function SpecialNeedsSection({ hasSpecialNeeds, setHasSpecialNeeds, verbalStatus, setVerbalStatus, knownTriggers, setKnownTriggers, therapySchedule, setTherapySchedule, dietProgram, setDietProgram }) {
+export function SpecialNeedsSection({
+  verbalStatus, setVerbalStatus,
+  hasTriggers, setHasTriggers, knownTriggers, setKnownTriggers,
+  hasTherapy, setHasTherapy, therapySchedule, setTherapySchedule,
+  hasDiet, setHasDiet, dietProgram, setDietProgram,
+  errors = {},
+}) {
   return (
     <>
-      <SectionLabel style={{ marginBottom: 10 }}>Additional Needs (optional)</SectionLabel>
-      <Card onClick={() => setHasSpecialNeeds(v => !v)} style={{ marginBottom: hasSpecialNeeds ? 14 : 20, display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", cursor: "pointer" }}>
-        <div style={{ width: 22, height: 22, borderRadius: 7, border: `1.5px solid ${hasSpecialNeeds ? T.purple : T.border}`, background: hasSpecialNeeds ? T.purple : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all 0.15s" }}>
-          {hasSpecialNeeds && <svg width="11" height="11" viewBox="0 0 10 10" fill="none"><path d="M2 5 L4 7 L8 3" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
-        </div>
-        <p style={{ margin: 0, fontWeight: 700, fontSize: 13, color: T.ink }}>This child has additional needs (e.g. autism)</p>
-      </Card>
+      <Select label={<>Verbal status <span style={{ color: T.red }}>*</span></>} value={verbalStatus} onChange={e => setVerbalStatus(e.target.value)} placeholder="Select verbal status" options={VERBAL_STATUS_OPTIONS.map(o => ({ value: o.key, label: o.label }))} />
+      <FieldError>{errors.verbalStatus}</FieldError>
 
-      {hasSpecialNeeds && (
+      <ToggleField label="Known triggers?" on={hasTriggers === "Yes"} onChange={v => { setHasTriggers(v ? "Yes" : "No"); if (!v) setKnownTriggers(""); }} />
+      {hasTriggers === "Yes" && (
         <>
-          <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>Verbal status</p>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>
-            {VERBAL_STATUS_OPTIONS.map(opt => {
-              const isActive = verbalStatus === opt.key;
-              return (
-                <button key={opt.key} onClick={() => setVerbalStatus(isActive ? "" : opt.key)}
-                  style={{ padding: "8px 14px", borderRadius: 99, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody, background: isActive ? T.purple : T.surface, color: isActive ? "white" : T.ink, border: `1.5px solid ${isActive ? T.purple : T.border}` }}>
-                  {opt.label}
-                </button>
-              );
-            })}
-          </div>
-
-          <TextArea label="Known triggers (optional)" hint="Describe in your own words — e.g. loud noises, crowded places, sudden changes in routine." value={knownTriggers} onChange={e => setKnownTriggers(e.target.value)} placeholder="e.g. Loud noises, being rushed, scratchy clothing tags" />
-          <TextArea label="Therapy schedule (optional)" hint="e.g. which therapies, and which days/times." value={therapySchedule} onChange={e => setTherapySchedule(e.target.value)} placeholder="e.g. Speech therapy Tue 4pm, ABA Mon/Wed/Fri 3-5pm" />
-          <TextArea label="Diet program (optional)" hint="e.g. any special diet, allergy, or feeding program." value={dietProgram} onChange={e => setDietProgram(e.target.value)} placeholder="e.g. Gluten-free, casein-free (GFCF)" />
+          <TextArea label={<>Describe the known triggers <span style={{ color: T.red }}>*</span></>} hint="Describe in your own words — e.g. loud noises, crowded places, sudden changes in routine." value={knownTriggers} onChange={e => setKnownTriggers(e.target.value)} placeholder="e.g. Loud noises, being rushed, scratchy clothing tags" />
+          <FieldError>{errors.knownTriggers}</FieldError>
         </>
       )}
+
+      <ToggleField label="Therapy schedule?" on={hasTherapy === "Yes"} onChange={v => { setHasTherapy(v ? "Yes" : "No"); if (!v) setTherapySchedule(""); }} />
+      {hasTherapy === "Yes" && (
+        <>
+          <TextArea label={<>Describe the therapy schedule <span style={{ color: T.red }}>*</span></>} hint="e.g. which therapies, and which days/times." value={therapySchedule} onChange={e => setTherapySchedule(e.target.value)} placeholder="e.g. Speech therapy Tue 4pm, ABA Mon/Wed/Fri 3-5pm" />
+          <FieldError>{errors.therapySchedule}</FieldError>
+        </>
+      )}
+
+      <ToggleField label="Diet program?" on={hasDiet === "Yes"} onChange={v => { setHasDiet(v ? "Yes" : "No"); if (!v) setDietProgram(""); }} />
+      {hasDiet === "Yes" && (
+        <>
+          <TextArea label={<>Describe the diet program <span style={{ color: T.red }}>*</span></>} hint="e.g. any special diet, allergy, or feeding program." value={dietProgram} onChange={e => setDietProgram(e.target.value)} placeholder="e.g. Gluten-free, casein-free (GFCF)" />
+          <FieldError>{errors.dietProgram}</FieldError>
+        </>
+      )}
+    </>
+  );
+}
+
+// Optional, filled in once here so CarerLetterScreen can auto-fill a carer
+// letter from it instead of the caregiver retyping it on every letter.
+export function PlacementDetailsSection({
+  diagnosis, setDiagnosis,
+  placementStartDate, setPlacementStartDate,
+  fosteringAgency, setFosteringAgency,
+  placementType, setPlacementType,
+  courtOrderRef, setCourtOrderRef,
+  caseWorkerName, setCaseWorkerName,
+  caseWorkerPhone, setCaseWorkerPhone,
+  caseWorkerEmail, setCaseWorkerEmail,
+  clinicName, setClinicName,
+  location, setLocation,
+  countryOptions,
+}) {
+  return (
+    <>
+      <Input label="Diagnosis" placeholder="e.g. Autism Spectrum Disorder" value={diagnosis} onChange={e => setDiagnosis(e.target.value)} />
+      <Input label="Placement start date" type="date" value={placementStartDate} onChange={e => setPlacementStartDate(e.target.value)} />
+      <Input label="Fostering agency / VWO name" value={fosteringAgency} onChange={e => setFosteringAgency(e.target.value)} />
+      <Select label="Placement status" placeholder="Select placement status (foster carers only)" value={placementType} onChange={e => setPlacementType(e.target.value)} options={PLACEMENT_TYPE_OPTIONS.map(o => ({ value: o, label: o }))} />
+      <Input label="Court order reference" value={courtOrderRef} onChange={e => setCourtOrderRef(e.target.value)} />
+      <Input label="Case worker name" value={caseWorkerName} onChange={e => setCaseWorkerName(e.target.value)} />
+      <Input label="Case worker phone" value={caseWorkerPhone} onChange={e => setCaseWorkerPhone(e.target.value)} />
+      <Input label="Case worker email" value={caseWorkerEmail} onChange={e => setCaseWorkerEmail(e.target.value)} />
+      <Input label="Clinic name" value={clinicName} onChange={e => setClinicName(e.target.value)} placeholder="e.g. Sunrise Family Clinic" />
+      <Select label="Location (country)" placeholder="Select country" value={location} onChange={e => setLocation(e.target.value)} options={countryOptions} />
     </>
   );
 }
@@ -44,17 +80,32 @@ export function AddChildScreen({ childCtx, pop }) {
   const [name, setName] = useState("");
   const [emoji, setEmoji] = useState("none");
   const [photo, setPhoto] = useState(null);
+  const [showAvatarPicker, setShowAvatarPicker] = useState(false);
   const [dob, setDob] = useState("");
   const [gender, setGender] = useState("");
   const [caregiverType, setCaregiverType] = useState("biological");
   const [caregiverLabel, setCaregiverLabel] = useState("");
   const [customRelative, setCustomRelative] = useState("");
-  const [hasSpecialNeeds, setHasSpecialNeeds] = useState(false);
   const [verbalStatus, setVerbalStatus] = useState("");
+  const [hasTriggers, setHasTriggers] = useState("No");
   const [knownTriggers, setKnownTriggers] = useState("");
+  const [hasTherapy, setHasTherapy] = useState("No");
   const [therapySchedule, setTherapySchedule] = useState("");
+  const [hasDiet, setHasDiet] = useState("No");
   const [dietProgram, setDietProgram] = useState("");
+  const [diagnosis, setDiagnosis] = useState("");
+  const [placementStartDate, setPlacementStartDate] = useState("");
+  const [fosteringAgency, setFosteringAgency] = useState("");
+  const [placementType, setPlacementType] = useState("");
+  const [courtOrderRef, setCourtOrderRef] = useState("");
+  const [caseWorkerName, setCaseWorkerName] = useState("");
+  const [caseWorkerPhone, setCaseWorkerPhone] = useState("");
+  const [caseWorkerEmail, setCaseWorkerEmail] = useState("");
+  const [clinicName, setClinicName] = useState("");
+  const [location, setLocation] = useState("");
+  const [countryOptions, setCountryOptions] = useState([]);
   const [err, setErr] = useState("");
+  const [errors, setErrors] = useState({});
   const [photoErr, setPhotoErr] = useState("");
   const videoRef = useRef(null);
   const streamRef = useRef(null);
@@ -63,6 +114,12 @@ export function AddChildScreen({ childCtx, pop }) {
   const [cameraErr, setCameraErr] = useState("");
   const [cameraSupported, setCameraSupported] = useState(true);
   const { addChild } = childCtx;
+
+  useEffect(() => {
+    supabase.from("countries").select("name").order("sort_order").then(({ data }) => {
+      if (data) setCountryOptions(data.map(c => c.name));
+    });
+  }, []);
 
   // Silently check camera availability on mount — hide button if not supported
   useEffect(() => {
@@ -117,14 +174,24 @@ export function AddChildScreen({ childCtx, pop }) {
   const [saving, setSaving] = useState(false);
 
   const save = async () => {
-    if (!name.trim()) return setErr("Please enter your child's name.");
-    if (caregiverType === "other" && !caregiverLabel.trim()) return setErr("Please tell us your relationship to this child.");
-    if (caregiverType === "other" && caregiverLabel === "Others" && !customRelative.trim()) return setErr("Please tell us your relationship to this child.");
+    const fe = {};
+    if (!name.trim()) fe.name = "Please enter your child's name.";
+    if (!dob) fe.dob = "Please enter your child's date of birth.";
+    if (!gender) fe.gender = "Please select your child's gender.";
+    if (caregiverType === "other" && !caregiverLabel.trim()) fe.relationshipDetail = "Please tell us your relationship to this child.";
+    if (caregiverType === "other" && caregiverLabel === "Others" && !customRelative.trim()) fe.customRelative = "Please tell us your relationship to this child.";
+    if (!verbalStatus) fe.verbalStatus = "Please select your child's verbal status.";
+    if (hasTriggers === "Yes" && !knownTriggers.trim()) fe.knownTriggers = "Please describe the known triggers.";
+    if (hasTherapy === "Yes" && !therapySchedule.trim()) fe.therapySchedule = "Please describe the therapy schedule.";
+    if (hasDiet === "Yes" && !dietProgram.trim()) fe.dietProgram = "Please describe the diet program.";
+    setErrors(fe);
+    if (Object.keys(fe).length > 0) return;
     setErr(""); setSaving(true);
     const finalCaregiverLabel = caregiverType === "other" ? (caregiverLabel === "Others" ? customRelative.trim() : caregiverLabel.trim()) : "";
-    const id = await addChild({ name: name.trim(), emoji: photo || emoji, dob, gender, caregiverType, caregiverLabel: finalCaregiverLabel, hasSpecialNeeds, verbalStatus, knownTriggers: knownTriggers.trim(), therapySchedule: therapySchedule.trim(), dietProgram: dietProgram.trim() });
+    const id = await addChild({ name: name.trim(), emoji: photo || emoji, dob, gender, caregiverType, caregiverLabel: finalCaregiverLabel, hasSpecialNeeds: true, verbalStatus, knownTriggers: hasTriggers === "Yes" ? knownTriggers.trim() : "", therapySchedule: hasTherapy === "Yes" ? therapySchedule.trim() : "", dietProgram: hasDiet === "Yes" ? dietProgram.trim() : "", diagnosis: diagnosis.trim(), placementStartDate, fosteringAgency: fosteringAgency.trim(), placementType, courtOrderRef: courtOrderRef.trim(), caseWorkerName: caseWorkerName.trim(), caseWorkerPhone: caseWorkerPhone.trim(), caseWorkerEmail: caseWorkerEmail.trim(), clinicName: clinicName.trim(), location });
     setSaving(false);
     if (!id) return setErr("Could not save the profile. Please try again.");
+    await Swal.fire({ icon: "success", title: "Profile saved successfully", confirmButtonColor: T.purple });
     pop();
   };
 
@@ -132,48 +199,47 @@ export function AddChildScreen({ childCtx, pop }) {
 
   return (
     <Page>
-      <h2 style={{ margin: "0 0 6px", fontSize: 20, fontWeight: 800, color: T.ink }}>Add a Child Profile</h2>
-      <p style={{ margin: "0 0 24px", color: T.inkSoft, fontSize: 14, lineHeight: 1.6 }}>Each child gets their own schedule, emotion log, and history. You can switch between children anytime.</p>
+      <h1 style={{ margin: "6px 0 20px", fontFamily: T.fontDisplay, fontWeight: 600, fontSize: 26, lineHeight: 1.15, letterSpacing: "-0.01em", color: T.ink }}>Add a child profile</h1>
+      <p style={{ margin: "-12px 0 20px", color: T.inkSoft, fontSize: 14, lineHeight: 1.6 }}>Each child gets their own schedule, emotion log, and history. You can switch between children anytime.</p>
 
-      <SectionLabel style={{ marginBottom: 10 }}>Profile Picture</SectionLabel>
-
-
-      <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16, padding: "14px 16px", background: T.purpleL, borderRadius: T.r }}>
-
-        <ChildAvatar value={photo || emoji} size={60} active={true} borderColor={T.purple} />
-        <div style={{ flex: 1 }}>
-          <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>
-            {isPhotoSelected ? "Photo added ✓ — or choose an avatar below" : "Add a real photo (optional) — or pick an avatar below"}
-          </p>
-          <div style={{ display: "flex", gap: 8 }}>
-
-            <label style={{ flex: 1, background: T.purple, color: "white", borderRadius: T.r, padding: "8px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", textAlign: "center", fontFamily: T.fontBody, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
-              <span style={{ fontSize: 15 }}>+</span> Upload
-              <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => {
-                const file = e.target.files[0];
-                if (!file) return;
-                if (file.size > 2 * 1024 * 1024) return setPhotoErr("Photo must be under 2 MB.");
-                const reader = new FileReader();
-                reader.onload = ev => { setPhoto(ev.target.result); setPhotoErr(""); };
-                reader.readAsDataURL(file);
-              }} />
-            </label>
-
-            {cameraSupported && (
-              <button onClick={openCamera} style={{ flex: 1, background: T.surface, color: T.purple, borderRadius: T.r, padding: "8px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", border: `1.5px solid ${T.purple}`, fontFamily: T.fontBody, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
-                <span style={{ fontSize: 15 }}>+</span> Camera
-              </button>
-            )}
-
-            {isPhotoSelected && (
-              <button onClick={() => { setPhoto(null); }} style={{ background: T.redL, color: T.red, borderRadius: T.r, padding: "8px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", border: "none", fontFamily: T.fontBody }}>✕</button>
-            )}
-          </div>
-          {photoErr && <p style={{ margin: "6px 0 0", color: T.red, fontSize: 11, fontWeight: 700 }}>{photoErr}</p>}
-
+      <div style={{ background: T.purpleL, border: `1px solid ${T.border}`, borderRadius: T.rL, padding: "24px 18px", textAlign: "center", marginBottom: 18 }}>
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 14 }}>
+          <ChildAvatar value={photo || emoji} size={88} active={true} borderColor={T.purple} />
         </div>
-      </div>
 
+        <p style={{ margin: "0 0 12px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>
+          {isPhotoSelected ? "Photo added ✓ — or choose an avatar below" : "Add a real photo (optional) — or pick an avatar below"}
+        </p>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
+
+          <label onClick={() => setShowAvatarPicker(false)} style={{ background: T.purple, color: "white", borderRadius: 99, padding: "10px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", textAlign: "center", fontFamily: T.fontBody, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
+            <span style={{ fontSize: 15 }}>+</span> Upload
+            <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => {
+              const file = e.target.files[0];
+              if (!file) return;
+              if (file.size > 2 * 1024 * 1024) return setPhotoErr("Photo must be under 2 MB.");
+              const reader = new FileReader();
+              reader.onload = ev => { setPhoto(ev.target.result); setPhotoErr(""); };
+              reader.readAsDataURL(file);
+            }} />
+          </label>
+
+          {cameraSupported && (
+            <button onClick={() => { setShowAvatarPicker(false); openCamera(); }} style={{ background: T.surface, color: T.purple, borderRadius: 99, padding: "10px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", border: `1.5px solid ${T.purple}`, fontFamily: T.fontBody, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
+              <span style={{ fontSize: 15 }}>+</span> Camera
+            </button>
+          )}
+
+          <button onClick={() => setShowAvatarPicker(v => !v)} style={{ background: showAvatarPicker ? T.purple : T.surface, color: showAvatarPicker ? "white" : T.purple, borderRadius: 99, padding: "10px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", border: `1.5px solid ${T.purple}`, fontFamily: T.fontBody, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
+            <span style={{ fontSize: 15 }}>+</span> Avatar
+          </button>
+
+          {isPhotoSelected && (
+            <button onClick={() => { setPhoto(null); }} style={{ background: "transparent", color: T.red, borderRadius: 99, padding: "10px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", border: "none", fontFamily: T.fontBody }}>Remove photo</button>
+          )}
+        </div>
+        {photoErr && <p style={{ margin: "8px 0 0", color: T.red, fontSize: 11, fontWeight: 700 }}>{photoErr}</p>}
+      </div>
 
       {showCamera && (
         <div style={{ marginBottom: 16, background: "#000", borderRadius: T.r, overflow: "hidden" }}>
@@ -187,87 +253,56 @@ export function AddChildScreen({ childCtx, pop }) {
         </div>
       )}
 
-
-      <SectionLabel style={{ marginBottom: 10 }}>Or choose an illustrated avatar</SectionLabel>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 24, opacity: isPhotoSelected ? 0.4 : 1, transition: "opacity 0.2s" }}>
-        {AvatarIllustrations.map(av => {
-          const isActive = !isPhotoSelected && emoji === av.key;
-          return (
-            <div key={av.key} onClick={() => { if (!isPhotoSelected) { setEmoji(av.key); } }} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, cursor: isPhotoSelected ? "default" : "pointer" }}>
-              <div style={{ border: `2.5px solid ${isActive ? T.purple : "transparent"}`, borderRadius: "50%", padding: 1, transform: isActive ? "scale(1.08)" : "scale(1)", transition: "all 0.15s" }}>
-                {av.render(isActive)}
-              </div>
-              <p style={{ margin: 0, fontSize: 9, fontWeight: isActive ? 800 : 600, color: isActive ? T.purple : T.inkMuted, letterSpacing: "0.03em" }}>{av.label}</p>
-            </div>
-          );
-        })}
-      </div>
-
-      <Input label="Child's name" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Aiden" />
-      <Input label="Date of birth (optional)" value={dob} onChange={e => setDob(e.target.value)} type="date" />
-      <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>Gender (optional)</p>
-      <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
-        {["Male", "Female"].map(opt => {
-          const isActive = gender === opt;
-          return (
-            <button key={opt} onClick={() => setGender(isActive ? "" : opt)}
-              style={{ flex: 1, padding: "10px", borderRadius: T.r, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody, background: isActive ? T.purple : T.surface, color: isActive ? "white" : T.ink, border: `1.5px solid ${isActive ? T.purple : T.border}` }}>
-              {opt}
-            </button>
-          );
-        })}
-      </div>
-
-
-      <SectionLabel style={{ marginBottom: 10 }}>Your relationship to this child</SectionLabel>
-      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
-        {[
-          { key: "biological", label: "Biological or Adoptive Parent", icon: (a) => <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="6" r="3.5" stroke={a?"white":T.purple} strokeWidth="1.4" fill={a?"white":T.purple} fillOpacity={a?0.3:0.15}/><path d="M2.5 16 Q2.5 11.5 9 11.5 Q15.5 11.5 15.5 16" stroke={a?"white":T.purple} strokeWidth="1.4" strokeLinecap="round" fill="none"/></svg> },
-          { key: "foster",     label: "Foster Parent",                icon: (a) => <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 16 C9 16 2 11.5 2 6.5 C2 4 3.5 2.5 5.5 2.5 C7 2.5 8 3.5 9 5 C10 3.5 11 2.5 12.5 2.5 C14.5 2.5 16 4 16 6.5 C16 11.5 9 16 9 16Z" stroke={a?"white":T.purple} strokeWidth="1.4" fill={a?"white":T.purple} fillOpacity={a?0.3:0.15}/></svg> },
-          { key: "grandparent",label: "Grandparent / Extended Family", icon: (a) => <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="7" cy="5.5" r="2.8" stroke={a?"white":T.purple} strokeWidth="1.3" fill="none"/><circle cx="13" cy="6" r="2.2" stroke={a?"white":T.purple} strokeWidth="1.2" fill="none" opacity="0.6"/><path d="M1.5 15 Q1.5 11 7 11 Q12.5 11 12.5 15" stroke={a?"white":T.purple} strokeWidth="1.3" strokeLinecap="round" fill="none"/><path d="M12.5 13.5 Q13 11.5 15.5 11.5 Q17 11.5 17 13.5" stroke={a?"white":T.purple} strokeWidth="1.2" strokeLinecap="round" fill="none" opacity="0.6"/></svg> },
-          { key: "other",      label: "Other Caregiver",              icon: (a) => <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="6" r="3.5" stroke={a?"white":T.purple} strokeWidth="1.4" fill="none"/><path d="M2.5 16 Q2.5 11.5 9 11.5 Q15.5 11.5 15.5 16" stroke={a?"white":T.purple} strokeWidth="1.4" strokeLinecap="round" fill="none"/><path d="M9 3 L9 3.1 M9 7 L9 9" stroke={a?"white":T.purple} strokeWidth="1.6" strokeLinecap="round" opacity="0.5"/></svg> },
-        ].map(({ key, label, icon }) => {
-          const isActive = caregiverType === key;
-          return (
-            <div key={key} onClick={() => setCaregiverType(key)}
-              style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", borderRadius: T.r, background: isActive ? T.purple : T.surface, border: `1.5px solid ${isActive ? T.purple : T.border}`, cursor: "pointer", transition: "all 0.15s" }}>
-              <div style={{ width: 32, height: 32, borderRadius: 8, background: isActive ? "rgba(255,255,255,0.2)" : T.purpleL, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                {icon(isActive)}
-              </div>
-              <p style={{ margin: 0, fontWeight: 700, fontSize: 13, color: isActive ? "white" : T.ink }}>{label}</p>
-              {isActive && (
-                <div style={{ marginLeft: "auto", width: 18, height: 18, borderRadius: "50%", background: "rgba(255,255,255,0.3)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 5 L4 7 L8 3" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      {caregiverType === "other" && (
-        <div style={{ marginBottom: 14 }}>
-          <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>What is your relationship to this child?</p>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-            {["Aunt / Uncle", "Sibling", "Family Friend", "Nanny / Domestic Helper", "Neighbour", "Others"].map(opt => {
-              const isActive = caregiverLabel === opt;
+      {showAvatarPicker && (
+        <>
+          <SectionLabel style={{ marginBottom: 10 }}>Or choose an illustrated avatar</SectionLabel>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 24, opacity: isPhotoSelected ? 0.4 : 1, transition: "opacity 0.2s" }}>
+            {AvatarIllustrations.map(av => {
+              const isActive = !isPhotoSelected && emoji === av.key;
               return (
-                <button key={opt} onClick={() => setCaregiverLabel(opt)}
-                  style={{ padding: "8px 14px", borderRadius: 99, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody, background: isActive ? T.purple : T.surface, color: isActive ? "white" : T.ink, border: `1.5px solid ${isActive ? T.purple : T.border}` }}>
-                  {opt}
-                </button>
+                <div key={av.key} onClick={() => { if (!isPhotoSelected) { setEmoji(av.key); } }} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, cursor: isPhotoSelected ? "default" : "pointer" }}>
+                  <div style={{ border: `2.5px solid ${isActive ? T.purple : "transparent"}`, borderRadius: "50%", padding: 1, transform: isActive ? "scale(1.08)" : "scale(1)", transition: "all 0.15s" }}>
+                    {av.render(isActive)}
+                  </div>
+                  <p style={{ margin: 0, fontSize: 9, fontWeight: isActive ? 800 : 600, color: isActive ? T.purple : T.inkMuted, letterSpacing: "0.03em" }}>{av.label}</p>
+                </div>
               );
             })}
           </div>
-          {caregiverLabel === "Others" && (
-            <div style={{ marginTop: 10 }}>
-              <Input value={customRelative} onChange={e => setCustomRelative(e.target.value)} placeholder="e.g. Cousin" />
-            </div>
-          )}
-        </div>
+        </>
       )}
 
-      <SpecialNeedsSection hasSpecialNeeds={hasSpecialNeeds} setHasSpecialNeeds={setHasSpecialNeeds} verbalStatus={verbalStatus} setVerbalStatus={setVerbalStatus} knownTriggers={knownTriggers} setKnownTriggers={setKnownTriggers} therapySchedule={therapySchedule} setTherapySchedule={setTherapySchedule} dietProgram={dietProgram} setDietProgram={setDietProgram} />
+      <FormSection title="General information">
+        <Input label="Child's name" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Aiden" />
+        <FieldError>{errors.name}</FieldError>
+        <Input label="Date of birth" value={dob} onChange={e => setDob(e.target.value)} type="date" />
+        <FieldError>{errors.dob}</FieldError>
+        <Select label="Gender" value={gender} onChange={e => setGender(e.target.value)} placeholder="Select gender" options={["Male", "Female"]} />
+        <FieldError>{errors.gender}</FieldError>
+
+        <Select label="Your relationship to this child" value={caregiverType} onChange={e => setCaregiverType(e.target.value)} options={CAREGIVER_TYPE_OPTIONS} />
+
+        {caregiverType === "other" && (
+          <div style={{ marginBottom: 14 }}>
+            <Select label="What is your relationship to this child?" value={caregiverLabel} onChange={e => setCaregiverLabel(e.target.value)} placeholder="Select relationship" options={OTHER_CAREGIVER_OPTIONS} />
+            <FieldError>{errors.relationshipDetail}</FieldError>
+            {caregiverLabel === "Others" && (
+              <div style={{ marginTop: 10 }}>
+                <Input value={customRelative} onChange={e => setCustomRelative(e.target.value)} placeholder="e.g. Cousin" />
+                <FieldError>{errors.customRelative}</FieldError>
+              </div>
+            )}
+          </div>
+        )}
+      </FormSection>
+
+      <FormSection title="About your child">
+        <SpecialNeedsSection verbalStatus={verbalStatus} setVerbalStatus={setVerbalStatus} hasTriggers={hasTriggers} setHasTriggers={setHasTriggers} knownTriggers={knownTriggers} setKnownTriggers={setKnownTriggers} hasTherapy={hasTherapy} setHasTherapy={setHasTherapy} therapySchedule={therapySchedule} setTherapySchedule={setTherapySchedule} hasDiet={hasDiet} setHasDiet={setHasDiet} dietProgram={dietProgram} setDietProgram={setDietProgram} errors={errors} />
+      </FormSection>
+
+      <FormSection title="Placement & care details" defaultOpen={false}>
+        <PlacementDetailsSection diagnosis={diagnosis} setDiagnosis={setDiagnosis} placementStartDate={placementStartDate} setPlacementStartDate={setPlacementStartDate} fosteringAgency={fosteringAgency} setFosteringAgency={setFosteringAgency} placementType={placementType} setPlacementType={setPlacementType} courtOrderRef={courtOrderRef} setCourtOrderRef={setCourtOrderRef} caseWorkerName={caseWorkerName} setCaseWorkerName={setCaseWorkerName} caseWorkerPhone={caseWorkerPhone} setCaseWorkerPhone={setCaseWorkerPhone} caseWorkerEmail={caseWorkerEmail} setCaseWorkerEmail={setCaseWorkerEmail} clinicName={clinicName} setClinicName={setClinicName} location={location} setLocation={setLocation} countryOptions={countryOptions} />
+      </FormSection>
 
       {err && <p style={{ color: T.red, fontSize: 13, fontWeight: 700, margin: "-8px 0 12px" }}>{err}</p>}
       <Btn onClick={save} full disabled={saving}>{saving ? "Saving..." : "Save Profile"}</Btn>
@@ -279,6 +314,8 @@ export function AddChildScreen({ childCtx, pop }) {
 export const OTHER_CAREGIVER_OPTIONS = ["Aunt / Uncle", "Sibling", "Family Friend", "Nanny / Domestic Helper", "Neighbour", "Others"];
 
 export const CAREGIVER_TYPE_LABELS = { biological: "Biological or Adoptive Parent", foster: "Foster Parent", grandparent: "Grandparent / Extended Family", other: "Other Caregiver" };
+
+export const CAREGIVER_TYPE_OPTIONS = Object.entries(CAREGIVER_TYPE_LABELS).map(([value, label]) => ({ value, label }));
 
 export function ChildProfileForm({ childCtx, onSaved, onCancel, onDeleted, showHeader = true }) {
   const { activeChild, updateChild, deleteChild, userId } = childCtx;
@@ -294,17 +331,32 @@ export function ChildProfileForm({ childCtx, onSaved, onCancel, onDeleted, showH
   const [name, setName] = useState(activeChild?.name || "");
   const [emoji, setEmoji] = useState(isExistingPhoto ? "none" : (activeChild?.emoji || "none"));
   const [photo, setPhoto] = useState(isExistingPhoto ? activeChild.emoji : null);
+  const [showAvatarPicker, setShowAvatarPicker] = useState(false);
   const [dob, setDob] = useState(activeChild?.dob || "");
   const [gender, setGender] = useState(activeChild?.gender || "");
   const [caregiverType, setCaregiverType] = useState(activeChild?.caregiverType || "biological");
   const [caregiverLabel, setCaregiverLabel] = useState(initialCaregiverLabel);
   const [customRelative, setCustomRelative] = useState(initialCustomRelative);
-  const [hasSpecialNeeds, setHasSpecialNeeds] = useState(activeChild?.hasSpecialNeeds || false);
   const [verbalStatus, setVerbalStatus] = useState(activeChild?.verbalStatus || "");
+  const [hasTriggers, setHasTriggers] = useState(activeChild?.knownTriggers ? "Yes" : "No");
   const [knownTriggers, setKnownTriggers] = useState(activeChild?.knownTriggers || "");
+  const [hasTherapy, setHasTherapy] = useState(activeChild?.therapySchedule ? "Yes" : "No");
   const [therapySchedule, setTherapySchedule] = useState(activeChild?.therapySchedule || "");
+  const [hasDiet, setHasDiet] = useState(activeChild?.dietProgram ? "Yes" : "No");
   const [dietProgram, setDietProgram] = useState(activeChild?.dietProgram || "");
+  const [diagnosis, setDiagnosis] = useState(activeChild?.diagnosis || "");
+  const [placementStartDate, setPlacementStartDate] = useState(activeChild?.placementStartDate || "");
+  const [fosteringAgency, setFosteringAgency] = useState(activeChild?.fosteringAgency || "");
+  const [placementType, setPlacementType] = useState(activeChild?.placementType || "");
+  const [courtOrderRef, setCourtOrderRef] = useState(activeChild?.courtOrderRef || "");
+  const [caseWorkerName, setCaseWorkerName] = useState(activeChild?.caseWorkerName || "");
+  const [caseWorkerPhone, setCaseWorkerPhone] = useState(activeChild?.caseWorkerPhone || "");
+  const [caseWorkerEmail, setCaseWorkerEmail] = useState(activeChild?.caseWorkerEmail || "");
+  const [clinicName, setClinicName] = useState(activeChild?.clinicName || "");
+  const [location, setLocation] = useState(activeChild?.location || "");
+  const [countryOptions, setCountryOptions] = useState([]);
   const [err, setErr] = useState("");
+  const [errors, setErrors] = useState({});
   const [photoErr, setPhotoErr] = useState("");
   const videoRef = useRef(null);
   const streamRef = useRef(null);
@@ -314,6 +366,12 @@ export function ChildProfileForm({ childCtx, onSaved, onCancel, onDeleted, showH
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  useEffect(() => {
+    supabase.from("countries").select("name").order("sort_order").then(({ data }) => {
+      if (data) setCountryOptions(data.map(c => c.name));
+    });
+  }, []);
 
   // Silently check camera availability on mount — hide button if not supported
   useEffect(() => {
@@ -367,9 +425,18 @@ export function ChildProfileForm({ childCtx, onSaved, onCancel, onDeleted, showH
   if (!activeChild) return null;
 
   const save = async () => {
-    if (!name.trim()) return setErr("Please enter your child's name.");
-    if (caregiverType === "other" && !caregiverLabel.trim()) return setErr("Please tell us your relationship to this child.");
-    if (caregiverType === "other" && caregiverLabel === "Others" && !customRelative.trim()) return setErr("Please tell us your relationship to this child.");
+    const fe = {};
+    if (!name.trim()) fe.name = "Please enter your child's name.";
+    if (!dob) fe.dob = "Please enter your child's date of birth.";
+    if (!gender) fe.gender = "Please select your child's gender.";
+    if (caregiverType === "other" && !caregiverLabel.trim()) fe.relationshipDetail = "Please tell us your relationship to this child.";
+    if (caregiverType === "other" && caregiverLabel === "Others" && !customRelative.trim()) fe.customRelative = "Please tell us your relationship to this child.";
+    if (!verbalStatus) fe.verbalStatus = "Please select your child's verbal status.";
+    if (hasTriggers === "Yes" && !knownTriggers.trim()) fe.knownTriggers = "Please describe the known triggers.";
+    if (hasTherapy === "Yes" && !therapySchedule.trim()) fe.therapySchedule = "Please describe the therapy schedule.";
+    if (hasDiet === "Yes" && !dietProgram.trim()) fe.dietProgram = "Please describe the diet program.";
+    setErrors(fe);
+    if (Object.keys(fe).length > 0) return;
     setErr(""); setSaving(true);
     const finalCaregiverLabel = caregiverType === "other" ? (caregiverLabel === "Others" ? customRelative.trim() : caregiverLabel.trim()) : "";
     let emojiValue = photo || emoji;
@@ -377,8 +444,9 @@ export function ChildProfileForm({ childCtx, onSaved, onCancel, onDeleted, showH
       const url = await uploadPhoto(emojiValue, "children", userId);
       if (url) emojiValue = url;
     }
-    updateChild(activeChild.id, { name: name.trim(), emoji: emojiValue, dob, gender, caregiverType, caregiverLabel: finalCaregiverLabel, hasSpecialNeeds, verbalStatus: hasSpecialNeeds ? verbalStatus : "", knownTriggers: hasSpecialNeeds ? knownTriggers.trim() : "", therapySchedule: hasSpecialNeeds ? therapySchedule.trim() : "", dietProgram: hasSpecialNeeds ? dietProgram.trim() : "" });
+    updateChild(activeChild.id, { name: name.trim(), emoji: emojiValue, dob, gender, caregiverType, caregiverLabel: finalCaregiverLabel, hasSpecialNeeds: true, verbalStatus, knownTriggers: hasTriggers === "Yes" ? knownTriggers.trim() : "", therapySchedule: hasTherapy === "Yes" ? therapySchedule.trim() : "", dietProgram: hasDiet === "Yes" ? dietProgram.trim() : "", diagnosis: diagnosis.trim(), placementStartDate, fosteringAgency: fosteringAgency.trim(), placementType, courtOrderRef: courtOrderRef.trim(), caseWorkerName: caseWorkerName.trim(), caseWorkerPhone: caseWorkerPhone.trim(), caseWorkerEmail: caseWorkerEmail.trim(), clinicName: clinicName.trim(), location });
     setSaving(false);
+    await Swal.fire({ icon: "success", title: "Profile saved successfully", confirmButtonColor: T.purple });
     onSaved && onSaved();
   };
 
@@ -409,9 +477,9 @@ export function ChildProfileForm({ childCtx, onSaved, onCancel, onDeleted, showH
           <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>
             {isPhotoSelected ? "Photo added ✓ — or choose an avatar below" : "Add a real photo (optional) — or pick an avatar below"}
           </p>
-          <div style={{ display: "flex", gap: 8 }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
 
-            <label style={{ flex: 1, background: T.purple, color: "white", borderRadius: T.r, padding: "8px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", textAlign: "center", fontFamily: T.fontBody, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
+            <label onClick={() => setShowAvatarPicker(false)} style={{ flex: "1 1 92px", background: T.purple, color: "white", borderRadius: T.r, padding: "8px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", textAlign: "center", fontFamily: T.fontBody, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
               <span style={{ fontSize: 15 }}>+</span> Upload
               <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => {
                 const file = e.target.files[0];
@@ -424,10 +492,14 @@ export function ChildProfileForm({ childCtx, onSaved, onCancel, onDeleted, showH
             </label>
 
             {cameraSupported && (
-              <button onClick={openCamera} style={{ flex: 1, background: T.surface, color: T.purple, borderRadius: T.r, padding: "8px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", border: `1.5px solid ${T.purple}`, fontFamily: T.fontBody, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
+              <button onClick={() => { setShowAvatarPicker(false); openCamera(); }} style={{ flex: "1 1 92px", background: T.surface, color: T.purple, borderRadius: T.r, padding: "8px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", border: `1.5px solid ${T.purple}`, fontFamily: T.fontBody, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
                 <span style={{ fontSize: 15 }}>+</span> Camera
               </button>
             )}
+
+            <button onClick={() => setShowAvatarPicker(v => !v)} style={{ flex: "1 1 92px", background: showAvatarPicker ? T.purple : T.surface, color: showAvatarPicker ? "white" : T.purple, borderRadius: T.r, padding: "8px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", border: `1.5px solid ${T.purple}`, fontFamily: T.fontBody, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
+              <span style={{ fontSize: 15 }}>+</span> Avatar
+            </button>
 
             {isPhotoSelected && (
               <button onClick={() => { setPhoto(null); }} style={{ background: T.redL, color: T.red, borderRadius: T.r, padding: "8px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", border: "none", fontFamily: T.fontBody }}>✕</button>
@@ -450,94 +522,64 @@ export function ChildProfileForm({ childCtx, onSaved, onCancel, onDeleted, showH
         </div>
       )}
 
-      <SectionLabel style={{ marginBottom: 10 }}>Or choose an illustrated avatar</SectionLabel>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 24, opacity: isPhotoSelected ? 0.4 : 1, transition: "opacity 0.2s" }}>
-        {AvatarIllustrations.map(av => {
-          const isActive = !isPhotoSelected && emoji === av.key;
-          return (
-            <div key={av.key} onClick={() => { if (!isPhotoSelected) { setEmoji(av.key); } }} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, cursor: isPhotoSelected ? "default" : "pointer" }}>
-              <div style={{ border: `2.5px solid ${isActive ? T.purple : "transparent"}`, borderRadius: "50%", padding: 1, transform: isActive ? "scale(1.08)" : "scale(1)", transition: "all 0.15s" }}>
-                {av.render(isActive)}
-              </div>
-              <p style={{ margin: 0, fontSize: 9, fontWeight: isActive ? 800 : 600, color: isActive ? T.purple : T.inkMuted, letterSpacing: "0.03em" }}>{av.label}</p>
-            </div>
-          );
-        })}
-      </div>
-
-      <Input label="Child's name" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Aiden" />
-      <Input label="Date of birth (optional)" value={dob} onChange={e => setDob(e.target.value)} type="date" />
-      <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>Gender (optional)</p>
-      <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
-        {["Male", "Female"].map(opt => {
-          const isActive = gender === opt;
-          return (
-            <button key={opt} onClick={() => setGender(isActive ? "" : opt)}
-              style={{ flex: 1, padding: "10px", borderRadius: T.r, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody, background: isActive ? T.purple : T.surface, color: isActive ? "white" : T.ink, border: `1.5px solid ${isActive ? T.purple : T.border}` }}>
-              {opt}
-            </button>
-          );
-        })}
-      </div>
-
-      <SectionLabel style={{ marginBottom: 10 }}>Your relationship to this child</SectionLabel>
-      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
-        {[
-          { key: "biological", label: "Biological or Adoptive Parent", icon: (a) => <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="6" r="3.5" stroke={a?"white":T.purple} strokeWidth="1.4" fill={a?"white":T.purple} fillOpacity={a?0.3:0.15}/><path d="M2.5 16 Q2.5 11.5 9 11.5 Q15.5 11.5 15.5 16" stroke={a?"white":T.purple} strokeWidth="1.4" strokeLinecap="round" fill="none"/></svg> },
-          { key: "foster",     label: "Foster Parent",                icon: (a) => <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 16 C9 16 2 11.5 2 6.5 C2 4 3.5 2.5 5.5 2.5 C7 2.5 8 3.5 9 5 C10 3.5 11 2.5 12.5 2.5 C14.5 2.5 16 4 16 6.5 C16 11.5 9 16 9 16Z" stroke={a?"white":T.purple} strokeWidth="1.4" fill={a?"white":T.purple} fillOpacity={a?0.3:0.15}/></svg> },
-          { key: "grandparent",label: "Grandparent / Extended Family", icon: (a) => <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="7" cy="5.5" r="2.8" stroke={a?"white":T.purple} strokeWidth="1.3" fill="none"/><circle cx="13" cy="6" r="2.2" stroke={a?"white":T.purple} strokeWidth="1.2" fill="none" opacity="0.6"/><path d="M1.5 15 Q1.5 11 7 11 Q12.5 11 12.5 15" stroke={a?"white":T.purple} strokeWidth="1.3" strokeLinecap="round" fill="none"/><path d="M12.5 13.5 Q13 11.5 15.5 11.5 Q17 11.5 17 13.5" stroke={a?"white":T.purple} strokeWidth="1.2" strokeLinecap="round" fill="none" opacity="0.6"/></svg> },
-          { key: "other",      label: "Other Caregiver",              icon: (a) => <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="6" r="3.5" stroke={a?"white":T.purple} strokeWidth="1.4" fill="none"/><path d="M2.5 16 Q2.5 11.5 9 11.5 Q15.5 11.5 15.5 16" stroke={a?"white":T.purple} strokeWidth="1.4" strokeLinecap="round" fill="none"/><path d="M9 3 L9 3.1 M9 7 L9 9" stroke={a?"white":T.purple} strokeWidth="1.6" strokeLinecap="round" opacity="0.5"/></svg> },
-        ].map(({ key, label, icon }) => {
-          const isActive = caregiverType === key;
-          return (
-            <div key={key} onClick={() => setCaregiverType(key)}
-              style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", borderRadius: T.r, background: isActive ? T.purple : T.surface, border: `1.5px solid ${isActive ? T.purple : T.border}`, cursor: "pointer", transition: "all 0.15s" }}>
-              <div style={{ width: 32, height: 32, borderRadius: 8, background: isActive ? "rgba(255,255,255,0.2)" : T.purpleL, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                {icon(isActive)}
-              </div>
-              <p style={{ margin: 0, fontWeight: 700, fontSize: 13, color: isActive ? "white" : T.ink }}>{label}</p>
-              {isActive && (
-                <div style={{ marginLeft: "auto", width: 18, height: 18, borderRadius: "50%", background: "rgba(255,255,255,0.3)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 5 L4 7 L8 3" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      {caregiverType === "other" && (
-        <div style={{ marginBottom: 14 }}>
-          <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>What is your relationship to this child?</p>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-            {OTHER_CAREGIVER_OPTIONS.map(opt => {
-              const isActive = caregiverLabel === opt;
+      {showAvatarPicker && (
+        <>
+          <SectionLabel style={{ marginBottom: 10 }}>Or choose an illustrated avatar</SectionLabel>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 24, opacity: isPhotoSelected ? 0.4 : 1, transition: "opacity 0.2s" }}>
+            {AvatarIllustrations.map(av => {
+              const isActive = !isPhotoSelected && emoji === av.key;
               return (
-                <button key={opt} onClick={() => setCaregiverLabel(opt)}
-                  style={{ padding: "8px 14px", borderRadius: 99, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody, background: isActive ? T.purple : T.surface, color: isActive ? "white" : T.ink, border: `1.5px solid ${isActive ? T.purple : T.border}` }}>
-                  {opt}
-                </button>
+                <div key={av.key} onClick={() => { if (!isPhotoSelected) { setEmoji(av.key); } }} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, cursor: isPhotoSelected ? "default" : "pointer" }}>
+                  <div style={{ border: `2.5px solid ${isActive ? T.purple : "transparent"}`, borderRadius: "50%", padding: 1, transform: isActive ? "scale(1.08)" : "scale(1)", transition: "all 0.15s" }}>
+                    {av.render(isActive)}
+                  </div>
+                  <p style={{ margin: 0, fontSize: 9, fontWeight: isActive ? 800 : 600, color: isActive ? T.purple : T.inkMuted, letterSpacing: "0.03em" }}>{av.label}</p>
+                </div>
               );
             })}
           </div>
+        </>
+      )}
+
+      <Input label={<>Child's name <span style={{ color: T.red }}>*</span></>} value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Aiden" />
+      <FieldError>{errors.name}</FieldError>
+      <Input label={<>Date of birth <span style={{ color: T.red }}>*</span></>} value={dob} onChange={e => setDob(e.target.value)} type="date" />
+      <FieldError>{errors.dob}</FieldError>
+      <Select label={<>Gender <span style={{ color: T.red }}>*</span></>} value={gender} onChange={e => setGender(e.target.value)} placeholder="Select gender" options={["Male", "Female"]} />
+      <FieldError>{errors.gender}</FieldError>
+
+      <Select label="Your relationship to this child" value={caregiverType} onChange={e => setCaregiverType(e.target.value)} options={CAREGIVER_TYPE_OPTIONS} />
+
+      {caregiverType === "other" && (
+        <div style={{ marginBottom: 14 }}>
+          <Select label={<>What is your relationship to this child? <span style={{ color: T.red }}>*</span></>} value={caregiverLabel} onChange={e => setCaregiverLabel(e.target.value)} placeholder="Select relationship" options={OTHER_CAREGIVER_OPTIONS} />
+          <FieldError>{errors.relationshipDetail}</FieldError>
           {caregiverLabel === "Others" && (
             <div style={{ marginTop: 10 }}>
-              <Input value={customRelative} onChange={e => setCustomRelative(e.target.value)} placeholder="e.g. Cousin" />
+              <Input label={<>Please specify <span style={{ color: T.red }}>*</span></>} value={customRelative} onChange={e => setCustomRelative(e.target.value)} placeholder="e.g. Cousin" />
+              <FieldError>{errors.customRelative}</FieldError>
             </div>
           )}
         </div>
       )}
 
-      <SpecialNeedsSection hasSpecialNeeds={hasSpecialNeeds} setHasSpecialNeeds={setHasSpecialNeeds} verbalStatus={verbalStatus} setVerbalStatus={setVerbalStatus} knownTriggers={knownTriggers} setKnownTriggers={setKnownTriggers} therapySchedule={therapySchedule} setTherapySchedule={setTherapySchedule} dietProgram={dietProgram} setDietProgram={setDietProgram} />
+      <SpecialNeedsSection verbalStatus={verbalStatus} setVerbalStatus={setVerbalStatus} hasTriggers={hasTriggers} setHasTriggers={setHasTriggers} knownTriggers={knownTriggers} setKnownTriggers={setKnownTriggers} hasTherapy={hasTherapy} setHasTherapy={setHasTherapy} therapySchedule={therapySchedule} setTherapySchedule={setTherapySchedule} hasDiet={hasDiet} setHasDiet={setHasDiet} dietProgram={dietProgram} setDietProgram={setDietProgram} errors={errors} />
+
+      <PlacementDetailsSection diagnosis={diagnosis} setDiagnosis={setDiagnosis} placementStartDate={placementStartDate} setPlacementStartDate={setPlacementStartDate} fosteringAgency={fosteringAgency} setFosteringAgency={setFosteringAgency} placementType={placementType} setPlacementType={setPlacementType} courtOrderRef={courtOrderRef} setCourtOrderRef={setCourtOrderRef} caseWorkerName={caseWorkerName} setCaseWorkerName={setCaseWorkerName} caseWorkerPhone={caseWorkerPhone} setCaseWorkerPhone={setCaseWorkerPhone} caseWorkerEmail={caseWorkerEmail} setCaseWorkerEmail={setCaseWorkerEmail} clinicName={clinicName} setClinicName={setClinicName} location={location} setLocation={setLocation} countryOptions={countryOptions} />
 
       {err && <p style={{ color: T.red, fontSize: 13, fontWeight: 700, margin: "-8px 0 12px" }}>{err}</p>}
-      <Btn onClick={save} full disabled={saving}>{saving ? "Saving..." : "Save Changes"}</Btn>
+      <Btn onClick={save} full disabled={saving} style={{ marginBottom: 6 }}>{saving ? "Saving..." : "Save Changes"}</Btn>
+      <p style={{ margin: "0 0 10px", fontSize: 11, color: T.inkMuted, textAlign: "center" }}><span style={{ color: T.red }}>*</span> required</p>
       {onCancel && <Btn onClick={onCancel} full secondary style={{ marginTop: 10 }}>Cancel</Btn>}
 
       <div style={{ height: 1, background: T.border, margin: "28px 0 20px" }} />
 
       <SectionLabel style={{ marginBottom: 10 }}>Danger Zone</SectionLabel>
-      {!confirmDelete ? (
+      {activeChild.active ? (
+        <Card style={{ background: T.purpleL }}>
+          <p style={{ margin: 0, color: T.inkSoft, fontSize: 13, fontWeight: 600, lineHeight: 1.6 }}>{activeChild.name}'s profile is active and approved, so it can no longer be deleted from the app. Contact an admin if this profile needs to be removed.</p>
+        </Card>
+      ) : !confirmDelete ? (
         <Btn onClick={() => setConfirmDelete(true)} full danger>Delete {activeChild.name}'s Profile</Btn>
       ) : (
         <Card style={{ background: T.redL, border: `1px solid ${T.red}30` }}>

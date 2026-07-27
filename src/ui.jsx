@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { T } from "./theme";
 
 export const ActionIllustration = ({ type, size = 44 }) => {
-  const bg = { subsidies: "#FEF3C7", sos: "#FEE2E2", activities: "#DCFCE7", training: "#EDE9FE" };
+  const bg = { subsidies: "#FEF3C7", sos: "#FEE2E2", devGuide: "#DCFCE7" };
   const illustrations = {
     foster: (
       <svg width={size} height={size} viewBox="0 0 80 80" style={{ display: "block" }}>
@@ -34,7 +34,7 @@ export const ActionIllustration = ({ type, size = 44 }) => {
         <rect x="16" y="58" width="48" height="3" rx="1.5" fill="#DC2626" opacity="0.2"/>
       </svg>
     ),
-    activities: (
+    devGuide: (
       <svg width={size} height={size} viewBox="0 0 80 80" style={{ display: "block" }}>
         <rect width="80" height="80" rx="14" fill="#DCFCE7"/>
         <rect x="18" y="46" width="8" height="18" rx="3" fill="#065F46"/>
@@ -48,19 +48,6 @@ export const ActionIllustration = ({ type, size = 44 }) => {
         <path d="M22 44 Q34 26 46 24 Q52 23 58 32" fill="none" stroke="#D97706" strokeWidth="1.5" strokeLinecap="round" strokeDasharray="4 3"/>
       </svg>
     ),
-    training: (
-      <svg width={size} height={size} viewBox="0 0 80 80" style={{ display: "block" }}>
-        <rect width="80" height="80" rx="14" fill="#EDE9FE"/>
-        <rect x="20" y="20" width="40" height="30" rx="7" fill="#0A2218"/>
-        <rect x="25" y="25" width="30" height="20" rx="5" fill="#065F46"/>
-        <rect x="30" y="31" width="20" height="3" rx="1.5" fill="#1D9E75"/>
-        <rect x="30" y="37" width="14" height="2.5" rx="1.25" fill="#1D9E75" opacity="0.5"/>
-        <path d="M40 50 L34 60 L46 60 Z" fill="#0A2218"/>
-        <circle cx="28" cy="64" r="7" fill="#1D9E75" opacity="0.7"/>
-        <circle cx="40" cy="67" r="7" fill="#065F46"/>
-        <circle cx="52" cy="64" r="7" fill="#D97706" opacity="0.6"/>
-      </svg>
-    ),
     emotions: (
       <svg width={size} height={size} viewBox="0 0 80 80" style={{ display: "block" }}>
         <rect width="80" height="80" rx="14" fill="#CCFBF1"/>
@@ -72,6 +59,14 @@ export const ActionIllustration = ({ type, size = 44 }) => {
         <path d="M55 22h6M58 19v6" stroke="#fff" strokeWidth="1.4" strokeLinecap="round"/>
       </svg>
     ),
+    letter: (
+      <svg width={size} height={size} viewBox="0 0 80 80" style={{ display: "block" }}>
+        <rect width="80" height="80" rx="14" fill="#DBEAFE"/>
+        <rect x="20" y="22" width="40" height="36" rx="4" fill="#fff" stroke="#2563EB" strokeWidth="2"/>
+        <path d="M22 24 L40 40 L58 24" stroke="#2563EB" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+        <rect x="27" y="48" width="18" height="3" rx="1.5" fill="#2563EB" opacity="0.4"/>
+      </svg>
+    ),
   };
   return illustrations[type] || null;
 };
@@ -79,57 +74,57 @@ export const ActionIllustration = ({ type, size = 44 }) => {
 // Hero illustration for home screen when no child added yet
 
 export const HeroIllustration = () => (
-  <svg width="100%" viewBox="0 0 320 140" style={{ display: "block", marginBottom: 16 }}>
-    <circle cx="80" cy="70" r="50" fill="#065F46" opacity="0.08"/>
-    <circle cx="80" cy="70" r="32" fill="#065F46" opacity="0.1"/>
-    <rect x="100" y="22" width="140" height="96" rx="12" fill="#0A2218"/>
-    <rect x="106" y="28" width="128" height="84" rx="9" fill="#065F46"/>
-    <circle cx="148" cy="65" r="18" fill="#0A2218"/>
-    <circle cx="148" cy="59" r="8" fill="#F2FAF6"/>
-    <ellipse cx="148" cy="78" rx="12" ry="7" fill="#F2FAF6"/>
-    <rect x="178" y="54" width="44" height="5" rx="2.5" fill="#1D9E75" opacity="0.7"/>
-    <rect x="178" y="63" width="32" height="4" rx="2" fill="#1D9E75" opacity="0.4"/>
-    <rect x="178" y="71" width="38" height="4" rx="2" fill="#1D9E75" opacity="0.3"/>
-    <rect x="114" y="96" width="112" height="10" rx="5" fill="#1D9E75"/>
-    <circle cx="46" cy="40" r="6" fill="#D97706"/>
-    <circle cx="30" cy="90" r="4" fill="#065F46" opacity="0.3"/>
-    <circle cx="284" cy="50" r="5" fill="#D97706" opacity="0.4"/>
-    <circle cx="298" cy="90" r="9" fill="#065F46" opacity="0.15"/>
+  <svg width="100%" viewBox="0 0 320 140" style={{ display: "block" }}>
+    <circle cx="80" cy="70" r="50" fill={T.purple} opacity="0.08"/>
+    <circle cx="80" cy="70" r="32" fill={T.purple} opacity="0.1"/>
+    <rect x="100" y="22" width="140" height="96" rx="16" fill={T.ink}/>
+    <rect x="106" y="28" width="128" height="84" rx="12" fill={T.purple}/>
+    <circle cx="148" cy="65" r="18" fill={T.ink}/>
+    <circle cx="148" cy="59" r="8" fill={T.canvas}/>
+    <ellipse cx="148" cy="78" rx="12" ry="7" fill={T.canvas}/>
+    <rect x="178" y="54" width="44" height="5" rx="2.5" fill="#EFF6F4" opacity="0.7"/>
+    <rect x="178" y="63" width="32" height="4" rx="2" fill="#EFF6F4" opacity="0.4"/>
+    <rect x="178" y="71" width="38" height="4" rx="2" fill="#EFF6F4" opacity="0.3"/>
+    <rect x="114" y="96" width="112" height="10" rx="5" fill="#EFF6F4" opacity="0.55"/>
+    <circle cx="46" cy="40" r="6" fill={T.amber}/>
+    <circle cx="30" cy="90" r="4" fill={T.purple} opacity="0.3"/>
+    <circle cx="284" cy="50" r="5" fill={T.amber} opacity="0.4"/>
+    <circle cx="298" cy="90" r="9" fill={T.purple} opacity="0.15"/>
   </svg>
 );
 
 // Nav tab SVG marks — clean geometric, no emoji
 
 export const NavMark = ({ id, active }) => {
-  const col = active ? "#065F46" : "#7BA08A";
+  const col = active ? T.purple : T.inkMuted;
   const marks = {
     home: (
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-        <path d="M3 10.5L12 3l9 7.5V21H15v-5h-6v5H3V10.5z" stroke={col} strokeWidth="1.5" strokeLinejoin="round" fill={active ? "#065F46" : "none"} fillOpacity={active ? 0.15 : 0}/>
+        <path d="M3 10.5L12 3l9 7.5V21H15v-5h-6v5H3V10.5z" stroke={col} strokeWidth="1.5" strokeLinejoin="round" fill={active ? T.purple : "none"} fillOpacity={active ? 0.15 : 0}/>
         <path d="M9 21v-5h6v5" stroke={col} strokeWidth="1.5" strokeLinejoin="round"/>
       </svg>
     ),
     mychild: (
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-        <circle cx="12" cy="8" r="4" stroke={col} strokeWidth="1.5" fill={active ? "#065F46" : "none"} fillOpacity={active ? 0.15 : 0}/>
+        <circle cx="12" cy="8" r="4" stroke={col} strokeWidth="1.5" fill={active ? T.purple : "none"} fillOpacity={active ? 0.15 : 0}/>
         <circle cx="12" cy="8" r="1.5" fill={col}/>
         <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke={col} strokeWidth="1.5" strokeLinecap="round"/>
-        <circle cx="18" cy="7" r="3" fill={active ? "#D97706" : "#D97706"} fillOpacity={active ? 0.9 : 0.5}/>
+        <circle cx="18" cy="7" r="3" fill={T.amber} fillOpacity={active ? 0.9 : 0.5}/>
         <path d="M17 7h2M18 6v2" stroke="#fff" strokeWidth="1.2" strokeLinecap="round"/>
       </svg>
     ),
     schedule: (
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-        <rect x="3" y="5" width="18" height="16" rx="3" stroke={col} strokeWidth="1.5" fill={active ? "#065F46" : "none"} fillOpacity={active ? 0.12 : 0}/>
+        <rect x="3" y="5" width="18" height="16" rx="3" stroke={col} strokeWidth="1.5" fill={active ? T.purple : "none"} fillOpacity={active ? 0.12 : 0}/>
         <path d="M8 3v4M16 3v4M3 10h18" stroke={col} strokeWidth="1.5" strokeLinecap="round"/>
-        <rect x="7" y="14" width="4" height="4" rx="1" fill={active ? "#065F46" : col} fillOpacity={active ? 0.7 : 0.3}/>
+        <rect x="7" y="14" width="4" height="4" rx="1" fill={active ? T.purple : col} fillOpacity={active ? 0.7 : 0.3}/>
         <rect x="13" y="14" width="4" height="4" rx="1" fill={col} fillOpacity="0.2"/>
       </svg>
     ),
     community: (
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-        <circle cx="9" cy="9" r="3.5" stroke={col} strokeWidth="1.5" fill={active ? "#065F46" : "none"} fillOpacity={active ? 0.15 : 0}/>
-        <circle cx="17" cy="8" r="2.5" stroke={col} strokeWidth="1.5" fill={active ? "#D97706" : "none"} fillOpacity={active ? 0.2 : 0}/>
+        <circle cx="9" cy="9" r="3.5" stroke={col} strokeWidth="1.5" fill={active ? T.purple : "none"} fillOpacity={active ? 0.15 : 0}/>
+        <circle cx="17" cy="8" r="2.5" stroke={col} strokeWidth="1.5" fill={active ? T.amber : "none"} fillOpacity={active ? 0.2 : 0}/>
         <path d="M2 19c0-3 3-5.5 7-5.5s7 2.5 7 5.5" stroke={col} strokeWidth="1.5" strokeLinecap="round"/>
         <path d="M17.5 13c2.5.5 4.5 2.3 4.5 5" stroke={col} strokeWidth="1.5" strokeLinecap="round" opacity="0.6"/>
       </svg>
@@ -262,6 +257,118 @@ export const TextArea = ({ label, hint, ...props }) => (
   </div>
 );
 
+// Dropdown select with a search box — same chrome as Input.
+// Keeps the native-<select> onChange contract (e.target.value, and
+// e.target.selectedOptions for `multiple`) so existing call sites work unchanged.
+
+export const Select = ({ label, options, placeholder, value, onChange, multiple, disabled, style }) => {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const rootRef = useRef(null);
+
+  const normalized = options.map(opt => (opt !== null && typeof opt === "object") ? opt : { value: opt, label: opt });
+  const selectedValues = multiple ? (Array.isArray(value) ? value : []) : null;
+  const selectedOption = !multiple ? normalized.find(o => o.value === value) : null;
+
+  const displayText = multiple
+    ? normalized.filter(o => selectedValues.includes(o.value)).map(o => o.label).join(", ")
+    : (selectedOption ? selectedOption.label : "");
+
+  const filtered = search.trim()
+    ? normalized.filter(o => String(o.label).toLowerCase().includes(search.trim().toLowerCase()))
+    : normalized;
+
+  useEffect(() => {
+    if (!open) return;
+    const onDocMouseDown = (e) => {
+      if (rootRef.current && !rootRef.current.contains(e.target)) {
+        setOpen(false);
+        setSearch("");
+      }
+    };
+    document.addEventListener("mousedown", onDocMouseDown);
+    return () => document.removeEventListener("mousedown", onDocMouseDown);
+  }, [open]);
+
+  const selectOption = (opt) => {
+    if (multiple) {
+      const next = selectedValues.includes(opt.value) ? selectedValues.filter(v => v !== opt.value) : [...selectedValues, opt.value];
+      onChange({ target: { value: next[0] || "", selectedOptions: next.map(v => ({ value: v })) } });
+    } else {
+      onChange({ target: { value: opt.value } });
+      setOpen(false);
+      setSearch("");
+    }
+  };
+
+  return (
+    <div ref={rootRef} style={{ marginBottom: 14, position: "relative" }}>
+      {label && <p style={{ margin: "0 0 6px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>{label}</p>}
+      <div
+        onClick={() => !disabled && setOpen(o => !o)}
+        style={{
+          width: "100%",
+          padding: "11px 14px",
+          borderRadius: T.r,
+          border: `1.5px solid ${open ? T.purple : T.border}`,
+          fontSize: 14,
+          fontFamily: T.fontBody,
+          color: displayText ? T.ink : T.inkMuted,
+          background: disabled ? T.border : T.canvas,
+          outline: "none",
+          boxSizing: "border-box",
+          cursor: disabled ? "default" : "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 8,
+          ...(style || {}),
+        }}
+      >
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{displayText || placeholder || "Select..."}</span>
+        <span style={{ fontSize: 10, color: T.inkMuted, flexShrink: 0 }}>{open ? "▲" : "▼"}</span>
+      </div>
+
+      {open && !disabled && (
+        <div style={{
+          position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 20,
+          background: T.surface, border: `1.5px solid ${T.border}`, borderRadius: T.r,
+          boxShadow: "0 8px 24px rgba(0,0,0,0.12)", maxHeight: 260, display: "flex", flexDirection: "column", overflow: "hidden",
+        }}>
+          <input
+            autoFocus
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search..."
+            style={{ padding: "10px 14px", border: "none", borderBottom: `1.5px solid ${T.border}`, fontSize: 14, fontFamily: T.fontBody, color: T.ink, outline: "none", boxSizing: "border-box" }}
+          />
+          <div style={{ overflowY: "auto" }}>
+            {filtered.length === 0 && <p style={{ margin: 0, padding: "12px 14px", fontSize: 13, color: T.inkMuted }}>No matches</p>}
+            {filtered.map(opt => {
+              const isSelected = multiple ? selectedValues.includes(opt.value) : opt.value === value;
+              return (
+                <div key={opt.value} onClick={() => selectOption(opt)}
+                  style={{ padding: "10px 14px", fontSize: 14, fontFamily: T.fontBody, cursor: "pointer", background: isSelected ? T.purpleL : "transparent", color: T.ink, display: "flex", alignItems: "center", gap: 8 }}>
+                  {multiple && <span>{isSelected ? "☑" : "☐"}</span>}
+                  <span>{opt.label}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Inline validation message — sits directly under the field it refers to
+
+export const FieldError = ({ children }) => {
+  if (!children) return null;
+  return <p style={{ margin: "-10px 0 14px", color: T.red, fontSize: 12, fontWeight: 700 }}>{children}</p>;
+};
+
 // Avatar display — photo, emoji, or initials
 
 export const Avatar = ({ src, size = 36, bg = T.purpleL, border = "transparent" }) => {
@@ -275,6 +382,62 @@ export const Avatar = ({ src, size = 36, bg = T.purpleL, border = "transparent" 
     </div>
   );
 };
+
+// Collapsible form section — accent-headed card used to group related fields
+// (e.g. Add/Edit Child Profile). Defaults open; pass defaultOpen={false} to collapse.
+
+export const FormSection = ({ title, defaultOpen = true, children }) => {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div style={{ background: T.surface, borderRadius: T.rL, border: `1px solid ${T.border}`, overflow: "hidden", marginBottom: 16 }}>
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        aria-expanded={open}
+        style={{
+          width: "100%", boxSizing: "border-box", display: "flex", alignItems: "center",
+          justifyContent: "space-between", gap: 12, background: T.purple, color: "white",
+          fontFamily: T.fontDisplay, fontWeight: 600, fontSize: 17, letterSpacing: "-0.005em",
+          padding: "14px 18px", border: "none", cursor: "pointer", textAlign: "left",
+        }}
+      >
+        <span>{title}</span>
+        <svg width="14" height="9" viewBox="0 0 12 8" style={{ flexShrink: 0, transform: open ? "rotate(180deg)" : "none", transition: "transform 0.18s" }}>
+          <path d="M1 1l5 5 5-5" stroke="white" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+      {open && <div style={{ padding: "16px 16px 4px" }}>{children}</div>}
+    </div>
+  );
+};
+
+// Yes/No pill toggle — swap-in for a Select with ["Yes","No"] options
+
+export const ToggleField = ({ label, on, onChange }) => (
+  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 14 }}>
+    <span style={{ fontSize: 13, fontWeight: 700, color: T.inkSoft }}>{label}</span>
+    <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+      <span style={{ fontSize: 11, fontWeight: 700, color: on ? T.inkMuted : T.purple }}>No</span>
+      <button
+        type="button"
+        onClick={() => onChange(!on)}
+        aria-pressed={on}
+        aria-label={label}
+        style={{
+          width: 44, height: 25, borderRadius: 99, border: "none", cursor: "pointer",
+          background: on ? T.purple : T.border, position: "relative", padding: 0, transition: "background 0.18s", flexShrink: 0,
+        }}
+      >
+        <span style={{
+          position: "absolute", top: 2.5, left: 2.5, width: 20, height: 20, borderRadius: 99,
+          background: "white", boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+          transform: on ? "translateX(19px)" : "translateX(0)", transition: "transform 0.18s",
+        }} />
+      </button>
+      <span style={{ fontSize: 11, fontWeight: 700, color: on ? T.purple : T.inkMuted }}>Yes</span>
+    </div>
+  </div>
+);
 
 // Accordion item
 

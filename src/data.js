@@ -50,10 +50,15 @@ export const VERBAL_STATUS_OPTIONS = [
   { key: "mixed",     label: "Mixed / Emerging" },
 ];
 
-// The parent account's relationship to the child(ren) they care for.
-export const RELATIONSHIP_OPTIONS = ["Ayah", "Ibu", "Kakak", "Adik", "Kakek", "Nenek", "Bibi"];
+// Used on the child profile form and reused as-is when generating a carer letter.
+export const PLACEMENT_TYPE_OPTIONS = ["short-term", "long-term", "kinship", "emergency"];
 
-// Optional additional-needs profile, filled in by the parent in their own words. This
-// powers the adaptive "Gentle Prompts" check-in questions (see AUTISM_PROMPTS) — e.g. a
-// known trigger or diet program the parent describes here gets reflected back as a
-// check-in question, instead of the app guessing with a generic one.
+// The parent account's relationship to the child(ren) they care for.
+export const RELATIONSHIP_OPTIONS = ["Father", "Mother", "Foster/Adoptive Parent", "Older Sibling", "Younger Sibling", "Grandfather", "Grandmother", "Aunt"];
+
+// Standard KTP/Dukcapil occupation categories, kept short so they fit as tap-to-select pills.
+export const OCCUPATION_OPTIONS = ["Unemployed", "Homemaker", "Student", "Civil Servant", "Military/Police", "Private Employee", "Self-Employed", "Farmer", "Laborer", "Retired", "Other"];
+
+export const MARITAL_STATUS_OPTIONS = ["Single", "Married", "Divorced", "Widowed"];
+
+// Optional additional-needs profile, filled in by the parent in their own words.

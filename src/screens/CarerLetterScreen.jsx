@@ -1,0 +1,487 @@
+import { useState, useEffect, useMemo, useRef } from "react";
+import { jsPDF } from "jspdf";
+import html2canvas from "html2canvas";
+import { Editor } from "@tinymce/tinymce-react";
+import "tinymce/tinymce";
+import "tinymce/icons/default";
+import "tinymce/themes/silver";
+import "tinymce/models/dom";
+import "tinymce/plugins/lists";
+import "tinymce/plugins/link";
+import "tinymce/plugins/table";
+import "tinymce/skins/ui/oxide/skin.css";
+import { supabase } from "../lib/supabase";
+import { T } from "../theme";
+import { Page, SectionLabel, Card, Btn, Select, Badge } from "../ui";
+
+const formatDate = (value) => {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+};
+
+const verbalTextFor = (verbalStatus) => {
+  if (verbalStatus === "verbal") return "verbal";
+  if (verbalStatus === "nonverbal") return "non-verbal";
+  if (verbalStatus === "mixed") return "an emerging communicator (uses some words and AAC/picture cards)";
+  return "[Verbal status]";
+};
+
+const pronounFor = (gender) => (gender === "Male" ? "him" : gender === "Female" ? "her" : "them");
+
+// The template was written for foster carers specifically ("I am writing to
+// introduce myself as the foster carer for...") but this letter is now offered
+// to every caregiver type, so swap that role label to fit — the rest of the
+// sentence (case worker, fostering agency, etc.) still reads fine left blank
+// ("to be confirmed") for caregiver types where it doesn't apply, and the
+// caregiver can hand-edit the preview for anything that still needs tweaking.
+const roleLabelFor = (caregiverType, caregiverLabel) => {
+  if (caregiverType === "foster") return "foster carer";
+  if (caregiverType === "biological") return "parent";
+  if (caregiverType === "grandparent") return "grandparent caregiver";
+  return caregiverLabel || "carer";
+};
+
+const titleCase = (s) => s.replace(/\b\w/g, c => c.toUpperCase());
+
+// Best-effort fill of the bracketed placeholders in the admin-managed template.
+// The admin app's editor lets whoever manages the template rename placeholders
+// freely (e.g. "[recipient name]" one week, "[Receiver_Name]" the next), so
+// instead of matching an exact string, every "[...]" is normalized (lowercased,
+// underscores → spaces) and matched against keywords for each field. Anything
+// that doesn't match a known field is left untouched rather than blanked out,
+// so an unrecognised placeholder stays visible for the caregiver to fill by hand.
+const normalizeBracket = (s) => s.toLowerCase().replace(/_/g, " ").replace(/['']/g, "").replace(/\s+/g, " ").trim();
+
+const fillTemplate = (content, values) => {
+  const withBrackets = content.replace(/\[([^\]]+)\]/g, (match, inner) => {
+    const key = normalizeBracket(inner);
+    const has = (...words) => words.every(w => key.includes(w));
+
+    if (has("date") && has("birth")) return values.dob;
+    if (key === "date" || has("today") || has("letter", "date")) return values.date;
+    if (has("receiver") || has("recipient")) {
+      if (has("address")) return values.recipientAddress;
+      if (has("phone")) return values.recipientPhone;
+      return values.recipientName;
+    }
+    if (has("child") && has("name")) return values.childName;
+    if (has("placement") && has("start")) return values.placementStartDate;
+    if (has("placement") && (has("type") || has("status"))) return values.placementType;
+    if (has("fostering") || has("agency") || has("vwo")) return values.fosteringAgency;
+    if (has("case", "worker") || has("caseworker")) {
+      if (has("phone")) return values.caseWorkerPhone;
+      if (has("email")) return values.caseWorkerEmail;
+      return values.caseWorkerName;
+    }
+    if (has("court") && has("order")) return values.courtOrderRef;
+    if (has("verbal")) return values.verbalText;
+    if (has("diagnosis")) return values.diagnosis;
+    if (has("allerg")) return values.allergies;
+    if (has("clinic")) return values.clinic;
+    if (key === "pronoun" || key.includes("him") || key.includes("her")) return values.pronoun;
+    if (has("location") || has("country")) return values.location;
+    // Not something we hold data for (there's no "are you licensed" field on
+    // the child/account) — left bracketed so the caregiver states it themselves.
+    // Checked before the generic "carer" catch-all below, since the phrase
+    // "licensed foster carer" would otherwise match on "carer" and get
+    // wrongly filled with the caregiver's name.
+    if (has("licensed")) return match;
+    if (has("carer") || has("your") || has("parent")) {
+      if (has("phone")) return values.yourPhone;
+      if (has("email")) return values.yourEmail;
+      if (has("role")) return values.roleLabel;
+      return values.yourName;
+    }
+    return match;
+  });
+  // Case-insensitive + tag-agnostic so this still matches when the phrase
+  // sits inside HTML markup (e.g. "<strong>Foster Carer</strong>"), not just
+  // on its own plain-text line.
+  return withBrackets.replace(/\bfoster carer\b/gi, (match) =>
+    match === "Foster Carer" ? titleCase(values.roleLabel) : values.roleLabel
+  );
+};
+
+// Anything still bracketed after fillTemplate is, by definition, unfilled — wrap
+// it so it reads as a highlighted placeholder in the editor and exported PDF
+// instead of plain text that's easy to miss (styled via the "bonda-bk" class
+// added to TinyMCE's content_style below).
+const highlightBrackets = (html) => html.replace(/\[([^\]]+)\]/g, '<span class="bonda-bk">[$1]</span>');
+
+const buildRecipientLabel = (clinic, psychologist) => {
+  if (!clinic) return "";
+  const attn = psychologist ? `Attn: ${psychologist.name}, ` : "";
+  return `${attn}${clinic.name}${clinic.address ? `, ${clinic.address}` : ""}`;
+};
+
+// Plain-language explanation for each of our own "[Field name]" fill-ins, shown
+// next to the checklist item so a caregiver who's never seen this letter before
+// knows what they're actually looking for, not just the field's technical name.
+const PLACEHOLDER_HELP = {
+  "Recipient name / organisation": "Who this letter is addressed to — e.g. the school, clinic, or agency name.",
+  "Recipient address": "The postal address of that recipient (optional — leave the bracket in place if not needed).",
+  "Recipient phone": "A contact phone number for that recipient (optional).",
+  "Location": "The city/country you and the child are based in.",
+  "Date of birth": "The child's date of birth.",
+  "Placement start date": "The date the child came into your care.",
+  "Fostering agency / VWO name": "The fostering agency or organisation responsible for this placement.",
+  "Case worker name": "The name of the child's assigned case worker / social worker.",
+  "Case worker phone": "A contact phone number for the case worker.",
+  "Case worker email": "A contact email for the case worker.",
+  "Placement status": "The type of placement — e.g. long-term, short-term, kinship, etc.",
+  "Court order reference, if applicable": "The court order or legal reference number, if one applies to this placement.",
+  "Verbal status": "Whether the child is verbal, non-verbal, or an emerging communicator.",
+  "Diagnosis, if applicable": "Any medical or developmental diagnosis relevant to this letter.",
+  "Known allergies / triggers": "Allergies or known triggers the reader should be aware of.",
+  "Clinic name": "The clinic or practice handling this child's care.",
+  "Your name": "Your full name, as the person signing this letter.",
+  "Your phone": "Your contact phone number.",
+  "Your email": "Your contact email address.",
+  "Licensed foster carer": "Whether you are an officially licensed/registered foster carer (e.g. state \"Yes\" or \"No\") — this isn't something we store automatically, so type it in directly.",
+};
+
+// For anything else left in brackets — placeholders the admin template author
+// typed in directly (e.g. "Medical_Fee_Exemption_Card_number") that our filler
+// doesn't recognise — turn the raw text into something readable instead of
+// showing the caregiver a snake_case/camelCase token verbatim.
+const humanizePlaceholder = (raw) => raw
+  .replace(/_/g, " ")
+  .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+  .replace(/\s+/g, " ")
+  .trim()
+  .replace(/\b\w/g, c => c.toUpperCase());
+
+// Keyed by normalizeBracket() (same normalization fillTemplate uses) rather than
+// exact text, so admin-typed variants like "Licensed_Foster_Carer" or
+// "licensed foster carer" still match the "Licensed foster carer" entry above.
+const PLACEHOLDER_HELP_BY_KEY = Object.fromEntries(
+  Object.entries(PLACEHOLDER_HELP).map(([label, desc]) => [normalizeBracket(label), { label, desc }])
+);
+
+const describePlaceholder = (raw) => {
+  const found = PLACEHOLDER_HELP_BY_KEY[normalizeBracket(raw)];
+  if (found) return found;
+  return { label: humanizePlaceholder(raw), desc: "From the letter template — read the surrounding sentence to see what belongs here." };
+};
+
+// The preview is edited as rich HTML in TinyMCE, so the PDF is rendered
+// straight from that HTML — but as a rasterized image per page (via
+// html2canvas), not through jsPDF's own doc.html() vector-text renderer.
+// jsPDF's html() has a long-standing upstream bug (parallax/jsPDF#3901):
+// with autoPaging "text", any inline tag (<strong>/<b>/<em>/...) makes the
+// text that follows drift further down the page, and the drift compounds
+// with every inline tag used earlier in the document — very visible here
+// since the letter's tables bold every row label. There's no working
+// upstream fix, so we sidestep the vector-text path entirely.
+const exportLetterToPdf = async (html, fileName) => {
+  const margin = 56; // pt
+  const scale = 2; // render resolution multiplier for crispness
+  const renderWidthPx = 1000;
+
+  const doc = new jsPDF({ unit: "pt", format: "a4" });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const contentWidth = pageWidth - margin * 2;
+  const contentHeight = pageHeight - margin * 2;
+
+  // Rendered off-screen for html2canvas, but kept at real (0,0) coordinates
+  // inside a zero-size overflow:hidden wrapper rather than pushed out via
+  // `left: -99999px`. html2canvas has to allocate a canvas large enough to
+  // span from the element's position to the document's visible edge — with
+  // an offset that extreme, that canvas can exceed the browser's max canvas
+  // size, silently clipping/shifting the captured image so the letter ends
+  // up jammed against the right margin in the exported PDF.
+  const hider = document.createElement("div");
+  hider.style.position = "fixed";
+  hider.style.top = "0";
+  hider.style.left = "0";
+  hider.style.width = "0";
+  hider.style.height = "0";
+  hider.style.overflow = "hidden";
+
+  const container = document.createElement("div");
+  container.style.width = `${renderWidthPx}px`;
+  container.style.background = "#fff";
+  // The "bonda-bk" highlight on unfilled placeholders (see highlightBrackets)
+  // is meant for the in-app editor — a printed letter shouldn't have an orange
+  // highlight box, just the plain bracketed text, same as the mockup's own
+  // `@media print { .bk { background: none } }` rule.
+  container.innerHTML = `<style>.bonda-bk{background:none!important;padding:0!important;color:${T.amber}!important;}</style><div style="font-family:'Times New Roman',Times,serif;font-size:12pt;line-height:1.5;color:#000;">${html}</div>`;
+  hider.appendChild(container);
+  document.body.appendChild(hider);
+
+  try {
+    if (document.fonts?.ready) await document.fonts.ready;
+    const canvas = await html2canvas(container, { scale, backgroundColor: "#ffffff", windowWidth: renderWidthPx });
+
+    // Never slice a page mid-row/mid-paragraph: collect every block-level
+    // element's top offset (in the container's own px, before the html2canvas
+    // scale multiplier) as a candidate page-break point, and always break on
+    // the latest candidate that still fits within one page's height.
+    const containerRect = container.getBoundingClientRect();
+    const breakPoints = Array.from(container.querySelectorAll("tr, p, h1, h2, h3, h4, li"))
+      .map(el => el.getBoundingClientRect().top - containerRect.top)
+      .filter(top => top > 0);
+    const containerHeightPx = containerRect.height;
+
+    const canvasPxPerPt = canvas.width / contentWidth;
+    const maxSlicePagePx = contentHeight * canvasPxPerPt;
+
+    let cursor = 0; // container-local px (unscaled)
+    let pageIndex = 0;
+    while (cursor < containerHeightPx - 0.5) {
+      const maxCursor = cursor + maxSlicePagePx / scale;
+      const candidates = breakPoints.filter(top => top > cursor + 1 && top <= maxCursor);
+      const breakAt = candidates.length ? candidates[candidates.length - 1] : Math.min(maxCursor, containerHeightPx);
+
+      const sliceTopPx = Math.round(cursor * scale);
+      const sliceHeightPx = Math.round(breakAt * scale) - sliceTopPx;
+      const sliceCanvas = document.createElement("canvas");
+      sliceCanvas.width = canvas.width;
+      sliceCanvas.height = sliceHeightPx;
+      sliceCanvas.getContext("2d").drawImage(canvas, 0, sliceTopPx, canvas.width, sliceHeightPx, 0, 0, canvas.width, sliceHeightPx);
+
+      if (pageIndex > 0) doc.addPage();
+      doc.addImage(sliceCanvas.toDataURL("image/png"), "PNG", margin, margin, contentWidth, sliceHeightPx / canvasPxPerPt);
+
+      cursor = breakAt;
+      pageIndex += 1;
+    }
+
+    doc.save(fileName);
+  } finally {
+    document.body.removeChild(hider);
+  }
+};
+
+export function CarerLetterScreen({ pop, push, childCtx, account }) {
+  const { children = [], activeChild } = childCtx || {};
+  const [selectedChildId, setSelectedChildId] = useState(activeChild?.id || "");
+  const selectedChild = children.find(c => c.id === selectedChildId) || activeChild || null;
+
+  const [template, setTemplate] = useState(null);
+  const [loadingTemplate, setLoadingTemplate] = useState(true);
+  const [clinics, setClinics] = useState([]);
+  const [psychologists, setPsychologists] = useState([]);
+
+  const [letterText, setLetterText] = useState("");
+  const [howtoOpen, setHowtoOpen] = useState(true);
+  const saveTimer = useRef(null);
+
+  useEffect(() => () => clearTimeout(saveTimer.current), []);
+
+  useEffect(() => {
+    const load = async () => {
+      setLoadingTemplate(true);
+      const [{ data: tpl }, { data: cl }, { data: psy }] = await Promise.all([
+        supabase.from("carer_letter_templates").select("*").order("created_at", { ascending: false }).limit(1).maybeSingle(),
+        supabase.from("clinics").select("*").order("name"),
+        supabase.from("clinic_psychologists").select("*").order("sort_order"),
+      ]);
+      setTemplate(tpl || null);
+      setClinics(cl || []);
+      setPsychologists(psy || []);
+      setLoadingTemplate(false);
+    };
+    load();
+  }, []);
+
+  useEffect(() => {
+    setLetterText("");
+    if (!selectedChild) return;
+    let cancelled = false;
+    // Reload whatever was last saved for this child (see persistLetter below) so
+    // the letter survives a refresh/relogin instead of resetting to blank —
+    // "carer_letters" already existed in the schema for exactly this but was
+    // never wired up.
+    supabase.from("carer_letters").select("content").eq("child_id", selectedChild.id).maybeSingle()
+      .then(({ data }) => { if (!cancelled && data?.content) setLetterText(data.content); });
+    return () => { cancelled = true; };
+  }, [selectedChild?.id]);
+
+  // The admin app already assigns each child to a psychologist (children.psychologist_id),
+  // so the recipient is whoever that assignment points to — the caregiver can still
+  // hand-edit the recipient/placement/case-worker text directly in the letter preview
+  // below if this letter is going somewhere else (e.g. a school).
+  const assignedPsychologist = psychologists.find(p => p.id === selectedChild?.psychologistId) || null;
+  const assignedClinic = assignedPsychologist ? clinics.find(c => c.id === assignedPsychologist.clinic_id) || null : null;
+
+  // Upsert into "carer_letters" (unique on child_id) so the generated/edited
+  // letter survives a refresh and backs the auto-saved "Carer letter" row on
+  // the Documents screen.
+  const persistLetter = async (content) => {
+    if (!selectedChild || !account?.id) return;
+    await supabase.from("carer_letters").upsert(
+      { user_id: account.id, child_id: selectedChild.id, content, updated_at: new Date().toISOString() },
+      { onConflict: "child_id" }
+    );
+  };
+
+  const handleEditorChange = (html) => {
+    setLetterText(html);
+    if (!selectedChild) return;
+    clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => persistLetter(html), 800);
+  };
+
+  const generateLetter = () => {
+    if (!template || !selectedChild) return;
+    // Anything we don't actually have data for is left as a "[Bracketed]"
+    // placeholder rather than a vague "to be confirmed" — same convention as
+    // the template's own unfilled placeholders, so it's obvious in the TinyMCE
+    // preview exactly which bits the caregiver still needs to fill in by hand.
+    const values = {
+      date: formatDate(new Date()),
+      recipientName: buildRecipientLabel(assignedClinic, assignedPsychologist) || selectedChild.clinicName?.trim() || "[Recipient name / organisation]",
+      recipientAddress: assignedClinic?.address?.trim() || "[Recipient address]",
+      recipientPhone: assignedClinic?.phone?.trim() || "[Recipient phone]",
+      location: selectedChild.location?.trim() || "[Location]",
+      childName: selectedChild.name,
+      dob: selectedChild.dob ? formatDate(selectedChild.dob) : "[Date of birth]",
+      placementStartDate: selectedChild.placementStartDate ? formatDate(selectedChild.placementStartDate) : "[Placement start date]",
+      fosteringAgency: selectedChild.fosteringAgency?.trim() || "[Fostering agency / VWO name]",
+      caseWorkerName: selectedChild.caseWorkerName?.trim() || "[Case worker name]",
+      caseWorkerPhone: selectedChild.caseWorkerPhone?.trim() || "[Case worker phone]",
+      caseWorkerEmail: selectedChild.caseWorkerEmail?.trim() || "[Case worker email]",
+      placementType: selectedChild.placementType || "[Placement status]",
+      courtOrderRef: selectedChild.courtOrderRef?.trim() || "[Court order reference, if applicable]",
+      verbalText: verbalTextFor(selectedChild.verbalStatus),
+      diagnosis: selectedChild.diagnosis?.trim() || "[Diagnosis, if applicable]",
+      allergies: selectedChild.knownTriggers?.trim() || "[Known allergies / triggers]",
+      clinic: assignedClinic?.name || "[Clinic name]",
+      pronoun: pronounFor(selectedChild.gender),
+      roleLabel: roleLabelFor(selectedChild.caregiverType, selectedChild.caregiverLabel),
+      yourName: account?.name || "[Your name]",
+      yourPhone: account?.phone || "[Your phone]",
+      yourEmail: account?.email || "[Your email]",
+    };
+    const filled = highlightBrackets(fillTemplate(template.content, values));
+    setLetterText(filled);
+    clearTimeout(saveTimer.current);
+    persistLetter(filled);
+  };
+
+  const downloadPdf = () => {
+    if (!letterText.trim()) return;
+    const fileName = `${(selectedChild?.name || "carer").replace(/\s+/g, "_")}_carer_letter.pdf`;
+    exportLetterToPdf(letterText, fileName);
+  };
+
+  // Live checklist of everything still bracketed in the letter — both our own
+  // "[Field name]" fill-ins and any unrecognised placeholder left over from
+  // the template — so the caregiver has a concrete list of what to look for
+  // instead of having to scan the whole letter themselves. Recomputes as they
+  // edit, so items disappear once they've been replaced.
+  const missingPlaceholders = useMemo(() => {
+    if (!letterText) return [];
+    const found = new Set();
+    letterText.replace(/\[([^\]]+)\]/g, (match, inner) => { found.add(inner.trim()); return match; });
+    return [...found];
+  }, [letterText]);
+
+  if (loadingTemplate) {
+    return <Page><p style={{ color: T.inkSoft, fontSize: 13 }}>Loading letter template...</p></Page>;
+  }
+
+  if (!template) {
+    return <Page><p style={{ color: T.inkMuted, fontSize: 13, lineHeight: 1.6 }}>No letter template has been set up yet. Ask an admin to add one from the admin dashboard.</p></Page>;
+  }
+
+  if (!selectedChild) {
+    return <Page><p style={{ color: T.inkMuted, fontSize: 13, lineHeight: 1.6 }}>Add a child profile on the Home tab first to generate a carer letter.</p></Page>;
+  }
+
+  return (
+    <Page>
+      {/* Light reskin of TinyMCE's default oxide-skin chrome (grey/blue) so the
+          toolbar reads as part of the Bonda system instead of a generic widget.
+          Scoped to this screen — TinyMCE isn't used anywhere else in the app. */}
+      <style>{`
+        .tox.tox-tinymce { border: none !important; border-radius: 0 !important; }
+        .tox .tox-toolbar__primary, .tox .tox-toolbar-overlord { background: ${T.canvas} !important; }
+        .tox .tox-toolbar__group { border: none !important; }
+        .tox .tox-tbtn { border-radius: 8px !important; margin: 2px !important; }
+        .tox .tox-tbtn:hover { background: ${T.purpleL} !important; color: ${T.purple} !important; }
+        .tox .tox-tbtn--enabled, .tox .tox-tbtn--enabled:hover { background: ${T.purpleL} !important; color: ${T.purple} !important; }
+        .tox .tox-edit-area__iframe { background: ${T.surface} !important; }
+      `}</style>
+
+      <p style={{ margin: "0 0 18px", color: T.inkSoft, fontSize: 13, lineHeight: 1.6 }}>We'll auto-fill the letter with what we already know about the child and your account — generate it, then edit anything (including the recipient and placement details) freely before exporting as a PDF.</p>
+
+      {children.length > 1 && (
+        <Select label="Child" value={selectedChildId || selectedChild.id} onChange={e => setSelectedChildId(e.target.value)} options={children.map(c => ({ value: c.id, label: c.name }))} />
+      )}
+
+      <Btn full onClick={generateLetter} style={{ marginBottom: 20 }}>Generate Letter</Btn>
+
+      {letterText && (
+        <>
+          <SectionLabel>Preview — edit freely before exporting</SectionLabel>
+
+          <Card style={{ marginBottom: 14, padding: 0, overflow: "hidden" }}>
+            <div
+              onClick={() => setHowtoOpen(o => !o)}
+              style={{ padding: "14px 16px", display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }}
+            >
+              <div style={{ width: 34, height: 34, borderRadius: 10, background: T.purpleL, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={T.purple} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+              </div>
+              <p style={{ flex: 1, margin: 0, fontFamily: T.fontDisplay, fontWeight: 600, fontSize: 15, color: T.ink }}>How to edit this letter</p>
+              <Badge color={T.amber} bg={T.amberL}>{missingPlaceholders.length}</Badge>
+              <span style={{ color: T.inkMuted, fontSize: 11, transform: howtoOpen ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>▾</span>
+            </div>
+            {howtoOpen && (
+              <div style={{ padding: "0 16px 16px" }}>
+                <p style={{ margin: "0 0 10px", fontSize: 12, color: T.inkSoft, lineHeight: 1.6 }}>
+                  Anything shown in <strong style={{ color: T.amber, background: T.amberL, borderRadius: 5, padding: "0 4px" }}>[brackets]</strong> below means we didn't have that information on file — click into the letter and type over it with the real detail. You can also freely rewrite, bold, or reformat any other part before exporting.
+                </p>
+                {missingPlaceholders.length > 0 ? (
+                  <>
+                    <p style={{ margin: "0 0 6px", fontSize: 12, fontWeight: 700, color: T.amber }}>Still needs filling in ({missingPlaceholders.length}):</p>
+                    <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, color: T.inkSoft, lineHeight: 1.7 }}>
+                      {missingPlaceholders.map(p => {
+                        const { label, desc } = describePlaceholder(p);
+                        return <li key={p}><strong style={{ color: T.ink }}>{label}</strong> — {desc}</li>;
+                      })}
+                    </ul>
+                  </>
+                ) : (
+                  <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: T.green }}>✓ No blanks left — give the letter one more read-through, then export.</p>
+                )}
+              </div>
+            )}
+          </Card>
+
+          <div style={{ marginBottom: 14, borderRadius: T.r, overflow: "hidden", border: `1.5px solid ${T.border}` }}>
+            <Editor
+              licenseKey="gpl"
+              value={letterText}
+              onEditorChange={handleEditorChange}
+              init={{
+                height: 520,
+                menubar: false,
+                statusbar: false,
+                plugins: "lists link table",
+                toolbar: "undo redo | bold italic underline | bullist numlist | link table | removeformat",
+                content_style: `
+                  body { font-family: 'Times New Roman', Times, serif; font-size: 13px; line-height: 1.65; color: ${T.ink}; }
+                  h1,h2,h3,h4 { font-family: ${T.fontDisplay}; font-weight: 600; letter-spacing: -0.01em; margin: 20px 0 10px; color: ${T.ink}; }
+                  h1 { font-size: 20px; } h2 { font-size: 18px; } h3 { font-size: 15px; } h4 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; }
+                  p { margin: 0 0 12px; }
+                  table { border-collapse: collapse; width: 100%; margin: 0 0 14px; }
+                  td, th { border: 1px solid ${T.border}; padding: 8px 10px; vertical-align: top; font-size: 13px; text-align: left; }
+                  ul, ol { margin: 0 0 14px; padding-left: 20px; }
+                  li { margin: 0 0 6px; }
+                  .bonda-bk { color: ${T.amber}; background: ${T.amberL}; border-radius: 5px; padding: 0 4px; font-weight: 600; }
+                `,
+              }}
+            />
+          </div>
+          <Btn full onClick={downloadPdf}>Export to PDF</Btn>
+        </>
+      )}
+    </Page>
+  );
+}

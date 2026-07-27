@@ -3,8 +3,9 @@ import { supabase } from "../lib/supabase";
 import { T } from "../theme";
 import { Page, SectionLabel, Card, Badge, Btn, Input, TextArea, Avatar, Accordion, PageHero, AvatarIllustrations, ChildAvatar, ComAvatar, ROOM_ICONS, ACTIVITY_TEXTAREA_STYLE, ActionIllustration, HeroIllustration } from "../ui";
 import { CHILD_AVATARS, DEFAULT_CHILDREN, DEFAULT_SCHEDULE, ROOM_COLORS, SOS_COLORS, VERBAL_STATUS_OPTIONS } from "../data";
+import { MedicalDisclaimerBanner } from "../components/bonda-compliance";
 
-export function FosterHubScreen({ pop }) {
+export function FosterHubScreen({ pop, push }) {
   const [openSection, setOpenSection] = useState(null);
 
   const sections = [
@@ -87,6 +88,7 @@ export function FosterHubScreen({ pop }) {
 
   return (
     <Page>
+      <MedicalDisclaimerBanner />
 
       <div style={{ background: T.ink, borderRadius: T.rL, padding: 22, marginBottom: 20 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 14 }}>
@@ -114,6 +116,33 @@ export function FosterHubScreen({ pop }) {
         <p style={{ margin: 0, color: T.red, fontSize: 12, fontWeight: 700, lineHeight: 1.65 }}>If you have lost HealthHub access for your foster child — you are not alone. This was raised in Parliament in April 2025. Tap "HealthHub Access" below for what to do right now.</p>
       </div>
 
+
+      <Card onClick={() => push("carerLetter")} style={{ marginBottom: 12, display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }}>
+        <div style={{ width: 36, height: 36, borderRadius: 10, background: T.purpleL, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+            <path d="M3 3.5 H15 V14.5 H3 Z" stroke={T.purple} strokeWidth="1.4" fill="none" strokeLinejoin="round"/>
+            <path d="M5.5 7 H12.5 M5.5 9.5 H12.5 M5.5 12 H9.5" stroke={T.purple} strokeWidth="1.2" strokeLinecap="round"/>
+          </svg>
+        </div>
+        <div style={{ flex: 1 }}>
+          <p style={{ margin: "0 0 2px", fontWeight: 800, color: T.ink, fontSize: 14 }}>Generate Foster Carer Letter</p>
+          <p style={{ margin: 0, color: T.inkSoft, fontSize: 12, lineHeight: 1.5 }}>Auto-filled with your child's details — export a ready-to-print PDF.</p>
+        </div>
+        <span style={{ color: T.purple, fontSize: 18 }}>→</span>
+      </Card>
+
+      <Card onClick={() => push("documents")} style={{ marginBottom: 20, display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }}>
+        <div style={{ width: 36, height: 36, borderRadius: 10, background: T.purpleL, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+            <path d="M2.5 4a1.5 1.5 0 0 1 1.5-1.5h3l1.5 2h6a1.5 1.5 0 0 1 1.5 1.5v7A1.5 1.5 0 0 1 14.5 14.5h-11A1.5 1.5 0 0 1 2 13Z" stroke={T.purple} strokeWidth="1.3" strokeLinejoin="round"/>
+          </svg>
+        </div>
+        <div style={{ flex: 1 }}>
+          <p style={{ margin: "0 0 2px", fontWeight: 800, color: T.ink, fontSize: 14 }}>Documents</p>
+          <p style={{ margin: 0, color: T.inkSoft, fontSize: 12, lineHeight: 1.5 }}>Every saved letter and file for the children in your care, in one place.</p>
+        </div>
+        <span style={{ color: T.purple, fontSize: 18 }}>→</span>
+      </Card>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {sections.map(sec => (

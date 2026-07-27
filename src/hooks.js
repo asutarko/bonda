@@ -20,6 +20,18 @@ export const childFromRow = (row) => ({
   knownTriggers: row.known_triggers || "",
   therapySchedule: row.therapy_schedule || "",
   dietProgram: row.diet_program || "",
+  diagnosis: row.diagnosis || "",
+  placementStartDate: row.placement_start_date || "",
+  fosteringAgency: row.fostering_agency || "",
+  placementType: row.placement_type || "",
+  courtOrderRef: row.court_order_ref || "",
+  caseWorkerName: row.case_worker_name || "",
+  caseWorkerPhone: row.case_worker_phone || "",
+  caseWorkerEmail: row.case_worker_email || "",
+  clinicName: row.clinic_name || "",
+  location: row.location || "",
+  psychologistId: row.psychologist_id || null,
+  active: row.active ?? true,
   createdAt: row.created_at,
 });
 
@@ -73,6 +85,16 @@ export function useChildren(userId) {
       known_triggers: child.hasSpecialNeeds ? (child.knownTriggers || "") : "",
       therapy_schedule: child.hasSpecialNeeds ? (child.therapySchedule || "") : "",
       diet_program: child.hasSpecialNeeds ? (child.dietProgram || "") : "",
+      diagnosis: child.diagnosis || "",
+      placement_start_date: child.placementStartDate || null,
+      fostering_agency: child.fosteringAgency || "",
+      placement_type: child.placementType || "",
+      court_order_ref: child.courtOrderRef || "",
+      case_worker_name: child.caseWorkerName || "",
+      case_worker_phone: child.caseWorkerPhone || "",
+      case_worker_email: child.caseWorkerEmail || "",
+      clinic_name: child.clinicName || "",
+      location: child.location || "",
     }).select().single();
     if (error || !data) { if (error) console.error("Failed to add child profile:", error.message); return null; }
     const newChild = childFromRow(data);
@@ -81,6 +103,8 @@ export function useChildren(userId) {
     return newChild.id;
   };
 
+  // "active" is deliberately not whitelisted below — only an admin account can
+  // change it (enforced by a DB trigger), so the parent-facing app never writes it.
   const updateChild = (id, patch) => {
     setChildren(cs => cs.map(c => c.id === id ? { ...c, ...patch } : c));
     const dbPatch = {};
@@ -100,6 +124,16 @@ export function useChildren(userId) {
     if ("knownTriggers" in patch) dbPatch.known_triggers = patch.knownTriggers;
     if ("therapySchedule" in patch) dbPatch.therapy_schedule = patch.therapySchedule;
     if ("dietProgram" in patch) dbPatch.diet_program = patch.dietProgram;
+    if ("diagnosis" in patch) dbPatch.diagnosis = patch.diagnosis;
+    if ("placementStartDate" in patch) dbPatch.placement_start_date = patch.placementStartDate || null;
+    if ("fosteringAgency" in patch) dbPatch.fostering_agency = patch.fosteringAgency;
+    if ("placementType" in patch) dbPatch.placement_type = patch.placementType;
+    if ("courtOrderRef" in patch) dbPatch.court_order_ref = patch.courtOrderRef;
+    if ("caseWorkerName" in patch) dbPatch.case_worker_name = patch.caseWorkerName;
+    if ("caseWorkerPhone" in patch) dbPatch.case_worker_phone = patch.caseWorkerPhone;
+    if ("caseWorkerEmail" in patch) dbPatch.case_worker_email = patch.caseWorkerEmail;
+    if ("clinicName" in patch) dbPatch.clinic_name = patch.clinicName;
+    if ("location" in patch) dbPatch.location = patch.location;
     supabase.from("children").update(dbPatch).eq("id", id).then(({ error }) => { if (error) console.error("Failed to save child profile:", error.message); });
   };
 
@@ -178,6 +212,66 @@ export const uploadPhoto = async (dataUrl, folder, ownerId) => {
   return data.publicUrl;
 };
 
+// Downscales an image file to fit within maxDim×maxDim and re-encodes it as
+// JPEG at the given quality, via canvas — cuts typical phone-camera photos
+// (3-8MB) down to a few hundred KB before they ever reach Supabase Storage,
+// which matters on the free plan's storage cap. Falls back to the original
+// file if decoding fails (e.g. unsupported format).
+export const compressImage = (file, maxDim = 800, quality = 0.75) => new Promise(resolve => {
+  const objectUrl = URL.createObjectURL(file);
+  const img = new Image();
+  img.onload = () => {
+    URL.revokeObjectURL(objectUrl);
+    const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+    const w = Math.round(img.width * scale) || 1;
+    const h = Math.round(img.height * scale) || 1;
+    const canvas = document.createElement("canvas");
+    canvas.width = w; canvas.height = h;
+    canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+    canvas.toBlob(blob => resolve(blob || file), "image/jpeg", quality);
+  };
+  img.onerror = () => { URL.revokeObjectURL(objectUrl); resolve(file); };
+  img.src = objectUrl;
+});
+
+// Community chat attachments are limited to images and Word/Excel/PDF
+// documents — no video, audio, or other file types. Checked by MIME type
+// first, falling back to the extension since some browsers/OSes report
+// generic MIME types (e.g. "application/octet-stream") for .doc/.xls files.
+const COMMUNITY_DOC_MIME_TO_EXT = {
+  "application/msword": "doc",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+  "application/vnd.ms-excel": "xls",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+  "application/pdf": "pdf",
+};
+const COMMUNITY_DOC_EXTS = ["doc", "docx", "xls", "xlsx", "pdf"];
+export const MAX_COMMUNITY_ATTACHMENT_BYTES = 10 * 1024 * 1024;
+
+// Returns "image", "document", or null (rejected) for a file picked for a
+// community chat attachment.
+export const classifyCommunityAttachment = file => {
+  if (!file) return null;
+  if (file.type.startsWith("image/")) return "image";
+  const ext = file.name.split(".").pop()?.toLowerCase();
+  if (COMMUNITY_DOC_MIME_TO_EXT[file.type] || COMMUNITY_DOC_EXTS.includes(ext)) return "document";
+  return null;
+};
+
+// Uploads a community chat attachment (an image Blob or a Word/Excel File)
+// to assets/community/ and returns its public URL. Every upload gets a
+// unique name — attachments accumulate rather than replacing each other.
+export const uploadCommunityAttachment = async (file, ownerId, kind) => {
+  if (!file) return null;
+  const ext = kind === "image" ? "jpg" : (COMMUNITY_DOC_MIME_TO_EXT[file.type] || file.name.split(".").pop().toLowerCase());
+  const contentType = kind === "image" ? "image/jpeg" : (file.type || "application/octet-stream");
+  const path = `assets/community/${ownerId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const { error } = await supabase.storage.from("public").upload(path, file, { contentType });
+  if (error) { console.error("Failed to upload community attachment:", error.message); return null; }
+  const { data } = supabase.storage.from("public").getPublicUrl(path);
+  return data.publicUrl;
+};
+
 export const forceSignOut = async () => {
   let failed = false;
   try {
@@ -195,6 +289,19 @@ export const forceSignOut = async () => {
   }
 };
 
+// Set right after a new account is created so the app knows to show the
+// mandatory compliance screen the first time that account's session loads —
+// even if email confirmation delays it to a later visit.
+const NEW_SIGNUP_KEY = "bonda_pending_compliance";
+export const markNewSignup = () => { try { localStorage.setItem(NEW_SIGNUP_KEY, "1"); } catch {} };
+export const consumeNewSignupFlag = () => {
+  try {
+    if (localStorage.getItem(NEW_SIGNUP_KEY) !== "1") return false;
+    localStorage.removeItem(NEW_SIGNUP_KEY);
+    return true;
+  } catch { return false; }
+};
+
 export const accountFromUser = (u) => u ? {
   id: u.id,
   name: u.user_metadata?.name || u.email,
@@ -205,4 +312,7 @@ export const accountFromUser = (u) => u ? {
   address: u.user_metadata?.address || "",
   phone: u.user_metadata?.phone || "",
   relationship: u.user_metadata?.relationship || "",
+  occupation: u.user_metadata?.occupation || "",
+  nationality: u.user_metadata?.nationality || "",
+  maritalStatus: u.user_metadata?.maritalStatus || "",
 } : null;

@@ -7,6 +7,7 @@
 -- Folder layout inside the bucket:
 --   assets/parents/<userId>-<timestamp>.jpg   (parent profile photos)
 --   assets/children/<userId>-<timestamp>.jpg  (child profile photos)
+--   assets/community/<userId>-<timestamp>-<rand>.jpg  (community chat images, sent by regular users)
 
 insert into storage.buckets (id, name, public)
 values ('public', 'public', true)
@@ -20,7 +21,8 @@ create policy "Public read access for the public bucket"
   to public
   using (bucket_id = 'public');
 
--- Signed-in users can upload files into assets/parents/ and assets/children/.
+-- Signed-in users can upload files into assets/parents/, assets/children/
+-- and assets/community/ (chat images).
 drop policy if exists "Authenticated users can upload profile photos" on storage.objects;
 create policy "Authenticated users can upload profile photos"
   on storage.objects for insert
@@ -28,7 +30,7 @@ create policy "Authenticated users can upload profile photos"
   with check (
     bucket_id = 'public'
     and (storage.foldername(name))[1] = 'assets'
-    and (storage.foldername(name))[2] in ('parents', 'children')
+    and (storage.foldername(name))[2] in ('parents', 'children', 'community')
   );
 
 -- Signed-in users can overwrite/replace their own previously uploaded photos.

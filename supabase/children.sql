@@ -7,7 +7,7 @@ create table if not exists public.children (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
   name text not null,
-  emoji text not null default 'none',s
+  emoji text not null default 'none',
   caregiver_type text not null default 'biological',
   caregiver_label text not null default '',
   schedule_items jsonb not null default '[]'::jsonb,
@@ -41,6 +41,83 @@ alter table public.children add column if not exists diet_program text not null 
 alter table public.children add column if not exists dob date;
 alter table public.children add column if not exists gender text not null default '';
 
+-- Free-text age, kept for children added before dob/gender existed.
+alter table public.children add column if not exists age text not null default '';
+
+-- Optional link to the clinic_psychologists directory (see clinics.sql), so a child
+-- can be assigned to the psychologist managing their case.
+alter table public.children add column if not exists psychologist_id uuid references public.clinic_psychologists (id) on delete set null;
+
+-- Placement/letter details, filled in once on the child profile so the carer letter
+-- (CarerLetterScreen) can auto-fill from here instead of being retyped every time.
+alter table public.children add column if not exists diagnosis text not null default '';
+alter table public.children add column if not exists placement_start_date date;
+alter table public.children add column if not exists fostering_agency text not null default '';
+alter table public.children add column if not exists placement_type text not null default '';
+alter table public.children add column if not exists court_order_ref text not null default '';
+alter table public.children add column if not exists case_worker_name text not null default '';
+alter table public.children add column if not exists case_worker_phone text not null default '';
+alter table public.children add column if not exists case_worker_email text not null default '';
+
+-- Clinic managing this child's case (was previously on the parent's own profile,
+-- but a caregiver can have children at different clinics, so it belongs per-child).
+alter table public.children add column if not exists clinic_name text not null default '';
+alter table public.children add column if not exists location text not null default '';
+
+-- Whether this child profile is active. New profiles start active immediately on
+-- registration; the owning parent can view this but cannot set or change it themselves
+-- after creation (enforced below) — only an admin account (profiles.role = 'admin',
+-- managed from the separate admin app) can deactivate/reactivate one later (e.g. for
+-- moderation).
+alter table public.children add column if not exists active boolean not null default false;
+alter table public.children alter column active set default true;
+
+create or replace function public.enforce_children_active_update()
+returns trigger as $$
+begin
+  if new.active is distinct from old.active
+     and not exists (select 1 from public.profiles where id = auth.uid() and role = 'admin') then
+    new.active := old.active;
+  end if;
+  return new;
+end;
+$$ language plpgsql security definer set search_path = public;
+
+drop trigger if exists children_enforce_active_update on public.children;
+create trigger children_enforce_active_update
+  before update on public.children
+  for each row
+  execute function public.enforce_children_active_update();
+
+-- A non-admin can still smuggle active=false through the insert itself (the trigger
+-- above only guards updates), so pin it to true on insert unless an admin is creating
+-- the row on a parent's behalf.
+create or replace function public.enforce_children_active_insert()
+returns trigger as $$
+begin
+  if not new.active and not exists (select 1 from public.profiles where id = auth.uid() and role = 'admin') then
+    new.active := true;
+  end if;
+  return new;
+end;
+$$ language plpgsql security definer set search_path = public;
+
+drop trigger if exists children_enforce_active_insert on public.children;
+create trigger children_enforce_active_insert
+  before insert on public.children
+  for each row
+  execute function public.enforce_children_active_insert();
+
+-- One-time backfill: activate any child profile left over from before "active"
+-- defaulted to true, so existing pending profiles aren't stuck waiting on an
+-- admin that no longer needs to review them. The update trigger above blocks
+-- non-admin changes to "active" — but running this in the SQL Editor has no
+-- auth.uid() at all, so it would get silently reverted too. Disable the
+-- trigger just for this statement, then restore it.
+alter table public.children disable trigger children_enforce_active_update;
+update public.children set active = true where active = false;
+alter table public.children enable trigger children_enforce_active_update;
+
 create index if not exists children_user_id_idx on public.children (user_id);
 
 alter table public.children enable row level security;
@@ -64,8 +141,28 @@ create policy "Users can update their own children"
   to authenticated
   using (auth.uid() = user_id);
 
+-- Without this, an admin account (different auth.uid() than the child's owner)
+-- couldn't even issue the UPDATE needed to flip "active" on someone else's child —
+-- the row-ownership policy above would reject it before the active-lock trigger
+-- ever ran. This grants admins update access to any child row; the trigger still
+-- locks "active" against everyone except admins.
+drop policy if exists "Admins can update any child" on public.children;
+create policy "Admins can update any child"
+  on public.children for update
+  to authenticated
+  using (exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'))
+  with check (exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'));
+
+-- Once a child profile is approved (active = true), the owning parent can no
+-- longer delete it themselves; only an admin can (see policy below).
 drop policy if exists "Users can delete their own children" on public.children;
 create policy "Users can delete their own children"
   on public.children for delete
   to authenticated
-  using (auth.uid() = user_id);
+  using (auth.uid() = user_id and active = false);
+
+drop policy if exists "Admins can delete any child" on public.children;
+create policy "Admins can delete any child"
+  on public.children for delete
+  to authenticated
+  using (exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'));

@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#F4F1EB" />
+<title>Bonda · Community</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.24.7/babel.min.js"></script>
+
+<style>
+  :root{
+    --bg:#F4F1EB; --card:#FFFFFF;
+    --ink:#23201C; --ink-2:#5C574F; --ink-3:#8E887E;
+    --line:#E7E1D6; --line-2:#EFEAE1;
+    --teal:#3E6E6A; --teal-ink:#2F5854; --teal-soft:#E6EDEC; --teal-line:#D8E4E2;
+    --rose:#7B4A53;
+    --shadow-sm:0 1px 2px rgba(35,32,28,.06);
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ height:100%; margin:0; }
+  body{ font-family:"Plus Jakarta Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; background:#EDE9E1; color:var(--ink); -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility; }
+
+  .stage{ min-height:100dvh; display:flex; align-items:center; justify-content:center; padding:28px; }
+  .phone{ position:relative; width:400px; height:844px; background:var(--bg); border-radius:38px; box-shadow:0 40px 80px -24px rgba(35,32,28,.35), 0 0 0 1px rgba(35,32,28,.04); overflow:hidden; display:flex; flex-direction:column; }
+  @media (max-width:480px){ .stage{ padding:0; } .phone{ width:100%; height:100dvh; border-radius:0; box-shadow:none; } }
+
+  /* header */
+  .top{ flex:none; display:flex; align-items:center; gap:12px; padding:14px 16px 12px; padding-top:max(14px, env(safe-area-inset-top)); background:var(--bg); border-bottom:1px solid var(--line-2); }
+  .icon-btn{ width:38px; height:38px; border-radius:50%; display:grid; place-items:center; background:transparent; border:none; cursor:pointer; color:var(--ink-2); }
+  .icon-btn:active{ background:rgba(35,32,28,.05); }
+  .top h1{ margin:0; font-size:20px; font-weight:700; letter-spacing:-.01em; color:var(--ink); flex:1; }
+
+  /* chat group row */
+  .group{ flex:none; display:flex; align-items:center; gap:12px; padding:12px 16px; background:var(--card); border:none; border-bottom:1px solid var(--line); cursor:pointer; width:100%; }
+  .group:active{ background:#FBFAF7; }
+  .group-badge{ width:40px; height:40px; border-radius:12px; display:grid; place-items:center; background:var(--teal-soft); color:var(--teal); flex:none; }
+  .group-meta{ min-width:0; text-align:left; }
+  .group-name{ font-family:"Fraunces",Georgia,serif; font-weight:500; font-size:18px; line-height:1.15; color:var(--ink); letter-spacing:.005em; }
+  .group-link{ font-size:12.5px; color:var(--teal); font-weight:600; margin-top:3px; display:inline-flex; align-items:center; gap:4px; }
+
+  /* chat messages */
+  .messages{ flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; padding:16px 16px 8px; display:flex; flex-direction:column; gap:14px; background:var(--bg); }
+  .day-sep{ align-self:center; font-size:11px; font-weight:600; letter-spacing:.04em; color:var(--ink-3); background:var(--card); border:1px solid var(--line); padding:4px 12px; border-radius:999px; margin:2px 0 4px; }
+  .row{ display:flex; gap:10px; align-items:flex-end; max-width:82%; }
+  .row.them{ align-self:flex-start; } .row.me{ align-self:flex-end; flex-direction:row-reverse; }
+  .avatar{ width:34px; height:34px; border-radius:50%; background:var(--teal-soft); color:var(--teal); display:grid; place-items:center; flex:none; margin-bottom:18px; }
+  .bubble-wrap{ display:flex; flex-direction:column; min-width:0; } .row.me .bubble-wrap{ align-items:flex-end; }
+  .author{ font-size:12px; font-weight:600; color:var(--ink-2); margin:0 0 4px 4px; }
+  .bubble{ font-size:15.5px; line-height:1.45; color:var(--ink); background:var(--card); border:1px solid var(--line); padding:10px 14px; border-radius:18px 18px 18px 6px; box-shadow:var(--shadow-sm); word-break:break-word; }
+  .row.me .bubble{ background:var(--teal-soft); border-color:var(--teal-line); color:var(--teal-ink); border-radius:18px 18px 6px 18px; }
+  .time{ font-size:11px; color:var(--ink-3); margin:5px 4px 0; }
+
+  /* composer */
+  .composer-wrap{ flex:none; background:var(--bg); border-top:1px solid var(--line-2); padding:10px 12px; }
+  .composer{ display:flex; align-items:center; gap:8px; }
+  .leaf{ width:40px; height:40px; border-radius:50%; background:var(--teal); color:#F4F1EB; display:grid; place-items:center; flex:none; border:none; cursor:pointer; }
+  .clip{ width:38px; height:38px; border-radius:50%; display:grid; place-items:center; flex:none; background:transparent; border:1px solid var(--line); color:var(--ink-3); cursor:pointer; }
+  .field{ flex:1; min-width:0; display:flex; align-items:center; background:var(--card); border:1px solid var(--line); border-radius:22px; padding:0 6px 0 16px; }
+  .field input{ flex:1; min-width:0; border:none; outline:none; background:transparent; font-family:inherit; font-size:15px; color:var(--ink); padding:11px 6px; }
+  .field input::placeholder{ color:var(--ink-3); }
+  .send{ width:34px; height:34px; border-radius:50%; flex:none; display:grid; place-items:center; border:none; cursor:pointer; background:var(--line-2); color:var(--ink-3); transition:background .15s, color .15s; }
+  .send.on{ background:var(--teal); color:#F4F1EB; }
+
+  /* bottom nav */
+  .tabbar{ flex:none; display:flex; background:var(--card); border-top:1px solid var(--line); padding-bottom:max(6px, env(safe-area-inset-bottom)); }
+  .tab{ flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; padding:9px 0 7px; background:none; border:none; cursor:pointer; color:var(--ink-3); font-family:inherit; font-size:11px; font-weight:600; }
+  .tab.active{ color:var(--teal); }
+  .tab .dot{ width:5px; height:5px; border-radius:50%; background:var(--teal); margin-top:-2px; opacity:0; } .tab.active .dot{ opacity:1; }
+
+  /* info page */
+  .scroll{ flex:1 1 auto; min-height:0; overflow-y:auto; -webkit-overflow-scrolling:touch; background:var(--bg); }
+  .info-body{ padding:8px 18px 40px; }
+  .hero{ display:flex; flex-direction:column; align-items:center; text-align:center; padding:14px 0 20px; }
+  .hero-avatar{ width:92px; height:92px; border-radius:50%; background:var(--teal-soft); color:var(--teal); display:grid; place-items:center; margin-bottom:14px; box-shadow:inset 0 0 0 1px var(--teal-line); }
+  .hero-name{ font-family:"Fraunces",Georgia,serif; font-weight:600; font-size:25px; letter-spacing:.005em; color:var(--ink); }
+  .hero-meta{ font-size:13.5px; color:var(--ink-3); margin-top:5px; }
+
+  .actions{ display:flex; gap:10px; margin:4px 0 22px; }
+  .action{ flex:1; display:flex; flex-direction:column; align-items:center; gap:7px; background:var(--card); border:1px solid var(--line); border-radius:16px; padding:14px 6px; cursor:pointer; color:var(--teal); font-family:inherit; font-size:12px; font-weight:600; transition:background .15s, border-color .15s; }
+  .action:active{ background:#FBFAF7; }
+  .action span{ color:var(--ink-2); }
+  .action.on{ background:var(--teal-soft); border-color:var(--teal-line); }
+  .action.on span{ color:var(--teal-ink); }
+  .action.off{ color:var(--ink-3); } .action.off span{ color:var(--ink-3); }
+
+  .eyebrow{ font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-3); margin:0 2px 9px; }
+  .card{ background:var(--card); border:1px solid var(--line); border-radius:18px; padding:16px 18px; box-shadow:var(--shadow-sm); }
+  .about{ font-size:15px; line-height:1.6; color:var(--ink-2); margin:0; }
+  .about.clamp{ display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  .link{ background:none; border:none; padding:0; margin-top:8px; cursor:pointer; color:var(--teal); font-family:inherit; font-size:13.5px; font-weight:600; }
+
+  .block{ margin-top:22px; }
+  .tags{ display:flex; flex-wrap:wrap; gap:8px; }
+  .tag{ font-size:12.5px; font-weight:600; padding:6px 12px; border-radius:999px; }
+  .tag.teal{ background:#E4ECEB; color:#335E5A; } .tag.blue{ background:#E5EBF1; color:#3A5573; }
+  .tag.rose{ background:#F1E6E7; color:#7B4A53; } .tag.violet{ background:#ECE7F1; color:#57497A; }
+  .tag.indigo{ background:#E6E8F2; color:#434A79; } .tag.slate{ background:#EAE9E7; color:#4E5155; }
+
+  .rowcard{ display:flex; align-items:center; gap:14px; width:100%; text-align:left; cursor:pointer; }
+  .rowcard .ric{ width:38px; height:38px; border-radius:11px; background:var(--teal-soft); color:var(--teal); display:grid; place-items:center; flex:none; }
+  .rowcard .rtitle{ font-size:14.5px; font-weight:600; color:var(--ink); }
+  .rowcard .rsub{ font-size:12.5px; color:var(--ink-3); margin-top:2px; }
+  .rowcard .chev{ color:var(--ink-3); margin-left:auto; }
+
+  .note{ font-size:13.5px; line-height:1.55; color:var(--ink-2); margin:0; } .note b{ color:var(--ink); font-weight:600; }
+  .leave{ display:block; width:100%; margin-top:26px; text-align:center; background:none; border:none; cursor:pointer; color:var(--rose); font-family:inherit; font-size:14px; font-weight:600; }
+
+  /* contacts page */
+  .subtitle{ padding:0 18px 12px; font-size:13.5px; color:var(--ink-3); }
+  .searchbar{ display:flex; align-items:center; gap:10px; margin:2px 18px 6px; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:11px 14px; color:var(--ink-3); }
+  .searchbar input{ flex:1; min-width:0; border:none; outline:none; background:transparent; font-family:inherit; font-size:15px; color:var(--ink); }
+  .searchbar input::placeholder{ color:var(--ink-3); }
+  .list-label{ font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-3); padding:14px 20px 6px; }
+  .contact{ display:flex; align-items:center; gap:13px; padding:11px 18px; }
+  .contact + .contact{ border-top:1px solid var(--line-2); }
+  .cavatar{ width:44px; height:44px; border-radius:50%; display:grid; place-items:center; font-size:14px; font-weight:700; flex:none; }
+  .cavatar.teal{ background:#E4ECEB; color:#335E5A; } .cavatar.blue{ background:#E5EBF1; color:#3A5573; }
+  .cavatar.rose{ background:#F1E6E7; color:#7B4A53; } .cavatar.violet{ background:#ECE7F1; color:#57497A; }
+  .cavatar.indigo{ background:#E6E8F2; color:#434A79; } .cavatar.slate{ background:#EAE9E7; color:#4E5155; }
+  .cmeta{ flex:1; min-width:0; } .cname{ font-size:15px; font-weight:600; color:var(--ink); } .csub{ font-size:12.5px; color:var(--ink-3); margin-top:1px; }
+  .invite-pill{ display:inline-flex; align-items:center; gap:6px; padding:8px 14px; border-radius:999px; border:1px solid var(--line); background:var(--card); color:var(--teal); font-family:inherit; font-size:13px; font-weight:600; cursor:pointer; flex:none; }
+  .invite-pill.done{ background:var(--teal-soft); border-color:var(--teal-line); color:var(--teal-ink); }
+  .sendbar{ flex:none; padding:12px 18px calc(14px + env(safe-area-inset-bottom)); background:var(--bg); border-top:1px solid var(--line-2); }
+  .cta{ width:100%; padding:14px; border-radius:14px; border:none; cursor:pointer; background:var(--teal); color:#F4F1EB; font-family:inherit; font-size:15px; font-weight:600; }
+
+  :focus-visible{ outline:2px solid var(--teal); outline-offset:2px; }
+  @media (prefers-reduced-motion:reduce){ *{ transition:none !important; } }
+</style>
+</head>
+<body>
+  <div id="root"></div>
+
+<script type="text/babel">
+const { useState, useRef, useEffect } = React;
+
+const I = {
+  back:  (p)=><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M15 18l-6-6 6-6"/></svg>,
+  kebab: (p)=><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" {...p}><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg>,
+  leaf:  (p)=><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6"/></svg>,
+  user:  (p)=><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...p}><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-6 8-6s8 2 8 6"/></svg>,
+  clip:  (p)=><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M21.44 11.05l-9.19 9.19a5 5 0 0 1-7.07-7.07l9.19-9.19a3.5 3.5 0 0 1 4.95 4.95l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>,
+  send:  (p)=><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M9 18l6-6-6-6"/></svg>,
+  chevR: (p)=><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M9 18l6-6-6-6"/></svg>,
+  chevD: (p)=><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M6 9l6 6 6-6"/></svg>,
+  people:(p)=><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...p}><circle cx="9" cy="8" r="3.2"/><path d="M2.5 20c0-3.2 2.6-5 6.5-5s6.5 1.8 6.5 5"/><path d="M16.5 15c2.9.2 5 2 5 5"/><path d="M15.5 5.2A3.2 3.2 0 0 1 18 11"/></svg>,
+  check: (p)=><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M20 6L9 17l-5-5"/></svg>,
+  plus:  (p)=><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M12 5v14M5 12h14"/></svg>,
+  invite:(p)=><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" {...p}><circle cx="9" cy="8" r="3.4"/><path d="M3.5 20c0-3.4 2.5-5.4 5.5-5.4s5.5 2 5.5 5.4"/><path d="M18.5 8v6M15.5 11h6"/></svg>,
+  bell:  (p)=><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M18 8a6 6 0 1 0-12 0c0 6-2.5 7-2.5 7h17S18 14 18 8Z"/><path d="M10.5 20a1.9 1.9 0 0 0 3 0"/></svg>,
+  bellOff:(p)=><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M18 8a6 6 0 1 0-12 0c0 6-2.5 7-2.5 7h17S18 14 18 8Z"/><path d="M10.5 20a1.9 1.9 0 0 0 3 0"/><path d="M3.5 3.5l17 17"/></svg>,
+  globe: (p)=><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...p}><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 2.5 15.4 0 18M12 3c-2.5 2.6-2.5 15.4 0 18"/></svg>,
+  search:(p)=><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" {...p}><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>,
+  x:     (p)=><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M6 6l12 12M18 6L6 18"/></svg>,
+  home:  (p)=><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20h14V9.5"/></svg>,
+  child: (p)=><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...p}><circle cx="10" cy="8" r="3.4"/><path d="M4 20c0-3.4 2.7-5.5 6-5.5s6 2.1 6 5.5"/><circle cx="18.5" cy="6.5" r="1.3"/></svg>,
+  cal:   (p)=><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...p}><rect x="3.5" y="5" width="17" height="16" rx="2.5"/><path d="M3.5 9.5h17M8 3v4M16 3v4"/></svg>,
+};
+
+const initials = (name)=> name.split(" ").map(w=>w[0]).slice(0,2).join("").toUpperCase();
+
+const CONTACTS = [
+  { id:"c1", name:"Andre Tan",   sub:"Foster parent",              tint:"teal"   },
+  { id:"c2", name:"Siti Rahmah", sub:"Foster parent",              tint:"blue"   },
+  { id:"c3", name:"Mei Ling Ho", sub:"Kinship carer",              tint:"rose"   },
+  { id:"c4", name:"Daniel Wong", sub:"Foster parent",              tint:"violet" },
+  { id:"c5", name:"Priya Nair",  sub:"Prospective foster parent",  tint:"indigo" },
+  { id:"c6", name:"Farah Ismail",sub:"Foster parent",              tint:"slate"  },
+  { id:"c7", name:"Jason Lee",   sub:"Kinship carer",              tint:"teal"   },
+  { id:"c8", name:"Nurul Aina",  sub:"Foster parent",              tint:"blue"   },
+];
+
+/* ---------------- Chat ---------------- */
+function Chat({ onOpenInfo, tab, setTab }){
+  const [text, setText] = useState("");
+  const [messages, setMessages] = useState([
+    { id:1, author:"Andre", me:false, text:"haloo?", time:"22 Jul · 05:15 pm" },
+  ]);
+  const scroller = useRef(null);
+  useEffect(()=>{ const el = scroller.current; if(el) el.scrollTop = el.scrollHeight; }, [messages]);
+
+  const send = ()=>{
+    const t = text.trim(); if(!t) return;
+    const n = new Date();
+    const hh = ((n.getHours()+11)%12)+1, mm = String(n.getMinutes()).padStart(2,"0"), ap = n.getHours()<12?"am":"pm";
+    setMessages(m=>[...m, { id:Date.now(), author:"You", me:true, text:t, time:`Today · ${hh}:${mm} ${ap}` }]);
+    setText("");
+  };
+  const onKey = (e)=>{ if(e.key==="Enter" && !e.shiftKey){ e.preventDefault(); send(); } };
+
+  const tabs = [
+    { id:"home", label:"Home", icon:I.home }, { id:"child", label:"My Child", icon:I.child },
+    { id:"schedule", label:"Schedule", icon:I.cal }, { id:"community", label:"Community", icon:I.people },
+  ];
+
+  return (
+    <React.Fragment>
+      <header className="top">
+        <button className="icon-btn" aria-label="Back"><I.back/></button>
+        <h1>Community</h1>
+        <button className="icon-btn" aria-label="More options"><I.kebab/></button>
+      </header>
+
+      <button className="group" onClick={onOpenInfo}>
+        <div className="group-badge" aria-hidden="true"><I.people/></div>
+        <div className="group-meta">
+          <div className="group-name">Foster Parents</div>
+          <span className="group-link">Click here for more information <I.chevR width="14" height="14"/></span>
+        </div>
+      </button>
+
+      <main className="messages" ref={scroller}>
+        <div className="day-sep">22 July</div>
+        {messages.map(m=>(
+          <div key={m.id} className={"row " + (m.me ? "me":"them")}>
+            <div className="avatar" aria-hidden="true"><I.user/></div>
+            <div className="bubble-wrap">
+              {!m.me && <div className="author">{m.author}</div>}
+              <div className="bubble">{m.text}</div>
+              <div className="time">{m.time}</div>
+            </div>
+          </div>
+        ))}
+      </main>
+
+      <div className="composer-wrap">
+        <div className="composer">
+          <button className="leaf" aria-label="Bonda"><I.leaf/></button>
+          <button className="clip" aria-label="Attach"><I.clip/></button>
+          <div className="field">
+            <input value={text} onChange={e=>setText(e.target.value)} onKeyDown={onKey}
+              placeholder="Write a message… (Enter to send)" aria-label="Write a message" />
+            <button className={"send " + (text.trim() ? "on":"")} onClick={send} aria-label="Send message"><I.send/></button>
+          </div>
+        </div>
+      </div>
+
+      <nav className="tabbar">
+        {tabs.map(t=>{
+          const Icon = t.icon, active = tab===t.id;
+          return (
+            <button key={t.id} className={"tab " + (active?"active":"")} onClick={()=>setTab(t.id)} aria-current={active?"page":undefined}>
+              <Icon/><span>{t.label}</span><span className="dot" aria-hidden="true"></span>
+            </button>
+          );
+        })}
+      </nav>
+    </React.Fragment>
+  );
+}
+
+/* ---------------- Group info ---------------- */
+function GroupInfo({ onBack, onInvite, joined, setJoined, muted, setMuted }){
+  const [showFull, setShowFull] = useState(false);
+  const [sheet, setSheet] = useState(false);
+  const [translateOn, setTranslateOn] = useState(true);
+
+  const topics = [
+    { t:"HealthHub", c:"teal" }, { t:"CDA", c:"blue" }, { t:"Fostering allowance", c:"rose" },
+    { t:"MSF referrals", c:"violet" }, { t:"Getting started", c:"indigo" }, { t:"House rules", c:"slate" },
+  ];
+
+  return (
+    <React.Fragment>
+      <header className="top">
+        <button className="icon-btn" aria-label="Back to chat" onClick={onBack}><I.back/></button>
+        <h1 style={{fontSize:18}}>Group info</h1>
+        <button className="icon-btn" aria-label="More options"><I.kebab/></button>
+      </header>
+
+      <div className="scroll">
+        <div className="info-body">
+
+          <div className="hero">
+            <div className="hero-avatar" aria-hidden="true"><I.people width="40" height="40"/></div>
+            <div className="hero-name">Foster Parents</div>
+            <div className="hero-meta">Community group · 128 members</div>
+          </div>
+
+          <div className="actions">
+            <button className={"action " + (joined ? "on":"")} onClick={()=>setJoined(v=>!v)} aria-pressed={joined}>
+              {joined ? <I.check/> : <I.plus/>}
+              <span>{joined ? "Joined" : "Join"}</span>
+            </button>
+
+            <button className="action" onClick={onInvite}>
+              <I.invite/><span>Invite</span>
+            </button>
+
+            <button className={"action " + (muted ? "off":"")} onClick={()=>setMuted(v=>!v)} aria-pressed={muted}>
+              {muted ? <I.bellOff/> : <I.bell/>}
+              <span>{muted ? "Muted" : "Notify"}</span>
+            </button>
+          </div>
+
+          <div className="eyebrow">About this group</div>
+          <div className="card">
+            <p className={"about " + (showFull ? "" : "clamp")}>
+              A space for foster parents to connect and share what actually works — getting HealthHub access
+              sorted, questions about the CDA, and finding your way through the care system. Ask anything here.
+              Chances are someone in the group has been through the same thing and can point you in the right direction.
+            </p>
+            <button className="link" onClick={()=>setShowFull(s=>!s)}>{showFull ? "Show less" : "Read more"}</button>
+          </div>
+
+          <div className="block">
+            <div className="eyebrow">Topics</div>
+            <div className="tags">{topics.map(x=><span key={x.t} className={"tag " + x.c}>{x.t}</span>)}</div>
+          </div>
+
+          <div className="block">
+            <div className="eyebrow">Language</div>
+            <button className="card rowcard" onClick={()=>setSheet(true)}>
+              <div className="ric" aria-hidden="true"><I.globe/></div>
+              <div>
+                <div className="rtitle">Translate messages</div>
+                <div className="rsub">{translateOn ? "On · to English" : "Off"}</div>
+              </div>
+              <span className="chev"><I.chevR/></span>
+            </button>
+          </div>
+
+          <div className="block">
+            <div className="eyebrow">Good to know</div>
+            <div className="card">
+              <p className="note"><b>Keep it private.</b> Please don't share full names, addresses, or a child's
+              case details here. What's said in the group stays in the group.</p>
+            </div>
+          </div>
+
+          <button className="leave">Leave group</button>
+        </div>
+      </div>
+
+      <div className={"backdrop " + (sheet ? "show":"")} onClick={()=>setSheet(false)}
+        style={{position:"absolute",inset:0,background:"rgba(35,32,28,.34)",zIndex:20,opacity:sheet?1:0,pointerEvents:sheet?"auto":"none",transition:"opacity .22s"}}></div>
+      <div className="sheet" role="dialog" aria-modal="true" aria-label="Translation options"
+        style={{position:"absolute",left:0,right:0,bottom:0,zIndex:21,background:"var(--card)",borderRadius:"24px 24px 0 0",boxShadow:"0 -12px 40px rgba(35,32,28,.18)",padding:"12px 20px calc(22px + env(safe-area-inset-bottom))",transform:sheet?"translateY(0)":"translateY(100%)",transition:"transform .26s cubic-bezier(.22,.61,.36,1)"}}>
+        <div style={{width:38,height:4,borderRadius:2,background:"var(--line)",margin:"0 auto 14px"}}></div>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"center",position:"relative",marginBottom:20}}>
+          <button className="icon-btn" aria-label="Close" onClick={()=>setSheet(false)} style={{position:"absolute",left:-6}}><I.x/></button>
+          <h2 style={{margin:0,fontSize:17,fontWeight:700,color:"var(--ink)"}}>Translation options</h2>
+        </div>
+        <div style={{display:"flex",gap:12}}>
+          <div style={{flex:1}}>
+            <div style={{fontSize:12,color:"var(--ink-3)",marginBottom:7}}>Translate from</div>
+            <button style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between",background:"var(--bg)",border:"1px solid var(--line)",borderRadius:12,padding:"11px 13px",color:"var(--ink-3)",fontFamily:"inherit",fontSize:14,fontWeight:600,cursor:"pointer"}}>Auto-detect <I.chevD/></button>
+          </div>
+          <div style={{flex:1}}>
+            <div style={{fontSize:12,color:"var(--ink-3)",marginBottom:7}}>Translate to</div>
+            <button style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between",background:"var(--bg)",border:"1px solid var(--line)",borderRadius:12,padding:"11px 13px",color:"var(--ink)",fontFamily:"inherit",fontSize:14,fontWeight:600,cursor:"pointer"}}>English <I.chevD/></button>
+          </div>
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:14,marginTop:20}}>
+          <div style={{fontSize:14.5,fontWeight:600,color:"var(--ink)"}}>Translate all new messages</div>
+          <button role="switch" aria-checked={translateOn} aria-label="Translate all new messages" onClick={()=>setTranslateOn(v=>!v)}
+            style={{marginLeft:"auto",width:46,height:27,borderRadius:999,border:"none",position:"relative",cursor:"pointer",flex:"none",background:translateOn?"var(--teal)":"var(--line)",transition:"background .18s"}}>
+            <span style={{position:"absolute",top:3,left:translateOn?22:3,width:21,height:21,borderRadius:"50%",background:"#fff",boxShadow:"var(--shadow-sm)",transition:"left .18s"}}></span>
+          </button>
+        </div>
+        <p style={{fontSize:12,lineHeight:1.5,color:"var(--ink-3)",margin:"16px 0 18px"}}>Translations are meant to be helpful, but they may not always be accurate.</p>
+        <button className="cta" onClick={()=>setSheet(false)}>Done</button>
+      </div>
+    </React.Fragment>
+  );
+}
+
+/* ---------------- Invite contacts ---------------- */
+function Contacts({ onBack }){
+  const [q, setQ] = useState("");
+  const [invited, setInvited] = useState([]);
+  const toggle = (id)=> setInvited(s=> s.includes(id) ? s.filter(x=>x!==id) : [...s,id]);
+  const list = CONTACTS.filter(c=> c.name.toLowerCase().includes(q.trim().toLowerCase()));
+  const n = invited.length;
+
+  return (
+    <React.Fragment>
+      <header className="top">
+        <button className="icon-btn" aria-label="Back to group info" onClick={onBack}><I.back/></button>
+        <h1 style={{fontSize:18}}>Invite to group</h1>
+      </header>
+
+      <div className="scroll">
+        <div className="subtitle">Choose people from your contacts to invite to Foster Parents.</div>
+        <div className="searchbar">
+          <I.search/>
+          <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search contacts…" aria-label="Search contacts" />
+        </div>
+        <div className="list-label">{list.length} contact{list.length===1?"":"s"}</div>
+        {list.map(c=>{
+          const inv = invited.includes(c.id);
+          return (
+            <div className="contact" key={c.id}>
+              <div className={"cavatar " + c.tint} aria-hidden="true">{initials(c.name)}</div>
+              <div className="cmeta">
+                <div className="cname">{c.name}</div>
+                <div className="csub">{c.sub}</div>
+              </div>
+              <button className={"invite-pill " + (inv ? "done":"")} onClick={()=>toggle(c.id)} aria-pressed={inv}>
+                {inv ? <><I.check width="16" height="16"/> Invited</> : <><I.plus width="16" height="16"/> Add</>}
+              </button>
+            </div>
+          );
+        })}
+        {list.length===0 && <div style={{padding:"30px 20px",textAlign:"center",color:"var(--ink-3)",fontSize:14}}>No contacts match “{q}”.</div>}
+      </div>
+
+      {n>0 && (
+        <div className="sendbar">
+          <button className="cta" onClick={onBack}>Send {n} invite{n===1?"":"s"}</button>
+        </div>
+      )}
+    </React.Fragment>
+  );
+}
+
+/* ---------------- App shell ---------------- */
+function App(){
+  const [screen, setScreen] = useState("chat"); // chat | info | contacts
+  const [tab, setTab] = useState("community");
+  const [joined, setJoined] = useState(false);   // Join (+)  ⇄  Joined (✓)
+  const [muted, setMuted] = useState(false);     // Notify 🔔 ⇄  Muted 🔕
+
+  return (
+    <div className="phone" role="application" aria-label="Bonda Community">
+      {screen === "chat" &&
+        <Chat onOpenInfo={()=>setScreen("info")} tab={tab} setTab={setTab} />}
+      {screen === "info" &&
+        <GroupInfo onBack={()=>setScreen("chat")} onInvite={()=>setScreen("contacts")}
+                   joined={joined} setJoined={setJoined} muted={muted} setMuted={setMuted} />}
+      {screen === "contacts" &&
+        <Contacts onBack={()=>setScreen("info")} />}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(
+  <div className="stage"><App/></div>
+);
+</script>
+</body>
+</html>

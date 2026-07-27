@@ -219,6 +219,14 @@ export function ScheduleScreen({ childCtx, push }) {
     </Page>
   );
 
+  if (!activeChild.active) return (
+    <Page style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "60vh" }}>
+      <div style={{ marginBottom: 20, fontSize: 48 }}>⏳</div>
+      <p style={{ fontWeight: 800, color: T.ink, fontSize: 19, margin: "0 0 10px", textAlign: "center", letterSpacing: "-0.02em" }}>Schedule not available yet</p>
+      <p style={{ color: T.inkSoft, fontSize: 14, textAlign: "center", lineHeight: 1.7, maxWidth: 260 }}>{activeChild.name}'s profile is pending admin approval. The schedule unlocks once it's approved.</p>
+    </Page>
+  );
+
   const items = activeChild.scheduleItems || DEFAULT_SCHEDULE;
   const history = activeChild.history || [];
   const sorted = [...items].sort((a, b) => a.time.localeCompare(b.time));
