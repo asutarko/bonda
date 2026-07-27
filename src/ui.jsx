@@ -74,57 +74,57 @@ export const ActionIllustration = ({ type, size = 44 }) => {
 // Hero illustration for home screen when no child added yet
 
 export const HeroIllustration = () => (
-  <svg width="100%" viewBox="0 0 320 140" style={{ display: "block", marginBottom: 16 }}>
-    <circle cx="80" cy="70" r="50" fill="#065F46" opacity="0.08"/>
-    <circle cx="80" cy="70" r="32" fill="#065F46" opacity="0.1"/>
-    <rect x="100" y="22" width="140" height="96" rx="12" fill="#0A2218"/>
-    <rect x="106" y="28" width="128" height="84" rx="9" fill="#065F46"/>
-    <circle cx="148" cy="65" r="18" fill="#0A2218"/>
-    <circle cx="148" cy="59" r="8" fill="#F2FAF6"/>
-    <ellipse cx="148" cy="78" rx="12" ry="7" fill="#F2FAF6"/>
-    <rect x="178" y="54" width="44" height="5" rx="2.5" fill="#1D9E75" opacity="0.7"/>
-    <rect x="178" y="63" width="32" height="4" rx="2" fill="#1D9E75" opacity="0.4"/>
-    <rect x="178" y="71" width="38" height="4" rx="2" fill="#1D9E75" opacity="0.3"/>
-    <rect x="114" y="96" width="112" height="10" rx="5" fill="#1D9E75"/>
-    <circle cx="46" cy="40" r="6" fill="#D97706"/>
-    <circle cx="30" cy="90" r="4" fill="#065F46" opacity="0.3"/>
-    <circle cx="284" cy="50" r="5" fill="#D97706" opacity="0.4"/>
-    <circle cx="298" cy="90" r="9" fill="#065F46" opacity="0.15"/>
+  <svg width="100%" viewBox="0 0 320 140" style={{ display: "block" }}>
+    <circle cx="80" cy="70" r="50" fill={T.purple} opacity="0.08"/>
+    <circle cx="80" cy="70" r="32" fill={T.purple} opacity="0.1"/>
+    <rect x="100" y="22" width="140" height="96" rx="16" fill={T.ink}/>
+    <rect x="106" y="28" width="128" height="84" rx="12" fill={T.purple}/>
+    <circle cx="148" cy="65" r="18" fill={T.ink}/>
+    <circle cx="148" cy="59" r="8" fill={T.canvas}/>
+    <ellipse cx="148" cy="78" rx="12" ry="7" fill={T.canvas}/>
+    <rect x="178" y="54" width="44" height="5" rx="2.5" fill="#EFF6F4" opacity="0.7"/>
+    <rect x="178" y="63" width="32" height="4" rx="2" fill="#EFF6F4" opacity="0.4"/>
+    <rect x="178" y="71" width="38" height="4" rx="2" fill="#EFF6F4" opacity="0.3"/>
+    <rect x="114" y="96" width="112" height="10" rx="5" fill="#EFF6F4" opacity="0.55"/>
+    <circle cx="46" cy="40" r="6" fill={T.amber}/>
+    <circle cx="30" cy="90" r="4" fill={T.purple} opacity="0.3"/>
+    <circle cx="284" cy="50" r="5" fill={T.amber} opacity="0.4"/>
+    <circle cx="298" cy="90" r="9" fill={T.purple} opacity="0.15"/>
   </svg>
 );
 
 // Nav tab SVG marks — clean geometric, no emoji
 
 export const NavMark = ({ id, active }) => {
-  const col = active ? "#065F46" : "#7BA08A";
+  const col = active ? T.purple : T.inkMuted;
   const marks = {
     home: (
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-        <path d="M3 10.5L12 3l9 7.5V21H15v-5h-6v5H3V10.5z" stroke={col} strokeWidth="1.5" strokeLinejoin="round" fill={active ? "#065F46" : "none"} fillOpacity={active ? 0.15 : 0}/>
+        <path d="M3 10.5L12 3l9 7.5V21H15v-5h-6v5H3V10.5z" stroke={col} strokeWidth="1.5" strokeLinejoin="round" fill={active ? T.purple : "none"} fillOpacity={active ? 0.15 : 0}/>
         <path d="M9 21v-5h6v5" stroke={col} strokeWidth="1.5" strokeLinejoin="round"/>
       </svg>
     ),
     mychild: (
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-        <circle cx="12" cy="8" r="4" stroke={col} strokeWidth="1.5" fill={active ? "#065F46" : "none"} fillOpacity={active ? 0.15 : 0}/>
+        <circle cx="12" cy="8" r="4" stroke={col} strokeWidth="1.5" fill={active ? T.purple : "none"} fillOpacity={active ? 0.15 : 0}/>
         <circle cx="12" cy="8" r="1.5" fill={col}/>
         <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke={col} strokeWidth="1.5" strokeLinecap="round"/>
-        <circle cx="18" cy="7" r="3" fill={active ? "#D97706" : "#D97706"} fillOpacity={active ? 0.9 : 0.5}/>
+        <circle cx="18" cy="7" r="3" fill={T.amber} fillOpacity={active ? 0.9 : 0.5}/>
         <path d="M17 7h2M18 6v2" stroke="#fff" strokeWidth="1.2" strokeLinecap="round"/>
       </svg>
     ),
     schedule: (
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-        <rect x="3" y="5" width="18" height="16" rx="3" stroke={col} strokeWidth="1.5" fill={active ? "#065F46" : "none"} fillOpacity={active ? 0.12 : 0}/>
+        <rect x="3" y="5" width="18" height="16" rx="3" stroke={col} strokeWidth="1.5" fill={active ? T.purple : "none"} fillOpacity={active ? 0.12 : 0}/>
         <path d="M8 3v4M16 3v4M3 10h18" stroke={col} strokeWidth="1.5" strokeLinecap="round"/>
-        <rect x="7" y="14" width="4" height="4" rx="1" fill={active ? "#065F46" : col} fillOpacity={active ? 0.7 : 0.3}/>
+        <rect x="7" y="14" width="4" height="4" rx="1" fill={active ? T.purple : col} fillOpacity={active ? 0.7 : 0.3}/>
         <rect x="13" y="14" width="4" height="4" rx="1" fill={col} fillOpacity="0.2"/>
       </svg>
     ),
     community: (
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-        <circle cx="9" cy="9" r="3.5" stroke={col} strokeWidth="1.5" fill={active ? "#065F46" : "none"} fillOpacity={active ? 0.15 : 0}/>
-        <circle cx="17" cy="8" r="2.5" stroke={col} strokeWidth="1.5" fill={active ? "#D97706" : "none"} fillOpacity={active ? 0.2 : 0}/>
+        <circle cx="9" cy="9" r="3.5" stroke={col} strokeWidth="1.5" fill={active ? T.purple : "none"} fillOpacity={active ? 0.15 : 0}/>
+        <circle cx="17" cy="8" r="2.5" stroke={col} strokeWidth="1.5" fill={active ? T.amber : "none"} fillOpacity={active ? 0.2 : 0}/>
         <path d="M2 19c0-3 3-5.5 7-5.5s7 2.5 7 5.5" stroke={col} strokeWidth="1.5" strokeLinecap="round"/>
         <path d="M17.5 13c2.5.5 4.5 2.3 4.5 5" stroke={col} strokeWidth="1.5" strokeLinecap="round" opacity="0.6"/>
       </svg>

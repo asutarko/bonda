@@ -114,7 +114,7 @@ export default function Bonda() {
   if (passwordRecovery) {
     return (
       <div style={{ minHeight: "100vh", background: T.canvas, fontFamily: T.fontBody, display: "flex", flexDirection: "column", maxWidth: 480, margin: "0 auto", position: "relative" }}>
-        <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+        <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
         <ResetPasswordScreen onDone={() => setPasswordRecovery(false)} />
       </div>
     );
@@ -123,7 +123,7 @@ export default function Bonda() {
   if (!account) {
     return (
       <div style={{ minHeight: "100vh", background: T.canvas, fontFamily: T.fontBody, display: "flex", flexDirection: "column", maxWidth: 480, margin: "0 auto", position: "relative" }}>
-        <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+        <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
         <AuthScreen />
       </div>
     );
@@ -132,7 +132,7 @@ export default function Bonda() {
   if (pendingPhone) {
     return (
       <div style={{ minHeight: "100vh", background: T.canvas, fontFamily: T.fontBody, display: "flex", flexDirection: "column", maxWidth: 480, margin: "0 auto", position: "relative" }}>
-        <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+        <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
         <PhoneCaptureScreen account={account} onDone={() => setPendingPhone(false)} />
       </div>
     );
@@ -141,7 +141,7 @@ export default function Bonda() {
   if (pendingCompliance) {
     return (
       <div style={{ minHeight: "100vh", background: T.canvas, fontFamily: T.fontBody, display: "flex", flexDirection: "column", maxWidth: 480, margin: "0 auto", position: "relative" }}>
-        <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+        <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
         <LegalHub mandatory onAgree={() => setPendingCompliance(false)} />
       </div>
     );
@@ -230,7 +230,7 @@ export default function Bonda() {
 
   return (
     <div style={{ minHeight: "100vh", background: T.canvas, fontFamily: T.fontBody, display: "flex", flexDirection: "column", maxWidth: 480, margin: "0 auto", position: "relative" }}>
-      <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+      <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 
 
       {(current || tab !== "home") ? (
@@ -241,39 +241,17 @@ export default function Bonda() {
             </svg>
           </button>
 
-          <p style={{ flex: 1, margin: 0, fontSize: 16, fontWeight: 800, color: T.ink, letterSpacing: "-0.02em" }}>
+          <p style={{ flex: 1, margin: 0, fontFamily: T.fontDisplay, fontSize: 17, fontWeight: 600, color: T.ink, letterSpacing: "-0.01em" }}>
             {pageTitle}
           </p>
 
           {profileMenu}
         </div>
       ) : (
-        <div style={{ background: T.surface, borderBottom: `1px solid ${T.border}`, padding: "10px clamp(12px, 4vw, 18px) 0", position: "sticky", top: 0, zIndex: 100 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "clamp(6px, 2vw, 10px)", paddingBottom: 10 }}>
-
-            <img
-              src="/assets/images/3D - Logo - Green.png"
-              alt="Bonda"
-              onClick={() => setTab("home")}
-              style={{ width: "clamp(28px, 8vw, 34px)", height: "clamp(28px, 8vw, 34px)", borderRadius: "50%", objectFit: "cover", flexShrink: 0, cursor: "pointer" }}
-            />
-
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ margin: 0, fontSize: "clamp(15px, 4.2vw, 18px)", fontWeight: 800, color: T.purple, letterSpacing: "-0.03em", lineHeight: 1.1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>Bonda</p>
-            </div>
-
-            {pageTitle !== "Bonda ◎" && pageTitle && (
-              <div style={{ background: T.purpleL, borderRadius: 99, padding: "4px clamp(8px, 2.5vw, 12px)", flexShrink: 0, border: `1px solid ${T.purple}20`, maxWidth: "38vw", overflow: "hidden" }}>
-                <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: T.purple, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                  {pageTitle.replace(/[◎💰🆘🎯⭐🧠📋💬]/g, "").trim()}
-                </p>
-              </div>
-            )}
-
+        <div style={{ background: T.canvas, padding: "14px 18px 0" }}>
+          <div style={{ display: "flex", justifyContent: "flex-end" }}>
             {profileMenu}
           </div>
-
-          <div style={{ height: 2.5, background: T.purple, width: "clamp(28px, 8vw, 34px)", borderRadius: 99, marginBottom: 0, opacity: 0.35 }} />
         </div>
       )}
 
