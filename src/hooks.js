@@ -13,6 +13,8 @@ export const childFromRow = (row) => ({
   scheduleItems: row.schedule_items?.length ? row.schedule_items : DEFAULT_SCHEDULE,
   history: row.history || [],
   devLog: row.dev_log || [],
+  growthObservations: row.growth_observations || [],
+  growthClaims: row.growth_claims || {},
   todayDone: row.today_done || {},
   todayDoneDate: row.today_done_date || null,
   hasSpecialNeeds: row.has_special_needs || false,
@@ -80,6 +82,8 @@ export function useChildren(userId) {
       schedule_items: DEFAULT_SCHEDULE,
       history: [],
       dev_log: [],
+      growth_observations: [],
+      growth_claims: {},
       has_special_needs: child.hasSpecialNeeds || false,
       verbal_status: child.hasSpecialNeeds ? (child.verbalStatus || "") : "",
       known_triggers: child.hasSpecialNeeds ? (child.knownTriggers || "") : "",
@@ -117,6 +121,8 @@ export function useChildren(userId) {
     if ("scheduleItems" in patch) dbPatch.schedule_items = patch.scheduleItems;
     if ("history" in patch) dbPatch.history = patch.history;
     if ("devLog" in patch) dbPatch.dev_log = patch.devLog;
+    if ("growthObservations" in patch) dbPatch.growth_observations = patch.growthObservations;
+    if ("growthClaims" in patch) dbPatch.growth_claims = patch.growthClaims;
     if ("todayDone" in patch) dbPatch.today_done = patch.todayDone;
     if ("todayDoneDate" in patch) dbPatch.today_done_date = patch.todayDoneDate;
     if ("hasSpecialNeeds" in patch) dbPatch.has_special_needs = patch.hasSpecialNeeds;

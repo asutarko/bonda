@@ -4,6 +4,7 @@ import { T } from "../theme";
 import { Page, SectionLabel, Card, Badge, Btn, Input, TextArea, Select, Avatar, Accordion, PageHero, AvatarIllustrations, ChildAvatar, ComAvatar, ROOM_ICONS, ACTIVITY_TEXTAREA_STYLE, ActionIllustration, HeroIllustration } from "../ui";
 import { CHILD_AVATARS, DEFAULT_CHILDREN, DEFAULT_SCHEDULE, ROOM_COLORS, SOS_COLORS, VERBAL_STATUS_OPTIONS } from "../data";
 import { ChildProfileForm } from "./onboarding";
+import { GrowthTrackerSection } from "./GrowthTracker";
 import { MedicalDisclaimerBanner } from "../components/bonda-compliance";
 
 export const DEV_LOG_CATEGORIES = [
@@ -373,7 +374,7 @@ export function DevLogSection({ activeChild, updateChild }) {
 }
 
 export function MyChildScreen({ childCtx, push }) {
-  const [subTab, setSubTab] = useState("profile"); // profile | devlog
+  const [subTab, setSubTab] = useState("profile"); // profile | devlog | growth
 
   const { activeChild, children, updateChild } = childCtx || {};
   const isFosterChild = activeChild?.caregiverType === "foster";
@@ -444,7 +445,7 @@ export function MyChildScreen({ childCtx, push }) {
       )}
 
       <div style={{ display: "flex", background: T.border, borderRadius: T.r, padding: 3, gap: 3, marginBottom: isChildActive ? 24 : 8 }}>
-        {[["profile","Child Profile"],["devlog","Development"]].map(([v, l]) => {
+        {[["profile","Child Profile"],["devlog","Development"],["growth","Growth Tracker"]].map(([v, l]) => {
           const disabled = v === "devlog" && !isChildActive;
           return (
             <button key={v} onClick={() => !disabled && setSubTab(v)} disabled={disabled}
@@ -465,6 +466,10 @@ export function MyChildScreen({ childCtx, push }) {
 
       {subTab === "devlog" && (
         <DevLogSection activeChild={activeChild} updateChild={updateChild} />
+      )}
+
+      {subTab === "growth" && (
+        <GrowthTrackerSection activeChild={activeChild} updateChild={updateChild} />
       )}
     </Page>
   );
