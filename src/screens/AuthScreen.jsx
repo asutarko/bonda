@@ -341,9 +341,7 @@ export function AuthScreen() {
   const renderView = (v) => {
     if (v === "welcome") return (
       <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", gap: 24 }}>
-        <div style={{ width: 150, height: 150, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <img src="/assets/images/logo_new.png" alt="Bonda" style={{ width: "200%", height: "200%", objectFit: "contain" }} />
-        </div>
+        <img src="/assets/images/logo_new.png" alt="Bonda" style={{ width: 280, maxWidth: "80%", height: "auto" }} />
         <div>
           <h1 style={{ margin: "0 0 10px", fontFamily: FONT_TITLE, fontWeight: 600, fontSize: "clamp(28px,7vw,34px)", lineHeight: 1.08, letterSpacing: "-.012em", color: INK }}>Welcome to Bonda</h1>
           <p style={{ margin: "0 auto", maxWidth: "19rem", color: INK55, fontSize: 15.5, lineHeight: 1.5 }}>Track your child's journey and connect with other parents in Singapore.</p>
