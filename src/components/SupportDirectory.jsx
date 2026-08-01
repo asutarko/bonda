@@ -456,13 +456,13 @@ export default function SupportDirectory() {
 
 /* ---------- styles ---------- */
 const CSS = `
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&display=swap');
 
 .bd-root{
   --ink:#1E2320; --ink-2:#6B7069; --ink-3:#9A9E99;
   --canvas:#F3F2EF; --surface:#FFFFFF; --line:#EBE9E3; --fill:#F5F4F1;
   --teal:#2E7B6A; --teal-ink:#266657;
-  font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  font-family:'Fraunces',Georgia,serif;
   background:var(--canvas); color:var(--ink); min-height:100%;
   -webkit-font-smoothing:antialiased; -webkit-tap-highlight-color:transparent; line-height:1.5;
 }

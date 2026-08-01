@@ -13,8 +13,8 @@ const SUCCESS_TX = "#2E5A56";
 const FONT_TITLE = "'Fraunces', Georgia, serif";
 
 const AUTH_CSS = `
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
-.bonda-auth { font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; color: ${INK}; overflow-x: hidden; }
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&display=swap');
+.bonda-auth { font-family: 'Fraunces', Georgia, serif; color: ${INK}; overflow-x: hidden; }
 .bonda-auth .field-input, .bonda-auth .field-select {
   width: 100%; height: 50px; border-radius: 14px; border: 1.5px solid rgba(35,32,28,.14);
   background: #FFFFFF; padding: 0 14px; font-size: 15px; font-family: inherit; color: ${INK};
@@ -134,69 +134,77 @@ function SuccessNote({ children }) {
   return <p style={{ background: SUCCESS_BG, color: SUCCESS_TX, fontSize: 13, fontWeight: 700, borderRadius: 12, padding: "10px 14px", margin: "0 0 14px" }}>{children}</p>;
 }
 
-const LEGAL_SECTIONS = [
-  {
-    key: "privacy", title: "Privacy Policy", sub: "How we collect, use and protect your data",
-    iconBg: "#E6EDEC", iconColor: "#2E5A56",
-    icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="10.5" width="16" height="10" rx="2.5" /><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5" /><circle cx="12" cy="15.5" r="1.4" /></svg>,
-    blocks: [
-      { label: "What we collect", text: "Your child's profile, the check-ins, schedules and notes you save, and basic usage data that keeps the app running." },
-      { label: "How we use it", text: "Only to run the features you use — tracking, reminders, resources and community. We never sell your data or use it for advertising." },
-      { label: "Your control", text: "Access, correct, export or delete your data any time by emailing the Data Protection Officer below. We respond within 30 days." },
-      { label: "Keeping it safe", text: "Data is encrypted in transit and stored securely. We keep it only while your account is active." },
-    ],
-  },
-  {
-    key: "medical", title: "Medical Disclaimer", sub: "Important information about app content",
-    iconBg: "#F3E7EA", iconColor: "#7A4651",
-    icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12h4l2 5 4-10 2 5h4" /></svg>,
-    blocks: [
-      { label: "Not a medical device", text: "Bonda is a wellness and education tool. Its content, check-ins and resources are for general support and do not diagnose, treat, or replace advice from a doctor, therapist or other qualified professional." },
-      { label: "Always consult a professional", text: "Speak to a qualified professional for decisions about your child's health, and seek urgent help in an emergency." },
-    ],
-  },
-  {
-    key: "dpia", title: "Data Protection Impact Assessment", sub: "Our PDPA compliance documentation",
-    iconBg: "#E9EAEC", iconColor: "#474C52",
-    icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="4" width="14" height="17" rx="2.5" /><path d="M9 4.5h6v2.5H9z" /><path d="M9 12l2 2 3.5-3.5" /></svg>,
-    blocks: [
-      { label: "What it covers", text: "Bonda has completed a DPIA in line with Singapore's PDPA 2012 and the PDPC Advisory Guidelines on Children's Personal Data (March 2024). It documents what data we handle, why, the risks to children's data, and the safeguards in place." },
-      { label: "Safeguards", text: "Data minimisation, consent, encryption and clear deletion rights. A full summary is available from our Data Protection Officer on request." },
-    ],
-  },
-];
-
-function AccordionItem({ section, open, onToggle }) {
-  return (
-    <div style={{ background: "#fff", border: "1.5px solid rgba(35,32,28,.12)", borderRadius: 16, overflow: "hidden", marginBottom: 12 }}>
-      <button type="button" onClick={onToggle} style={{ width: "100%", display: "flex", alignItems: "center", gap: 14, padding: 15, background: "transparent", border: "none", cursor: "pointer", textAlign: "left", fontFamily: "inherit" }}>
-        <span style={{ width: 44, height: 44, flex: "0 0 44px", borderRadius: 12, background: section.iconBg, color: section.iconColor, display: "flex", alignItems: "center", justifyContent: "center" }}>{section.icon}</span>
-        <span style={{ flex: 1, display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
-          <span style={{ fontWeight: 600, fontSize: 16, color: INK, lineHeight: 1.2 }}>{section.title}</span>
-          <span style={{ fontSize: 13, color: INK55, lineHeight: 1.35 }}>{section.sub}</span>
-        </span>
-        <span style={{ position: "relative", width: 20, height: 20, flex: "0 0 20px", color: open ? ACCENT : "rgba(35,32,28,.4)" }}>
-          <span style={{ position: "absolute", left: 2, right: 2, top: 9, height: 2, background: "currentColor", borderRadius: 2 }} />
-          <span style={{ position: "absolute", top: 2, bottom: 2, left: 9, width: 2, background: "currentColor", borderRadius: 2, transform: open ? "scaleY(0)" : "scaleY(1)", transition: "transform .25s ease" }} />
-        </span>
-      </button>
-      {open && (
-        <div style={{ padding: "2px 17px 18px", borderTop: "1px solid rgba(35,32,28,.12)" }}>
-          {section.blocks.map((b, i) => (
-            <div key={i} style={{ marginTop: 15 }}>
-              <p style={{ margin: "0 0 5px", fontSize: 11.5, fontWeight: 700, letterSpacing: ".08em", textTransform: "uppercase", color: ACCENT }}>{b.label}</p>
-              <p style={{ margin: 0, fontSize: 14, lineHeight: 1.58, color: INK70 }}>{b.text}</p>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
+// Minimal renderer for the small subset of markdown used in the legal
+// .md files in public/ (headers, --- dividers, > callouts, - lists,
+// **bold**/*italic*/[text](url) inline, plain paragraphs) — avoids
+// pulling in a markdown dependency for a couple of static documents.
+function parseInline(text, keyPrefix) {
+  return text.split(/(\[[^\]]+\]\([^)]+\))/g).flatMap((segment, i) => {
+    const link = segment.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+    if (link) {
+      const [, label, url] = link;
+      // "#" placeholder links (e.g. "see our Terms & Conditions") aren't a
+      // real destination in this doc yet — show the label as plain text
+      // instead of a dead link.
+      return url === "#" ? [label] : [<a key={`${keyPrefix}-a-${i}`} href={url} target="_blank" rel="noopener noreferrer" style={{ color: ACCENT, fontWeight: 700 }}>{label}</a>];
+    }
+    return segment.split(/(\*\*[^*]+\*\*)/g).map((part, j) => (
+      part.startsWith("**") && part.endsWith("**")
+        ? <strong key={`${keyPrefix}-b-${i}-${j}`}>{part.slice(2, -2)}</strong>
+        : part
+    ));
+  });
 }
 
-function PolicyScreen({ onBack }) {
-  const [open, setOpen] = useState(new Set());
-  const toggle = (key) => setOpen(s => { const n = new Set(s); n.has(key) ? n.delete(key) : n.add(key); return n; });
+function MarkdownBody({ text }) {
+  const lines = text.split("\n");
+  const blocks = [];
+  let listBuffer = [];
+  const flushList = () => {
+    if (!listBuffer.length) return;
+    blocks.push(
+      <ul key={`ul-${blocks.length}`} style={{ margin: "0 0 14px", paddingLeft: 20 }}>
+        {listBuffer.map((item, idx) => (
+          <li key={idx} style={{ fontSize: 14, lineHeight: 1.6, color: INK70, marginBottom: 6 }}>{parseInline(item, `li-${blocks.length}-${idx}`)}</li>
+        ))}
+      </ul>
+    );
+    listBuffer = [];
+  };
+
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (!line) { flushList(); continue; }
+    if (line === "---") { flushList(); blocks.push(<hr key={`hr-${blocks.length}`} style={{ border: "none", borderTop: "1px solid rgba(35,32,28,.12)", margin: "20px 0" }} />); continue; }
+    if (line.startsWith("## ")) { flushList(); blocks.push(<h3 key={`h3-${blocks.length}`} style={{ fontFamily: FONT_TITLE, fontWeight: 600, fontSize: 19, color: INK, margin: "22px 0 10px" }}>{line.slice(3)}</h3>); continue; }
+    if (line.startsWith("# ")) { flushList(); blocks.push(<h2 key={`h2-${blocks.length}`} style={{ fontFamily: FONT_TITLE, fontWeight: 600, fontSize: 24, color: INK, margin: "0 0 12px" }}>{line.slice(2)}</h2>); continue; }
+    if (line.startsWith("> ")) { flushList(); blocks.push(<div key={`bq-${blocks.length}`} style={{ background: "#F3E7EA", borderLeft: `3px solid ${ERROR}`, borderRadius: 10, padding: "12px 14px", margin: "14px 0", fontSize: 13.5, lineHeight: 1.6, color: INK }}>{parseInline(line.slice(2), `bq-${blocks.length}`)}</div>); continue; }
+    if (line.startsWith("- ")) { listBuffer.push(line.slice(2)); continue; }
+    flushList();
+    if (line.startsWith("*") && line.endsWith("*") && !line.startsWith("**")) {
+      blocks.push(<p key={`i-${blocks.length}`} style={{ fontStyle: "italic", fontSize: 12.5, lineHeight: 1.6, color: INK55, margin: "0 0 12px" }}>{parseInline(line.slice(1, -1), `i-${blocks.length}`)}</p>);
+      continue;
+    }
+    blocks.push(<p key={`p-${blocks.length}`} style={{ fontSize: 14, lineHeight: 1.65, color: INK70, margin: "0 0 12px" }}>{parseInline(line, `p-${blocks.length}`)}</p>);
+  }
+  flushList();
+  return <>{blocks}</>;
+}
+
+function LegalDocScreen({ url, errorLabel, onBack }) {
+  const [md, setMd] = useState(null);
+  const [err, setErr] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    setMd(null); setErr("");
+    fetch(url)
+      .then(res => { if (!res.ok) throw new Error("fetch failed"); return res.text(); })
+      .then(text => { if (!cancelled) setMd(text); })
+      .catch(() => { if (!cancelled) setErr(`Couldn't load the ${errorLabel}. Please check your connection and try again.`); });
+    return () => { cancelled = true; };
+  }, [url]);
+
   return (
     <div className="bonda-auth" style={{ height: "100vh", display: "flex", flexDirection: "column", background: CANVAS, boxSizing: "border-box" }}>
       <style>{AUTH_CSS}</style>
@@ -206,24 +214,7 @@ function PolicyScreen({ onBack }) {
           <img src="/assets/images/3D - Logo - Green.png" alt="" style={{ height: 24, width: 24, borderRadius: "50%", objectFit: "cover" }} />
           <span style={{ fontFamily: FONT_TITLE, fontWeight: 600, fontSize: 18, color: INK }}>Bonda</span>
         </div>
-        <h2 style={{ margin: "0 0 10px", fontFamily: FONT_TITLE, fontWeight: 600, fontSize: 28, lineHeight: 1.1, letterSpacing: "-.012em", color: INK }}>Before you start</h2>
-        <p style={{ margin: "0 0 22px", color: INK55, fontSize: 14.5, lineHeight: 1.5 }}>Please review the items below before using Bonda. Tap any section to read more.</p>
-
-        {LEGAL_SECTIONS.map(sec => (
-          <AccordionItem key={sec.key} section={sec} open={open.has(sec.key)} onToggle={() => toggle(sec.key)} />
-        ))}
-
-        <div style={{ background: "#fff", border: "1.5px solid rgba(35,32,28,.12)", borderRadius: 16, padding: 18, margin: "20px 0 4px" }}>
-          <p style={{ margin: "0 0 10px", fontWeight: 700, fontSize: 16, color: INK }}>Data protection officer</p>
-          <p style={{ margin: "0 0 4px", fontSize: 15, color: INK }}>Norena Darsana</p>
-          <a href="mailto:norena@bondaapp.sg" style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 15, fontWeight: 700, color: ACCENT, textDecoration: "none" }}>
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5" /><path d="M4 7l8 6 8-6" /></svg>
-            norena@bondaapp.sg
-          </a>
-          <p style={{ margin: "12px 0 0", fontSize: 13, lineHeight: 1.55, color: INK55 }}>For data access, correction, or deletion requests — or any privacy concerns — email the DPO directly. We respond within 30 days.</p>
-        </div>
-
-        <p style={{ margin: "18px 6px 24px", textAlign: "center", fontSize: 12.5, lineHeight: 1.55, color: "rgba(35,32,28,.4)" }}>Bonda complies with Singapore's PDPA 2012 and the PDPC Advisory Guidelines on Children's Personal Data (March 2024).</p>
+        {err ? <ErrorNote>{err}</ErrorNote> : !md ? <p style={{ color: INK55, fontSize: 14 }}>Loading…</p> : <MarkdownBody text={md} />}
       </div>
       <div style={{ padding: "14px 22px 22px", borderTop: "1px solid rgba(35,32,28,.12)", background: CANVAS, flexShrink: 0 }}>
         <button className="btn-primary" onClick={onBack}>Got it — back to welcome</button>
@@ -240,7 +231,8 @@ export function AuthScreen() {
   const [loginEmail, setLoginEmail] = useState(""); const [loginPass, setLoginPass] = useState(""); const [loginErr, setLoginErr] = useState("");
   const [regEmail, setRegEmail] = useState(""); const [regName, setRegName] = useState(""); const [regPass, setRegPass] = useState(""); const [regErr, setRegErr] = useState(""); const [regMsg, setRegMsg] = useState("");
   const [forgotEmail, setForgotEmail] = useState(""); const [forgotErr, setForgotErr] = useState(""); const [forgotMsg, setForgotMsg] = useState("");
-  const [showLegal, setShowLegal] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
+  const [showPrivacy, setShowPrivacy] = useState(false);
 
   const [otpCode, setOtpCode] = useState(""); const [otpErr, setOtpErr] = useState(""); const [otpMsg, setOtpMsg] = useState("");
   const [otpExpiresAt, setOtpExpiresAt] = useState(null);
@@ -283,7 +275,8 @@ export function AuthScreen() {
     setForgotMsg("Check your email for a link to reset your password.");
   };
 
-  if (showLegal) return <PolicyScreen onBack={() => setShowLegal(false)} />;
+  if (showTerms) return <LegalDocScreen url="/Bonda-Terms-and-Conditions.md" errorLabel="Terms & Conditions" onBack={() => setShowTerms(false)} />;
+  if (showPrivacy) return <LegalDocScreen url="/Bonda-Privacy-Policy.md" errorLabel="Privacy Policy" onBack={() => setShowPrivacy(false)} />;
 
   const register = async () => {
     setRegErr(""); setRegMsg("");
@@ -348,10 +341,8 @@ export function AuthScreen() {
   const renderView = (v) => {
     if (v === "welcome") return (
       <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", gap: 24 }}>
-        <div style={{ position: "relative", width: 150, height: 150, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <div style={{ position: "absolute", inset: 6, borderRadius: "50%", background: `radial-gradient(circle at 50% 46%, rgba(62,110,106,.14), transparent 68%)` }} />
-          <div style={{ position: "absolute", inset: 0, borderRadius: "50%", border: `1px dashed rgba(35,32,28,.18)` }} />
-          <img src="/assets/images/3D - Logo - Green.png" alt="Bonda" style={{ position: "relative", width: "62%", height: "62%", objectFit: "contain" }} />
+        <div style={{ width: 150, height: 150, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <img src="/assets/images/logo_new.png" alt="Bonda" style={{ width: "200%", height: "200%", objectFit: "contain" }} />
         </div>
         <div>
           <h1 style={{ margin: "0 0 10px", fontFamily: FONT_TITLE, fontWeight: 600, fontSize: "clamp(28px,7vw,34px)", lineHeight: 1.08, letterSpacing: "-.012em", color: INK }}>Welcome to Bonda</h1>
@@ -363,8 +354,8 @@ export function AuthScreen() {
         </div>
         <p style={{ margin: 0, textAlign: "center", fontSize: 12.5, lineHeight: 1.55, color: INK55 }}>
           By creating an account or signing in, you agree to our<br />
-          <button type="button" className="link-accent" style={{ fontSize: "inherit", whiteSpace: "nowrap", textDecoration: "underline" }} onClick={() => setShowLegal(true)}>Terms &amp; Conditions</button> and{" "}
-          <button type="button" className="link-accent" style={{ fontSize: "inherit", whiteSpace: "nowrap", textDecoration: "underline" }} onClick={() => setShowLegal(true)}>Privacy Policy</button>.
+          <button type="button" className="link-accent" style={{ fontSize: "inherit", whiteSpace: "nowrap", textDecoration: "underline" }} onClick={() => setShowTerms(true)}>Terms &amp; Conditions</button> and{" "}
+          <button type="button" className="link-accent" style={{ fontSize: "inherit", whiteSpace: "nowrap", textDecoration: "underline" }} onClick={() => setShowPrivacy(true)}>Privacy Policy</button>.
         </p>
       </div>
     );
