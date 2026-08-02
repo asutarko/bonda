@@ -240,20 +240,44 @@ export default function Bonda() {
       </button>
       {showMenu && (
         <>
+          <style>{`
+            .bonda-macct-item{transition:background .15s,color .15s;}
+            .bonda-macct-item:hover{background:${T.purpleL};}
+            .bonda-macct-item:hover span,.bonda-macct-item:hover svg *{color:${T.purple} !important;stroke:${T.purple} !important;}
+            .bonda-macct-item.danger:hover{background:${T.redL};}
+            .bonda-macct-item.danger:hover span,.bonda-macct-item.danger:hover svg *{color:${T.red} !important;stroke:${T.red} !important;}
+          `}</style>
           <div onClick={() => setShowMenu(false)} style={{ position: "fixed", inset: 0, zIndex: 150 }} />
-          <div style={{ position: "absolute", top: 36, right: 0, background: T.surface, borderRadius: T.r, boxShadow: T.shadowM, border: `1px solid ${T.border}`, minWidth: 180, zIndex: 151, overflow: "hidden" }}>
-            <button onClick={() => { setShowMenu(false); push("editProfile"); }} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "none", border: "none", cursor: "pointer", fontFamily: T.fontBody, textAlign: "left" }}>
-              <ComAvatar value={account.avatar} size={26} active={true} borderColor={T.purpleL} />
-              <span style={{ fontSize: 13, fontWeight: 700, color: T.ink }}>{account?.name || "Edit Profile"}</span>
-            </button>
-            <div style={{ height: 1, background: T.border }} />
-            <button onClick={() => { setShowMenu(false); forceSignOut(); }} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "none", border: "none", cursor: "pointer", fontFamily: T.fontBody, textAlign: "left" }}>
-              <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+          <div style={{ position: "absolute", top: 36, right: 0, background: T.surface, borderRadius: T.rL, boxShadow: "0 18px 44px rgba(35,32,28,.18)", border: `1px solid ${T.border}`, width: 238, padding: 8, zIndex: 151, overflow: "hidden" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 11, padding: "8px 8px 10px" }}>
+              <ComAvatar value={account.avatar} size={38} active={true} borderColor={T.purpleL} />
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontWeight: 700, fontSize: 14, color: T.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{account?.name || "Your account"}</div>
+                <div style={{ fontSize: 11.5, color: T.inkMuted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{account?.email || ""}</div>
+              </div>
+            </div>
+            <div style={{ height: 1, background: T.border, margin: "4px 4px" }} />
+            {[
+              { key: "profile", label: "Profile", onClick: () => { setShowMenu(false); push("editProfile"); }, icon: <><circle cx="12" cy="8" r="4" stroke={T.inkSoft} strokeWidth="1.8" fill="none"/><path d="M5 20c0-4 3.1-6.4 7-6.4s7 2.4 7 6.4" stroke={T.inkSoft} strokeWidth="1.8" strokeLinecap="round" fill="none"/></> },
+              { key: "notifications", label: "Notifications", soon: true, icon: <><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" stroke={T.inkSoft} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none"/><path d="M13.7 21a2 2 0 0 1-3.4 0" stroke={T.inkSoft} strokeWidth="1.8" strokeLinecap="round" fill="none"/></> },
+              { key: "security", label: "Security", soon: true, icon: <><path d="M12 3l7 3v5c0 4.6-3 7.6-7 9-4-1.4-7-4.4-7-9V6Z" stroke={T.inkSoft} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none"/><path d="m9 12 2 2 4-4" stroke={T.inkSoft} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none"/></> },
+              { key: "payment", label: "Payment & plans", soon: true, icon: <><rect x="3" y="6" width="18" height="12" rx="2.6" stroke={T.inkSoft} strokeWidth="1.8" fill="none"/><path d="M3 10h18" stroke={T.inkSoft} strokeWidth="1.8" fill="none"/></> },
+              { key: "help", label: "Help", soon: true, icon: <><circle cx="12" cy="12" r="9" stroke={T.inkSoft} strokeWidth="1.8" fill="none"/><path d="M9.6 9.5a2.4 2.4 0 1 1 3.4 2.2c-.9.4-1.5 1-1.5 2M12 17h.01" stroke={T.inkSoft} strokeWidth="1.8" strokeLinecap="round" fill="none"/></> },
+            ].map(m => (
+              <button key={m.key} className="bonda-macct-item" onClick={m.onClick || (() => setShowMenu(false))} style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: 10, borderRadius: 10, background: "none", border: "none", cursor: "pointer", fontFamily: T.fontBody, textAlign: "left" }}>
+                <svg width="19" height="19" viewBox="0 0 24 24">{m.icon}</svg>
+                <span style={{ fontSize: 14, fontWeight: 500, color: T.ink }}>{m.label}</span>
+                {m.soon && <span style={{ marginLeft: "auto", fontSize: 10, fontWeight: 700, color: T.inkMuted, letterSpacing: "0.03em" }}>Soon</span>}
+              </button>
+            ))}
+            <div style={{ height: 1, background: T.border, margin: "4px 4px" }} />
+            <button className="bonda-macct-item danger" onClick={() => { setShowMenu(false); forceSignOut(); }} style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: 10, borderRadius: 10, background: "none", border: "none", cursor: "pointer", fontFamily: T.fontBody, textAlign: "left" }}>
+              <svg width="19" height="19" viewBox="0 0 18 18" fill="none">
                 <path d="M7 3 H4 a1 1 0 0 0 -1 1 v10 a1 1 0 0 0 1 1 h3" stroke={T.red} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
                 <path d="M11.5 12.5 L15 9 L11.5 5.5" stroke={T.red} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
                 <path d="M15 9 H6.5" stroke={T.red} strokeWidth="1.5" strokeLinecap="round" fill="none"/>
               </svg>
-              <span style={{ fontSize: 13, fontWeight: 700, color: T.red }}>Logout</span>
+              <span style={{ fontSize: 14, fontWeight: 700, color: T.red }}>Logout</span>
             </button>
           </div>
         </>

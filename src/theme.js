@@ -28,9 +28,9 @@ export const T = {
   slate:    "#474C52",
   slateL:   "#E9EAEC",
 
-  // Typography — Fraunces throughout the app
+  // Typography — Fraunces for titles/headings, Plus Jakarta Sans for body copy
   fontDisplay: "'Fraunces', Georgia, serif",
-  fontBody:    "'Fraunces', Georgia, serif",
+  fontBody:    "'Plus Jakarta Sans', system-ui, -apple-system, sans-serif",
 
   // Spacing
   r:  "14px",

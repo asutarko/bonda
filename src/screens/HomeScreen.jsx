@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "../lib/supabase";
 import { T } from "../theme";
-import { Page, SectionLabel, Card, Badge, Btn, Input, TextArea, Avatar, Accordion, PageHero, AvatarIllustrations, ChildAvatar, ComAvatar, ROOM_ICONS, ACTIVITY_TEXTAREA_STYLE, ActionIllustration, HeroIllustration } from "../ui";
+import { Page, SectionLabel, Card, Badge, Btn, Input, TextArea, Avatar, Accordion, PageHero, AvatarIllustrations, ChildAvatar, ComAvatar, ROOM_ICONS, ACTIVITY_TEXTAREA_STYLE, HeroIllustration } from "../ui";
 import { CHILD_AVATARS, DEFAULT_CHILDREN, DEFAULT_SCHEDULE, ROOM_COLORS, SOS_COLORS, VERBAL_STATUS_OPTIONS } from "../data";
 
 export const QUOTES = [
@@ -57,6 +57,29 @@ const ArrowIcon = ({ size = 14, color }) => (
     <path d="M13 6l6 6-6 6" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
+
+// Quick-access chip tone + icon per action type — muted tag palette from theme.js
+const QUICK_TONES = {
+  letter:    { bg: T.indigoL, fg: T.indigo },
+  subsidies: { bg: T.greenL,  fg: T.green },
+  sos:       { bg: T.redL,    fg: T.red },
+  devGuide:  { bg: T.violetL, fg: T.violet },
+  emotions:  { bg: T.tealL,   fg: T.teal },
+  foster:    { bg: T.slateL,  fg: T.slate },
+};
+
+const QuickIcon = ({ type, size = 22, color }) => {
+  const p = { fill: "none", stroke: color, strokeWidth: 1.8, strokeLinecap: "round", strokeLinejoin: "round" };
+  const paths = {
+    letter: <><rect x="3" y="5" width="18" height="14" rx="2.6" {...p} /><path d="m4 7.5 8 5.5 8-5.5" {...p} /></>,
+    subsidies: <><circle cx="12" cy="12" r="9" {...p} /><path d="M12 6.5v11M15 9.4c0-1.4-1.4-2.1-3-2.1s-3 .8-3 2.1 1.4 1.9 3 2.3 3 .9 3 2.3-1.4 2.1-3 2.1-3-.7-3-2.1" {...p} /></>,
+    sos: <><path d="M5 4h3l1.8 4.6L7.2 10a11 11 0 0 0 5.2 5.2l1.4-2.6L18.4 14V17a2 2 0 0 1-2.1 2A15.5 15.5 0 0 1 3 5.7 2 2 0 0 1 5 4Z" {...p} /></>,
+    devGuide: <><path d="M3 17 9 11l4 4 8-8" {...p} /><path d="M16.5 7H21v4.5" {...p} /></>,
+    emotions: <><circle cx="12" cy="12" r="9" {...p} /><path d="M8.4 14.4s1.3 2 3.6 2 3.6-2 3.6-2" {...p} /><path d="M9 9.6h.01M15 9.6h.01" {...p} /></>,
+    foster: <><path d="M12 3l7 3v5c0 4.6-3 7.6-7 9-4-1.4-7-4.4-7-9V6Z" {...p} /><path d="m9 12 2 2 4-4" {...p} /></>,
+  };
+  return <svg width={size} height={size} viewBox="0 0 24 24" style={{ display: "block" }}>{paths[type]}</svg>;
+};
 
 export function HomeScreen({ childCtx, setTab, push, account }) {
   const { children, activeChild, switchChild } = childCtx;
@@ -246,17 +269,22 @@ export function HomeScreen({ childCtx, setTab, push, account }) {
         </Card>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 28 }}>
-          {filteredActions.map((a, i) => (
-            <button
-              key={i}
-              onClick={a.action}
-              title={a.desc}
-              style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: T.rL, padding: "16px 6px 14px", display: "flex", flexDirection: "column", alignItems: "center", gap: 9, cursor: "pointer", fontFamily: T.fontBody }}
-            >
-              <ActionIllustration type={a.type} size={40} />
-              <span style={{ fontSize: 11.5, fontWeight: 700, color: T.ink, textAlign: "center", lineHeight: 1.2 }}>{a.label}</span>
-            </button>
-          ))}
+          {filteredActions.map((a, i) => {
+            const tone = QUICK_TONES[a.type] || QUICK_TONES.letter;
+            return (
+              <button
+                key={i}
+                onClick={a.action}
+                title={a.desc}
+                style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: T.rL, padding: "14px 8px 12px", display: "flex", flexDirection: "column", alignItems: "center", gap: 9, cursor: "pointer", fontFamily: T.fontBody }}
+              >
+                <span style={{ width: 44, height: 44, borderRadius: 12, background: tone.bg, display: "grid", placeItems: "center", flexShrink: 0 }}>
+                  <QuickIcon type={a.type} size={22} color={tone.fg} />
+                </span>
+                <span style={{ fontSize: 11.5, fontWeight: 600, color: T.ink, textAlign: "center", lineHeight: 1.15 }}>{a.label}</span>
+              </button>
+            );
+          })}
         </div>
       )}
 
