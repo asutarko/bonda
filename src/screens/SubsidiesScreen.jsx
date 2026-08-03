@@ -47,6 +47,58 @@ function ageLabel(min, max) {
 
 const RES_LABEL = { SC: "Citizen", PR: "PR", Foreigner: "Foreigner" };
 
+const SUPPORT_META = {
+  financial:  { label: "Financial help",     color: T.slate,  bg: T.slateL },
+  therapy:    { label: "Therapy & medical",  color: T.green,  bg: T.greenL },
+  education:  { label: "Education",          color: T.teal,   bg: T.tealL },
+  devices:    { label: "Assistive tech",     color: T.violet, bg: T.violetL },
+  transport:  { label: "Transport",          color: T.indigo, bg: T.indigoL },
+  caregiving: { label: "Caregiving & home",  color: T.red,    bg: T.redL },
+  work:       { label: "Training & work",    color: T.slate,  bg: T.slateL },
+};
+function categoryMeta(s) {
+  const meta = SUPPORT_META[(s.support_types || [])[0]];
+  if (meta) return meta;
+  const color = s.color || T.purple;
+  return { label: s.badge || "Support", color, bg: color + "15" };
+}
+
+const SearchIcon = ({ size = 17, color }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <circle cx="11" cy="11" r="7" stroke={color} strokeWidth="2" />
+    <path d="m21 21-4.3-4.3" stroke={color} strokeWidth="2" strokeLinecap="round" />
+  </svg>
+);
+
+const SlidersIcon = ({ size = 18, color }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <path d="M4 7h9M17 7h3M4 17h3M11 17h9" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+    <circle cx="15" cy="7" r="2.3" stroke={color} strokeWidth="1.8" />
+    <circle cx="9" cy="17" r="2.3" stroke={color} strokeWidth="1.8" />
+  </svg>
+);
+
+const ExternalLinkIcon = ({ size = 13, color }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <path d="M14 5h5v5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M19 5 10 14" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    <path d="M12 5H7a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+const CloseIcon = ({ size = 18, color }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <path d="M6 6l12 12M18 6 6 18" stroke={color} strokeWidth="2" strokeLinecap="round" />
+  </svg>
+);
+
+const ResetIcon = ({ size = 14, color }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <path d="M3 12a9 9 0 1 0 3-6.7" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    <path d="M3 4v5h5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
 export const subsidyFromRow = (row) => ({
   id: row.id,
   badge: row.badge,
@@ -83,6 +135,10 @@ export function SubsidiesScreen({ pop, account }) {
   const [means, setMeans] = useState("any");
   const [showFilters, setShowFilters] = useState(false);
 
+  const trackRef = useRef(null);
+  const pausedRef = useRef(false);
+  const [slide, setSlide] = useState(0);
+
   const loadSchemes = async () => {
     setLoadingSchemes(true);
     const { data } = await supabase
@@ -105,6 +161,28 @@ export function SubsidiesScreen({ pop, account }) {
       .sort((a, b) => new Date(b.last_changed_at || b.last_checked_at) - new Date(a.last_changed_at || a.last_checked_at))
       .slice(0, 10);
   }, [schemes]);
+
+  const carouselStep = () => {
+    const el = trackRef.current;
+    if (!el || !el.firstElementChild) return el ? el.clientWidth : 1;
+    return el.firstElementChild.offsetWidth + 10;
+  };
+
+  useEffect(() => {
+    if (latestUpdates.length < 2) return;
+    const id = setInterval(() => {
+      const el = trackRef.current;
+      if (!el || pausedRef.current) return;
+      const next = (Math.round(el.scrollLeft / carouselStep()) + 1) % latestUpdates.length;
+      el.scrollTo({ left: next * carouselStep(), behavior: "smooth" });
+    }, 4500);
+    return () => clearInterval(id);
+  }, [latestUpdates.length]);
+
+  const onCarouselScroll = () => {
+    const el = trackRef.current;
+    if (el) setSlide(Math.round(el.scrollLeft / carouselStep()));
+  };
 
   const filteredSchemes = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -196,66 +274,89 @@ export function SubsidiesScreen({ pop, account }) {
 
   return (
     <Page>
-      <h2 style={{ margin: "0 0 6px", color: T.ink, fontSize: 22, fontWeight: 800 }}>Subsidies & Aid</h2>
-      <p style={{ margin: "0 0 20px", color: T.inkSoft, fontSize: 14, lineHeight: 1.6 }}>Singapore government schemes that can dramatically reduce the cost of autism therapy and support.</p>
+      <h2 style={{ margin: "0 0 4px", color: T.ink, fontSize: 22, fontWeight: 800 }}>Subsidies & grants</h2>
+      <p style={{ margin: "0 0 20px", color: T.inkSoft, fontSize: 14, lineHeight: 1.6 }}>Find the support your family may qualify for.</p>
 
       {latestUpdates.length > 0 && (
         <div style={{ marginBottom: 20 }}>
-          <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10 }}>
-            <div style={{ width: 8, height: 8, borderRadius: "50%", background: T.green }} />
-            <p style={{ margin: 0, fontWeight: 800, color: T.ink, fontSize: 13 }}>Latest Updates</p>
-          </div>
-          <div style={{ display: "flex", gap: 10, overflowX: "auto", scrollSnapType: "x mandatory", margin: "0 -18px", padding: "0 18px 4px" }}>
+          <p style={{ margin: "0 0 10px", fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: T.inkMuted }}>Recently updated</p>
+          <div
+            ref={trackRef}
+            onScroll={onCarouselScroll}
+            onTouchStart={() => { pausedRef.current = true; }}
+            onTouchEnd={() => { setTimeout(() => { pausedRef.current = false; }, 3500); }}
+            onMouseEnter={() => { pausedRef.current = true; }}
+            onMouseLeave={() => { pausedRef.current = false; }}
+            style={{ display: "flex", gap: 10, overflowX: "auto", scrollSnapType: "x mandatory", margin: "0 -18px", padding: "0 18px 4px" }}
+          >
             {latestUpdates.map(u => (
-              <Card key={u.id} onClick={() => setDetail(subsidyFromRow(u))} style={{ background: T.greenL, border: `1px solid ${T.green}25`, flexShrink: 0, width: 220, scrollSnapAlign: "start", padding: "14px", cursor: "pointer" }}>
-                <p style={{ margin: "0 0 2px", fontWeight: 700, color: T.ink, fontSize: 13 }}>{u.label}</p>
-                <p style={{ margin: 0, color: T.inkSoft, fontSize: 12, lineHeight: 1.5 }}>{u.org} · {u.amount}</p>
+              <Card key={u.id} onClick={() => setDetail(subsidyFromRow(u))} style={{ flexShrink: 0, width: "82%", scrollSnapAlign: "start", padding: "14px", cursor: "pointer" }}>
+                <p style={{ margin: "0 0 4px", fontWeight: 800, color: T.ink, fontSize: 14.5, lineHeight: 1.35 }}>{u.label}</p>
+                <p style={{ margin: 0, color: T.inkMuted, fontSize: 11.5 }}>{u.org}</p>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 5, marginTop: 10, color: T.purple, fontSize: 12.5, fontWeight: 700 }}>
+                  See details <ExternalLinkIcon size={12} color={T.purple} />
+                </span>
               </Card>
             ))}
           </div>
+          {latestUpdates.length > 1 && (
+            <div style={{ display: "flex", justifyContent: "center", gap: 5, marginTop: 10 }}>
+              {latestUpdates.map((_, i) => (
+                <span key={i} style={{ height: 5, width: i === slide ? 18 : 5, borderRadius: 99, background: i === slide ? T.purple : T.border, transition: "width .2s ease" }} />
+              ))}
+            </div>
+          )}
         </div>
       )}
 
-      <Card style={{ background: T.ink, border: "none", marginBottom: 20 }}>
-        <p style={{ margin: "0 0 6px", color: "rgba(255,255,255,0.5)", fontSize: 11, fontWeight: 700, textTransform: "uppercase" }}>Where to start</p>
-        <p style={{ margin: "0 0 12px", color: "white", fontSize: 14, fontWeight: 700, lineHeight: 1.6 }}>If your child is under 7 — start with EIPIC. Fees can drop from $780 to as little as $5/month after subsidy.</p>
-        <a href="https://supportgowhere.life.gov.sg" target="_blank" rel="noreferrer" style={{ display: "block", background: T.green, color: "white", borderRadius: T.r, padding: "10px", textDecoration: "none", fontSize: 13, fontWeight: 700, textAlign: "center" }}>🔍 Check SupportGoWhere.sg</a>
-      </Card>
+      <div style={{ marginBottom: 20, background: T.greenL, border: `1px solid ${T.green}25`, borderRadius: T.rL, padding: "14px 16px" }}>
+        <p style={{ margin: "0 0 6px", color: T.green, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em" }}>Where to start</p>
+        <p style={{ margin: "0 0 12px", color: T.ink, fontSize: 13.5, lineHeight: 1.6 }}>If your child is under 7 — start with EIPIC. Fees can drop from $780 to as little as $5/month after subsidy.</p>
+        <a href="https://supportgowhere.life.gov.sg" target="_blank" rel="noreferrer" style={{ display: "block", background: T.purple, color: "white", borderRadius: T.r, padding: "10px", textDecoration: "none", fontSize: 13, fontWeight: 700, textAlign: "center" }}>🔍 Check SupportGoWhere.sg</a>
+      </div>
 
       <SectionLabel style={{ marginBottom: 10 }}>All Schemes</SectionLabel>
 
-      <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-        <input
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-          placeholder="Search support…"
-          style={{ flex: 1, padding: "11px 14px", borderRadius: T.r, border: `1.5px solid ${T.border}`, fontSize: 14, fontFamily: T.fontBody, color: T.ink, background: T.canvas, outline: "none", boxSizing: "border-box" }}
-        />
-        <button
-          onClick={() => setShowFilters(v => !v)}
-          style={{
-            position: "relative", display: "flex", alignItems: "center", gap: 6, padding: "0 16px",
-            borderRadius: T.r, border: `1.5px solid ${showFilters ? T.purple : T.border}`,
-            background: showFilters ? T.purple : T.surface, color: showFilters ? "white" : T.purple,
-            fontWeight: 700, fontSize: 13, fontFamily: T.fontBody, cursor: "pointer",
-          }}
-        >
-          Filters
+      <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
+        <label style={{ flex: 1, display: "flex", alignItems: "center", gap: 9, height: 46, padding: "0 14px", background: T.surface, border: `1.5px solid ${query ? T.purple : T.border}`, borderRadius: T.r, boxSizing: "border-box" }}>
+          <SearchIcon size={17} color={T.inkMuted} />
+          <input
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            placeholder="Search support…"
+            style={{ flex: 1, border: "none", outline: "none", background: "transparent", fontFamily: T.fontBody, fontSize: 14, color: T.ink, minWidth: 0 }}
+          />
+        </label>
+        <button onClick={() => setShowFilters(true)} title="Filters" style={{ position: "relative", width: 46, height: 46, flexShrink: 0, borderRadius: T.r, background: T.surface, border: `1.5px solid ${filterCount > 0 ? T.purple : T.border}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+          <SlidersIcon size={18} color={filterCount > 0 ? T.purple : T.ink} />
           {filterCount > 0 && (
-            <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", minWidth: 18, height: 18, padding: "0 4px", borderRadius: 99, background: T.amber, color: "#3a2a00", fontSize: 11, fontWeight: 800 }}>{filterCount}</span>
+            <span style={{ position: "absolute", top: 6, right: 7, minWidth: 16, height: 16, padding: "0 3px", borderRadius: 99, background: T.purple, color: "white", fontSize: 10, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: `0 0 0 2px ${T.surface}` }}>{filterCount}</span>
           )}
         </button>
       </div>
 
       {showFilters && (
-        <Card style={{ marginBottom: 14 }}>
-          <FilterRow label="Who is this for?" options={RESIDENCY} value={res} onChange={setRes} />
-          <FilterRow label="Child or adult?" options={STAGE} value={stage} onChange={setStage} />
-          <FilterRow label="Type of support" options={SUPPORT} value={support} onChange={setSupport} />
-          <FilterRow label="Target group" options={TARGET} value={target} onChange={setTarget} />
-          <FilterRow label="Income / means-testing" options={MEANS} value={means} onChange={setMeans} />
-          <button onClick={resetFilters} style={{ background: "none", border: "none", color: T.purple, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: T.fontBody, padding: 0 }}>Reset filters</button>
-        </Card>
+        <>
+          <div onClick={() => setShowFilters(false)} style={{ position: "fixed", inset: 0, background: "rgba(35,32,28,0.32)", zIndex: 145 }} />
+          <div role="dialog" aria-label="Filters" style={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 146, background: T.canvas, borderRadius: "22px 22px 0 0", borderTop: `1px solid ${T.border}`, boxShadow: "0 -12px 40px rgba(35,32,28,0.14)", padding: "10px 20px calc(env(safe-area-inset-bottom, 0px) + 20px)", maxWidth: 480, margin: "0 auto", maxHeight: "82vh", overflowY: "auto" }}>
+            <div style={{ width: 38, height: 4, borderRadius: 99, background: T.border, margin: "2px auto 16px" }} />
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
+              <p style={{ margin: 0, fontFamily: T.fontDisplay, fontWeight: 600, fontSize: 19, color: T.ink }}>Filters</p>
+              <button onClick={() => setShowFilters(false)} aria-label="Close" style={{ background: "none", border: "none", color: T.inkMuted, cursor: "pointer", padding: 6, margin: "-6px -6px 0 0", display: "flex" }}><CloseIcon size={18} color={T.inkMuted} /></button>
+            </div>
+            <FilterRow label="Who is this for?" options={RESIDENCY} value={res} onChange={setRes} />
+            <FilterRow label="Child or adult?" options={STAGE} value={stage} onChange={setStage} />
+            <FilterRow label="Type of support" options={SUPPORT} value={support} onChange={setSupport} />
+            <FilterRow label="Target group" options={TARGET} value={target} onChange={setTarget} />
+            <FilterRow label="Income / means-testing" options={MEANS} value={means} onChange={setMeans} />
+            <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+              <button onClick={resetFilters} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: T.surface, border: `1px solid ${T.border}`, borderRadius: 999, padding: "0 18px", height: 48, color: T.inkSoft, fontWeight: 700, fontSize: 13.5, cursor: "pointer", fontFamily: T.fontBody }}>
+                <ResetIcon size={14} color={T.inkSoft} /> Reset
+              </button>
+              <Btn onClick={() => setShowFilters(false)} full style={{ borderRadius: 999, height: 48 }}>Show {filteredSchemes.length} {filteredSchemes.length === 1 ? "result" : "results"}</Btn>
+            </div>
+          </div>
+        </>
       )}
 
       {loadingSchemes ? (
@@ -267,31 +368,65 @@ export function SubsidiesScreen({ pop, account }) {
           <Card style={{ background: T.greenL, border: `1px solid ${T.green}25` }}><p style={{ margin: 0, color: T.inkSoft, fontSize: 13 }}>No schemes match those filters.</p></Card>
         ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {filteredSchemes.map(s => (
-            <Card key={s.id} onClick={() => setDetail(subsidyFromRow(s))}>
-              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                <div style={{ width: 44, height: 44, borderRadius: 12, background: s.color + "15", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, border: `1px solid ${s.color}20` }}>
-                  <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
-                    <circle cx="11" cy="11" r="8" stroke={s.color} strokeWidth="1.5" fill={s.color} fillOpacity="0.12"/>
-                    <circle cx="11" cy="11" r="3.5" fill={s.color} opacity="0.8"/>
-                  </svg>
+          {filteredSchemes.map(s => {
+            const cat = categoryMeta(s);
+            const firstStep = (s.steps || [])[0];
+            return (
+              <Card key={s.id}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6, background: cat.bg, color: cat.color, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", padding: "5px 10px", borderRadius: 99 }}>
+                    <span style={{ width: 6, height: 6, borderRadius: "50%", background: cat.color }} />
+                    {cat.label}
+                  </span>
+                  {s.badge && <span style={{ marginLeft: "auto", fontSize: 11, fontWeight: 600, color: T.inkMuted }}>{s.badge}</span>}
                 </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 3 }}>
-                    <p style={{ margin: 0, fontWeight: 800, color: T.ink, fontSize: 14 }}>{s.label}</p>
-                    <Badge color={s.badge_color} bg={s.badge_color + "18"}>{s.badge}</Badge>
+
+                <p style={{ margin: "0 0 4px", fontWeight: 800, color: T.ink, fontSize: 15 }}>{s.label}</p>
+                {s.saving && <p style={{ margin: 0, color: T.inkSoft, fontSize: 13, lineHeight: 1.55 }}>{s.saving}</p>}
+
+                <div style={{ marginTop: 10, background: T.canvas, borderRadius: T.r, padding: "9px 12px", border: `1px solid ${T.border}` }}>
+                  <p style={{ margin: 0, fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: T.inkMuted }}>What you get</p>
+                  <p style={{ margin: "2px 0 0", fontWeight: 700, color: T.ink, fontSize: 13.5 }}>{s.amount}</p>
+                </div>
+
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10 }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: T.inkSoft, background: T.canvas, borderRadius: 8, padding: "5px 9px" }}>{ageLabel(s.age_min, s.age_max)}</span>
+                  {(s.residency || []).map(r => (
+                    <span key={r} style={{ fontSize: 11, fontWeight: 700, color: T.inkSoft, background: T.canvas, borderRadius: 8, padding: "5px 9px" }}>{RES_LABEL[r] || r}</span>
+                  ))}
+                  <span style={{ fontSize: 11, fontWeight: 700, borderRadius: 8, padding: "5px 9px", color: s.means_tested ? T.amber : T.green, background: s.means_tested ? T.amberL : T.greenL }}>
+                    {s.means_tested ? "Income-tested" : "No income test"}
+                  </span>
+                </div>
+
+                {s.means_note && (
+                  <p style={{ margin: "8px 0 0", color: T.inkMuted, fontSize: 12, lineHeight: 1.55 }}>ℹ️ {s.means_note}</p>
+                )}
+
+                <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${T.border}` }}>
+                  {firstStep && (
+                    <p style={{ margin: "0 0 8px", color: T.inkSoft, fontSize: 12.5, lineHeight: 1.55 }}>
+                      <span style={{ fontWeight: 700, color: T.ink }}>How to apply · </span>{firstStep}
+                    </p>
+                  )}
+                  <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                    <a href={`https://${s.website}`} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} style={{ display: "inline-flex", alignItems: "center", gap: 5, color: T.purple, fontWeight: 700, fontSize: 12.5, textDecoration: "none" }}>
+                      Official page <ExternalLinkIcon size={12} color={T.purple} />
+                    </a>
+                    <button onClick={() => setDetail(subsidyFromRow(s))} style={{ background: "none", border: "none", color: T.inkMuted, fontWeight: 700, fontSize: 12.5, cursor: "pointer", fontFamily: T.fontBody, padding: 0 }}>Full guide ›</button>
                   </div>
-                  <p style={{ margin: 0, color: T.inkMuted, fontSize: 12 }}>{s.org} · {s.amount}</p>
-                  <p style={{ margin: "3px 0 0", color: T.inkMuted, fontSize: 11 }}>{ageLabel(s.age_min, s.age_max)} · {(s.residency || []).map(r => RES_LABEL[r] || r).join(", ")}</p>
                 </div>
-                <span style={{ color: T.inkMuted, fontSize: 20 }}>›</span>
-              </div>
-            </Card>
-          ))}
+              </Card>
+            );
+          })}
         </div>
         )}
       </>
       )}
+
+      <p style={{ margin: "20px 0 0", color: T.inkMuted, fontSize: 11, lineHeight: 1.6 }}>
+        Bonda checks these against official government and agency sources. Amounts and rules can change — always confirm on the official page before applying. Not affiliated with the Singapore Government.
+      </p>
     </Page>
   );
 }

@@ -62,6 +62,7 @@ const ArrowIcon = ({ size = 14, color }) => (
 const QUICK_TONES = {
   letter:    { bg: T.indigoL, fg: T.indigo },
   subsidies: { bg: T.greenL,  fg: T.green },
+  grants:    { bg: T.amberL,  fg: T.amber },
   sos:       { bg: T.redL,    fg: T.red },
   devGuide:  { bg: T.violetL, fg: T.violet },
   emotions:  { bg: T.tealL,   fg: T.teal },
@@ -73,6 +74,7 @@ const QuickIcon = ({ type, size = 22, color }) => {
   const paths = {
     letter: <><rect x="3" y="5" width="18" height="14" rx="2.6" {...p} /><path d="m4 7.5 8 5.5 8-5.5" {...p} /></>,
     subsidies: <><circle cx="12" cy="12" r="9" {...p} /><path d="M12 6.5v11M15 9.4c0-1.4-1.4-2.1-3-2.1s-3 .8-3 2.1 1.4 1.9 3 2.3 3 .9 3 2.3-1.4 2.1-3 2.1-3-.7-3-2.1" {...p} /></>,
+    grants: <><circle cx="12" cy="9" r="5" {...p} /><path d="M9 13.4 7 21l5-2.6L17 21l-2-7.6" {...p} /></>,
     sos: <><path d="M5 4h3l1.8 4.6L7.2 10a11 11 0 0 0 5.2 5.2l1.4-2.6L18.4 14V17a2 2 0 0 1-2.1 2A15.5 15.5 0 0 1 3 5.7 2 2 0 0 1 5 4Z" {...p} /></>,
     devGuide: <><path d="M3 17 9 11l4 4 8-8" {...p} /><path d="M16.5 7H21v4.5" {...p} /></>,
     emotions: <><circle cx="12" cy="12" r="9" {...p} /><path d="M8.4 14.4s1.3 2 3.6 2 3.6-2 3.6-2" {...p} /><path d="M9 9.6h.01M15 9.6h.01" {...p} /></>,
@@ -145,6 +147,7 @@ export function HomeScreen({ childCtx, setTab, push, account }) {
   const quickActions = [
     ...(isFoster ? [{ type: "foster", category: "documents", label: "Foster Parent Hub", desc: "HealthHub, CDA, school access guides", action: () => push("fosterHub"), isFoster: true }] : []),
     { type: "letter", category: "documents", label: "Generate Carer Letter", desc: "Introduction letter for clinics & schools", action: () => push("carerLetter") },
+    { type: "grants", category: "support", label: "Subsidies & Grants", desc: "Government schemes that cut therapy & care costs", action: () => push("subsidiesGrants") },
     { type: "subsidies", category: "support", label: "Support Directory", desc: "Singapore autism & caregiver contacts", action: () => push("subsidies") },
     { type: "sos", category: "support", label: "Emergency Contacts", desc: "Singapore autism helplines", action: () => push("sos") },
     { type: "devGuide", category: "guides", label: "Development & Behaviour Guide", desc: "Home activities & behaviour training", action: () => push("devGuide") },

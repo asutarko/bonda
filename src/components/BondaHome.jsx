@@ -430,7 +430,7 @@ export default function BondaHome() {
 
           {/* LATEST NEWS */}
           <div className="b-sec">
-            <h2 className="b-h2">Latest for families</h2>
+            <h2 className="b-h2">Latest Articles</h2>
             <button className="b-link">See all <Icon name="chevron" size={14} color={C.accent} w={2.2} /></button>
           </div>
           <div className="b-news" ref={track} onScroll={onTrackScroll}>

@@ -7,6 +7,7 @@ import { FosterHubScreen } from "./screens/FosterHubScreen";
 import { CarerLetterScreen } from "./screens/CarerLetterScreen";
 import { DocumentsScreen } from "./screens/DocumentsScreen";
 import { HomeScreen } from "./screens/HomeScreen";
+import { SubsidiesScreen } from "./screens/SubsidiesScreen";
 import { MyChildScreen } from "./screens/MyChildScreen";
 import { AddChildScreen, EditChildScreen } from "./screens/onboarding";
 import { ScheduleScreen } from "./screens/ScheduleScreen";
@@ -188,6 +189,7 @@ export default function Bonda() {
     schedule: "Schedule",
     community: "Community",
     subsidies: "Support Directory",
+    subsidiesGrants: "Subsidies & Grants",
     sos: "Emergency Contacts",
     devGuide: "Development & Behaviour Guide",
     addChild: "Add a Child",
@@ -215,6 +217,7 @@ export default function Bonda() {
     if (!current) return null;
     switch (current) {
       case "subsidies":  return <SupportDirectory />;
+      case "subsidiesGrants": return <SubsidiesScreen pop={pop} account={account} />;
       case "sos":        return <SOSScreen pop={pop} account={account} />;
       case "devGuide":   return <DevelopmentGuideScreen />;
       case "addChild":   return <AddChildScreen childCtx={childCtx} pop={pop} />;
