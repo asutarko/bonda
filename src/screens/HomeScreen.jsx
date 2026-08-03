@@ -219,7 +219,7 @@ export function HomeScreen({ childCtx, setTab, push, account }) {
           </Card>
         ) : (
           <div>
-            <SectionLabel action={<button onClick={() => push("addChild")} style={{ background: "none", border: "none", color: T.purple, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody }}>+ Add child</button>}>My Children</SectionLabel>
+            <SectionLabel style={{ marginBottom: 10 }}>My Children</SectionLabel>
             <Card style={{ padding: "16px 14px" }}>
               <div style={{ display: "flex", gap: 14, overflowX: "auto", paddingBottom: 2 }}>
                 {children.map(c => {
@@ -231,6 +231,14 @@ export function HomeScreen({ childCtx, setTab, push, account }) {
                     </div>
                   );
                 })}
+                <div onClick={() => push("addChild")} title="Add a child" style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 6, cursor: "pointer" }}>
+                  <span style={{ width: 52, height: 52, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", background: T.purpleL, border: `1.5px dashed ${T.purple}` }}>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                      <path d="M12 5v14M5 12h14" stroke={T.purple} strokeWidth="2.2" strokeLinecap="round" />
+                    </svg>
+                  </span>
+                  <p style={{ margin: 0, fontSize: 11, fontWeight: 600, color: T.purple, whiteSpace: "nowrap" }}>Add child</p>
+                </div>
               </div>
             </Card>
           </div>
