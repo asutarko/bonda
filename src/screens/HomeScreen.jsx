@@ -238,30 +238,6 @@ export function HomeScreen({ childCtx, setTab, push, account }) {
       </div>
 
 
-      {activeChild && (
-        <Card style={{ marginBottom: 24, background: T.ink, border: "none", overflow: "hidden", position: "relative" }}>
-          <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 80, opacity: 0.06 }}>
-            <svg viewBox="0 0 80 80" width="80" height="80" style={{ position: "absolute", right: -10, top: -10 }}>
-              <circle cx="60" cy="40" r="50" fill={T.purple}/>
-            </svg>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 14, position: "relative" }}>
-            <ChildAvatar value={activeChild.emoji} size={52} active={true} borderColor="rgba(255,255,255,0.15)" />
-            <div style={{ flex: 1 }}>
-              <p style={{ margin: "0 0 2px", color: "rgba(255,255,255,0.6)", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>Active child</p>
-              <p style={{ margin: 0, color: "white", fontSize: 18, fontWeight: 800 }}>{activeChild.name}</p>
-            </div>
-            <button onClick={() => setTab("mychild")} title="Edit profile" style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(255,255,255,0.12)", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
-              <svg width="14" height="14" viewBox="0 0 18 18" fill="none">
-                <path d="M11.5 2.5 L15.5 6.5 L6 16 L2 16.5 L2.5 12.5 Z" stroke="white" strokeWidth="1.4" strokeLinejoin="round" strokeLinecap="round" fill="none"/>
-              </svg>
-            </button>
-            <button onClick={() => { if (activeChild.active) setTab("schedule"); }} disabled={!activeChild.active} title={!activeChild.active ? `${activeChild.name}'s profile is pending admin approval` : undefined} style={{ background: activeChild.active ? T.purple : "rgba(255,255,255,0.12)", color: activeChild.active ? "white" : "rgba(255,255,255,0.4)", border: "none", borderRadius: T.r, padding: "8px 14px", fontWeight: 700, fontSize: 12, cursor: activeChild.active ? "pointer" : "not-allowed", fontFamily: T.fontBody }}>Schedule →</button>
-          </div>
-        </Card>
-      )}
-
-
       <SectionLabel style={{ marginBottom: 10 }}>Quick Access</SectionLabel>
 
       {filteredActions.length === 0 ? (
