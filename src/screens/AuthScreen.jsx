@@ -233,6 +233,7 @@ export function AuthScreen() {
   const [forgotEmail, setForgotEmail] = useState(""); const [forgotErr, setForgotErr] = useState(""); const [forgotMsg, setForgotMsg] = useState("");
   const [showTerms, setShowTerms] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
+  const [agreeLegal, setAgreeLegal] = useState(false);
 
   const [otpCode, setOtpCode] = useState(""); const [otpErr, setOtpErr] = useState(""); const [otpMsg, setOtpMsg] = useState("");
   const [otpExpiresAt, setOtpExpiresAt] = useState(null);
@@ -283,6 +284,7 @@ export function AuthScreen() {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(regEmail.trim())) return setRegErr("Please enter a valid email address.");
     if (!regName.trim() || regName.trim().length < 2) return setRegErr("Name must be at least 2 characters.");
     if (regPass.length < 6) return setRegErr("Password must be at least 6 characters.");
+    if (!agreeLegal) return setRegErr("Please agree to the Terms & Conditions and Privacy Policy to continue.");
 
     const joined = new Date().toLocaleDateString("en-SG", { month: "short", year: "numeric" });
     // Flag this as a fresh signup before calling signUp() — the client fires
@@ -348,7 +350,7 @@ export function AuthScreen() {
         </div>
         <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 12 }}>
           <button className="btn-primary" onClick={() => navigate("login", "fwd")}>Sign in <span aria-hidden="true">→</span></button>
-          <button className="btn-ghost" onClick={() => { setRegErr(""); setRegMsg(""); navigate("register", "fwd"); }}>Create a free account</button>
+          <button className="btn-ghost" onClick={() => { setRegErr(""); setRegMsg(""); setAgreeLegal(false); navigate("register", "fwd"); }}>Create a free account</button>
         </div>
         <p style={{ margin: 0, textAlign: "center", fontSize: 12.5, lineHeight: 1.55, color: INK55 }}>
           By creating an account or signing in, you agree to our<br />
@@ -371,7 +373,7 @@ export function AuthScreen() {
         {loginErr && <ErrorNote>{loginErr}</ErrorNote>}
         <button className="btn-primary" onClick={login}>Sign in <span aria-hidden="true">→</span></button>
         <p style={{ textAlign: "center", margin: "20px 0 0", fontSize: 14, color: INK55 }}>New here?{" "}
-          <button type="button" className="link-accent" onClick={() => { setLoginErr(""); navigate("register", "fwd"); }}>Create a free account</button>
+          <button type="button" className="link-accent" onClick={() => { setLoginErr(""); setAgreeLegal(false); navigate("register", "fwd"); }}>Create a free account</button>
         </p>
       </div>
     );
@@ -383,8 +385,16 @@ export function AuthScreen() {
         <TextField label="Name" value={regName} onChange={e => setRegName(e.target.value)} placeholder="e.g. Sarah, Mum of Aiden" />
         <TextField label="Email" type="email" inputMode="email" autoComplete="email" value={regEmail} onChange={e => setRegEmail(e.target.value)} placeholder="you@example.com" />
         <PasswordField label="Password" autoComplete="new-password" value={regPass} onChange={e => setRegPass(e.target.value)} placeholder="Create a password" />
+        <label style={{ display: "flex", alignItems: "flex-start", gap: 10, margin: "4px 0 16px", fontSize: 13, lineHeight: 1.5, color: INK55, cursor: "pointer" }}>
+          <input type="checkbox" checked={agreeLegal} onChange={e => setAgreeLegal(e.target.checked)} style={{ marginTop: 2, width: 16, height: 16, flexShrink: 0, accentColor: ACCENT }} />
+          <span>
+            By checking this box, I acknowledge that I have read, understood, and agree to the{" "}
+            <button type="button" className="link-accent" style={{ fontSize: "inherit", textDecoration: "underline" }} onClick={() => setShowTerms(true)}>Terms &amp; Conditions</button> and{" "}
+            <button type="button" className="link-accent" style={{ fontSize: "inherit", textDecoration: "underline" }} onClick={() => setShowPrivacy(true)}>Privacy Policy</button>.
+          </span>
+        </label>
         {regErr && <ErrorNote>{regErr}</ErrorNote>}
-        <button className="btn-primary" onClick={register}>Create account <span aria-hidden="true">→</span></button>
+        <button className="btn-primary" onClick={register} disabled={!agreeLegal}>Create account <span aria-hidden="true">→</span></button>
         <p style={{ textAlign: "center", margin: "20px 0 0", fontSize: 14, color: INK55 }}>Already have an account?{" "}
           <button type="button" className="link-accent" onClick={() => { setRegErr(""); navigate("login", "back"); }}>Sign in</button>
         </p>
