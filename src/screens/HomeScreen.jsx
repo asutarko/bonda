@@ -313,7 +313,7 @@ export function HomeScreen({ childCtx, setTab, push, account }) {
       )}
 
 
-      <SectionLabel style={{ marginTop: 28, marginBottom: 10 }}>Latest for Families</SectionLabel>
+      <SectionLabel style={{ marginTop: 28, marginBottom: 10 }}>Latest Articles</SectionLabel>
       <div
         ref={newsTrack}
         onScroll={onNewsScroll}

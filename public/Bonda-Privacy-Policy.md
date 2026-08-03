@@ -163,8 +163,8 @@ To exercise these rights, contact our Data Protection Officer (Clause 13). We ma
 We have appointed a Data Protection Officer responsible for overseeing our compliance with the PDPA. For any questions, requests, or complaints about this Policy or your personal data, please contact:
 
 **Data Protection Officer — Arte de Noor**
-Email: [INSERT DPO EMAIL]
-WhatsApp: [INSERT NUMBER]
+Email: norena_darsana@outlook.com
+WhatsApp: +6588157217
 [INSERT ANY REGISTERED ADDRESS IF REQUIRED]
 
 If you are not satisfied with our response, you may contact Singapore's **Personal Data Protection Commission (PDPC)** at www.pdpc.gov.sg.
