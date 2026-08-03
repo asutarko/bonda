@@ -188,8 +188,8 @@ You agree to indemnify and hold harmless the Company and its representatives aga
 If you have any questions about these Terms, please contact:
 
 **Arte de Noor**
-Email: [INSERT EMAIL]
-WhatsApp: [INSERT NUMBER]
+Email: norena_darsana@outlook.com
+WhatsApp: +6588157217
 [INSERT ANY REGISTERED ADDRESS IF REQUIRED]
 
 ---
