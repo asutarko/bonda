@@ -352,7 +352,8 @@ export function AuthScreen() {
         </div>
         <p style={{ margin: 0, textAlign: "center", fontSize: 12.5, lineHeight: 1.55, color: INK55 }}>
           By creating an account or signing in, you agree to our<br />
-          <button type="button" className="link-accent" style={{ fontSize: "inherit", whiteSpace: "nowrap", textDecoration: "underline" }} onClick={() => setShowTerms(true)}>Terms &amp; Conditions</button>.
+          <button type="button" className="link-accent" style={{ fontSize: "inherit", whiteSpace: "nowrap", textDecoration: "underline" }} onClick={() => setShowTerms(true)}>Terms &amp; Conditions</button> and{" "}
+          <button type="button" className="link-accent" style={{ fontSize: "inherit", whiteSpace: "nowrap", textDecoration: "underline" }} onClick={() => setShowPrivacy(true)}>Privacy Policy</button>.
         </p>
       </div>
     );
