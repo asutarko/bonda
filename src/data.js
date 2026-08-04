@@ -61,4 +61,40 @@ export const OCCUPATION_OPTIONS = ["Unemployed", "Homemaker", "Student", "Civil 
 
 export const MARITAL_STATUS_OPTIONS = ["Single", "Married", "Divorced", "Widowed"];
 
+// Multi-select option lists for the child profile's "About your child" and
+// "Medical information" sections. Selections are joined into the existing
+// free-text columns (diagnosis, known_triggers, diet_program) on save, so an
+// "Other" pick always carries its typed detail along with it.
+export const DIAGNOSIS_OPTIONS = [
+  "Autism Spectrum Disorder (ASD)", "ADHD", "Sensory Processing Disorder",
+  "Global Developmental Delay", "Speech & Language Delay", "Intellectual Disability",
+  "Dyslexia", "Dyspraxia (DCD)", "Dyscalculia", "Anxiety", "OCD",
+  "Tourette / Tic Disorder", "Down Syndrome", "Epilepsy",
+  "Not yet diagnosed / In assessment", "Other",
+];
+
+export const TRIGGER_OPTIONS = [
+  "Loud or sudden noises", "Bright or flickering lights", "Crowded / busy places",
+  "Changes in routine", "Transitions between activities", "Certain textures",
+  "Strong smells", "Unexpected touch", "Hunger or tiredness", "Screen time ending",
+  "Waiting / delays", "Other",
+];
+
+export const DIET_OPTIONS = [
+  "Gluten-free", "Casein / dairy-free", "GFCF (gluten & casein-free)", "Low-sugar",
+  "Feingold diet", "Specific Carbohydrate Diet", "Ketogenic", "Elimination diet",
+  "Halal", "Vegetarian", "Other",
+];
+
+export const ALLERGY_OPTIONS = [
+  "Nuts", "Dairy", "Eggs", "Seafood / Shellfish", "Gluten / Wheat", "Soy",
+  "Pollen / Dust", "Other",
+];
+
+export const THERAPY_TYPES = [
+  "Occupational Therapy", "Speech & Language Therapy", "ABA Therapy", "Physiotherapy",
+  "Behavioural Therapy", "Psychology / Counselling", "Music Therapy",
+  "Early Intervention (EIPIC)", "Other",
+];
+
 // Optional additional-needs profile, filled in by the parent in their own words.

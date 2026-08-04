@@ -22,6 +22,8 @@ export const childFromRow = (row) => ({
   knownTriggers: row.known_triggers || "",
   therapySchedule: row.therapy_schedule || "",
   dietProgram: row.diet_program || "",
+  allergies: row.allergies || "",
+  medication: row.medication || "",
   diagnosis: row.diagnosis || "",
   placementStartDate: row.placement_start_date || "",
   fosteringAgency: row.fostering_agency || "",
@@ -89,6 +91,8 @@ export function useChildren(userId) {
       known_triggers: child.hasSpecialNeeds ? (child.knownTriggers || "") : "",
       therapy_schedule: child.hasSpecialNeeds ? (child.therapySchedule || "") : "",
       diet_program: child.hasSpecialNeeds ? (child.dietProgram || "") : "",
+      allergies: child.allergies || "",
+      medication: child.medication || "",
       diagnosis: child.diagnosis || "",
       placement_start_date: child.placementStartDate || null,
       fostering_agency: child.fosteringAgency || "",
@@ -130,6 +134,8 @@ export function useChildren(userId) {
     if ("knownTriggers" in patch) dbPatch.known_triggers = patch.knownTriggers;
     if ("therapySchedule" in patch) dbPatch.therapy_schedule = patch.therapySchedule;
     if ("dietProgram" in patch) dbPatch.diet_program = patch.dietProgram;
+    if ("allergies" in patch) dbPatch.allergies = patch.allergies;
+    if ("medication" in patch) dbPatch.medication = patch.medication;
     if ("diagnosis" in patch) dbPatch.diagnosis = patch.diagnosis;
     if ("placementStartDate" in patch) dbPatch.placement_start_date = patch.placementStartDate || null;
     if ("fosteringAgency" in patch) dbPatch.fostering_agency = patch.fosteringAgency;

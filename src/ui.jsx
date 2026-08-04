@@ -362,6 +362,79 @@ export const Select = ({ label, options, placeholder, value, onChange, multiple,
   );
 };
 
+// Multi-pick checklist behind a dropdown-style trigger — same chrome as Select,
+// but toggles items on/off instead of replacing the value. Pass an "Other"
+// option and render a follow-up Input when it's selected (see SpecialNeedsSection).
+
+export const MultiSelect = ({ label, hint, options, selected, onToggle, placeholder = "Tap to select" }) => {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef(null);
+
+  const summary = selected.length === 0 ? placeholder
+    : selected.length <= 2 ? selected.join(", ")
+    : `${selected.length} selected`;
+
+  useEffect(() => {
+    if (!open) return;
+    const onDocMouseDown = (e) => { if (rootRef.current && !rootRef.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", onDocMouseDown);
+    return () => document.removeEventListener("mousedown", onDocMouseDown);
+  }, [open]);
+
+  return (
+    <div ref={rootRef} style={{ marginBottom: 14 }}>
+      {label && <p style={{ margin: "0 0 6px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>{label}</p>}
+      {hint && <p style={{ margin: "0 0 8px", fontSize: 12, color: T.inkMuted, lineHeight: 1.5 }}>{hint}</p>}
+      <div style={{ position: "relative" }}>
+        <div
+          onClick={() => setOpen(o => !o)}
+          style={{
+            width: "100%", padding: "11px 14px", borderRadius: T.r, border: `1.5px solid ${open ? T.purple : T.border}`,
+            fontSize: 14, fontFamily: T.fontBody, color: selected.length ? T.ink : T.inkMuted, background: T.canvas,
+            outline: "none", boxSizing: "border-box", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8,
+          }}
+        >
+          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{summary}</span>
+          <span style={{ fontSize: 10, color: T.inkMuted, flexShrink: 0 }}>{open ? "▲" : "▼"}</span>
+        </div>
+
+        {open && (
+          <div style={{
+            position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 20,
+            background: T.surface, border: `1.5px solid ${T.border}`, borderRadius: T.r,
+            boxShadow: "0 8px 24px rgba(0,0,0,0.12)", maxHeight: 268, overflowY: "auto",
+          }}>
+            {options.map((o, i) => {
+              const active = selected.includes(o);
+              return (
+                <div key={o} onClick={() => onToggle(o)}
+                  style={{
+                    display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
+                    padding: "12px 14px", cursor: "pointer", fontSize: 14, fontFamily: T.fontBody,
+                    borderBottom: i === options.length - 1 ? "none" : `1px solid ${T.border}`,
+                    background: active ? T.purpleL : "transparent", color: active ? T.purple : T.ink, fontWeight: active ? 700 : 400,
+                  }}>
+                  <span>{o}</span>
+                  <span style={{
+                    width: 20, height: 20, borderRadius: 6, flexShrink: 0, border: `1.5px solid ${active ? T.purple : T.border}`,
+                    background: active ? T.purple : "transparent", display: "flex", alignItems: "center", justifyContent: "center",
+                  }}>
+                    {active && (
+                      <svg width="12" height="10" viewBox="0 0 13 11">
+                        <path d="M1.5 5.5l3.5 3.5L11.5 2" stroke="#fff" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    )}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 // Inline validation message — sits directly under the field it refers to
 
 export const FieldError = ({ children }) => {
@@ -389,7 +462,7 @@ export const Avatar = ({ src, size = 36, bg = T.purpleL, border = "transparent" 
 export const FormSection = ({ title, defaultOpen = true, children }) => {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div style={{ background: T.surface, borderRadius: T.rL, border: `1px solid ${T.border}`, overflow: "hidden", marginBottom: 16 }}>
+    <div style={{ background: T.surface, borderRadius: T.rL, border: `1px solid ${T.border}`, marginBottom: 16 }}>
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
@@ -399,6 +472,7 @@ export const FormSection = ({ title, defaultOpen = true, children }) => {
           justifyContent: "space-between", gap: 12, background: T.purple, color: "white",
           fontFamily: T.fontDisplay, fontWeight: 600, fontSize: 17, letterSpacing: "-0.005em",
           padding: "14px 18px", border: "none", cursor: "pointer", textAlign: "left",
+          borderRadius: open ? `${T.rL} ${T.rL} 0 0` : T.rL,
         }}
       >
         <span>{title}</span>

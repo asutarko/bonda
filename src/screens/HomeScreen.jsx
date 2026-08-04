@@ -225,7 +225,7 @@ export function HomeScreen({ childCtx, setTab, push, account }) {
                 {children.map(c => {
                   const active = activeChild?.id === c.id;
                   return (
-                    <div key={c.id} onClick={() => switchChild(c.id)} style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 6, cursor: "pointer" }}>
+                    <div key={c.id} onClick={() => { switchChild(c.id); setTab("mychild"); }} style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 6, cursor: "pointer" }}>
                       <ChildAvatar value={c.emoji} size={52} active={active} borderColor={active ? T.purple : "transparent"} />
                       <p style={{ margin: 0, fontSize: 11, fontWeight: active ? 800 : 600, color: active ? T.purple : T.inkSoft, whiteSpace: "nowrap" }}>{c.name}</p>
                     </div>
