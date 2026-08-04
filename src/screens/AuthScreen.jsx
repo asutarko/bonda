@@ -208,12 +208,12 @@ function LegalDocScreen({ url, errorLabel, onBack }) {
   return (
     <div className="bonda-auth" style={{ height: "100vh", display: "flex", flexDirection: "column", background: CANVAS, boxSizing: "border-box" }}>
       <style>{AUTH_CSS}</style>
-      <div style={{ flex: 1, overflowY: "auto", padding: "28px 22px 0" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 22 }}>
-          <BackButton onClick={onBack} />
-          <img src="/assets/images/3D - Logo - Green.png" alt="" style={{ height: 24, width: 24, borderRadius: "50%", objectFit: "cover" }} />
-          <span style={{ fontFamily: FONT_TITLE, fontWeight: 600, fontSize: 18, color: INK }}>Bonda</span>
-        </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "28px 22px 18px", flexShrink: 0, background: CANVAS }}>
+        <BackButton onClick={onBack} />
+        <img src="/assets/images/3D - Logo - Green.png" alt="" style={{ height: 24, width: 24, borderRadius: "50%", objectFit: "cover" }} />
+        <span style={{ fontFamily: FONT_TITLE, fontWeight: 600, fontSize: 18, color: INK }}>Bonda</span>
+      </div>
+      <div style={{ flex: 1, overflowY: "auto", padding: "0 22px" }}>
         {err ? <ErrorNote>{err}</ErrorNote> : !md ? <p style={{ color: INK55, fontSize: 14 }}>Loading…</p> : <MarkdownBody text={md} />}
       </div>
       <div style={{ padding: "14px 22px 22px", borderTop: "1px solid rgba(35,32,28,.12)", background: CANVAS, flexShrink: 0 }}>
