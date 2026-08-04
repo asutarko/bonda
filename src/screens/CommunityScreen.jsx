@@ -3,7 +3,7 @@ import { supabase } from "../lib/supabase";
 import { T } from "../theme";
 import { Page, SectionLabel, Card, Badge, Btn, Input, TextArea, Avatar, Accordion, PageHero, AvatarIllustrations, ChildAvatar, ComAvatar, ROOM_ICONS, ACTIVITY_TEXTAREA_STYLE, ActionIllustration, HeroIllustration } from "../ui";
 import { CHILD_AVATARS, DEFAULT_CHILDREN, DEFAULT_SCHEDULE, ROOM_COLORS, SOS_COLORS, VERBAL_STATUS_OPTIONS } from "../data";
-import { forceSignOut, uploadCommunityAttachment, compressImage, classifyCommunityAttachment, MAX_COMMUNITY_ATTACHMENT_BYTES } from "../hooks";
+import { uploadCommunityAttachment, compressImage, classifyCommunityAttachment, MAX_COMMUNITY_ATTACHMENT_BYTES } from "../hooks";
 
 const isDocAttachment = url => /\.(docx?|xlsx?|pdf)$/i.test(url || "");
 
@@ -779,15 +779,6 @@ export function CommunityScreen({ account }) {
             <span style={{ fontSize: 22, lineHeight: 1 }}>+</span>
             <span style={{ fontSize: 10.5, fontWeight: 700 }}>New</span>
           </button>
-        </div>
-
-        <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 16px", background: T.ink, borderRadius: T.rL, marginBottom: 20 }}>
-          <ComAvatar value={account.avatar} size={44} active={true} borderColor={T.purple} />
-          <div style={{ flex: 1 }}>
-            <p style={{ margin: "0 0 1px", color: "rgba(255,255,255,0.5)", fontSize: 11, fontWeight: 700, textTransform: "uppercase" }}>Signed in as</p>
-            <p style={{ margin: 0, color: "white", fontSize: 16, fontWeight: 800 }}>{account.name}</p>
-          </div>
-          <button onClick={forceSignOut} style={{ background: "rgba(255,255,255,0.1)", border: "none", borderRadius: 8, padding: "6px 12px", color: "rgba(255,255,255,0.7)", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody }}>Sign out</button>
         </div>
 
         {announcement && (
