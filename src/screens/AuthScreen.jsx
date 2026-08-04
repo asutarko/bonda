@@ -216,7 +216,7 @@ function LegalDocScreen({ url, errorLabel, onBack }) {
       <div style={{ flex: 1, overflowY: "auto", padding: "0 22px" }}>
         {err ? <ErrorNote>{err}</ErrorNote> : !md ? <p style={{ color: INK55, fontSize: 14 }}>Loading…</p> : <MarkdownBody text={md} />}
       </div>
-      <div style={{ padding: "14px 22px 22px", borderTop: "1px solid rgba(35,32,28,.12)", background: CANVAS, flexShrink: 0 }}>
+      <div style={{ padding: "14px 22px calc(env(safe-area-inset-bottom, 0px) + 22px)", borderTop: "1px solid rgba(35,32,28,.12)", background: CANVAS, flexShrink: 0 }}>
         <button className="btn-primary" onClick={onBack}>Got it — back to welcome</button>
       </div>
     </div>
