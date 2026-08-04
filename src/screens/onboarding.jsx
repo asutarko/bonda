@@ -6,6 +6,15 @@ import { T } from "../theme";
 import { Page, SectionLabel, Card, Badge, Btn, Input, TextArea, Select, MultiSelect, FieldError, Avatar, Accordion, FormSection, ToggleField, PageHero, ChildAvatar, ComAvatar, ROOM_ICONS, ACTIVITY_TEXTAREA_STYLE, ActionIllustration, HeroIllustration } from "../ui";
 import { CHILD_AVATARS, DEFAULT_CHILDREN, DEFAULT_SCHEDULE, PLACEMENT_TYPE_OPTIONS, ROOM_COLORS, SOS_COLORS, VERBAL_STATUS_OPTIONS, DIAGNOSIS_OPTIONS, TRIGGER_OPTIONS, DIET_OPTIONS, ALLERGY_OPTIONS, THERAPY_TYPES } from "../data";
 
+// Opens the date-of-birth picker 20 years back instead of at today's date —
+// most children in care aren't newborns, so this saves scrolling through two
+// decades of months every time.
+const defaultChildDob = () => {
+  const d = new Date();
+  d.setFullYear(d.getFullYear() - 20);
+  return d.toISOString().slice(0, 10);
+};
+
 // ---- multi-select <-> plain-text bridge -----------------------------------
 // Diagnosis/triggers/diet/allergies are picked from a checklist in the UI but
 // stored as the same comma-joined free text the DB columns already used
@@ -329,7 +338,7 @@ export function AddChildScreen({ childCtx, pop }) {
   const [photo, setPhoto] = useState(null);
   const [photoErr, setPhotoErr] = useState("");
   const camera = useChildCamera(setPhoto);
-  const [dob, setDob] = useState("");
+  const [dob, setDob] = useState(defaultChildDob);
   const [gender, setGender] = useState("");
   const [caregiverType, setCaregiverType] = useState("biological");
   const [caregiverLabel, setCaregiverLabel] = useState("");
