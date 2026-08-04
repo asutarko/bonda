@@ -7,7 +7,35 @@ import { forceSignOut, uploadCommunityAttachment, compressImage, classifyCommuni
 
 const isDocAttachment = url => /\.(docx?|xlsx?|pdf)$/i.test(url || "");
 
-export function ChatUI({ msgs, input, setInput, onSend, onDelete, loading, color, bg, backFn, icon, label, sub, isGroup, account, dmPartner, endRef, attachment, onPickAttachment, onRemoveAttachment, attachError }) {
+// Icon choices offered when creating a group — the same set admins pick
+// from for community_rooms (see ROOM_ICONS in ui.jsx).
+const GROUP_ICON_KEYS = Object.keys(ROOM_ICONS);
+
+const searchInputStyle = { width: "100%", padding: "11px 14px 11px 38px", borderRadius: T.r, border: `1.5px solid ${T.border}`, fontSize: 14, fontFamily: T.fontBody, color: T.ink, background: T.canvas, outline: "none", boxSizing: "border-box" };
+
+// Normalizes an admin community_rooms row or a parent-created community_groups
+// row into the same shape, so chat/members/invite code doesn't need to care
+// which kind of group it's dealing with.
+const roomToGroup = r => ({ id: r.id, label: r.label, description: r.description, icon_key: r.icon_key, color_key: r.color_key, kind: "admin" });
+const groupToGroup = g => ({ id: g.id, label: g.name, description: g.description, icon_key: g.icon_key, color_key: g.color_key, kind: "user" });
+
+function timeAgo(iso) {
+  const min = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+  if (min < 1) return "just now";
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  return `${Math.floor(hr / 24)}d ago`;
+}
+
+const copyText = async text => {
+  try { await navigator.clipboard.writeText(text); } catch {
+    // Clipboard API unavailable (older browser / non-HTTPS) — the code is
+    // still shown on screen so the user can select and copy it manually.
+  }
+};
+
+export function ChatUI({ msgs, input, setInput, onSend, onDelete, loading, color, bg, backFn, icon, label, sub, isGroup, account, dmPartner, endRef, attachment, onPickAttachment, onRemoveAttachment, attachError, headerRight, belowHeader }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 130px)" }}>
       <div style={{ padding: "10px 18px 12px", display: "flex", alignItems: "center", gap: 12 }}>
@@ -25,7 +53,9 @@ export function ChatUI({ msgs, input, setInput, onSend, onDelete, loading, color
           <p style={{ margin: 0, fontWeight: 700, fontSize: 16, color: T.ink }}>{label}</p>
           <p style={{ margin: "2px 0 0", fontSize: 12.5, color: T.inkMuted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{sub}</p>
         </div>
+        {headerRight}
       </div>
+      {belowHeader}
       <div style={{ flex: 1, overflowY: "auto", padding: "0 18px", display: "flex", flexDirection: "column", gap: 10 }}>
         {loading && <p style={{ textAlign: "center", color: T.inkMuted, padding: 24, fontSize: 14 }}>Loading...</p>}
         {!loading && msgs.length === 0 && <div style={{ textAlign: "center", padding: "48px 20px" }}><div style={{ fontSize: 40, marginBottom: 12 }}>💬</div><p style={{ fontWeight: 700, color: T.ink, fontSize: 15 }}>No messages yet</p><p style={{ color: T.inkMuted, fontSize: 13 }}>{isGroup ? "Be the first to post!" : "Start a private conversation!"}</p></div>}
@@ -101,6 +131,90 @@ export function ChatUI({ msgs, input, setInput, onSend, onDelete, loading, color
   );
 }
 
+// Sub-screen header — back chevron + Fraunces title, same chrome across
+// every screen pushed inside the Community tab (create group, share moment,
+// all groups, all moments, members).
+function SubHeader({ title, onBack, right }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      <button onClick={onBack} aria-label="Back" style={{ width: 34, height: 34, borderRadius: "50%", border: "none", background: "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0, color: T.inkMuted }}>
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M11 3.5 L5 9 L11 14.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none"/></svg>
+      </button>
+      <h2 style={{ margin: 0, fontFamily: T.fontDisplay, fontSize: 20, fontWeight: 600, color: T.ink, flex: 1 }}>{title}</h2>
+      {right}
+    </div>
+  );
+}
+
+// One row in a groups list — used on Home and in "All groups". Works for
+// both admin-curated rooms and parent-created groups (see roomToGroup /
+// groupToGroup above).
+function GroupRow({ g, onClick }) {
+  const c = ROOM_COLORS[g.color_key] || ROOM_COLORS.purple;
+  const iconFn = ROOM_ICONS[g.icon_key] || ROOM_ICONS.community;
+  return (
+    <Card onClick={onClick} style={{ marginBottom: 10 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+        <div style={{ width: 44, height: 44, borderRadius: 12, background: c.bg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, border: `1px solid ${c.color}20` }}>
+          {iconFn(c.color)}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ margin: "0 0 3px", fontWeight: 800, color: c.color, fontSize: 14 }}>{g.label}</p>
+          <p style={{ margin: 0, color: T.inkMuted, fontSize: 12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{g.description || (g.kind === "user" ? "Parent-made group" : "")}</p>
+        </div>
+        {g.kind === "user" && <Badge color={T.inkMuted} bg={T.canvas}>Parent-made</Badge>}
+        <span style={{ color: T.inkMuted, fontSize: 20 }}>›</span>
+      </div>
+    </Card>
+  );
+}
+
+function ToggleRow({ label, sub, on, onToggle }) {
+  return (
+    <button onClick={onToggle} style={{ width: "100%", textAlign: "left", display: "flex", alignItems: "center", gap: 12, padding: "12px 0", background: "none", border: "none", borderBottom: `1px solid ${T.border}`, cursor: "pointer", fontFamily: T.fontBody }}>
+      <span style={{ flex: 1 }}>
+        <span style={{ display: "block", fontSize: 14.5, fontWeight: 700, color: T.ink }}>{label}</span>
+        <span style={{ display: "block", fontSize: 12.5, color: T.inkMuted, marginTop: 2 }}>{sub}</span>
+      </span>
+      <span style={{ width: 44, height: 26, borderRadius: 99, flexShrink: 0, background: on ? T.purple : T.border, position: "relative", transition: "background .15s" }}>
+        <span style={{ position: "absolute", top: 2.5, left: on ? 20 : 2.5, width: 21, height: 21, borderRadius: "50%", background: "#fff", transition: "left .15s", boxShadow: "0 1px 3px rgba(0,0,0,.2)" }} />
+      </span>
+    </button>
+  );
+}
+
+// Deterministic pseudo-QR pattern — cosmetic only (there's no real deep-link
+// target yet), just enough to look like a scannable code next to the copyable
+// text link.
+function qrMatrix(seed, n = 25) {
+  let h = 2166136261;
+  for (const ch of seed) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619) >>> 0; }
+  const rand = () => { h = (Math.imul(h, 1103515245) + 12345) >>> 0; return h / 4294967296; };
+  const m = Array.from({ length: n }, () => Array(n).fill(false));
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) m[y][x] = rand() > 0.52;
+  const finder = (ox, oy) => {
+    for (let y = 0; y < 7; y++) for (let x = 0; x < 7; x++) {
+      const border = x === 0 || x === 6 || y === 0 || y === 6;
+      const core = x >= 2 && x <= 4 && y >= 2 && y <= 4;
+      m[oy + y][ox + x] = border || core;
+    }
+    for (let y = -1; y <= 7; y++) { if (oy + y < 0 || oy + y >= n) continue; if (ox - 1 >= 0) m[oy + y][ox - 1] = false; if (ox + 7 < n) m[oy + y][ox + 7] = false; }
+    for (let x = -1; x <= 7; x++) { if (ox + x < 0 || ox + x >= n) continue; if (oy - 1 >= 0) m[oy - 1][ox + x] = false; if (oy + 7 < n) m[oy + 7][ox + x] = false; }
+  };
+  finder(0, 0); finder(n - 7, 0); finder(0, n - 7);
+  return m;
+}
+function QRCode({ seed = "bonda", size = 160 }) {
+  const n = 25, m = qrMatrix(seed, n), cell = size / n;
+  const rects = [];
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if (m[y][x]) rects.push(<rect key={`${x}-${y}`} x={x * cell} y={y * cell} width={cell} height={cell} rx={cell * 0.22} fill={T.ink} />);
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label="Follow / invite code">
+      {rects}
+    </svg>
+  );
+}
+
 export function CommunityScreen({ account }) {
   const [view, setView] = useState("home");
   const [dmPremium, setDmPremium] = useState(() => { try { return localStorage.getItem(`cb_premium_${account.name.toLowerCase()}`) === "true"; } catch { return false; } });
@@ -135,6 +249,7 @@ export function CommunityScreen({ account }) {
   const clearAttachment = (setter, current) => { if (current?.url) URL.revokeObjectURL(current.url); setter(null); };
 
   const [rooms, setRooms] = useState([]);
+  const [groups, setGroups] = useState([]);
   const [announcement, setAnnouncement] = useState(null);
 
   const endRef = useRef(null);
@@ -151,14 +266,61 @@ export function CommunityScreen({ account }) {
     setRooms(data || []);
   };
 
+  const loadGroups = async () => {
+    const { data } = await supabase.from("community_groups").select("*").order("created_at", { ascending: false });
+    setGroups(data || []);
+  };
+
   const loadAnnouncement = async () => {
     const { data } = await supabase.from("community_announcements").select("*").order("created_at", { ascending: false }).limit(1);
     setAnnouncement(data?.[0] || null);
   };
 
+  // ---- Moments / follows (contacts) ----------------------------------------
+  const [followingIds, setFollowingIds] = useState(new Set());
+  const [moments, setMoments] = useState([]);
+  const [viewingMoment, setViewingMoment] = useState(null);
+  const isFollowing = id => followingIds.has(id);
+
+  const loadMoments = async ids => {
+    if (!ids.length) { setMoments([]); return; }
+    const { data } = await supabase.from("moments").select("*").in("author_id", ids).order("created_at", { ascending: false }).limit(300);
+    const seen = new Map();
+    (data || []).forEach(m => { if (!seen.has(m.author_id)) seen.set(m.author_id, m); });
+    setMoments([...seen.values()]);
+  };
+
+  const loadFollows = async () => {
+    const { data } = await supabase.from("follows").select("followee_id").eq("follower_id", account.id);
+    const ids = (data || []).map(f => f.followee_id);
+    setFollowingIds(new Set(ids));
+    loadMoments(ids);
+  };
+
+  const followUser = async person => {
+    const { error } = await supabase.from("follows").insert({ follower_id: account.id, followee_id: person.id });
+    if (error) { flash("Could not follow — they may not be accepting new followers."); return; }
+    const nextIds = [...followingIds, person.id];
+    setFollowingIds(new Set(nextIds));
+    flash(`Following ${person.name}`);
+    loadMoments(nextIds);
+  };
+  const unfollowUser = async person => {
+    await supabase.from("follows").delete().eq("follower_id", account.id).eq("followee_id", person.id);
+    const nextIds = [...followingIds].filter(id => id !== person.id);
+    setFollowingIds(new Set(nextIds));
+    setMoments(prev => prev.filter(m => m.author_id !== person.id));
+    flash(`Unfollowed ${person.name}`);
+  };
+
   useEffect(() => {
     loadRooms();
+    loadGroups();
     loadAnnouncement();
+    loadFollows();
+    supabase.from("profiles").select("allow_followers, show_location_on_moments").eq("id", account.id).single().then(({ data }) => {
+      if (data) { setAllowFollowers(data.allow_followers); setShowLocation(data.show_location_on_moments); }
+    });
   }, []);
 
   const dmKey = (a, b) => { const s = [a, b].sort(); return `dm_${s[0]}_${s[1]}`; };
@@ -188,15 +350,15 @@ export function CommunityScreen({ account }) {
 
   const leaveRoom = () => { if (channelRef.current) { supabase.removeChannel(channelRef.current); channelRef.current = null; } };
 
-  const openGroup = async room => {
+  const openGroup = async group => {
     leaveRoom();
-    setActiveRoom(room); setGroupLoading(true); setView("groupchat");
-    const { data } = await supabase.from("messages").select("id,author_id,author_name,author_avatar,text,image_url,file_name,created_at").eq("room", `room_${room.id}`).order("created_at", { ascending: true }).limit(120);
+    setActiveRoom(group); setGroupLoading(true); setView("groupchat");
+    const { data } = await supabase.from("messages").select("id,author_id,author_name,author_avatar,text,image_url,file_name,created_at").eq("room", `room_${group.id}`).order("created_at", { ascending: true }).limit(120);
     setGroupMsgs((data || []).map(msgFromRow));
     setGroupLoading(false);
-    channelRef.current = supabase.channel(`room_${room.id}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `room=eq.room_${room.id}` }, p => setGroupMsgs(prev => prev.some(m => m.id === p.new.id) ? prev : [...prev, msgFromRow(p.new)].slice(-120)))
-      .on("postgres_changes", { event: "DELETE", schema: "public", table: "messages", filter: `room=eq.room_${room.id}` }, p => setGroupMsgs(prev => prev.filter(m => m.id !== p.old.id)))
+    channelRef.current = supabase.channel(`room_${group.id}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `room=eq.room_${group.id}` }, p => setGroupMsgs(prev => prev.some(m => m.id === p.new.id) ? prev : [...prev, msgFromRow(p.new)].slice(-120)))
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "messages", filter: `room=eq.room_${group.id}` }, p => setGroupMsgs(prev => prev.filter(m => m.id !== p.old.id)))
       .subscribe();
   };
 
@@ -238,6 +400,10 @@ export function CommunityScreen({ account }) {
       .subscribe();
   };
 
+  // Gate for message buttons reached from places other than the "Private
+  // Messages" card (e.g. the Members screen) — same paywall either way.
+  const messageMember = p => { if (!dmPremium) { setShowPaywall(true); return; } openDMChat(p); };
+
   const sendDM = async () => {
     const text = dmInput.trim(); const attachment = dmAttachment;
     if (!text && !attachment) return;
@@ -257,6 +423,112 @@ export function CommunityScreen({ account }) {
   };
 
   const purchase = () => { try { localStorage.setItem(`cb_premium_${account.name.toLowerCase()}`, "true"); } catch {} setDmPremium(true); setShowPaywall(false); setTimeout(openDMList, 300); };
+
+  // ---- New / toast / groups / moments / members / invite UI state ---------
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [toast, setToast] = useState("");
+  function flash(msg) { setToast(msg); window.clearTimeout(flash._t); flash._t = window.setTimeout(() => setToast(""), 2200); }
+
+  const [gName, setGName] = useState(""); const [gDescription, setGDescription] = useState("");
+  const [gColor, setGColor] = useState("purple"); const [gIcon, setGIcon] = useState("community");
+  const [creatingGroup, setCreatingGroup] = useState(false);
+
+  const createGroup = async () => {
+    const name = gName.trim();
+    if (!name) return;
+    setCreatingGroup(true);
+    const { data, error } = await supabase.from("community_groups")
+      .insert({ name, description: gDescription.trim(), icon_key: gIcon, color_key: gColor, created_by: account.id })
+      .select().single();
+    if (!error && data) {
+      await supabase.from("community_group_members").insert({ group_id: data.id, user_id: account.id });
+      setGroups(gs => [data, ...gs]);
+    }
+    setCreatingGroup(false);
+    if (error || !data) { flash("Could not create the group. Please try again."); return; }
+    setGName(""); setGDescription(""); setGColor("purple"); setGIcon("community");
+    flash("Group created");
+    openGroup(groupToGroup(data));
+  };
+
+  const [momentFile, setMomentFile] = useState(null); const [momentPreview, setMomentPreview] = useState(null);
+  const [momentCaption, setMomentCaption] = useState(""); const [momentLocation, setMomentLocation] = useState("");
+  const [sharingMoment, setSharingMoment] = useState(false); const [momentErr, setMomentErr] = useState("");
+
+  const pickMomentPhoto = e => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("image/")) { setMomentErr("Please choose a photo."); return; }
+    if (file.size > MAX_COMMUNITY_ATTACHMENT_BYTES) { setMomentErr("Photo is too large (max 10MB)."); return; }
+    setMomentErr("");
+    if (momentPreview) URL.revokeObjectURL(momentPreview);
+    setMomentFile(file);
+    setMomentPreview(URL.createObjectURL(file));
+  };
+  const shareMoment = async () => {
+    if (!momentFile) { setMomentErr("Please choose a photo first."); return; }
+    setSharingMoment(true);
+    const compressed = await compressImage(momentFile);
+    const image_url = await uploadCommunityAttachment(compressed, account.id, "image");
+    setSharingMoment(false);
+    if (!image_url) { setMomentErr("Could not upload the photo. Please try again."); return; }
+    await supabase.from("moments").insert({
+      author_id: account.id, author_name: account.name, author_avatar: account.avatar || "none",
+      image_url, caption: momentCaption.trim(), location: showLocation ? momentLocation.trim() : "",
+    });
+    if (momentPreview) URL.revokeObjectURL(momentPreview);
+    setMomentFile(null); setMomentPreview(null); setMomentCaption(""); setMomentLocation("");
+    flash("Moment shared");
+    setView("home");
+  };
+
+  const [members, setMembers] = useState([]); const [membersLoading, setMembersLoading] = useState(false);
+  const [memberQuery, setMemberQuery] = useState("");
+  const [isGroupMember, setIsGroupMember] = useState(false);
+  const [joiningGroup, setJoiningGroup] = useState(false);
+
+  const openMembers = async group => {
+    setMemberQuery(""); setView("members"); setMembersLoading(true);
+    if (group.kind === "user") {
+      const { data: memberRows } = await supabase.from("community_group_members").select("user_id").eq("group_id", group.id);
+      setIsGroupMember((memberRows || []).some(m => m.user_id === account.id));
+      const ids = (memberRows || []).map(m => m.user_id);
+      if (!ids.length) { setMembers([]); setMembersLoading(false); return; }
+      const { data: profs } = await supabase.from("profiles").select("id, name, avatar").in("id", ids);
+      setMembers(profs || []);
+    } else {
+      setIsGroupMember(true); // admin rooms are open to everyone
+      const { data } = await supabase.from("messages").select("author_id, author_name, author_avatar").eq("room", `room_${group.id}`).limit(500);
+      const seen = new Map();
+      (data || []).forEach(m => { if (!seen.has(m.author_id)) seen.set(m.author_id, { id: m.author_id, name: m.author_name, avatar: m.author_avatar }); });
+      setMembers([...seen.values()]);
+    }
+    setMembersLoading(false);
+  };
+
+  const joinActiveGroup = async () => {
+    if (!activeRoom || activeRoom.kind !== "user") return;
+    setJoiningGroup(true);
+    await supabase.from("community_group_members").insert({ group_id: activeRoom.id, user_id: account.id });
+    setJoiningGroup(false);
+    setIsGroupMember(true);
+    setMembers(ms => ms.some(m => m.id === account.id) ? ms : [...ms, { id: account.id, name: account.name, avatar: account.avatar || "none" }]);
+    flash("Joined group");
+  };
+
+  const [qrOpen, setQrOpen] = useState(false);
+  const [qrData, setQrData] = useState({ title: "", code: "", hint: "" });
+  const openGroupInvite = group => { setQrData({ title: `Invite to ${group.label}`, code: `bonda.app/g/${group.id}`, hint: "Share this code or link so other parents can find and join this group." }); setQrOpen(true); };
+  const openProfileInvite = () => { setQrData({ title: "Let people follow you", code: `bonda.app/u/${account.id}`, hint: "Share this code or link. When they open it in the app, they can follow you back — no phone numbers involved." }); setQrOpen(true); };
+
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [allowFollowers, setAllowFollowers] = useState(true);
+  const [showLocation, setShowLocation] = useState(true);
+  const toggleAllowFollowers = async () => { const next = !allowFollowers; setAllowFollowers(next); await supabase.from("profiles").update({ allow_followers: next }).eq("id", account.id); };
+  const toggleShowLocation = async () => { const next = !showLocation; setShowLocation(next); await supabase.from("profiles").update({ show_location_on_moments: next }).eq("id", account.id); };
+
+  const [groupQuery, setGroupQuery] = useState("");
 
   const Paywall = () => (
     <div style={{ position: "fixed", inset: 0, background: "rgba(26,26,46,0.7)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
@@ -295,17 +567,33 @@ export function CommunityScreen({ account }) {
     </div>
   );
 
+  // ---- main screen content, by view -----------------------------------------
+  let content = null;
+
   if (view === "groupchat" && activeRoom) {
     const c = ROOM_COLORS[activeRoom.color_key] || ROOM_COLORS.purple;
-    return <div style={{ position: "relative" }}>{showPaywall && <Paywall />}<ChatUI msgs={groupMsgs} input={groupInput} setInput={setGroupInput} onSend={sendGroup} onDelete={deleteGroup} loading={groupLoading} color={c.color} bg={c.bg} backFn={() => { leaveRoom(); setView("home"); }} icon={null} label={activeRoom.label} sub={activeRoom.description} isGroup account={account} dmPartner={null} endRef={endRef} attachment={groupAttachment} onPickAttachment={pickAttachment(setGroupAttachment)} onRemoveAttachment={() => clearAttachment(setGroupAttachment, groupAttachment)} attachError={attachError} /></div>;
-  }
-  if (view === "dm_chat" && dmPartner) return <div style={{ position: "relative" }}>{showPaywall && <Paywall />}<ChatUI msgs={dmMsgs} input={dmInput} setInput={setDmInput} onSend={sendDM} onDelete={deleteDM} loading={dmLoading} color={T.purple} bg={T.purpleL} backFn={() => { leaveRoom(); setView("dm_list"); }} icon={dmPartner.avatar} label={dmPartner.name} sub="Private message" isGroup={false} account={account} dmPartner={dmPartner} endRef={endRef} attachment={dmAttachment} onPickAttachment={pickAttachment(setDmAttachment)} onRemoveAttachment={() => clearAttachment(setDmAttachment, dmAttachment)} attachError={attachError} /></div>;
-
-  if (view === "dm_list") {
+    const memberRow = (
+      <button onClick={() => openMembers(activeRoom)} style={{ width: "100%", textAlign: "left", background: "none", border: "none", borderBottom: `1px solid ${T.border}`, padding: "10px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", fontFamily: T.fontBody }}>
+        <span style={{ fontSize: 13, fontWeight: 700, color: c.color }}>See members</span>
+        <span style={{ color: T.inkMuted, fontSize: 16 }}>›</span>
+      </button>
+    );
+    const inviteBtn = activeRoom.kind === "user" ? (
+      <button onClick={() => openGroupInvite(activeRoom)} style={{ background: "none", border: "none", color: c.color, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: T.fontBody, flexShrink: 0 }}>Invite</button>
+    ) : null;
+    content = (
+      <div style={{ position: "relative" }}>
+        {showPaywall && <Paywall />}
+        <ChatUI msgs={groupMsgs} input={groupInput} setInput={setGroupInput} onSend={sendGroup} onDelete={deleteGroup} loading={groupLoading} color={c.color} bg={c.bg} backFn={() => { leaveRoom(); setView("home"); }} icon={null} label={activeRoom.label} sub={activeRoom.description} isGroup account={account} dmPartner={null} endRef={endRef} attachment={groupAttachment} onPickAttachment={pickAttachment(setGroupAttachment)} onRemoveAttachment={() => clearAttachment(setGroupAttachment, groupAttachment)} attachError={attachError} headerRight={inviteBtn} belowHeader={memberRow} />
+      </div>
+    );
+  } else if (view === "dm_chat" && dmPartner) {
+    content = <div style={{ position: "relative" }}>{showPaywall && <Paywall />}<ChatUI msgs={dmMsgs} input={dmInput} setInput={setDmInput} onSend={sendDM} onDelete={deleteDM} loading={dmLoading} color={T.purple} bg={T.purpleL} backFn={() => { leaveRoom(); setView("dm_list"); }} icon={dmPartner.avatar} label={dmPartner.name} sub="Private message" isGroup={false} account={account} dmPartner={dmPartner} endRef={endRef} attachment={dmAttachment} onPickAttachment={pickAttachment(setDmAttachment)} onRemoveAttachment={() => clearAttachment(setDmAttachment, dmAttachment)} attachError={attachError} /></div>;
+  } else if (view === "dm_list") {
     const others = allUsers.filter(u => u.id !== account.id);
     const term = dmSearch.trim().toLowerCase();
     const filtered = !term ? others : others.filter(p => p.name.toLowerCase().includes(term) || dmSearchMatches?.has(p.id));
-    return (
+    content = (
       <Page>
         {showPaywall && <Paywall />}
         <button onClick={() => setView("home")} style={{ background: "none", border: "none", color: T.purple, fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: T.fontBody, padding: "0 0 16px", display: "flex", alignItems: "center", gap: 6 }}>← Back</button>
@@ -314,8 +602,7 @@ export function CommunityScreen({ account }) {
         {others.length > 0 && (
           <div style={{ position: "relative", marginBottom: 16 }}>
             <span style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", fontSize: 14, pointerEvents: "none", opacity: 0.5 }}>🔍</span>
-            <input value={dmSearch} onChange={e => setDmSearch(e.target.value)} placeholder="Search by name or message..."
-              style={{ width: "100%", padding: "11px 14px 11px 38px", borderRadius: T.r, border: `1.5px solid ${T.border}`, fontSize: 14, fontFamily: T.fontBody, color: T.ink, background: T.canvas, outline: "none", boxSizing: "border-box" }} />
+            <input value={dmSearch} onChange={e => setDmSearch(e.target.value)} placeholder="Search by name or message..." style={searchInputStyle} />
           </div>
         )}
         {others.length === 0 ? <div style={{ textAlign: "center", padding: "48px 20px" }}><div style={{ fontSize: 44, marginBottom: 12 }}>👥</div><p style={{ fontWeight: 700, color: T.ink, fontSize: 15 }}>No other parents yet</p><p style={{ color: T.inkMuted, fontSize: 13, lineHeight: 1.6 }}>Once other parents join, they'll appear here.</p></div> :
@@ -337,133 +624,393 @@ export function CommunityScreen({ account }) {
         }
       </Page>
     );
-  }
-
-  if (view === "home") return (
-    <Page>
-      {showPaywall && <Paywall />}
-      <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 16px", background: T.ink, borderRadius: T.rL, marginBottom: 24 }}>
-        <ComAvatar value={account.avatar} size={44} active={true} borderColor={T.purple} />
-        <div style={{ flex: 1 }}>
-          <p style={{ margin: "0 0 1px", color: "rgba(255,255,255,0.5)", fontSize: 11, fontWeight: 700, textTransform: "uppercase" }}>Signed in as</p>
-          <p style={{ margin: 0, color: "white", fontSize: 16, fontWeight: 800 }}>{account.name}</p>
-        </div>
-        <button onClick={forceSignOut} style={{ background: "rgba(255,255,255,0.1)", border: "none", borderRadius: 8, padding: "6px 12px", color: "rgba(255,255,255,0.7)", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody }}>Sign out</button>
-      </div>
-
-      {announcement && (
-        <div style={{ display: "flex", gap: 10, alignItems: "flex-start", background: T.purpleL, borderRadius: T.r, padding: "12px 14px", marginBottom: 16, border: `1px solid ${T.purple}25` }}>
-          <div style={{ flex: 1 }}>
-            <p style={{ margin: "0 0 2px", color: T.purple, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em" }}>📌 Announcement</p>
-            <p style={{ margin: 0, color: T.ink, fontSize: 13, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{announcement.text}</p>
+  } else if (view === "createGroup") {
+    content = (
+      <Page>
+        <SubHeader title="Create a group" onBack={() => setView("home")} />
+        <div style={{ marginTop: 18 }}>
+          <Input label="Group name" value={gName} onChange={e => setGName(e.target.value)} placeholder="e.g. Weekend playgroup" />
+          <TextArea label="What it's for" value={gDescription} onChange={e => setGDescription(e.target.value)} placeholder="Meetups, tips, and support" rows={2} />
+          <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>Colour</p>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 18 }}>
+            {Object.keys(ROOM_COLORS).map(key => {
+              const c = ROOM_COLORS[key];
+              return <button key={key} onClick={() => setGColor(key)} aria-label={key} style={{ width: 38, height: 38, borderRadius: 12, background: c.bg, border: gColor === key ? `3px solid ${c.color}` : `1px solid ${T.border}`, cursor: "pointer" }} />;
+            })}
           </div>
+          <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>Icon</p>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 22 }}>
+            {GROUP_ICON_KEYS.map(key => {
+              const c = ROOM_COLORS[gColor];
+              const iconFn = ROOM_ICONS[key];
+              return (
+                <button key={key} onClick={() => setGIcon(key)} aria-label={key} style={{ width: 44, height: 44, borderRadius: 12, background: gIcon === key ? c.bg : T.canvas, border: gIcon === key ? `2px solid ${c.color}` : `1px solid ${T.border}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+                  {iconFn(gIcon === key ? c.color : T.inkMuted)}
+                </button>
+              );
+            })}
+          </div>
+          <Btn onClick={createGroup} full disabled={creatingGroup || !gName.trim()}>{creatingGroup ? "Creating..." : "Create group"}</Btn>
+          <p style={{ margin: "10px 4px 0", fontSize: 12, color: T.inkMuted, textAlign: "center" }}>Anyone in the Bonda community can find and join.</p>
         </div>
-      )}
-
-      <div style={{ background: T.amberL, borderRadius: T.r, padding: "12px 14px", marginBottom: 24, border: `1px solid ${T.amber}20` }}>
-        <p style={{ margin: 0, color: T.amber, fontSize: 12, fontWeight: 700, lineHeight: 1.6 }}>💛 Be kind and supportive. Everyone here is doing their best.</p>
-      </div>
-
-      <SectionLabel style={{ marginBottom: 10 }}>Group Rooms</SectionLabel>
-      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 24 }}>
-        {rooms.map(r => {
-          const c = ROOM_COLORS[r.color_key] || ROOM_COLORS.purple;
-          const iconFn = ROOM_ICONS[r.icon_key] || ROOM_ICONS.community;
+      </Page>
+    );
+  } else if (view === "shareMoment") {
+    content = (
+      <Page>
+        <SubHeader title="Share a moment" onBack={() => setView("home")} />
+        <div style={{ marginTop: 18 }}>
+          {momentPreview ? (
+            <div style={{ position: "relative", borderRadius: T.rL, overflow: "hidden", marginBottom: 16 }}>
+              <img src={momentPreview} alt="" style={{ width: "100%", maxHeight: 320, objectFit: "cover", display: "block" }} />
+              <button onClick={() => { URL.revokeObjectURL(momentPreview); setMomentFile(null); setMomentPreview(null); }} style={{ position: "absolute", top: 10, right: 10, width: 30, height: 30, borderRadius: "50%", background: "rgba(0,0,0,.5)", color: "white", border: "none", cursor: "pointer", fontSize: 16 }}>×</button>
+            </div>
+          ) : (
+            <label style={{ display: "block", border: `2px dashed ${T.border}`, borderRadius: T.rL, padding: "36px 16px", textAlign: "center", background: T.surface, cursor: "pointer", marginBottom: 16 }}>
+              <div style={{ fontSize: 34, marginBottom: 8 }}>📷</div>
+              <p style={{ margin: 0, fontSize: 14, color: T.inkSoft, fontWeight: 600 }}>Choose a photo to share</p>
+              <input type="file" accept="image/*" style={{ display: "none" }} onChange={pickMomentPhoto} />
+            </label>
+          )}
+          {momentErr && <p style={{ margin: "-8px 0 12px", color: T.red, fontSize: 12, fontWeight: 700 }}>{momentErr}</p>}
+          <Input label="Caption (optional)" value={momentCaption} onChange={e => setMomentCaption(e.target.value)} placeholder="Add a few words" />
+          {showLocation && <Input label="Location (optional)" value={momentLocation} onChange={e => setMomentLocation(e.target.value)} placeholder="e.g. Bedok" />}
+          <Btn onClick={shareMoment} full disabled={sharingMoment || !momentFile} style={{ marginTop: 6 }}>{sharingMoment ? "Sharing..." : "Post moment"}</Btn>
+          <p style={{ margin: "10px 4px 0", fontSize: 12, color: T.inkMuted, textAlign: "center" }}>Moments stay visible to people who follow you — there's no expiry.</p>
+        </div>
+      </Page>
+    );
+  } else if (view === "allGroups") {
+    const combined = [...rooms.map(roomToGroup), ...groups.map(groupToGroup)];
+    const q = groupQuery.trim().toLowerCase();
+    const filtered = !q ? combined : combined.filter(g => g.label.toLowerCase().includes(q) || (g.description || "").toLowerCase().includes(q));
+    content = (
+      <Page style={{ paddingBottom: 110 }}>
+        <SubHeader title="Groups" onBack={() => setView("home")} />
+        <div style={{ margin: "16px 0" }}>
+          <input value={groupQuery} onChange={e => setGroupQuery(e.target.value)} placeholder="Search groups" style={searchInputStyle} />
+        </div>
+        {filtered.map(g => <GroupRow key={`${g.kind}-${g.id}`} g={g} onClick={() => openGroup(g)} />)}
+        {filtered.length === 0 && <p style={{ textAlign: "center", color: T.inkMuted, fontSize: 14, marginTop: 24 }}>No groups match "{groupQuery}".</p>}
+        <div style={{ position: "fixed", bottom: 86, left: 0, right: 0, display: "flex", justifyContent: "center", zIndex: 60 }}>
+          <button onClick={() => setView("createGroup")} style={{ display: "flex", alignItems: "center", gap: 8, background: T.purple, color: "white", border: "none", borderRadius: 999, padding: "13px 24px", fontSize: 14.5, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody, boxShadow: T.shadowM }}>+ Create group</button>
+        </div>
+      </Page>
+    );
+  } else if (view === "allMoments") {
+    content = (
+      <Page>
+        <SubHeader title="Moments" onBack={() => setView("home")}
+          right={
+            <div style={{ display: "flex", gap: 2 }}>
+              <button onClick={openProfileInvite} aria-label="Share your link" style={{ background: "none", border: "none", color: T.purple, fontSize: 19, cursor: "pointer", padding: 6 }}>🔗</button>
+              <button onClick={() => setSettingsOpen(true)} aria-label="Moments settings" style={{ background: "none", border: "none", color: T.inkSoft, fontSize: 19, cursor: "pointer", padding: 6 }}>⚙️</button>
+            </div>
+          } />
+        <div style={{ marginTop: 16 }}>
+          {moments.map(m => (
+            <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 14, background: T.surface, border: `1px solid ${T.border}`, borderRadius: 14, padding: 12, marginBottom: 10 }}>
+              <button onClick={() => setViewingMoment(m)} aria-label={`View ${m.author_name}'s moment`} style={{ background: "none", border: `2.5px solid ${T.purple}`, borderRadius: "50%", padding: 2, cursor: "pointer", flexShrink: 0, display: "flex" }}>
+                <ComAvatar value={m.author_avatar} size={48} active={false} />
+              </button>
+              <button onClick={() => setViewingMoment(m)} style={{ flex: 1, textAlign: "left", minWidth: 0, background: "none", border: "none", cursor: "pointer", fontFamily: T.fontBody }}>
+                <p style={{ margin: 0, fontSize: 16, fontWeight: 700, color: T.ink }}>{m.author_name}</p>
+                <p style={{ margin: "2px 0 0", fontSize: 12.5, color: T.inkMuted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{[m.location, timeAgo(m.created_at)].filter(Boolean).join(" · ")}</p>
+              </button>
+              <button onClick={() => unfollowUser({ id: m.author_id, name: m.author_name })} aria-label={`Unfollow ${m.author_name}`} style={{ width: 40, height: 40, borderRadius: "50%", background: T.canvas, border: `1px solid ${T.border}`, color: T.purple, cursor: "pointer", fontSize: 16, flexShrink: 0 }}>✓</button>
+            </div>
+          ))}
+          {moments.length === 0 && (
+            <p style={{ textAlign: "center", color: T.inkMuted, fontSize: 14, margin: "30px 10px" }}>You're not following anyone yet. Follow parents from a group's member list, or share your own link so they can follow you.</p>
+          )}
+          <p style={{ margin: "16px 6px 0", fontSize: 12, color: T.inkMuted, textAlign: "center", lineHeight: 1.5 }}>People connect inside the app only. Phone numbers are never shared.</p>
+        </div>
+      </Page>
+    );
+  } else if (view === "members" && activeRoom) {
+    const c = ROOM_COLORS[activeRoom.color_key] || ROOM_COLORS.purple;
+    const q = memberQuery.trim().toLowerCase();
+    const shown = !q ? members : members.filter(m => m.name.toLowerCase().includes(q));
+    content = (
+      <Page>
+        <SubHeader title="Members" onBack={() => setView("groupchat")}
+          right={activeRoom.kind === "user" && <button onClick={() => openGroupInvite(activeRoom)} style={{ background: "none", border: "none", color: c.color, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: T.fontBody }}>Invite</button>} />
+        <p style={{ margin: "14px 0 12px", fontSize: 13, color: T.inkMuted }}>{activeRoom.label} · {members.length} {members.length === 1 ? "member" : "members"}</p>
+        {activeRoom.kind === "user" && !isGroupMember && (
+          <Btn onClick={joinActiveGroup} disabled={joiningGroup} style={{ marginBottom: 16 }}>{joiningGroup ? "Joining..." : "Join this group"}</Btn>
+        )}
+        <div style={{ marginBottom: 16 }}>
+          <input value={memberQuery} onChange={e => setMemberQuery(e.target.value)} placeholder="Search members" style={searchInputStyle} />
+        </div>
+        {membersLoading && <p style={{ textAlign: "center", color: T.inkMuted, padding: 20 }}>Loading...</p>}
+        {!membersLoading && shown.map(m => {
+          const isMe = m.id === account.id;
+          const following = isFollowing(m.id);
           return (
-            <Card key={r.id} onClick={() => openGroup(r)}>
-              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                <div style={{ width: 44, height: 44, borderRadius: 12, background: c.bg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, border: `1px solid ${c.color}20` }}>
-                  {iconFn(c.color)}
-                </div>
-                <div style={{ flex: 1 }}>
-                  <p style={{ margin: "0 0 3px", fontWeight: 800, color: c.color, fontSize: 14 }}>{r.label}</p>
-                  <p style={{ margin: 0, color: T.inkMuted, fontSize: 12 }}>{r.description}</p>
-                </div>
-                <span style={{ color: T.inkMuted, fontSize: 20 }}>›</span>
+            <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 4px", borderBottom: `1px solid ${T.border}` }}>
+              <ComAvatar value={m.avatar} size={44} active={false} borderColor={T.border} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ margin: 0, fontWeight: 700, color: T.ink, fontSize: 15 }}>{m.name}{isMe && " (You)"}</p>
               </div>
-            </Card>
+              {!isMe && (
+                <>
+                  <button onClick={() => messageMember(m)} aria-label={`Message ${m.name}`} style={{ background: "none", border: "none", color: T.purple, fontSize: 18, cursor: "pointer", padding: 6, flexShrink: 0 }}>💬</button>
+                  <button onClick={() => following ? unfollowUser(m) : followUser(m)} style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 12px", borderRadius: 99, fontSize: 12.5, fontWeight: 700, background: following ? T.canvas : T.purple, color: following ? T.purple : "white", border: following ? `1px solid ${T.border}` : "none", cursor: "pointer", fontFamily: T.fontBody, flexShrink: 0 }}>
+                    {following ? "✓ Following" : "+ Follow"}
+                  </button>
+                </>
+              )}
+            </div>
           );
         })}
-      </div>
+        {!membersLoading && shown.length === 0 && <p style={{ textAlign: "center", color: T.inkMuted, fontSize: 14, marginTop: 24 }}>No members match "{memberQuery}".</p>}
+      </Page>
+    );
+  } else if (view === "home") {
+    content = (
+      <Page>
+        {showPaywall && <Paywall />}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke={T.ink} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><circle cx="8" cy="7.5" r="3.2"/><path d="M2.5 18c0-3.4 2.4-5.3 5.5-5.3s5.5 1.9 5.5 5.3"/><path d="M14.5 13.2c2.6.2 4.3 1.9 4.3 4.8"/><path d="M13.5 4.6a2.9 2.9 0 0 1 2.3 4.9"/></svg>
+            <h1 style={{ margin: 0, fontFamily: T.fontDisplay, fontSize: 25, fontWeight: 600, color: T.ink, letterSpacing: "-0.01em" }}>Communities</h1>
+          </div>
+          <button onClick={() => setSheetOpen(true)} aria-label="Start something new" style={{ background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 1, color: T.purple, fontFamily: T.fontBody }}>
+            <span style={{ fontSize: 22, lineHeight: 1 }}>+</span>
+            <span style={{ fontSize: 10.5, fontWeight: 700 }}>New</span>
+          </button>
+        </div>
 
-      <SectionLabel style={{ marginBottom: 10 }}>Private Messages</SectionLabel>
-      {dmPremium ? (
-        /* ── UNLOCKED STATE — elegant, professional ── */
-        <Card onClick={openDMList} style={{ background: T.surface, border: `1.5px solid ${T.purple}25`, padding: 0, overflow: "hidden" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 16px", background: T.ink, borderRadius: T.rL, marginBottom: 20 }}>
+          <ComAvatar value={account.avatar} size={44} active={true} borderColor={T.purple} />
+          <div style={{ flex: 1 }}>
+            <p style={{ margin: "0 0 1px", color: "rgba(255,255,255,0.5)", fontSize: 11, fontWeight: 700, textTransform: "uppercase" }}>Signed in as</p>
+            <p style={{ margin: 0, color: "white", fontSize: 16, fontWeight: 800 }}>{account.name}</p>
+          </div>
+          <button onClick={forceSignOut} style={{ background: "rgba(255,255,255,0.1)", border: "none", borderRadius: 8, padding: "6px 12px", color: "rgba(255,255,255,0.7)", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody }}>Sign out</button>
+        </div>
 
-          <div style={{ background: T.purpleL, padding: "14px 16px", display: "flex", alignItems: "center", gap: 12 }}>
-            <div style={{ width: 44, height: 44, borderRadius: 12, background: T.purple, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+        {announcement && (
+          <div style={{ display: "flex", gap: 10, alignItems: "flex-start", background: T.purpleL, borderRadius: T.r, padding: "12px 14px", marginBottom: 16, border: `1px solid ${T.purple}25` }}>
+            <div style={{ flex: 1 }}>
+              <p style={{ margin: "0 0 2px", color: T.purple, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em" }}>📌 Announcement</p>
+              <p style={{ margin: 0, color: T.ink, fontSize: 13, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{announcement.text}</p>
+            </div>
+          </div>
+        )}
 
-                <circle cx="7.5" cy="7" r="3" stroke="white" strokeWidth="1.4" fill="white" fillOpacity="0.2"/>
-                <path d="M2 17 Q2 13 7.5 13 Q13 13 13 17" stroke="white" strokeWidth="1.4" strokeLinecap="round" fill="none"/>
-                <circle cx="16" cy="8" r="2.5" stroke="white" strokeWidth="1.3" fill="white" fillOpacity="0.3"/>
-                <path d="M13 18 Q13.5 15 16 15 Q18.5 15 19 17" stroke="white" strokeWidth="1.3" strokeLinecap="round" fill="none" opacity="0.7"/>
+        <div style={{ background: T.amberL, borderRadius: T.r, padding: "12px 14px", marginBottom: 22, border: `1px solid ${T.amber}20` }}>
+          <p style={{ margin: 0, color: T.amber, fontSize: 12, fontWeight: 700, lineHeight: 1.6 }}>💛 Be kind and supportive. Everyone here is doing their best.</p>
+        </div>
+
+        <SectionLabel action={<button onClick={() => setView("allMoments")} style={{ background: "none", border: "none", color: T.purple, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: T.fontBody }}>See all</button>}>Share a Moment</SectionLabel>
+        <div style={{ display: "flex", gap: 14, overflowX: "auto", paddingBottom: 8, marginBottom: 24 }}>
+          <button onClick={() => setView("shareMoment")} aria-label="Add a moment" style={{ background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 6, flexShrink: 0, fontFamily: T.fontBody }}>
+            <span style={{ width: 56, height: 56, borderRadius: "50%", border: `2px dashed ${T.purple}`, display: "flex", alignItems: "center", justifyContent: "center", color: T.purple, fontSize: 22 }}>📷</span>
+            <span style={{ fontSize: 12, color: T.inkSoft, fontWeight: 600 }}>Add</span>
+          </button>
+          {moments.map(m => (
+            <button key={m.id} onClick={() => setViewingMoment(m)} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 6, flexShrink: 0, fontFamily: T.fontBody, maxWidth: 64 }}>
+              <span style={{ borderRadius: "50%", border: `2.5px solid ${T.purple}`, padding: 2, display: "flex" }}>
+                <ComAvatar value={m.author_avatar} size={52} active={false} />
+              </span>
+              <span style={{ fontSize: 11, color: T.inkSoft, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 60 }}>{m.author_name.split(" ")[0]}</span>
+            </button>
+          ))}
+          {moments.length === 0 && (
+            <p style={{ margin: 0, fontSize: 12.5, color: T.inkMuted, alignSelf: "center", paddingLeft: 6 }}>Follow other parents (from a group's member list) to see their moments here.</p>
+          )}
+        </div>
+
+        <SectionLabel action={<button onClick={() => setView("allGroups")} style={{ background: "none", border: "none", color: T.purple, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: T.fontBody }}>See all</button>}>Groups</SectionLabel>
+        <div style={{ marginBottom: 24 }}>
+          {rooms.map(r => <GroupRow key={`admin-${r.id}`} g={roomToGroup(r)} onClick={() => openGroup(roomToGroup(r))} />)}
+          {groups.slice(0, 3).map(g => <GroupRow key={`user-${g.id}`} g={groupToGroup(g)} onClick={() => openGroup(groupToGroup(g))} />)}
+          <button onClick={() => setView("createGroup")} style={{ width: "100%", background: "none", border: `1.5px dashed ${T.border}`, borderRadius: T.r, padding: "14px", color: T.purple, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: T.fontBody, textAlign: "center" }}>+ Create your own group</button>
+        </div>
+
+        <SectionLabel style={{ marginBottom: 10 }}>Private Messages</SectionLabel>
+        {dmPremium ? (
+          /* ── UNLOCKED STATE — elegant, professional ── */
+          <Card onClick={openDMList} style={{ background: T.surface, border: `1.5px solid ${T.purple}25`, padding: 0, overflow: "hidden" }}>
+
+            <div style={{ background: T.purpleL, padding: "14px 16px", display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ width: 44, height: 44, borderRadius: 12, background: T.purple, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+
+                  <circle cx="7.5" cy="7" r="3" stroke="white" strokeWidth="1.4" fill="white" fillOpacity="0.2"/>
+                  <path d="M2 17 Q2 13 7.5 13 Q13 13 13 17" stroke="white" strokeWidth="1.4" strokeLinecap="round" fill="none"/>
+                  <circle cx="16" cy="8" r="2.5" stroke="white" strokeWidth="1.3" fill="white" fillOpacity="0.3"/>
+                  <path d="M13 18 Q13.5 15 16 15 Q18.5 15 19 17" stroke="white" strokeWidth="1.3" strokeLinecap="round" fill="none" opacity="0.7"/>
+                </svg>
+              </div>
+              <div style={{ flex: 1 }}>
+                <p style={{ margin: "0 0 2px", fontWeight: 800, color: T.purple, fontSize: 15 }}>Message a Parent</p>
+                <p style={{ margin: 0, color: T.inkSoft, fontSize: 12 }}>Private · one-on-one · only the two of you can see it</p>
+              </div>
+              <svg width="8" height="14" viewBox="0 0 8 14" fill="none">
+                <path d="M1.5 1.5 L6.5 7 L1.5 12.5" stroke={T.purple} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </div>
-            <div style={{ flex: 1 }}>
-              <p style={{ margin: "0 0 2px", fontWeight: 800, color: T.purple, fontSize: 15 }}>Message a Parent</p>
-              <p style={{ margin: 0, color: T.inkSoft, fontSize: 12 }}>Private · one-on-one · only the two of you can see it</p>
-            </div>
-            <svg width="8" height="14" viewBox="0 0 8 14" fill="none">
-              <path d="M1.5 1.5 L6.5 7 L1.5 12.5" stroke={T.purple} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </div>
 
-          <div style={{ padding: "14px 16px", display: "flex", gap: 0 }}>
-            {[
-              {
-                label: "100% private",
-                icon: <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                  <rect x="4" y="9" width="12" height="9" rx="2.5" stroke={T.purple} strokeWidth="1.4" fill={T.purple} fillOpacity="0.1"/>
-                  <path d="M6.5 9 L6.5 6.5 Q6.5 3 10 3 Q13.5 3 13.5 6.5 L13.5 9" stroke={T.purple} strokeWidth="1.4" strokeLinecap="round" fill="none"/>
-                  <circle cx="10" cy="13.5" r="1.5" fill={T.purple} opacity="0.7"/>
-                </svg>
-              },
-              {
-                label: "Unlimited chats",
-                icon: <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                  <path d="M6 10 Q6 7 10 7 Q14 7 14 10 Q14 13 10 13" stroke={T.purple} strokeWidth="1.4" strokeLinecap="round" fill="none"/>
-                  <path d="M10 13 Q6 13 6 10" stroke={T.purple} strokeWidth="1.4" strokeLinecap="round" fill="none" opacity="0.5"/>
-                  <path d="M3 10 Q3 6 5.5 6" stroke={T.purple} strokeWidth="1.2" strokeLinecap="round" opacity="0.3"/>
-                  <path d="M17 10 Q17 6 14.5 6" stroke={T.purple} strokeWidth="1.2" strokeLinecap="round" opacity="0.3"/>
-                </svg>
-              },
-              {
-                label: "Your account",
-                icon: <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                  <circle cx="10" cy="7.5" r="3.5" stroke={T.purple} strokeWidth="1.4" fill={T.purple} fillOpacity="0.12"/>
-                  <path d="M3.5 17.5 Q3.5 13 10 13 Q16.5 13 16.5 17.5" stroke={T.purple} strokeWidth="1.4" strokeLinecap="round" fill="none"/>
-                  <path d="M12.5 6 L14.5 8 L17 5" stroke={T.purple} strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" opacity="0.6"/>
-                </svg>
-              },
-            ].map(({ label, icon }) => (
-              <div key={label} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 5 }}>
-                <div style={{ width: 36, height: 36, borderRadius: 10, background: T.purpleL, display: "flex", alignItems: "center", justifyContent: "center", border: `1px solid ${T.purple}15` }}>
-                  {icon}
+            <div style={{ padding: "14px 16px", display: "flex", gap: 0 }}>
+              {[
+                {
+                  label: "100% private",
+                  icon: <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                    <rect x="4" y="9" width="12" height="9" rx="2.5" stroke={T.purple} strokeWidth="1.4" fill={T.purple} fillOpacity="0.1"/>
+                    <path d="M6.5 9 L6.5 6.5 Q6.5 3 10 3 Q13.5 3 13.5 6.5 L13.5 9" stroke={T.purple} strokeWidth="1.4" strokeLinecap="round" fill="none"/>
+                    <circle cx="10" cy="13.5" r="1.5" fill={T.purple} opacity="0.7"/>
+                  </svg>
+                },
+                {
+                  label: "Unlimited chats",
+                  icon: <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                    <path d="M6 10 Q6 7 10 7 Q14 7 14 10 Q14 13 10 13" stroke={T.purple} strokeWidth="1.4" strokeLinecap="round" fill="none"/>
+                    <path d="M10 13 Q6 13 6 10" stroke={T.purple} strokeWidth="1.4" strokeLinecap="round" fill="none" opacity="0.5"/>
+                    <path d="M3 10 Q3 6 5.5 6" stroke={T.purple} strokeWidth="1.2" strokeLinecap="round" opacity="0.3"/>
+                    <path d="M17 10 Q17 6 14.5 6" stroke={T.purple} strokeWidth="1.2" strokeLinecap="round" opacity="0.3"/>
+                  </svg>
+                },
+                {
+                  label: "Your account",
+                  icon: <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                    <circle cx="10" cy="7.5" r="3.5" stroke={T.purple} strokeWidth="1.4" fill={T.purple} fillOpacity="0.12"/>
+                    <path d="M3.5 17.5 Q3.5 13 10 13 Q16.5 13 16.5 17.5" stroke={T.purple} strokeWidth="1.4" strokeLinecap="round" fill="none"/>
+                    <path d="M12.5 6 L14.5 8 L17 5" stroke={T.purple} strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" opacity="0.6"/>
+                  </svg>
+                },
+              ].map(({ label, icon }) => (
+                <div key={label} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 5 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 10, background: T.purpleL, display: "flex", alignItems: "center", justifyContent: "center", border: `1px solid ${T.purple}15` }}>
+                    {icon}
+                  </div>
+                  <p style={{ margin: 0, fontSize: 10, fontWeight: 700, color: T.inkMuted, textAlign: "center", lineHeight: 1.4 }}>{label}</p>
                 </div>
-                <p style={{ margin: 0, fontSize: 10, fontWeight: 700, color: T.inkMuted, textAlign: "center", lineHeight: 1.4 }}>{label}</p>
-              </div>
-            ))}
-          </div>
-        </Card>
-      ) : (
-        /* ── LOCKED STATE — clear premium prompt ── */
-        <Card onClick={openDMList} style={{ background: T.surface }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <div style={{ width: 44, height: 44, borderRadius: 12, background: T.border, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>🔒</div>
-            <div style={{ flex: 1 }}>
-              <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 3 }}>
-                <p style={{ margin: 0, fontWeight: 800, color: T.ink, fontSize: 14 }}>Message a Parent</p>
-                <Badge color={T.purple}>SGD $10</Badge>
-              </div>
-              <p style={{ margin: 0, color: T.inkMuted, fontSize: 12 }}>Unlock private 1-on-1 chat · one-time · lifetime access</p>
+              ))}
             </div>
-            <span style={{ color: T.inkMuted, fontSize: 20 }}>›</span>
-          </div>
-        </Card>
-      )}
-    </Page>
-  );
+          </Card>
+        ) : (
+          /* ── LOCKED STATE — clear premium prompt ── */
+          <Card onClick={openDMList} style={{ background: T.surface }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+              <div style={{ width: 44, height: 44, borderRadius: 12, background: T.border, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>🔒</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 3 }}>
+                  <p style={{ margin: 0, fontWeight: 800, color: T.ink, fontSize: 14 }}>Message a Parent</p>
+                  <Badge color={T.purple}>SGD $10</Badge>
+                </div>
+                <p style={{ margin: 0, color: T.inkMuted, fontSize: 12 }}>Unlock private 1-on-1 chat · one-time · lifetime access</p>
+              </div>
+              <span style={{ color: T.inkMuted, fontSize: 20 }}>›</span>
+            </div>
+          </Card>
+        )}
+      </Page>
+    );
+  }
 
+  return (
+    <>
+      {content}
+
+      {sheetOpen && (
+        <div onClick={() => setSheetOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(35,32,28,.35)", display: "flex", alignItems: "flex-end", zIndex: 200 }}>
+          <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 560, margin: "0 auto", background: T.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: "10px 16px 22px" }}>
+            <div style={{ width: 40, height: 4, borderRadius: 2, background: T.border, margin: "6px auto 14px" }} />
+            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10 }}>
+              <span style={{ fontFamily: T.fontDisplay, fontSize: 20, fontWeight: 600, color: T.ink }}>Start something new</span>
+              <button onClick={() => setSheetOpen(false)} aria-label="Close" style={{ background: "none", border: "none", cursor: "pointer", color: T.inkMuted, fontSize: 20 }}>×</button>
+            </div>
+            {[
+              { tone: "red", emoji: "📷", title: "Share a moment", sub: "Post a photo for people who follow you", onClick: () => { setSheetOpen(false); setView("shareMoment"); } },
+              { tone: "purple", emoji: "👥", title: "Create a group", sub: "Bring parents together around something", onClick: () => { setSheetOpen(false); setView("createGroup"); } },
+              { tone: "teal", emoji: "💬", title: "Message a parent", sub: "Start a private one-on-one chat", onClick: () => { setSheetOpen(false); openDMList(); } },
+            ].map(a => {
+              const c = ROOM_COLORS[a.tone] || ROOM_COLORS.purple;
+              return (
+                <button key={a.title} onClick={a.onClick} style={{ width: "100%", textAlign: "left", display: "flex", alignItems: "center", gap: 14, padding: "13px 4px", borderBottom: `1px solid ${T.border}`, background: "none", border: "none", cursor: "pointer", fontFamily: T.fontBody }}>
+                  <span style={{ width: 46, height: 46, borderRadius: 12, background: c.bg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 20 }}>{a.emoji}</span>
+                  <span style={{ flex: 1 }}>
+                    <span style={{ display: "block", fontSize: 16, fontWeight: 700, color: T.ink }}>{a.title}</span>
+                    <span style={{ display: "block", fontSize: 12.5, color: T.inkMuted, marginTop: 2 }}>{a.sub}</span>
+                  </span>
+                  <span style={{ color: T.inkMuted, fontSize: 18 }}>›</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {viewingMoment && (
+        <div style={{ position: "fixed", inset: 0, background: T.ink, zIndex: 250, display: "flex", flexDirection: "column" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "16px 16px 12px" }}>
+            <ComAvatar value={viewingMoment.author_avatar} size={40} active={false} borderColor="rgba(255,255,255,.5)" />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: "#F4F1EB" }}>{viewingMoment.author_name}</p>
+              <p style={{ margin: 0, fontSize: 12, color: "rgba(244,241,235,.65)" }}>{[viewingMoment.location, timeAgo(viewingMoment.created_at)].filter(Boolean).join(" · ")}</p>
+            </div>
+            <button onClick={() => setViewingMoment(null)} aria-label="Close" style={{ background: "none", border: "none", color: "#F4F1EB", fontSize: 26, cursor: "pointer" }}>×</button>
+          </div>
+          <div style={{ flex: 1, minHeight: 0, margin: "0 16px 16px", borderRadius: 18, overflow: "hidden", position: "relative", background: "#000" }}>
+            <img src={viewingMoment.image_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+            {viewingMoment.caption && (
+              <p style={{ position: "absolute", left: 16, right: 16, bottom: 16, margin: 0, color: "white", fontSize: 15, lineHeight: 1.5, textShadow: "0 1px 8px rgba(0,0,0,.5)" }}>{viewingMoment.caption}</p>
+            )}
+          </div>
+          <div style={{ padding: 16 }}>
+            {isFollowing(viewingMoment.author_id) ? (
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: 14, borderRadius: 12, background: "rgba(244,241,235,.14)", color: "#F4F1EB", fontSize: 15, fontWeight: 700 }}>✓ In your contacts</div>
+            ) : (
+              <button onClick={() => followUser({ id: viewingMoment.author_id, name: viewingMoment.author_name })} style={{ width: "100%", background: T.purple, color: "white", border: "none", borderRadius: 12, padding: 15, fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody }}>+ Add to contacts</button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {qrOpen && (
+        <div onClick={() => setQrOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(35,32,28,.35)", display: "flex", alignItems: "flex-end", zIndex: 220 }}>
+          <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 560, margin: "0 auto", background: T.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: "10px 20px 24px" }}>
+            <div style={{ width: 40, height: 4, borderRadius: 2, background: T.border, margin: "6px auto 12px" }} />
+            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 6 }}>
+              <span style={{ fontFamily: T.fontDisplay, fontSize: 19, fontWeight: 600, color: T.ink }}>{qrData.title}</span>
+              <button onClick={() => setQrOpen(false)} aria-label="Close" style={{ background: "none", border: "none", cursor: "pointer", color: T.inkMuted, fontSize: 20 }}>×</button>
+            </div>
+            <p style={{ margin: "0 0 16px", fontSize: 13, color: T.inkSoft, lineHeight: 1.5 }}>{qrData.hint}</p>
+            <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
+              <div style={{ padding: 14, background: T.surface, border: `1px solid ${T.border}`, borderRadius: 16 }}>
+                <QRCode seed={qrData.code} />
+              </div>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, background: T.canvas, border: `1px solid ${T.border}`, borderRadius: 10, padding: "12px 14px", marginBottom: 12 }}>
+              <span style={{ flex: 1, fontSize: 13, color: T.inkSoft, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{qrData.code}</span>
+            </div>
+            <Btn full onClick={() => { copyText(qrData.code); flash("Link copied"); }}>Copy link</Btn>
+          </div>
+        </div>
+      )}
+
+      {settingsOpen && (
+        <div onClick={() => setSettingsOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(35,32,28,.35)", display: "flex", alignItems: "flex-end", zIndex: 230 }}>
+          <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 560, margin: "0 auto", background: T.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: "10px 20px 24px" }}>
+            <div style={{ width: 40, height: 4, borderRadius: 2, background: T.border, margin: "6px auto 14px" }} />
+            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 12 }}>
+              <span style={{ fontFamily: T.fontDisplay, fontSize: 19, fontWeight: 600, color: T.ink }}>Moments settings</span>
+              <button onClick={() => setSettingsOpen(false)} aria-label="Close" style={{ background: "none", border: "none", cursor: "pointer", color: T.inkMuted, fontSize: 20 }}>×</button>
+            </div>
+            <ToggleRow label="Allow new followers" sub="Let other parents follow you from your link or QR" on={allowFollowers} onToggle={toggleAllowFollowers} />
+            <ToggleRow label="Show location on my moments" sub='Display text like "Bedok" on your posts' on={showLocation} onToggle={toggleShowLocation} />
+            <p style={{ margin: "14px 4px 0", fontSize: 12, color: T.inkMuted, lineHeight: 1.5 }}>Your phone number is never shown to anyone in Community.</p>
+          </div>
+        </div>
+      )}
+
+      {toast && (
+        <div style={{ position: "fixed", bottom: 100, left: 0, right: 0, display: "flex", justifyContent: "center", zIndex: 240, pointerEvents: "none" }}>
+          <span style={{ background: T.ink, color: "#F4F1EB", fontSize: 13.5, fontWeight: 600, padding: "10px 18px", borderRadius: 999, fontFamily: T.fontBody }}>{toast}</span>
+        </div>
+      )}
+    </>
+  );
 }

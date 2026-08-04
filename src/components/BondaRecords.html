@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Bonda · Your child's records</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+  :root{
+    --canvas:#F4F1EB;
+    --card:#FFFFFF;
+    --ink:#23201C;
+    --ink-2:#6E6659;
+    --ink-3:#9A9284;
+    --teal:#3E6E6A;
+    --teal-press:#335c58;
+    --hair:rgba(35,32,28,0.10);
+    --hair-soft:rgba(35,32,28,0.06);
+
+    --t-teal-bg:#E3EDEB;   --t-teal-tx:#2F5B57;
+    --t-blue-bg:#E5ECF2;   --t-blue-tx:#3A5771;
+    --t-rose-bg:#F1E7E6;   --t-rose-tx:#6E4A4C;
+    --t-violet-bg:#EBE7F1; --t-violet-tx:#574A6E;
+    --t-indigo-bg:#E7E9F2; --t-indigo-tx:#414A6E;
+    --t-slate-bg:#E8EAEA;  --t-slate-tx:#484D50;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;background:#e8e4db;}
+  body{font-family:'Plus Jakarta Sans',system-ui,sans-serif;color:var(--ink);}
+  button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit;}
+  .fr{font-family:'Fraunces',Georgia,serif;}
+
+  .phone{
+    max-width:430px;margin:0 auto;min-height:100vh;background:var(--canvas);
+    position:relative;overflow-x:hidden;
+    padding-top:env(safe-area-inset-top);
+    padding-bottom:calc(28px + env(safe-area-inset-bottom));
+  }
+  .pad{padding-left:20px;padding-right:20px;}
+
+  .appbar{display:flex;align-items:center;gap:12px;padding:14px 20px 6px;}
+  .backbtn{width:44px;height:44px;border-radius:999px;display:flex;align-items:center;justify-content:center;background:var(--card);border:1px solid var(--hair);flex:0 0 auto;}
+  .kebab{width:44px;height:44px;border-radius:999px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;}
+
+  .childchip{display:inline-flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--hair);border-radius:999px;padding:6px 14px 6px 6px;}
+  .avatar{width:34px;height:34px;border-radius:999px;background:var(--t-teal-bg);color:var(--t-teal-tx);display:flex;align-items:center;justify-content:center;font-weight:600;font-size:15px;}
+  .childname{font-weight:600;font-size:15px;line-height:1.1;}
+  .childmeta{font-size:12px;color:var(--ink-2);line-height:1.1;margin-top:1px;}
+
+  h1.title{font-weight:500;font-size:30px;line-height:1.12;letter-spacing:-0.01em;margin:14px 0 8px;}
+  .lead{font-size:15px;color:var(--ink-2);line-height:1.5;margin:0 0 20px;max-width:33ch;}
+
+  .starthere{display:flex;align-items:center;gap:14px;background:var(--card);border:1px solid var(--hair);border-radius:16px;padding:14px 16px;margin-bottom:22px;text-align:left;width:100%;}
+  .starthere .dot{width:10px;height:10px;border-radius:999px;background:var(--teal);position:relative;flex:0 0 auto;}
+  .starthere .dot::after{content:"";position:absolute;inset:-7px;border-radius:999px;border:2px solid var(--teal);opacity:.35;animation:pulse 2.2s ease-out infinite;}
+  @keyframes pulse{0%{transform:scale(.6);opacity:.5}100%{transform:scale(1.5);opacity:0}}
+  @media (prefers-reduced-motion:reduce){.starthere .dot::after{animation:none}}
+  .starthere .st-t{font-weight:600;font-size:15px;}
+  .starthere .st-s{font-size:13px;color:var(--ink-2);margin-top:2px;line-height:1.4;}
+
+  .sectionlabel{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);margin:2px 2px 12px;}
+
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .rec{background:var(--card);border:1px solid var(--hair);border-radius:16px;padding:16px;text-align:left;display:flex;flex-direction:column;min-height:150px;transition:transform .12s ease;}
+  .rec:active{transform:scale(.98);}
+  .iconchip{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;margin-bottom:14px;}
+  .rec-t{font-weight:600;font-size:16px;line-height:1.2;}
+  .rec-s{font-size:13px;color:var(--ink-2);line-height:1.4;margin-top:5px;flex:1;}
+  .rec-m{font-size:12px;color:var(--ink-3);margin-top:12px;font-weight:500;}
+
+  .icon{width:22px;height:22px;stroke-width:1.75;fill:none;stroke:currentColor;stroke-linecap:round;stroke-linejoin:round;}
+  .icon-sm{width:18px;height:18px;stroke-width:1.9;fill:none;stroke:currentColor;stroke-linecap:round;stroke-linejoin:round;}
+
+  /* detail */
+  .d-title{font-weight:500;font-size:26px;line-height:1.15;margin:6px 0 6px;letter-spacing:-0.01em;}
+  .d-lead{font-size:14px;color:var(--ink-2);line-height:1.5;margin:0 0 20px;}
+
+  .panel{background:var(--card);border:1px solid var(--hair);border-radius:16px;padding:16px 18px;margin-bottom:14px;}
+  .panel-h{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
+  .panel-h .ph-ic{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;}
+  .panel-h .ph-t{font-weight:600;font-size:15px;}
+  .field-l{font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-3);margin-bottom:5px;}
+  .field-v{font-size:15px;line-height:1.5;color:var(--ink);margin-bottom:16px;}
+  .field-v:last-child{margin-bottom:0;}
+
+  .chips{display:flex;flex-wrap:wrap;gap:8px;}
+  .chip{font-size:13px;font-weight:500;padding:6px 12px;border-radius:999px;}
+
+  .skillrow{display:flex;align-items:flex-start;gap:12px;padding:13px 0;border-top:1px solid var(--hair-soft);}
+  .skillrow:first-of-type{border-top:none;}
+  .skill-ic{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;margin-top:1px;}
+  .skill-t{font-weight:600;font-size:14px;line-height:1.35;}
+  .skill-s{font-size:13px;color:var(--ink-2);line-height:1.4;margin-top:2px;}
+  .skill-date{font-size:12px;color:var(--ink-3);margin-top:5px;font-weight:500;}
+
+  .goal{padding:15px 0;border-top:1px solid var(--hair-soft);}
+  .goal:first-of-type{border-top:none;}
+  .goal-t{font-weight:600;font-size:15px;line-height:1.3;}
+  .goal-s{font-size:13px;color:var(--ink-2);margin-top:3px;line-height:1.4;}
+  .track{height:8px;border-radius:999px;background:var(--hair-soft);margin-top:12px;overflow:hidden;}
+  .track > span{display:block;height:100%;border-radius:999px;background:var(--teal);}
+  .goal-m{display:flex;justify-content:space-between;margin-top:8px;font-size:12px;color:var(--ink-3);font-weight:500;}
+
+  .abc{padding:15px 0;border-top:1px solid var(--hair-soft);}
+  .abc:first-of-type{border-top:none;}
+  .abc-date{font-size:12px;color:var(--ink-3);font-weight:600;margin-bottom:8px;}
+  .abc-row{display:flex;gap:10px;margin-bottom:7px;}
+  .abc-tag{font-size:11px;font-weight:700;letter-spacing:.04em;width:22px;flex:0 0 auto;color:var(--ink-3);padding-top:1px;}
+  .abc-tx{font-size:14px;line-height:1.45;}
+
+  .timeline{position:relative;padding-left:8px;}
+  .tl{position:relative;padding-left:26px;padding-bottom:22px;}
+  .tl:last-child{padding-bottom:4px;}
+  .tl::before{content:"";position:absolute;left:5px;top:20px;bottom:-2px;width:2px;background:var(--hair);}
+  .tl:last-child::before{display:none;}
+  .tl-dot{position:absolute;left:0;top:4px;width:12px;height:12px;border-radius:999px;background:var(--card);border:2px solid var(--teal);}
+  .tl-date{font-size:12px;font-weight:600;color:var(--ink-3);}
+  .tl-t{font-weight:600;font-size:15px;line-height:1.3;margin-top:3px;}
+  .tl-s{font-size:13px;color:var(--ink-2);line-height:1.45;margin-top:3px;}
+  .tl-media{margin-top:10px;height:120px;border-radius:12px;border:1px solid var(--hair);display:flex;align-items:center;justify-content:center;color:var(--ink-3);font-size:12px;gap:6px;}
+
+  .docrow{display:flex;align-items:center;gap:13px;padding:14px 0;border-top:1px solid var(--hair-soft);}
+  .docrow:first-of-type{border-top:none;}
+  .doc-ic{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;}
+  .doc-t{font-weight:600;font-size:14px;line-height:1.3;}
+  .doc-s{font-size:12px;color:var(--ink-2);margin-top:2px;}
+  .doc-chev{margin-left:auto;color:var(--ink-3);}
+
+  .mini{display:flex;gap:12px;}
+  .minicard{flex:1;background:var(--card);border:1px solid var(--hair);border-radius:14px;padding:14px;}
+  .mini-l{font-size:12px;color:var(--ink-2);font-weight:500;}
+  .mini-v{font-family:'Fraunces',serif;font-weight:500;font-size:24px;margin-top:6px;line-height:1;}
+  .mini-t{font-size:12px;color:var(--ink-3);margin-top:6px;}
+
+  .addbtn{display:inline-flex;align-items:center;gap:8px;background:var(--teal);color:#fff;font-weight:600;font-size:14px;padding:13px 20px;border-radius:999px;margin-top:6px;}
+  .addbtn:active{background:var(--teal-press);}
+  .ghost{display:inline-flex;align-items:center;gap:8px;color:var(--teal);font-weight:600;font-size:14px;padding:12px 0;}
+  .note{font-size:13px;color:var(--ink-2);line-height:1.5;background:var(--t-teal-bg);border-radius:12px;padding:12px 14px;margin-top:4px;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState} = React;
+
+/* ---------- inline icons ---------- */
+const I = {
+  back:  <svg className="icon-sm" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>,
+  kebab: <svg className="icon" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="19" r="1.4"/></svg>,
+  chev:  <svg className="icon-sm" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>,
+  plus:  <svg className="icon-sm" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>,
+  profile:<svg className="icon" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.4"/><path d="M5 20c0-3.6 3.1-6 7-6s7 2.4 7 6"/></svg>,
+  skills:<svg className="icon" viewBox="0 0 24 24"><path d="M12 3l2.2 4.6 5 .7-3.6 3.5.9 5-4.5-2.4L7.5 20l.9-5L4.8 11.5l5-.7z"/></svg>,
+  behaviour:<svg className="icon" viewBox="0 0 24 24"><path d="M21 12a8 8 0 1 1-3-6.2"/><path d="M21 4v5h-5"/></svg>,
+  goals: <svg className="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="0.6" fill="currentColor"/></svg>,
+  therapy:<svg className="icon" viewBox="0 0 24 24"><path d="M12 21s-6.5-4.3-6.5-9A3.5 3.5 0 0 1 12 8.6 3.5 3.5 0 0 1 18.5 12c0 4.7-6.5 9-6.5 9z"/></svg>,
+  routine:<svg className="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>,
+  moments:<svg className="icon" viewBox="0 0 24 24"><rect x="3.5" y="6" width="17" height="13" rx="2.5"/><circle cx="12" cy="12.5" r="3"/><path d="M8.5 6l1.2-2h4.6L15.5 6"/></svg>,
+  reports:<svg className="icon" viewBox="0 0 24 24"><path d="M6.5 3h7L18 7.5V21H6.5z"/><path d="M13 3v5h5"/><path d="M9 13h6M9 16.5h6"/></svg>,
+  comm:  <svg className="icon-sm" viewBox="0 0 24 24"><path d="M20 15.5A2.5 2.5 0 0 1 17.5 18H8l-4 3V6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5z"/></svg>,
+  calm:  <svg className="icon-sm" viewBox="0 0 24 24"><path d="M12 21s-6.5-4.3-6.5-9A3.5 3.5 0 0 1 12 8.6 3.5 3.5 0 0 1 18.5 12c0 4.7-6.5 9-6.5 9z"/></svg>,
+  sensory:<svg className="icon-sm" viewBox="0 0 24 24"><path d="M2 12s3.5-6.5 10-6.5S22 12 22 12s-3.5 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="2.4"/></svg>,
+  star:  <svg className="icon-sm" viewBox="0 0 24 24"><path d="M12 4l1.8 3.8L18 8.4l-3 2.9.7 4.1L12 13.5 8.3 15.4 9 11.3l-3-2.9 4.2-.6z"/></svg>,
+  cam:   <svg className="icon-sm" viewBox="0 0 24 24"><rect x="3.5" y="6" width="17" height="13" rx="2.5"/><circle cx="12" cy="12.5" r="3"/></svg>,
+};
+
+const CHILD = {name:"Zayd", meta:"6 years · autism", initials:"Z"};
+
+const CARDS = [
+  {id:"profile",  tone:"teal",   title:"About Zayd", desc:"How he communicates, what calms him, his strengths right now.", meta:"Updated 3 days ago", icon:I.profile},
+  {id:"skills",   tone:"blue",   title:"Skills & milestones", desc:"New things he can do — his own progress, not age charts.", meta:"6 new this month", icon:I.skills},
+  {id:"goals",    tone:"violet", title:"Goals & progress", desc:"What you're working towards, and how far he's come.", meta:"3 active goals", icon:I.goals},
+  {id:"behaviour",tone:"rose",   title:"Behaviour notes", desc:"What happened before, during and after — spotting patterns.", meta:"12 notes", icon:I.behaviour},
+  {id:"therapy",  tone:"indigo", title:"Therapy & programmes", desc:"Sessions, home programmes and strategies that help.", meta:"3 providers", icon:I.therapy},
+  {id:"routine",  tone:"slate",  title:"Everyday patterns", desc:"Sleep, food and routines — the day-to-day picture.", meta:"This week", icon:I.routine},
+  {id:"moments",  tone:"teal",   title:"Moments & firsts", desc:"Photos and firsts worth keeping — and worth celebrating.", meta:"18 saved", icon:I.moments},
+  {id:"reports",  tone:"blue",   title:"Reports & assessments", desc:"School and specialist reports, kept together by date.", meta:"5 documents", icon:I.reports},
+];
+
+const tone = t => ({background:`var(--t-${t}-bg)`, color:`var(--t-${t}-tx)`});
+
+/* ---------- HUB ---------- */
+function Hub({go}){
+  return (
+    <div>
+      <div className="appbar">
+        <button className="childchip" aria-label="Switch child">
+          <span className="avatar">{CHILD.initials}</span>
+          <span>
+            <div className="childname">{CHILD.name}</div>
+            <div className="childmeta">{CHILD.meta}</div>
+          </span>
+        </button>
+        <div style={{flex:1}} />
+        <button className="kebab" aria-label="Menu">{I.kebab}</button>
+      </div>
+
+      <div className="pad">
+        <h1 className="title fr">Zayd's records</h1>
+        <p className="lead">Everything about how Zayd is growing, in one calm place — beyond the medical file.</p>
+
+        <button className="starthere" onClick={()=>go("profile")}>
+          <span className="dot" />
+          <span style={{flex:1}}>
+            <div className="st-t">Start with “About Zayd”</div>
+            <div className="st-s">A one-page picture you can share with any new teacher or carer.</div>
+          </span>
+          <span style={{color:"var(--ink-3)"}}>{I.chev}</span>
+        </button>
+
+        <div className="sectionlabel">Keeping track</div>
+        <div className="grid">
+          {CARDS.map(c=>(
+            <button key={c.id} className="rec" onClick={()=>go(c.id)}>
+              <span className="iconchip" style={tone(c.tone)}>{c.icon}</span>
+              <div className="rec-t">{c.title}</div>
+              <div className="rec-s">{c.desc}</div>
+              <div className="rec-m">{c.meta}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- shared detail shell ---------- */
+function Shell({title, lead, toneName, icon, onBack, children}){
+  return (
+    <div>
+      <div className="appbar">
+        <button className="backbtn" onClick={onBack} aria-label="Back">{I.back}</button>
+        <div style={{flex:1}} />
+        <button className="kebab" aria-label="Menu">{I.kebab}</button>
+      </div>
+      <div className="pad">
+        <span className="iconchip" style={{...tone(toneName), marginBottom:10}}>{icon}</span>
+        <h1 className="d-title fr">{title}</h1>
+        <p className="d-lead">{lead}</p>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- ABOUT ---------- */
+function About(p){
+  return (
+    <Shell {...p} title="About Zayd" toneName="teal" icon={I.profile}
+      lead="A living one-page profile. Update it as Zayd changes — that's how it also becomes a record of his growth.">
+      <div className="panel">
+        <div className="panel-h"><span className="ph-ic" style={tone("teal")}>{I.comm}</span><span className="ph-t">How I communicate</span></div>
+        <div className="field-v">I use short spoken phrases (2–3 words) and point. I understand more than I can say. If I'm unsure, I'll repeat your last word back to you.</div>
+      </div>
+      <div className="panel">
+        <div className="panel-h"><span className="ph-ic" style={tone("teal")}>{I.calm}</span><span className="ph-t">What calms me</span></div>
+        <div className="chips">
+          {["Deep pressure hug","Quiet corner","My blue headphones","Counting to ten together"].map(x=>
+            <span key={x} className="chip" style={tone("teal")}>{x}</span>)}
+        </div>
+      </div>
+      <div className="panel">
+        <div className="panel-h"><span className="ph-ic" style={tone("blue")}>{I.sensory}</span><span className="ph-t">My senses</span></div>
+        <div className="field-l">I love</div>
+        <div className="field-v">Water play, spinning things, soft blankets.</div>
+        <div className="field-l">Please go gently with</div>
+        <div className="field-v">Loud sudden sounds, bright lights, crowded rooms.</div>
+      </div>
+      <div className="panel">
+        <div className="panel-h"><span className="ph-ic" style={tone("violet")}>{I.star}</span><span className="ph-t">My strengths</span></div>
+        <div className="chips">
+          {["Great memory","Kind with animals","Loves puzzles","Notices small details"].map(x=>
+            <span key={x} className="chip" style={tone("violet")}>{x}</span>)}
+        </div>
+      </div>
+      <button className="ghost">{I.plus} Add a section</button>
+    </Shell>
+  );
+}
+
+/* ---------- SKILLS ---------- */
+function Skills(p){
+  const rows=[
+    {tone:"blue", t:"Requests with two words", s:"Said “want juice” unprompted at snack.", d:"Communication · 2 Aug"},
+    {tone:"teal", t:"Brushes teeth with one prompt", s:"Down from needing full hand-over-hand help.", d:"Daily living · 28 Jul"},
+    {tone:"violet",t:"Waited for a turn", s:"Waited ~30 seconds during a game with his sister.", d:"Socialisation · 24 Jul"},
+    {tone:"indigo",t:"Climbs stairs alternating feet", s:"No longer leads with the same foot each step.", d:"Motor · 19 Jul"},
+    {tone:"rose", t:"Names four colours", s:"Red, blue, yellow and green, consistently.", d:"Communication · 12 Jul"},
+  ];
+  return (
+    <Shell {...p} title="Skills & milestones" toneName="blue" icon={I.skills}
+      lead="Zayd's own progress across communication, daily living, socialising and movement — no comparing to typical age charts.">
+      <div className="mini" style={{marginBottom:16}}>
+        <div className="minicard"><div className="mini-l">New this month</div><div className="mini-v fr">6</div><div className="mini-t">skills logged</div></div>
+        <div className="minicard"><div className="mini-l">Growing in</div><div className="mini-v fr">4</div><div className="mini-t">of 4 areas</div></div>
+      </div>
+      <div className="panel">
+        {rows.map((r,i)=>(
+          <div className="skillrow" key={i}>
+            <span className="skill-ic" style={tone(r.tone)}>{I.star}</span>
+            <div>
+              <div className="skill-t">{r.t}</div>
+              <div className="skill-s">{r.s}</div>
+              <div className="skill-date">{r.d}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <button className="addbtn">{I.plus} Log a new skill</button>
+    </Shell>
+  );
+}
+
+/* ---------- GOALS ---------- */
+function Goals(p){
+  const goals=[
+    {t:"Ask for help instead of getting upset", s:"When a task is hard, Zayd taps an adult or says “help”.", pct:70, l:"Better than expected"},
+    {t:"Sit for a 10-minute mealtime", s:"Stays at the table with the family through dinner.", pct:45, l:"On track"},
+    {t:"Put on shoes independently", s:"Both shoes, with velcro, no prompting.", pct:30, l:"Just started"},
+  ];
+  return (
+    <Shell {...p} title="Goals & progress" toneName="violet" icon={I.goals}
+      lead="The things you're gently working towards, and how far Zayd has come. Pulled from his goal wizard.">
+      <div className="panel">
+        {goals.map((g,i)=>(
+          <div className="goal" key={i}>
+            <div className="goal-t">{g.t}</div>
+            <div className="goal-s">{g.s}</div>
+            <div className="track"><span style={{width:g.pct+"%"}} /></div>
+            <div className="goal-m"><span>{g.l}</span><span>{g.pct}%</span></div>
+          </div>
+        ))}
+      </div>
+      <button className="addbtn">{I.plus} Add a goal</button>
+    </Shell>
+  );
+}
+
+/* ---------- BEHAVIOUR ---------- */
+function Behaviour(p){
+  const notes=[
+    {d:"Yesterday · 5:10pm", a:"Supermarket got loud and crowded near the checkout.", b:"Covered ears, sat down on the floor, wouldn't move.", c:"Moved to a quiet aisle, offered headphones — settled in about 5 min."},
+    {d:"Sun · 8:20am", a:"Asked to switch off the tablet with no warning.", b:"Shouted and threw the cushion.", c:"Gave a 2-minute countdown next time — transition went smoothly."},
+    {d:"Fri · 3:00pm", a:"Pick-up from school, hungry and tired.", b:"Quiet, wouldn't hold hands, walked ahead.", c:"Snack in the bag ready — calmer within minutes."},
+  ];
+  return (
+    <Shell {...p} title="Behaviour notes" toneName="rose" icon={I.behaviour}
+      lead="A simple before / during / after note. Over time these reveal Zayd's triggers and what helps — useful for therapy too.">
+      <div className="note" style={{marginBottom:16}}>Tip: there's no “good” or “bad” here — just what happened, so patterns can show themselves.</div>
+      <div className="panel">
+        {notes.map((n,i)=>(
+          <div className="abc" key={i}>
+            <div className="abc-date">{n.d}</div>
+            <div className="abc-row"><span className="abc-tag">Before</span><span className="abc-tx">{n.a}</span></div>
+            <div className="abc-row"><span className="abc-tag">What</span><span className="abc-tx">{n.b}</span></div>
+            <div className="abc-row"><span className="abc-tag">After</span><span className="abc-tx">{n.c}</span></div>
+          </div>
+        ))}
+      </div>
+      <button className="addbtn">{I.plus} Add a note</button>
+    </Shell>
+  );
+}
+
+/* ---------- THERAPY ---------- */
+function Therapy(p){
+  const provs=[
+    {tone:"indigo", t:"Speech therapy — EIPIC", s:"Weekly · Thu 10am · Rainbow Centre", note:"Home programme: model 2-word requests at snack and play."},
+    {tone:"teal",   t:"Occupational therapy", s:"Fortnightly · KKH", note:"Working on self-feeding and dressing. Deep-pressure input before tasks."},
+    {tone:"blue",   t:"Early intervention group", s:"Mon & Wed mornings", note:"Turn-taking and group routines with peers."},
+  ];
+  return (
+    <Shell {...p} title="Therapy & programmes" toneName="indigo" icon={I.therapy}
+      lead="Not medical files — the sessions, home programmes and strategies that carry over between providers.">
+      {provs.map((v,i)=>(
+        <div className="panel" key={i}>
+          <div className="panel-h"><span className="ph-ic" style={tone(v.tone)}>{I.therapy}</span><span className="ph-t">{v.t}</span></div>
+          <div className="field-v" style={{marginBottom:10}}>{v.s}</div>
+          <div className="note">{v.note}</div>
+        </div>
+      ))}
+      <button className="addbtn">{I.plus} Add a provider</button>
+    </Shell>
+  );
+}
+
+/* ---------- ROUTINE ---------- */
+function Routine(p){
+  return (
+    <Shell {...p} title="Everyday patterns" toneName="slate" icon={I.routine}
+      lead="The quiet day-to-day picture — sleep, food and routine. Regulation often shows up here first.">
+      <div className="mini" style={{marginBottom:12}}>
+        <div className="minicard"><div className="mini-l">Sleep</div><div className="mini-v fr">9h 20m</div><div className="mini-t">avg this week</div></div>
+        <div className="minicard"><div className="mini-l">Routine kept</div><div className="mini-v fr">5 / 7</div><div className="mini-t">days</div></div>
+      </div>
+      <div className="panel">
+        <div className="panel-h"><span className="ph-ic" style={tone("slate")}>{I.routine}</span><span className="ph-t">What's steady</span></div>
+        <div className="field-v">Morning routine and bedtime are settling. Eating a slightly wider range of foods this week (added toast).</div>
+      </div>
+      <div className="panel">
+        <div className="panel-h"><span className="ph-ic" style={tone("slate")}>{I.routine}</span><span className="ph-t">Worth watching</span></div>
+        <div className="field-v">Tuesday nights are shorter on sleep — often a harder Wednesday morning. No pressure, just something to notice.</div>
+      </div>
+    </Shell>
+  );
+}
+
+/* ---------- MOMENTS ---------- */
+function Moments(p){
+  const tl=[
+    {d:"2 Aug", t:"First spontaneous “I love you”", s:"At bedtime, completely unprompted. Kept the voice note.", media:true},
+    {d:"20 Jul", t:"Rode the swing on his own", s:"Pumped his own legs at the playground for the first time.", media:true},
+    {d:"3 Jul", t:"Tried a new food", s:"Ate half a banana — a big deal for him.", media:false},
+    {d:"14 Jun", t:"Said his sister's name", s:"“Mira!” across the room when she came home.", media:false},
+  ];
+  return (
+    <Shell {...p} title="Moments & firsts" toneName="teal" icon={I.moments}
+      lead="Growth is emotional too. Keep the photos, clips and firsts worth treasuring — and worth showing a paediatrician.">
+      <div className="timeline">
+        {tl.map((m,i)=>(
+          <div className="tl" key={i}>
+            <span className="tl-dot" />
+            <div className="tl-date">{m.d}</div>
+            <div className="tl-t">{m.t}</div>
+            <div className="tl-s">{m.s}</div>
+            {m.media && <div className="tl-media">{I.cam} Photo · Video</div>}
+          </div>
+        ))}
+      </div>
+      <button className="addbtn" style={{marginTop:10}}>{I.plus} Add a moment</button>
+    </Shell>
+  );
+}
+
+/* ---------- REPORTS ---------- */
+function Reports(p){
+  const docs=[
+    {tone:"blue",   t:"Psychologist assessment", s:"KKH · 14 Mar 2025 · PDF"},
+    {tone:"violet", t:"IEP — learning goals", s:"SPED school · Term 2 2025"},
+    {tone:"teal",   t:"Speech therapy review", s:"Rainbow Centre · Jan 2025"},
+    {tone:"indigo", t:"Developmental report", s:"Paediatrician · Nov 2024"},
+    {tone:"slate",  t:"OT progress summary", s:"KKH · Sep 2024"},
+  ];
+  return (
+    <Shell {...p} title="Reports & assessments" toneName="blue" icon={I.reports}
+      lead="School and specialist reports, kept together and in date order — ready when someone new needs the background.">
+      <div className="panel">
+        {docs.map((d,i)=>(
+          <button key={i} className="docrow" style={{width:"100%",textAlign:"left"}}>
+            <span className="doc-ic" style={tone(d.tone)}>{I.reports}</span>
+            <span>
+              <div className="doc-t">{d.t}</div>
+              <div className="doc-s">{d.s}</div>
+            </span>
+            <span className="doc-chev">{I.chev}</span>
+          </button>
+        ))}
+      </div>
+      <button className="addbtn">{I.plus} Add a document</button>
+    </Shell>
+  );
+}
+
+const SCREENS = {profile:About, skills:Skills, goals:Goals, behaviour:Behaviour, therapy:Therapy, routine:Routine, moments:Moments, reports:Reports};
+
+function App(){
+  const [screen,setScreen]=useState("hub");
+  const back=()=>setScreen("hub");
+  let body;
+  if(screen==="hub") body=<Hub go={setScreen} />;
+  else { const C=SCREENS[screen]; body=<C onBack={back} />; }
+  return <div className="phone">{body}</div>;
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
