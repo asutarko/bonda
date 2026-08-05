@@ -325,7 +325,7 @@ export function HomeScreen({ childCtx, setTab, push, account }) {
       <div
         ref={newsTrack}
         onScroll={onNewsScroll}
-        style={{ display: "flex", gap: 12, overflowX: "auto", margin: "0 -18px", padding: "2px 18px 4px", scrollSnapType: "x mandatory" }}
+        style={{ display: "flex", gap: 12, overflowX: "auto", padding: "2px 0 4px", scrollSnapType: "x mandatory" }}
       >
         {articles.map((n) => {
           const c = newsTone(n.tone);
