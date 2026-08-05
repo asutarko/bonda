@@ -1,18 +1,14 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, lazy, Suspense } from "react";
 import { jsPDF } from "jspdf";
 import html2canvas from "html2canvas";
-import { Editor } from "@tinymce/tinymce-react";
-import "tinymce/tinymce";
-import "tinymce/icons/default";
-import "tinymce/themes/silver";
-import "tinymce/models/dom";
-import "tinymce/plugins/lists";
-import "tinymce/plugins/link";
-import "tinymce/plugins/table";
-import "tinymce/skins/ui/oxide/skin.css";
 import { supabase } from "../lib/supabase";
 import { T } from "../theme";
 import { Page, SectionLabel, Card, Btn, Select, Badge } from "../ui";
+
+// TinyMCE (core + skin CSS + plugins) is only needed once the caregiver
+// actually opens this screen, so it's split into its own chunk instead of
+// shipping in the main bundle for every user — see src/screens/TinyMCEEditor.jsx.
+const TinyMCEEditor = lazy(() => import("./TinyMCEEditor"));
 
 const formatDate = (value) => {
   if (!value) return "";
@@ -455,29 +451,31 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
           </Card>
 
           <div style={{ marginBottom: 14, borderRadius: T.r, overflow: "hidden", border: `1.5px solid ${T.border}` }}>
-            <Editor
-              licenseKey="gpl"
-              value={letterText}
-              onEditorChange={handleEditorChange}
-              init={{
-                height: 520,
-                menubar: false,
-                statusbar: false,
-                plugins: "lists link table",
-                toolbar: "undo redo | bold italic underline | bullist numlist | link table | removeformat",
-                content_style: `
-                  body { font-family: 'Times New Roman', Times, serif; font-size: 13px; line-height: 1.65; color: ${T.ink}; }
-                  h1,h2,h3,h4 { font-family: ${T.fontDisplay}; font-weight: 600; letter-spacing: -0.01em; margin: 20px 0 10px; color: ${T.ink}; }
-                  h1 { font-size: 20px; } h2 { font-size: 18px; } h3 { font-size: 15px; } h4 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; }
-                  p { margin: 0 0 12px; }
-                  table { border-collapse: collapse; width: 100%; margin: 0 0 14px; }
-                  td, th { border: 1px solid ${T.border}; padding: 8px 10px; vertical-align: top; font-size: 13px; text-align: left; }
-                  ul, ol { margin: 0 0 14px; padding-left: 20px; }
-                  li { margin: 0 0 6px; }
-                  .bonda-bk { color: ${T.amber}; background: ${T.amberL}; border-radius: 5px; padding: 0 4px; font-weight: 600; }
-                `,
-              }}
-            />
+            <Suspense fallback={<p style={{ margin: 0, padding: 16, color: T.inkSoft, fontSize: 13 }}>Loading editor...</p>}>
+              <TinyMCEEditor
+                licenseKey="gpl"
+                value={letterText}
+                onEditorChange={handleEditorChange}
+                init={{
+                  height: 520,
+                  menubar: false,
+                  statusbar: false,
+                  plugins: "lists link table",
+                  toolbar: "undo redo | bold italic underline | bullist numlist | link table | removeformat",
+                  content_style: `
+                    body { font-family: 'Times New Roman', Times, serif; font-size: 13px; line-height: 1.65; color: ${T.ink}; }
+                    h1,h2,h3,h4 { font-family: ${T.fontDisplay}; font-weight: 600; letter-spacing: -0.01em; margin: 20px 0 10px; color: ${T.ink}; }
+                    h1 { font-size: 20px; } h2 { font-size: 18px; } h3 { font-size: 15px; } h4 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; }
+                    p { margin: 0 0 12px; }
+                    table { border-collapse: collapse; width: 100%; margin: 0 0 14px; }
+                    td, th { border: 1px solid ${T.border}; padding: 8px 10px; vertical-align: top; font-size: 13px; text-align: left; }
+                    ul, ol { margin: 0 0 14px; padding-left: 20px; }
+                    li { margin: 0 0 6px; }
+                    .bonda-bk { color: ${T.amber}; background: ${T.amberL}; border-radius: 5px; padding: 0 4px; font-weight: 600; }
+                  `,
+                }}
+              />
+            </Suspense>
           </div>
           <Btn full onClick={downloadPdf}>Export to PDF</Btn>
         </>

@@ -1,24 +1,41 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { supabase } from "./lib/supabase";
 import { T } from "./theme";
 import { NavMark, ComAvatar } from "./ui";
 import { useChildren, useBackHandler, backHandlerStack, accountFromUser, forceSignOut, consumeNewSignupFlag } from "./hooks";
-import { FosterHubScreen } from "./screens/FosterHubScreen";
-import { CarerLetterScreen } from "./screens/CarerLetterScreen";
-import { DocumentsScreen } from "./screens/DocumentsScreen";
-import { HomeScreen } from "./screens/HomeScreen";
-import { SubsidiesScreen } from "./screens/SubsidiesScreen";
-import { MyChildScreen } from "./screens/MyChildScreen";
-import { AddChildScreen, EditChildScreen } from "./screens/onboarding";
-import { ScheduleScreen } from "./screens/ScheduleScreen";
-import { AuthScreen, ResetPasswordScreen, PhoneCaptureScreen } from "./screens/AuthScreen";
-import { CommunityScreen } from "./screens/CommunityScreen";
-import SupportDirectory from "./components/SupportDirectory";
-import { SOSScreen } from "./screens/SOSScreen";
-import { DevelopmentGuideScreen } from "./screens/DevelopmentGuideScreen";
-import { EmotionsBehavioursScreen } from "./screens/EmotionsBehavioursGuide";
-import { EditProfileScreen } from "./screens/ProfileScreen";
-import { LegalHub } from "./components/bonda-compliance";
+
+// Every screen below is only ever needed once its tab/stack entry is actually
+// opened (this app uses its own tab/stack nav, not route-based splitting), so
+// each is its own lazy chunk instead of all riding in the initial bundle —
+// see the <Suspense> boundaries around renderMain()/renderStack() and the
+// pre-login screens further down.
+const FosterHubScreen = lazy(() => import("./screens/FosterHubScreen").then(m => ({ default: m.FosterHubScreen })));
+const CarerLetterScreen = lazy(() => import("./screens/CarerLetterScreen").then(m => ({ default: m.CarerLetterScreen })));
+const DocumentsScreen = lazy(() => import("./screens/DocumentsScreen").then(m => ({ default: m.DocumentsScreen })));
+const HomeScreen = lazy(() => import("./screens/HomeScreen").then(m => ({ default: m.HomeScreen })));
+const SubsidiesScreen = lazy(() => import("./screens/SubsidiesScreen").then(m => ({ default: m.SubsidiesScreen })));
+const MyChildScreen = lazy(() => import("./screens/MyChildScreen").then(m => ({ default: m.MyChildScreen })));
+const AddChildScreen = lazy(() => import("./screens/onboarding").then(m => ({ default: m.AddChildScreen })));
+const EditChildScreen = lazy(() => import("./screens/onboarding").then(m => ({ default: m.EditChildScreen })));
+const ScheduleScreen = lazy(() => import("./screens/ScheduleScreen").then(m => ({ default: m.ScheduleScreen })));
+const AuthScreen = lazy(() => import("./screens/AuthScreen").then(m => ({ default: m.AuthScreen })));
+const ResetPasswordScreen = lazy(() => import("./screens/AuthScreen").then(m => ({ default: m.ResetPasswordScreen })));
+const PhoneCaptureScreen = lazy(() => import("./screens/AuthScreen").then(m => ({ default: m.PhoneCaptureScreen })));
+const CommunityScreen = lazy(() => import("./screens/CommunityScreen").then(m => ({ default: m.CommunityScreen })));
+const SupportDirectory = lazy(() => import("./components/SupportDirectory"));
+const SOSScreen = lazy(() => import("./screens/SOSScreen").then(m => ({ default: m.SOSScreen })));
+const DevelopmentGuideScreen = lazy(() => import("./screens/DevelopmentGuideScreen").then(m => ({ default: m.DevelopmentGuideScreen })));
+const EmotionsBehavioursScreen = lazy(() => import("./screens/EmotionsBehavioursGuide").then(m => ({ default: m.EmotionsBehavioursScreen })));
+const EditProfileScreen = lazy(() => import("./screens/ProfileScreen").then(m => ({ default: m.EditProfileScreen })));
+const LegalHub = lazy(() => import("./components/bonda-compliance").then(m => ({ default: m.LegalHub })));
+
+// Shared Suspense fallback, styled like the app's existing full-screen
+// "Loading…" states below rather than a blank flash between screens.
+const ScreenFallback = () => (
+  <div style={{ minHeight: "40vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+    <p style={{ color: T.inkSoft, fontSize: 14, fontWeight: 700 }}>Loading…</p>
+  </div>
+);
 
 export const NAV = [
   { id: "home",      label: "Home",      icon: "🏠" },
@@ -139,7 +156,7 @@ export default function Bonda() {
     return (
       <div style={{ minHeight: "100vh", background: T.canvas, fontFamily: T.fontBody, display: "flex", flexDirection: "column", maxWidth: 480, margin: "0 auto", position: "relative" }}>
         <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-        <ResetPasswordScreen onDone={() => setPasswordRecovery(false)} />
+        <Suspense fallback={<ScreenFallback />}><ResetPasswordScreen onDone={() => setPasswordRecovery(false)} /></Suspense>
       </div>
     );
   }
@@ -148,7 +165,7 @@ export default function Bonda() {
     return (
       <div style={{ minHeight: "100vh", background: T.canvas, fontFamily: T.fontBody, display: "flex", flexDirection: "column", maxWidth: 480, margin: "0 auto", position: "relative" }}>
         <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-        <AuthScreen />
+        <Suspense fallback={<ScreenFallback />}><AuthScreen /></Suspense>
       </div>
     );
   }
@@ -157,7 +174,7 @@ export default function Bonda() {
     return (
       <div style={{ minHeight: "100vh", background: T.canvas, fontFamily: T.fontBody, display: "flex", flexDirection: "column", maxWidth: 480, margin: "0 auto", position: "relative" }}>
         <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-        <PhoneCaptureScreen account={account} onDone={() => setPendingPhone(false)} />
+        <Suspense fallback={<ScreenFallback />}><PhoneCaptureScreen account={account} onDone={() => setPendingPhone(false)} /></Suspense>
       </div>
     );
   }
@@ -174,7 +191,7 @@ export default function Bonda() {
     return (
       <div style={{ minHeight: "100vh", background: T.canvas, fontFamily: T.fontBody, display: "flex", flexDirection: "column", maxWidth: 480, margin: "0 auto", position: "relative" }}>
         <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-        <LegalHub mandatory onAgree={agreeToCompliance} />
+        <Suspense fallback={<ScreenFallback />}><LegalHub mandatory onAgree={agreeToCompliance} /></Suspense>
       </div>
     );
   }
@@ -317,7 +334,9 @@ export default function Bonda() {
 
 
       <div style={{ flex: 1, overflowY: "auto", paddingBottom: 8 }}>
-        {current ? renderStack() : renderMain()}
+        <Suspense fallback={<ScreenFallback />}>
+          {current ? renderStack() : renderMain()}
+        </Suspense>
       </div>
 
 

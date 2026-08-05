@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from "react";
-import Swal from "sweetalert2";
 import { supabase } from "../lib/supabase";
 import { uploadPhoto } from "../hooks";
 import { T } from "../theme";
@@ -419,6 +418,9 @@ export function AddChildScreen({ childCtx, pop }) {
     });
     setSaving(false);
     if (!id) return setErr("Could not save the profile. Please try again.");
+    // Loaded on demand — sweetalert2 is only needed for this one success
+    // popup, so it's kept out of the main bundle until a save actually happens.
+    const { default: Swal } = await import("sweetalert2");
     await Swal.fire({ icon: "success", title: "Profile saved successfully", confirmButtonColor: T.purple });
     pop();
   };
@@ -608,6 +610,9 @@ export function ChildProfileForm({ childCtx, onSaved, onCancel, onDeleted, showH
     }
     updateChild(activeChild.id, patch);
     setSaving(false);
+    // Loaded on demand — sweetalert2 is only needed for this one success
+    // popup, so it's kept out of the main bundle until a save actually happens.
+    const { default: Swal } = await import("sweetalert2");
     await Swal.fire({ icon: "success", title: "Profile saved successfully", confirmButtonColor: T.purple });
     onSaved && onSaved();
   };
