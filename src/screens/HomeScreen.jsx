@@ -20,9 +20,11 @@ export const QUOTES = [
 ];
 //  COMMUNITY / CHAT STORAGE
 
-// Real, recent items (paraphrased). Replace with a live feed once one exists —
-// fetch a vetted autism/caregiving source and map each result into this shape.
-const NEWS = [
+// Fallback only — shown until public.articles has rows. The live feed is
+// populated automatically by the fetch-articles Edge Function (RSS from
+// ScienceDaily + Spectrum, see supabase/functions/fetch-articles), no admin
+// action needed.
+const FALLBACK_NEWS = [
   { tag: "Singapore", tone: "purple", source: "The Straits Times", date: "20 Jul 2026", title: "Shorter waits for early-intervention places", blurb: "Families now wait about 5.5 months on average for a subsidised EIPIC spot — noticeably down from earlier years.", url: "https://www.straitstimes.com" },
   { tag: "Policy", tone: "teal", source: "MSF Singapore", date: "2026", title: "More affordable, tailored early intervention", blurb: "Subsidised support now spans 21 EIPIC centres, plus learning support offered in about 550 preschools island-wide.", url: "https://www.msf.gov.sg" },
   { tag: "Research", tone: "violet", source: "ScienceDaily", date: "Jun 2026", title: "Autism may have distinct biological subtypes", blurb: "A large brain-imaging study points to several subtypes, each with its own pattern — a step toward more personalised support.", url: "https://www.sciencedaily.com/news/mind_brain/autism/" },
@@ -98,6 +100,7 @@ export function HomeScreen({ childCtx, setTab, push, account }) {
 
   const [newsActive, setNewsActive] = useState(0);
   const newsTrack = useRef(null);
+  const [articles, setArticles] = useState(FALLBACK_NEWS);
 
   const loadQuotes = async () => {
     const { data } = await supabase.from("parent_quotes").select("*").order("sort_order").order("created_at");
@@ -113,7 +116,26 @@ export function HomeScreen({ childCtx, setTab, push, account }) {
     if (data?.message) setBanner(data.message);
   };
 
-  useEffect(() => { loadQuotes(); loadBanner(); }, []);
+  // Latest Articles: populated automatically by the fetch-articles Edge
+  // Function (see supabase/functions/fetch-articles). Falls back to the
+  // static list above only if the table is still empty (e.g. before the
+  // function's first scheduled run).
+  const loadArticles = async () => {
+    const { data } = await supabase.from("articles").select("*").order("published_at", { ascending: false }).limit(8);
+    if (data?.length) {
+      setArticles(data.map(r => ({
+        tag: r.tag,
+        tone: r.tone,
+        source: r.source,
+        date: new Date(r.published_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }),
+        title: r.title,
+        blurb: r.blurb,
+        url: r.url,
+      })));
+    }
+  };
+
+  useEffect(() => { loadQuotes(); loadBanner(); loadArticles(); }, []);
 
   useEffect(() => {
     if (paused || quotes.length < 2) return;
@@ -170,7 +192,7 @@ export function HomeScreen({ childCtx, setTab, push, account }) {
   const onNewsScroll = () => {
     const el = newsTrack.current;
     if (!el) return;
-    setNewsActive(Math.max(0, Math.min(NEWS.length - 1, Math.round(el.scrollLeft / newsStep()))));
+    setNewsActive(Math.max(0, Math.min(articles.length - 1, Math.round(el.scrollLeft / newsStep()))));
   };
   const goToNews = (i) => newsTrack.current && newsTrack.current.scrollTo({ left: i * newsStep(), behavior: "smooth" });
 
@@ -305,7 +327,7 @@ export function HomeScreen({ childCtx, setTab, push, account }) {
         onScroll={onNewsScroll}
         style={{ display: "flex", gap: 12, overflowX: "auto", margin: "0 -18px", padding: "2px 18px 4px", scrollSnapType: "x mandatory" }}
       >
-        {NEWS.map((n) => {
+        {articles.map((n) => {
           const c = newsTone(n.tone);
           return (
             <div
@@ -328,7 +350,7 @@ export function HomeScreen({ childCtx, setTab, push, account }) {
         })}
       </div>
       <div style={{ display: "flex", justifyContent: "center", gap: 6, marginTop: 12 }}>
-        {NEWS.map((_, i) => (
+        {articles.map((_, i) => (
           <button
             key={i}
             onClick={() => goToNews(i)}
