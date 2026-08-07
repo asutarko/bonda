@@ -73,10 +73,10 @@ const toggleOption = (selected, setSelected, setOther, option) => {
 };
 
 // ---- shared photo block -----------------------------------------------------
-// Identical UI in both AddChildScreen and ChildProfileForm; only sizing differs
-// (AddChildScreen's is the larger, centred "first fill-in" version).
+// Same centred picker in both AddChildScreen and ChildProfileForm, so adding
+// and editing a child profile look and behave identically.
 
-function PhotoPicker({ photo, setPhoto, photoErr, setPhotoErr, cameraSupported, openCamera, large }) {
+function PhotoPicker({ photo, setPhoto, photoErr, setPhotoErr, cameraSupported, openCamera }) {
   const isPhotoSelected = !!photo;
   const fileInputRef = useRef(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -92,10 +92,9 @@ function PhotoPicker({ photo, setPhoto, photoErr, setPhotoErr, cameraSupported, 
     }} />
   );
 
-  // Large variant (AddChildScreen's "first fill-in" step) — single combined
-  // button that opens a Take Photo / Choose from Gallery menu when the device
-  // has a camera, avoiding a separate Upload + Camera button pair.
-  if (large) return (
+  // Single combined button that opens a Take Photo / Choose from Gallery menu
+  // when the device has a camera, avoiding a separate Upload + Camera button pair.
+  return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", background: T.purpleL, border: `1px solid ${T.border}`, borderRadius: T.rL, padding: "24px 18px", marginBottom: 16 }}>
       <ChildAvatar value={photo} size={88} active={true} borderColor={T.purple} />
 
@@ -131,35 +130,6 @@ function PhotoPicker({ photo, setPhoto, photoErr, setPhotoErr, cameraSupported, 
         {isPhotoSelected ? "Photo added ✓" : "Add a real photo (optional)"}
       </p>
       {photoErr && <p style={{ margin: "8px 0 0", color: T.red, fontSize: 11, fontWeight: 700 }}>{photoErr}</p>}
-    </div>
-  );
-
-  // Small row variant (ChildProfileForm / Edit Child Profile) — unchanged.
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 14, background: T.purpleL, border: `1px solid ${T.border}`, borderRadius: T.rL, padding: "14px 16px", marginBottom: 16 }}>
-      <ChildAvatar value={photo} size={60} active={true} borderColor={T.purple} />
-      <div style={{ flex: 1 }}>
-        <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>
-          {isPhotoSelected ? "Photo added ✓" : "Add a real photo (optional)"}
-        </p>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <label style={{ background: T.purple, color: "white", borderRadius: T.r, padding: "8px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", textAlign: "center", fontFamily: T.fontBody, display: "flex", alignItems: "center", justifyContent: "center", gap: 5, flex: "1 1 92px" }}>
-            <span style={{ fontSize: 15 }}>+</span> Upload
-            {fileInput}
-          </label>
-
-          {cameraSupported && (
-            <button onClick={openCamera} style={{ background: T.surface, color: T.purple, borderRadius: T.r, padding: "8px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", border: `1.5px solid ${T.purple}`, fontFamily: T.fontBody, display: "flex", alignItems: "center", justifyContent: "center", gap: 5, flex: "1 1 92px" }}>
-              <span style={{ fontSize: 15 }}>+</span> Camera
-            </button>
-          )}
-
-          {isPhotoSelected && (
-            <button onClick={() => setPhoto(null)} style={{ background: T.redL, color: T.red, borderRadius: T.r, padding: "8px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", border: "none", fontFamily: T.fontBody }}>✕</button>
-          )}
-        </div>
-        {photoErr && <p style={{ margin: "8px 0 0", color: T.red, fontSize: 11, fontWeight: 700 }}>{photoErr}</p>}
-      </div>
     </div>
   );
 }
@@ -474,7 +444,7 @@ export function AddChildScreen({ childCtx, pop }) {
       <p style={{ margin: "-12px 0 20px", color: T.inkSoft, fontSize: 14, lineHeight: 1.6 }}>Each child gets their own schedule, emotion log, and history. You can switch between children anytime.</p>
 
       <PhotoPicker photo={photo} setPhoto={setPhoto} photoErr={photoErr} setPhotoErr={setPhotoErr}
-        cameraSupported={camera.cameraSupported} openCamera={camera.openCamera} large />
+        cameraSupported={camera.cameraSupported} openCamera={camera.openCamera} />
       <CameraPanel show={camera.showCamera} videoRef={camera.videoRef} cameraReady={camera.cameraReady} takePhoto={camera.takePhoto} stopCamera={camera.stopCamera} />
 
       <FormSection title="General information">
@@ -671,37 +641,38 @@ export function ChildProfileForm({ childCtx, onSaved, onCancel, onDeleted, showH
     <>
       {showHeader && (
         <>
-          <h2 style={{ margin: "0 0 6px", fontSize: 20, fontWeight: 800, color: T.ink }}>Edit Child Profile</h2>
-          <p style={{ margin: "0 0 24px", color: T.inkSoft, fontSize: 14, lineHeight: 1.6 }}>Update {activeChild.name}'s details below.</p>
+          <h1 style={{ margin: "6px 0 20px", fontFamily: T.fontDisplay, fontWeight: 600, fontSize: 26, lineHeight: 1.15, letterSpacing: "-0.01em", color: T.ink }}>Edit child profile</h1>
+          <p style={{ margin: "-12px 0 20px", color: T.inkSoft, fontSize: 14, lineHeight: 1.6 }}>Update {activeChild.name}'s details below.</p>
         </>
       )}
 
-      <SectionLabel style={{ marginBottom: 10 }}>Profile Picture</SectionLabel>
       <PhotoPicker photo={photo} setPhoto={setPhoto} photoErr={photoErr} setPhotoErr={setPhotoErr}
         cameraSupported={camera.cameraSupported} openCamera={camera.openCamera} />
       <CameraPanel show={camera.showCamera} videoRef={camera.videoRef} cameraReady={camera.cameraReady} takePhoto={camera.takePhoto} stopCamera={camera.stopCamera} />
 
-      <Input label={<>Child's name <span style={{ color: T.red }}>*</span></>} value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Aiden" />
-      <FieldError>{errors.name}</FieldError>
-      <Input label={<>Date of birth <span style={{ color: T.red }}>*</span></>} value={dob} onChange={e => setDob(e.target.value)} type="date" />
-      <FieldError>{errors.dob}</FieldError>
-      <Select label={<>Gender <span style={{ color: T.red }}>*</span></>} value={gender} onChange={e => setGender(e.target.value)} placeholder="Select gender" options={["Male", "Female", "Prefer not to say"]} />
-      <FieldError>{errors.gender}</FieldError>
+      <FormSection title="General information">
+        <Input label="Child's name" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Aiden" />
+        <FieldError>{errors.name}</FieldError>
+        <Input label="Date of birth" value={dob} onChange={e => setDob(e.target.value)} type="date" />
+        <FieldError>{errors.dob}</FieldError>
+        <Select label="Gender" value={gender} onChange={e => setGender(e.target.value)} placeholder="Select gender" options={["Male", "Female", "Prefer not to say"]} />
+        <FieldError>{errors.gender}</FieldError>
 
-      <Select label="Your relationship to this child" value={caregiverType} onChange={e => setCaregiverType(e.target.value)} options={CAREGIVER_TYPE_OPTIONS} />
+        <Select label="Your relationship to this child" value={caregiverType} onChange={e => setCaregiverType(e.target.value)} options={CAREGIVER_TYPE_OPTIONS} />
 
-      {caregiverType === "other" && (
-        <div style={{ marginBottom: 14 }}>
-          <Select label={<>What is your relationship to this child? <span style={{ color: T.red }}>*</span></>} value={caregiverLabel} onChange={e => setCaregiverLabel(e.target.value)} placeholder="Select relationship" options={OTHER_CAREGIVER_OPTIONS} />
-          <FieldError>{errors.relationshipDetail}</FieldError>
-          {caregiverLabel === "Others" && (
-            <div style={{ marginTop: 10 }}>
-              <Input label={<>Please specify <span style={{ color: T.red }}>*</span></>} value={customRelative} onChange={e => setCustomRelative(e.target.value)} placeholder="e.g. Cousin" />
-              <FieldError>{errors.customRelative}</FieldError>
-            </div>
-          )}
-        </div>
-      )}
+        {caregiverType === "other" && (
+          <div style={{ marginBottom: 14 }}>
+            <Select label="What is your relationship to this child?" value={caregiverLabel} onChange={e => setCaregiverLabel(e.target.value)} placeholder="Select relationship" options={OTHER_CAREGIVER_OPTIONS} />
+            <FieldError>{errors.relationshipDetail}</FieldError>
+            {caregiverLabel === "Others" && (
+              <div style={{ marginTop: 10 }}>
+                <Input value={customRelative} onChange={e => setCustomRelative(e.target.value)} placeholder="e.g. Cousin" />
+                <FieldError>{errors.customRelative}</FieldError>
+              </div>
+            )}
+          </div>
+        )}
+      </FormSection>
 
       <FormSection title="About your child">
         <SpecialNeedsSection

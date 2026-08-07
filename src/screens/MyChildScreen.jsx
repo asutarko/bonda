@@ -5,7 +5,6 @@ import { Page, SectionLabel, Card, Badge, Btn, Input, TextArea, Select, Avatar, 
 import { CHILD_AVATARS, DEFAULT_CHILDREN, DEFAULT_SCHEDULE, ROOM_COLORS, SOS_COLORS, VERBAL_STATUS_OPTIONS } from "../data";
 import { ChildProfileForm } from "./onboarding";
 import { GrowthTrackerSection } from "./GrowthTracker";
-import { MedicalDisclaimerBanner } from "../components/bonda-compliance";
 
 export const DEV_LOG_CATEGORIES = [
   { key: "sleep",         label: "Sleep",         emoji: "😴", color: T.purple },
@@ -373,6 +372,10 @@ export function DevLogSection({ activeChild, updateChild }) {
   );
 }
 
+// Development and Growth Tracker sub-tabs are temporarily hidden on the child
+// profile screen. Flip this back to true to restore both tabs.
+const SHOW_DEV_GROWTH_TABS = false;
+
 export function MyChildScreen({ childCtx, push }) {
   const [subTab, setSubTab] = useState("profile"); // profile | devlog | growth
 
@@ -415,8 +418,6 @@ export function MyChildScreen({ childCtx, push }) {
 
   return (
     <Page>
-      <MedicalDisclaimerBanner />
-
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: children?.length > 1 ? 6 : 20 }}>
         <p style={{ margin: 0, fontWeight: 800, color: T.ink, fontSize: 16 }}>{activeChild.name}</p>
         {ageFromDob(activeChild.dob) && (
@@ -443,31 +444,33 @@ export function MyChildScreen({ childCtx, push }) {
         </div>
       )}
 
-      <div style={{ display: "flex", background: T.border, borderRadius: T.r, padding: 3, gap: 3, marginBottom: isChildActive ? 24 : 8 }}>
-        {[["profile","Child Profile"],["devlog","Development"],["growth","Growth Tracker"]].map(([v, l]) => {
-          const disabled = v === "devlog" && !isChildActive;
-          return (
-            <button key={v} onClick={() => !disabled && setSubTab(v)} disabled={disabled}
-              style={{ flex: 1, padding: "10px", borderRadius: 9, background: subTab === v ? T.surface : "transparent", border: "none", fontWeight: 700, fontSize: 13, color: disabled ? T.inkMuted : (subTab === v ? T.ink : T.inkMuted), cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.5 : 1, fontFamily: T.fontBody, boxShadow: subTab === v ? T.shadow : "none", transition: "all 0.2s" }}>
-              {l}
-            </button>
-          );
-        })}
-      </div>
+      {SHOW_DEV_GROWTH_TABS && (
+        <div style={{ display: "flex", background: T.border, borderRadius: T.r, padding: 3, gap: 3, marginBottom: isChildActive ? 24 : 8 }}>
+          {[["profile","Child Profile"],["devlog","Development"],["growth","Growth Tracker"]].map(([v, l]) => {
+            const disabled = v === "devlog" && !isChildActive;
+            return (
+              <button key={v} onClick={() => !disabled && setSubTab(v)} disabled={disabled}
+                style={{ flex: 1, padding: "10px", borderRadius: 9, background: subTab === v ? T.surface : "transparent", border: "none", fontWeight: 700, fontSize: 13, color: disabled ? T.inkMuted : (subTab === v ? T.ink : T.inkMuted), cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.5 : 1, fontFamily: T.fontBody, boxShadow: subTab === v ? T.shadow : "none", transition: "all 0.2s" }}>
+                {l}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
-      {!isChildActive && (
+      {SHOW_DEV_GROWTH_TABS && !isChildActive && (
         <p style={{ margin: "0 0 20px", color: T.inkMuted, fontSize: 12, lineHeight: 1.5 }}>Development log unlocks once {activeChild.name}'s profile is approved.</p>
       )}
 
-      {subTab === "profile" && (
+      {(!SHOW_DEV_GROWTH_TABS || subTab === "profile") && (
         <ChildProfileForm childCtx={childCtx} showHeader={false} />
       )}
 
-      {subTab === "devlog" && (
+      {SHOW_DEV_GROWTH_TABS && subTab === "devlog" && (
         <DevLogSection activeChild={activeChild} updateChild={updateChild} />
       )}
 
-      {subTab === "growth" && (
+      {SHOW_DEV_GROWTH_TABS && subTab === "growth" && (
         <GrowthTrackerSection activeChild={activeChild} updateChild={updateChild} />
       )}
     </Page>
