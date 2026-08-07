@@ -15,6 +15,7 @@ const DocumentsScreen = lazy(() => import("./screens/DocumentsScreen").then(m =>
 const HomeScreen = lazy(() => import("./screens/HomeScreen").then(m => ({ default: m.HomeScreen })));
 const SubsidiesScreen = lazy(() => import("./screens/SubsidiesScreen").then(m => ({ default: m.SubsidiesScreen })));
 const MyChildScreen = lazy(() => import("./screens/MyChildScreen").then(m => ({ default: m.MyChildScreen })));
+const AllChildrenScreen = lazy(() => import("./screens/AllChildrenScreen").then(m => ({ default: m.AllChildrenScreen })));
 const AddChildScreen = lazy(() => import("./screens/onboarding").then(m => ({ default: m.AddChildScreen })));
 const EditChildScreen = lazy(() => import("./screens/onboarding").then(m => ({ default: m.EditChildScreen })));
 const ScheduleScreen = lazy(() => import("./screens/ScheduleScreen").then(m => ({ default: m.ScheduleScreen })));
@@ -209,6 +210,7 @@ export default function Bonda() {
     subsidiesGrants: "Subsidies & Grants",
     sos: "Emergency Contacts",
     devGuide: "Development & Behaviour Guide",
+    allChildren: "My Children",
     addChild: "Add a Child",
     editChild: "Edit Profile",
     editProfile: "Edit User Profile",
@@ -237,6 +239,7 @@ export default function Bonda() {
       case "subsidiesGrants": return <SubsidiesScreen pop={pop} account={account} />;
       case "sos":        return <SOSScreen pop={pop} account={account} />;
       case "devGuide":   return <DevelopmentGuideScreen />;
+      case "allChildren": return <AllChildrenScreen childCtx={childCtx} pop={pop} setTab={setTab} push={push} />;
       case "addChild":   return <AddChildScreen childCtx={childCtx} pop={pop} />;
       case "editChild":  return <EditChildScreen childCtx={childCtx} pop={pop} />;
       case "editProfile": return <EditProfileScreen account={account} pop={pop} push={push} />;

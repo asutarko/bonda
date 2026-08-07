@@ -240,24 +240,29 @@ export function HomeScreen({ childCtx, setTab, push, account }) {
             <SectionLabel style={{ marginBottom: 10 }}>My Children</SectionLabel>
             <Card style={{ padding: "16px 14px" }}>
               <div style={{ display: "flex", gap: 14, overflowX: "auto", paddingBottom: 2 }}>
-                {children.map(c => {
-                  const active = activeChild?.id === c.id;
+                {children.filter(c => c.active).map(c => {
+                  const isSelected = activeChild?.id === c.id;
                   return (
                     <div key={c.id} onClick={() => { switchChild(c.id); setTab("mychild"); }} style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 6, cursor: "pointer" }}>
-                      <ChildAvatar value={c.emoji} size={52} active={active} borderColor={active ? T.purple : "transparent"} />
-                      <p style={{ margin: 0, fontSize: 11, fontWeight: active ? 800 : 600, color: active ? T.purple : T.inkSoft, whiteSpace: "nowrap" }}>{c.name}</p>
+                      <ChildAvatar value={c.emoji} size={52} active={isSelected} borderColor={isSelected ? T.purple : "transparent"} />
+                      <p style={{ margin: 0, fontSize: 11, fontWeight: isSelected ? 800 : 600, color: isSelected ? T.purple : T.inkSoft, whiteSpace: "nowrap" }}>{c.name}</p>
                     </div>
                   );
                 })}
-                <div onClick={() => push("addChild")} title="Add a child" style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 6, cursor: "pointer" }}>
-                  <span style={{ width: 52, height: 52, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", background: T.purpleL, border: `1.5px dashed ${T.purple}` }}>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                      <path d="M12 5v14M5 12h14" stroke={T.purple} strokeWidth="2.2" strokeLinecap="round" />
-                    </svg>
-                  </span>
-                  <p style={{ margin: 0, fontSize: 11, fontWeight: 600, color: T.purple, whiteSpace: "nowrap" }}>Add child</p>
-                </div>
+                {children.length < 6 && (
+                  <div onClick={() => push("addChild")} title="Add a child" style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 6, cursor: "pointer" }}>
+                    <span style={{ width: 52, height: 52, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", background: T.purpleL, border: `1.5px dashed ${T.purple}` }}>
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                        <path d="M12 5v14M5 12h14" stroke={T.purple} strokeWidth="2.2" strokeLinecap="round" />
+                      </svg>
+                    </span>
+                    <p style={{ margin: 0, fontSize: 11, fontWeight: 600, color: T.purple, whiteSpace: "nowrap" }}>Add child</p>
+                  </div>
+                )}
               </div>
+              <button onClick={() => push("allChildren")} style={{ display: "block", marginTop: 10, marginLeft: "auto", background: "none", border: "none", color: T.purple, fontWeight: 700, fontSize: 11.5, cursor: "pointer", fontFamily: T.fontBody }}>
+                View all children
+              </button>
             </Card>
           </div>
         )}
