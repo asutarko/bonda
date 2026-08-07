@@ -398,7 +398,6 @@ export function SubsidiesScreen({ pop, account }) {
                     <span style={{ width: 6, height: 6, borderRadius: "50%", background: cat.color }} />
                     {cat.label}
                   </span>
-                  {s.badge && <span style={{ marginLeft: "auto", fontSize: 11, fontWeight: 600, color: T.inkMuted }}>{s.badge}</span>}
                 </div>
 
                 <a href={`https://${s.website}`} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} style={{ display: "inline-flex", alignItems: "center", gap: 5, textDecoration: "none" }}>

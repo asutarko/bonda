@@ -238,7 +238,10 @@ export function HomeScreen({ childCtx, setTab, push, account }) {
         ) : (
           <div>
             <SectionLabel style={{ marginBottom: 10 }}>My Children</SectionLabel>
-            <Card style={{ padding: "16px 14px" }}>
+            <Card style={{ padding: "16px 14px", position: "relative" }}>
+              <button onClick={() => push("allChildren")} style={{ position: "absolute", top: 14, right: 14, background: "none", border: "none", color: T.purple, fontWeight: 700, fontSize: 11.5, cursor: "pointer", fontFamily: T.fontBody }}>
+                View all
+              </button>
               <div style={{ display: "flex", gap: 14, overflowX: "auto", paddingBottom: 2 }}>
                 {children.filter(c => c.active).map(c => {
                   const isSelected = activeChild?.id === c.id;
@@ -260,9 +263,6 @@ export function HomeScreen({ childCtx, setTab, push, account }) {
                   </div>
                 )}
               </div>
-              <button onClick={() => push("allChildren")} style={{ display: "block", marginTop: 10, marginLeft: "auto", background: "none", border: "none", color: T.purple, fontWeight: 700, fontSize: 11.5, cursor: "pointer", fontFamily: T.fontBody }}>
-                View all children
-              </button>
             </Card>
           </div>
         )}
