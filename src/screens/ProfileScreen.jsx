@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { supabase } from "../lib/supabase";
 import { uploadPhoto } from "../hooks";
 import { T } from "../theme";
-import { Page, SectionLabel, Input, Select, FieldError, Btn, ComAvatar, COM_AVATAR_ILLUSTRATIONS } from "../ui";
+import { Page, SectionLabel, Input, Select, FieldError, Btn, ComAvatar } from "../ui";
 import { RELATIONSHIP_OPTIONS, OCCUPATION_OPTIONS, MARITAL_STATUS_OPTIONS } from "../data";
 
 export function EditProfileScreen({ account, pop, push }) {
@@ -10,7 +10,6 @@ export function EditProfileScreen({ account, pop, push }) {
 
   const [avatar, setAvatar] = useState(isExistingPhoto ? "none" : (account?.avatar || "none"));
   const [photo, setPhoto] = useState(isExistingPhoto ? account.avatar : null);
-  const [showAvatarPicker, setShowAvatarPicker] = useState(false);
   const [phone, setPhone] = useState(account?.phone || "");
   const [address, setAddress] = useState(account?.address || "");
   const [relationship, setRelationship] = useState(account?.relationship || "");
@@ -125,7 +124,7 @@ export function EditProfileScreen({ account, pop, push }) {
             {isPhotoSelected ? "Photo added ✓ — or choose an avatar below" : "Add a real photo (optional) — or pick an avatar below"}
           </p>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <label onClick={() => setShowAvatarPicker(false)} style={{ flex: "1 1 92px", background: T.purple, color: "white", borderRadius: T.r, padding: "8px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", textAlign: "center", fontFamily: T.fontBody, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
+            <label style={{ flex: "1 1 92px", background: T.purple, color: "white", borderRadius: T.r, padding: "8px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", textAlign: "center", fontFamily: T.fontBody, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
               <span style={{ fontSize: 15 }}>+</span> Upload
               <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => {
                 const file = e.target.files[0];
@@ -138,14 +137,10 @@ export function EditProfileScreen({ account, pop, push }) {
             </label>
 
             {cameraSupported && (
-              <button onClick={() => { setShowAvatarPicker(false); openCamera(); }} style={{ flex: "1 1 92px", background: T.surface, color: T.purple, borderRadius: T.r, padding: "8px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", border: `1.5px solid ${T.purple}`, fontFamily: T.fontBody, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
+              <button onClick={openCamera} style={{ flex: "1 1 92px", background: T.surface, color: T.purple, borderRadius: T.r, padding: "8px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", border: `1.5px solid ${T.purple}`, fontFamily: T.fontBody, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
                 <span style={{ fontSize: 15 }}>+</span> Camera
               </button>
             )}
-
-            <button onClick={() => setShowAvatarPicker(v => !v)} style={{ flex: "1 1 92px", background: showAvatarPicker ? T.purple : T.surface, color: showAvatarPicker ? "white" : T.purple, borderRadius: T.r, padding: "8px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", border: `1.5px solid ${T.purple}`, fontFamily: T.fontBody, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
-              <span style={{ fontSize: 15 }}>+</span> Avatar
-            </button>
 
             {isPhotoSelected && (
               <button onClick={() => setPhoto(null)} style={{ background: T.redL, color: T.red, borderRadius: T.r, padding: "8px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", border: "none", fontFamily: T.fontBody }}>✕</button>
@@ -163,25 +158,6 @@ export function EditProfileScreen({ account, pop, push }) {
             <Btn onClick={stopCamera} secondary style={{ flex: 1 }}>Cancel</Btn>
           </div>
         </div>
-      )}
-
-      {showAvatarPicker && (
-        <>
-          <SectionLabel style={{ marginBottom: 10 }}>Or choose an illustrated avatar</SectionLabel>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 24, opacity: isPhotoSelected ? 0.4 : 1, transition: "opacity 0.2s" }}>
-            {COM_AVATAR_ILLUSTRATIONS.map(av => {
-              const isActive = !isPhotoSelected && avatar === av.key;
-              return (
-                <div key={av.key} onClick={() => { if (!isPhotoSelected) setAvatar(av.key); }} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, cursor: isPhotoSelected ? "default" : "pointer" }}>
-                  <div style={{ border: `2.5px solid ${isActive ? T.purple : "transparent"}`, borderRadius: "50%", padding: 1, transform: isActive ? "scale(1.08)" : "scale(1)", transition: "all 0.15s" }}>
-                    {av.render(isActive)}
-                  </div>
-                  <p style={{ margin: 0, fontSize: 9, fontWeight: isActive ? 800 : 600, color: isActive ? T.purple : T.inkMuted, letterSpacing: "0.03em" }}>{av.label}</p>
-                </div>
-              );
-            })}
-          </div>
-        </>
       )}
 
       <SectionLabel style={{ marginBottom: 10 }}>Contact Details</SectionLabel>
