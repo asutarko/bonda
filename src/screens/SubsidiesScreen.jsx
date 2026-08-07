@@ -342,7 +342,7 @@ export function SubsidiesScreen({ pop, account }) {
             onTouchEnd={() => { setTimeout(() => { pausedRef.current = false; }, 3500); }}
             onMouseEnter={() => { pausedRef.current = true; }}
             onMouseLeave={() => { pausedRef.current = false; }}
-            style={{ display: "flex", gap: 10, overflowX: "auto", scrollSnapType: "x mandatory", margin: "0 -18px", padding: "0 18px 4px" }}
+            style={{ display: "flex", gap: 10, overflowX: "auto", scrollSnapType: "x mandatory", paddingBottom: 4 }}
           >
             {latestUpdates.map(u => (
               <Card key={u.id} onClick={() => setDetail(subsidyFromRow(u))} style={{ flexShrink: 0, width: "82%", scrollSnapAlign: "start", padding: "14px", cursor: "pointer" }}>
