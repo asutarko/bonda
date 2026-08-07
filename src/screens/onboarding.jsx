@@ -614,7 +614,7 @@ export function ChildProfileForm({ childCtx, onSaved, onCancel, onDeleted, showH
     if (photo) {
       let emojiValue = photo;
       if (emojiValue.startsWith("data:")) {
-        const url = await uploadPhoto(emojiValue, "children", userId);
+        const url = await uploadPhoto(emojiValue, "children", userId, activeChild.id);
         if (url) emojiValue = url;
       }
       patch.emoji = emojiValue;

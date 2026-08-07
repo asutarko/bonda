@@ -159,7 +159,7 @@ export function SubsidiesScreen({ pop, account }) {
     return [...schemes]
       .filter(s => s.last_changed_at || s.last_checked_at)
       .sort((a, b) => new Date(b.last_changed_at || b.last_checked_at) - new Date(a.last_changed_at || a.last_checked_at))
-      .slice(0, 10);
+      .slice(0, 4);
   }, [schemes]);
 
   const carouselStep = () => {
@@ -209,6 +209,15 @@ export function SubsidiesScreen({ pop, account }) {
     (support !== "all" ? 1 : 0) +
     (target !== "all" ? 1 : 0) +
     (means !== "any" ? 1 : 0);
+  const anyActive = filterCount > 0 || !!query;
+
+  // While the carousel is showing, hide the schemes it already features from
+  // the list below instead of repeating them.
+  const visibleSchemes = useMemo(() => {
+    if (anyActive || latestUpdates.length === 0) return filteredSchemes;
+    const featured = new Set(latestUpdates.map(u => u.id));
+    return filteredSchemes.filter(s => !featured.has(s.id));
+  }, [filteredSchemes, latestUpdates, anyActive]);
 
   const resetFilters = () => {
     setQuery(""); setRes("all"); setStage("any");
@@ -277,47 +286,7 @@ export function SubsidiesScreen({ pop, account }) {
       <h2 style={{ margin: "0 0 4px", color: T.ink, fontSize: 22, fontWeight: 800 }}>Subsidies & grants</h2>
       <p style={{ margin: "0 0 20px", color: T.inkSoft, fontSize: 14, lineHeight: 1.6 }}>Find the support your family may qualify for.</p>
 
-      {latestUpdates.length > 0 && (
-        <div style={{ marginBottom: 20 }}>
-          <p style={{ margin: "0 0 10px", fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: T.inkMuted }}>Recently updated</p>
-          <div
-            ref={trackRef}
-            onScroll={onCarouselScroll}
-            onTouchStart={() => { pausedRef.current = true; }}
-            onTouchEnd={() => { setTimeout(() => { pausedRef.current = false; }, 3500); }}
-            onMouseEnter={() => { pausedRef.current = true; }}
-            onMouseLeave={() => { pausedRef.current = false; }}
-            style={{ display: "flex", gap: 10, overflowX: "auto", scrollSnapType: "x mandatory", margin: "0 -18px", padding: "0 18px 4px" }}
-          >
-            {latestUpdates.map(u => (
-              <Card key={u.id} onClick={() => setDetail(subsidyFromRow(u))} style={{ flexShrink: 0, width: "82%", scrollSnapAlign: "start", padding: "14px", cursor: "pointer" }}>
-                <p style={{ margin: "0 0 4px", fontWeight: 800, color: T.ink, fontSize: 14.5, lineHeight: 1.35 }}>{u.label}</p>
-                <p style={{ margin: 0, color: T.inkMuted, fontSize: 11.5 }}>{u.org}</p>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 5, marginTop: 10, color: T.purple, fontSize: 12.5, fontWeight: 700 }}>
-                  See details <ExternalLinkIcon size={12} color={T.purple} />
-                </span>
-              </Card>
-            ))}
-          </div>
-          {latestUpdates.length > 1 && (
-            <div style={{ display: "flex", justifyContent: "center", gap: 5, marginTop: 10 }}>
-              {latestUpdates.map((_, i) => (
-                <span key={i} style={{ height: 5, width: i === slide ? 18 : 5, borderRadius: 99, background: i === slide ? T.purple : T.border, transition: "width .2s ease" }} />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      <div style={{ marginBottom: 20, background: T.greenL, border: `1px solid ${T.green}25`, borderRadius: T.rL, padding: "14px 16px" }}>
-        <p style={{ margin: "0 0 6px", color: T.green, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em" }}>Where to start</p>
-        <p style={{ margin: "0 0 12px", color: T.ink, fontSize: 13.5, lineHeight: 1.6 }}>If your child is under 7 — start with EIPIC. Fees can drop from $780 to as little as $5/month after subsidy.</p>
-        <a href="https://supportgowhere.life.gov.sg" target="_blank" rel="noreferrer" style={{ display: "block", background: T.purple, color: "white", borderRadius: T.r, padding: "10px", textDecoration: "none", fontSize: 13, fontWeight: 700, textAlign: "center" }}>🔍 Check SupportGoWhere.sg</a>
-      </div>
-
-      <SectionLabel style={{ marginBottom: 10 }}>All Schemes</SectionLabel>
-
-      <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
+      <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
         <label style={{ flex: 1, display: "flex", alignItems: "center", gap: 9, height: 46, padding: "0 14px", background: T.surface, border: `1.5px solid ${query ? T.purple : T.border}`, borderRadius: T.r, boxSizing: "border-box" }}>
           <SearchIcon size={17} color={T.inkMuted} />
           <input
@@ -353,7 +322,7 @@ export function SubsidiesScreen({ pop, account }) {
               <button onClick={resetFilters} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: T.surface, border: `1px solid ${T.border}`, borderRadius: 999, padding: "0 18px", height: 48, color: T.inkSoft, fontWeight: 700, fontSize: 13.5, cursor: "pointer", fontFamily: T.fontBody }}>
                 <ResetIcon size={14} color={T.inkSoft} /> Reset
               </button>
-              <Btn onClick={() => setShowFilters(false)} full style={{ borderRadius: 999, height: 48 }}>Show {filteredSchemes.length} {filteredSchemes.length === 1 ? "result" : "results"}</Btn>
+              <Btn onClick={() => setShowFilters(false)} full style={{ borderRadius: 999, height: 48 }}>Show {visibleSchemes.length} {visibleSchemes.length === 1 ? "result" : "results"}</Btn>
             </div>
           </div>
         </>
@@ -363,14 +332,65 @@ export function SubsidiesScreen({ pop, account }) {
         <p style={{ margin: 0, color: T.inkSoft, fontSize: 13 }}>Loading schemes...</p>
       ) : (
       <>
-        <p style={{ margin: "0 0 10px", color: T.inkMuted, fontSize: 12, fontWeight: 600 }}>{filteredSchemes.length} {filteredSchemes.length === 1 ? "result" : "results"}</p>
-        {filteredSchemes.length === 0 ? (
-          <Card style={{ background: T.greenL, border: `1px solid ${T.green}25` }}><p style={{ margin: 0, color: T.inkSoft, fontSize: 13 }}>No schemes match those filters.</p></Card>
-        ) : (
+      {!anyActive && latestUpdates.length > 0 && (
+        <div style={{ marginBottom: 20 }}>
+          <p style={{ margin: "0 0 10px", fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: T.inkMuted }}>Recently updated</p>
+          <div
+            ref={trackRef}
+            onScroll={onCarouselScroll}
+            onTouchStart={() => { pausedRef.current = true; }}
+            onTouchEnd={() => { setTimeout(() => { pausedRef.current = false; }, 3500); }}
+            onMouseEnter={() => { pausedRef.current = true; }}
+            onMouseLeave={() => { pausedRef.current = false; }}
+            style={{ display: "flex", gap: 10, overflowX: "auto", scrollSnapType: "x mandatory", margin: "0 -18px", padding: "0 18px 4px" }}
+          >
+            {latestUpdates.map(u => (
+              <Card key={u.id} onClick={() => setDetail(subsidyFromRow(u))} style={{ flexShrink: 0, width: "82%", scrollSnapAlign: "start", padding: "14px", cursor: "pointer" }}>
+                <p style={{ margin: "0 0 4px", fontWeight: 800, color: T.ink, fontSize: 14.5, lineHeight: 1.35 }}>{u.label}</p>
+                <p style={{ margin: 0, color: T.inkMuted, fontSize: 11.5 }}>{u.org}</p>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 5, marginTop: 10, color: T.purple, fontSize: 12.5, fontWeight: 700 }}>
+                  See details <ExternalLinkIcon size={12} color={T.purple} />
+                </span>
+              </Card>
+            ))}
+          </div>
+          {latestUpdates.length > 1 && (
+            <div style={{ display: "flex", justifyContent: "center", gap: 5, marginTop: 10 }}>
+              {latestUpdates.map((_, i) => (
+                <span key={i} style={{ height: 5, width: i === slide ? 18 : 5, borderRadius: 99, background: i === slide ? T.purple : T.border, transition: "width .2s ease" }} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+        <p style={{ margin: 0, color: T.inkMuted, fontSize: 12, fontWeight: 600 }}>{visibleSchemes.length} {visibleSchemes.length === 1 ? "scheme" : "schemes"} found</p>
+        {anyActive && (
+          <button onClick={resetFilters} style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "none", border: "none", color: T.purple, fontWeight: 700, fontSize: 12.5, cursor: "pointer", fontFamily: T.fontBody, padding: 0 }}>
+            <ResetIcon size={13} color={T.purple} /> Reset
+          </button>
+        )}
+      </div>
+
+      {target === "ASD" && (
+        <div style={{ marginBottom: 12, background: T.purpleL, border: `1px solid ${T.purple}30`, borderRadius: T.r, padding: "10px 14px" }}>
+          <p style={{ margin: 0, color: T.ink, fontSize: 12.5, lineHeight: 1.55 }}>A child or adult with autism qualifies for every scheme here — autism is recognised as a disability across these programmes.</p>
+        </div>
+      )}
+
+      {res === "Foreigner" && (
+        <div style={{ marginBottom: 12, background: T.canvas, border: `1px solid ${T.border}`, borderRadius: T.r, padding: "10px 14px" }}>
+          <p style={{ margin: 0, color: T.inkSoft, fontSize: 12.5, lineHeight: 1.55 }}>Most government subsidies are for citizens and PRs. Foreigners can still access special education school places (at full international fees) and private therapy. Speak to your child's school or a social worker about options.</p>
+        </div>
+      )}
+
+      {visibleSchemes.length === 0 ? (
+        <Card style={{ background: T.greenL, border: `1px solid ${T.green}25` }}><p style={{ margin: 0, color: T.inkSoft, fontSize: 13 }}>No schemes match those filters.</p></Card>
+      ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {filteredSchemes.map(s => {
+          {visibleSchemes.map(s => {
             const cat = categoryMeta(s);
-            const firstStep = (s.steps || [])[0];
             return (
               <Card key={s.id}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
@@ -381,7 +401,10 @@ export function SubsidiesScreen({ pop, account }) {
                   {s.badge && <span style={{ marginLeft: "auto", fontSize: 11, fontWeight: 600, color: T.inkMuted }}>{s.badge}</span>}
                 </div>
 
-                <p style={{ margin: "0 0 4px", fontWeight: 800, color: T.ink, fontSize: 15 }}>{s.label}</p>
+                <a href={`https://${s.website}`} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} style={{ display: "inline-flex", alignItems: "center", gap: 5, textDecoration: "none" }}>
+                  <p style={{ margin: "0 0 4px", fontWeight: 800, color: T.ink, fontSize: 15 }}>{s.label}</p>
+                  <ExternalLinkIcon size={12} color={T.inkMuted} />
+                </a>
                 {s.saving && <p style={{ margin: 0, color: T.inkSoft, fontSize: 13, lineHeight: 1.55 }}>{s.saving}</p>}
 
                 <div style={{ marginTop: 10, background: T.canvas, borderRadius: T.r, padding: "9px 12px", border: `1px solid ${T.border}` }}>
@@ -402,20 +425,6 @@ export function SubsidiesScreen({ pop, account }) {
                 {s.means_note && (
                   <p style={{ margin: "8px 0 0", color: T.inkMuted, fontSize: 12, lineHeight: 1.55 }}>ℹ️ {s.means_note}</p>
                 )}
-
-                <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${T.border}` }}>
-                  {firstStep && (
-                    <p style={{ margin: "0 0 8px", color: T.inkSoft, fontSize: 12.5, lineHeight: 1.55 }}>
-                      <span style={{ fontWeight: 700, color: T.ink }}>How to apply · </span>{firstStep}
-                    </p>
-                  )}
-                  <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-                    <a href={`https://${s.website}`} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} style={{ display: "inline-flex", alignItems: "center", gap: 5, color: T.purple, fontWeight: 700, fontSize: 12.5, textDecoration: "none" }}>
-                      Official page <ExternalLinkIcon size={12} color={T.purple} />
-                    </a>
-                    <button onClick={() => setDetail(subsidyFromRow(s))} style={{ background: "none", border: "none", color: T.inkMuted, fontWeight: 700, fontSize: 12.5, cursor: "pointer", fontFamily: T.fontBody, padding: 0 }}>Full guide ›</button>
-                  </div>
-                </div>
               </Card>
             );
           })}
