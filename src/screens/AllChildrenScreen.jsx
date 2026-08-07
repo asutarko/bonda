@@ -17,8 +17,13 @@ const ageFromDob = dob => {
   return `${years} yr`;
 };
 
+// Hard cap on child profiles per account, counting every profile regardless
+// of active/pending status.
+const MAX_CHILDREN = 6;
+
 export function AllChildrenScreen({ childCtx, pop, setTab, push }) {
   const { children, activeChild, switchChild } = childCtx;
+  const atLimit = children.length >= MAX_CHILDREN;
 
   const openChild = (id) => {
     switchChild(id);
@@ -60,7 +65,11 @@ export function AllChildrenScreen({ childCtx, pop, setTab, push }) {
         </div>
       )}
 
-      <Btn onClick={() => push("addChild")} style={{ marginTop: 16, borderRadius: 999 }} full>+ Add a child profile</Btn>
+      {atLimit ? (
+        <p style={{ margin: "16px 0 0", color: T.inkMuted, fontSize: 12, textAlign: "center", lineHeight: 1.6 }}>You've reached the maximum of {MAX_CHILDREN} child profiles.</p>
+      ) : (
+        <Btn onClick={() => push("addChild")} style={{ marginTop: 16, borderRadius: 999 }} full>+ Add a child profile</Btn>
+      )}
     </Page>
   );
 }
