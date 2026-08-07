@@ -69,6 +69,7 @@ const QUICK_TONES = {
   devGuide:  { bg: T.violetL, fg: T.violet },
   emotions:  { bg: T.tealL,   fg: T.teal },
   foster:    { bg: T.slateL,  fg: T.slate },
+  allTools:  { bg: T.border,  fg: T.inkSoft },
 };
 
 const QuickIcon = ({ type, size = 22, color }) => {
@@ -81,6 +82,7 @@ const QuickIcon = ({ type, size = 22, color }) => {
     devGuide: <><path d="M3 17 9 11l4 4 8-8" {...p} /><path d="M16.5 7H21v4.5" {...p} /></>,
     emotions: <><circle cx="12" cy="12" r="9" {...p} /><path d="M8.4 14.4s1.3 2 3.6 2 3.6-2 3.6-2" {...p} /><path d="M9 9.6h.01M15 9.6h.01" {...p} /></>,
     foster: <><path d="M12 3l7 3v5c0 4.6-3 7.6-7 9-4-1.4-7-4.4-7-9V6Z" {...p} /><path d="m9 12 2 2 4-4" {...p} /></>,
+    allTools: <><rect x="3" y="3" width="7.5" height="7.5" rx="2" fill={color} /><rect x="13.5" y="3" width="7.5" height="7.5" rx="2" fill={color} /><rect x="3" y="13.5" width="7.5" height="7.5" rx="2" fill={color} /><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="2" fill={color} /></>,
   };
   return <svg width={size} height={size} viewBox="0 0 24 24" style={{ display: "block" }}>{paths[type]}</svg>;
 };
@@ -92,7 +94,6 @@ export function HomeScreen({ childCtx, setTab, push, account }) {
   const [seen, setSeen] = useState([]);
   const [fade, setFade] = useState(true);
   const [paused, setPaused] = useState(false);
-  const [banner, setBanner] = useState("");
 
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("all");
@@ -109,11 +110,6 @@ export function HomeScreen({ childCtx, setTab, push, account }) {
       setQIdx(Math.floor(Math.random() * data.length));
       setSeen([]);
     }
-  };
-
-  const loadBanner = async () => {
-    const { data } = await supabase.from("home_banner").select("message").eq("active", true).order("created_at").limit(1).maybeSingle();
-    if (data?.message) setBanner(data.message);
   };
 
   // Latest Articles: populated automatically by the fetch-articles Edge
@@ -135,7 +131,7 @@ export function HomeScreen({ childCtx, setTab, push, account }) {
     }
   };
 
-  useEffect(() => { loadQuotes(); loadBanner(); loadArticles(); }, []);
+  useEffect(() => { loadQuotes(); loadArticles(); }, []);
 
   useEffect(() => {
     if (paused || quotes.length < 2) return;
@@ -289,10 +285,21 @@ export function HomeScreen({ childCtx, setTab, push, account }) {
                 <span style={{ width: 44, height: 44, borderRadius: 12, background: tone.bg, display: "grid", placeItems: "center", flexShrink: 0 }}>
                   <QuickIcon type={a.type} size={22} color={tone.fg} />
                 </span>
-                <span style={{ fontSize: 11.5, fontWeight: 600, color: T.ink, textAlign: "center", lineHeight: 1.15 }}>{a.label}</span>
+                <span style={{ fontFamily: T.fontDisplay, fontSize: 11.5, fontWeight: 600, color: T.ink, textAlign: "center", lineHeight: 1.15 }}>{a.label}</span>
               </button>
             );
           })}
+
+          {/* TODO: wire onClick once the "All Tools" destination screen exists. */}
+          <button
+            title="Browse every tool"
+            style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: T.rL, padding: "14px 8px 12px", display: "flex", flexDirection: "column", alignItems: "center", gap: 9, cursor: "pointer", fontFamily: T.fontBody }}
+          >
+            <span style={{ width: 44, height: 44, borderRadius: 12, background: QUICK_TONES.allTools.bg, display: "grid", placeItems: "center", flexShrink: 0 }}>
+              <QuickIcon type="allTools" size={22} color={QUICK_TONES.allTools.fg} />
+            </span>
+            <span style={{ fontFamily: T.fontDisplay, fontSize: 11.5, fontWeight: 600, color: T.ink, textAlign: "center", lineHeight: 1.15 }}>All tools</span>
+          </button>
         </div>
       )}
 
@@ -314,11 +321,6 @@ export function HomeScreen({ childCtx, setTab, push, account }) {
         </div>
       )}
 
-      {banner && (
-        <div style={{ marginTop: 16, padding: "14px 16px", background: T.greenL, borderRadius: T.r, border: `1px solid ${T.green}25` }}>
-          <p style={{ margin: 0, color: T.green, fontSize: 12, fontWeight: 700, lineHeight: 1.7 }}>{banner}</p>
-        </div>
-      )}
 
 
       <SectionLabel style={{ marginTop: 28, marginBottom: 10 }}>Latest Articles</SectionLabel>

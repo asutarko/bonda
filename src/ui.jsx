@@ -145,7 +145,7 @@ export const Page = ({ children, style = {} }) => (
 
 export const SectionLabel = ({ children, action, style = {} }) => (
   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, ...style }}>
-    <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: T.inkMuted, textTransform: "uppercase", letterSpacing: "0.08em" }}>{children}</p>
+    <p style={{ margin: 0, fontFamily: T.fontDisplay, fontSize: 11, fontWeight: 700, color: T.inkMuted, textTransform: "uppercase", letterSpacing: "0.08em" }}>{children}</p>
     {action}
   </div>
 );
