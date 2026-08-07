@@ -17,12 +17,6 @@ const ageFromDob = dob => {
   return `${years} yr`;
 };
 
-// Small local copy of onboarding's CAREGIVER_TYPE_LABELS — duplicated for the
-// same lazy-chunk-weight reason as ageFromDob above.
-const CAREGIVER_TYPE_LABELS = { biological: "Biological or Adoptive Parent", foster: "Foster Parent", grandparent: "Grandparent / Extended Family" };
-
-const relationshipLabel = c => c.caregiverType === "other" ? (c.caregiverLabel || "Other Caregiver") : (CAREGIVER_TYPE_LABELS[c.caregiverType] || "");
-
 export function AllChildrenScreen({ childCtx, pop, setTab, push }) {
   const { children, activeChild, switchChild } = childCtx;
 
@@ -53,9 +47,6 @@ export function AllChildrenScreen({ childCtx, pop, setTab, push }) {
                 <ChildAvatar value={c.emoji} size={46} active={isSelected} borderColor={isSelected ? T.purple : "transparent"} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p style={{ margin: 0, fontWeight: 700, fontSize: 14, color: T.ink }}>{c.name}</p>
-                  {relationshipLabel(c) && (
-                    <p style={{ margin: "2px 0 0", fontSize: 11.5, color: T.inkMuted }}>{relationshipLabel(c)}</p>
-                  )}
                   <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3 }}>
                     {ageFromDob(c.dob) && <span style={{ fontSize: 11, color: T.inkMuted }}>{ageFromDob(c.dob)}</span>}
                     <span style={{ background: c.active ? T.greenL : T.redL, color: c.active ? T.green : T.red, fontSize: 10.5, fontWeight: 700, padding: "2px 8px", borderRadius: 99 }}>
