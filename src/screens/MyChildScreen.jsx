@@ -423,7 +423,7 @@ export function MyChildScreen({ childCtx, push }) {
         {ageFromDob(activeChild.dob) && (
           <span style={{ background: T.purpleL, color: T.purple, fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 99 }}>{ageFromDob(activeChild.dob)}</span>
         )}
-        <span style={{ background: activeChild.active ? T.greenL : T.amberL, color: activeChild.active ? T.green : T.amber, fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 99 }}>{activeChild.active ? "Active" : "Pending approval"}</span>
+        <span style={{ background: activeChild.active ? T.greenL : T.amberL, color: activeChild.active ? T.green : T.amber, fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 99 }}>{activeChild.active ? "Active" : "Inactive"}</span>
       </div>
 
       {children?.length > 1 && (

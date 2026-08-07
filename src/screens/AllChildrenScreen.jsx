@@ -55,7 +55,7 @@ export function AllChildrenScreen({ childCtx, pop, setTab, push }) {
                   <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3 }}>
                     {ageFromDob(c.dob) && <span style={{ fontSize: 11, color: T.inkMuted }}>{ageFromDob(c.dob)}</span>}
                     <span style={{ background: c.active ? T.greenL : T.redL, color: c.active ? T.green : T.red, fontSize: 10.5, fontWeight: 700, padding: "2px 8px", borderRadius: 99 }}>
-                      {c.active ? "Active" : "Pending approval"}
+                      {c.active ? "Active" : "Inactive"}
                     </span>
                   </div>
                 </div>
