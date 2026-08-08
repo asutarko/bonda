@@ -115,9 +115,65 @@ export const ALARM_TONES = [
   },
 ];
 
+// Local calendar-date key (Y-M-D), not UTC — a UTC-based key would land on
+// the wrong day for any timezone ahead of UTC, breaking calendar matching.
+const dateKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const startOfDay = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
+const MONTHS_FULL = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const WEEKDAYS = ["M", "T", "W", "T", "F", "S", "S"];
+
+const rowMenuBtn = { width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", border: "none", background: "none", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody, textAlign: "left" };
+
+function DoneDot({ state }) {
+  if (state === "done") return <div style={{ width: 24, height: 24, borderRadius: "50%", background: T.green, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><span style={{ color: "#fff", fontSize: 12, fontWeight: 900 }}>✓</span></div>;
+  if (state === "skip") return <div style={{ width: 24, height: 24, borderRadius: "50%", border: `1.5px solid ${T.border}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><span style={{ color: T.inkMuted, fontSize: 14, fontWeight: 900, lineHeight: 1 }}>–</span></div>;
+  return <div style={{ width: 24, height: 24, borderRadius: "50%", border: `1.5px solid ${T.border}`, flexShrink: 0 }} />;
+}
+
+// A single schedule item row — essentials (from the default schedule) get a
+// "…" menu with edit/skip; items the parent added get inline edit/delete.
+function ScheduleRow({ item, essential, done, skipped, onToggle, menuOpen, onMenuToggle, onEdit, onSkip, onDelete }) {
+  const state = skipped ? "skip" : done ? "done" : "todo";
+  return (
+    <div style={{ position: "relative" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 2px", opacity: skipped ? 0.55 : 1 }}>
+        <button onClick={() => !skipped && onToggle()} disabled={skipped} style={{ border: "none", background: "none", padding: 0, cursor: skipped ? "default" : "pointer", display: "flex" }} aria-label={done ? "Mark not done" : "Mark done"}>
+          <DoneDot state={state} />
+        </button>
+        <span style={{ fontSize: 22, flexShrink: 0, lineHeight: 1 }}>{item.emoji}</span>
+        <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 700, color: done ? T.inkMuted : T.ink, textDecoration: done ? "line-through" : "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.label}</span>
+        {skipped ? <Badge color={T.inkMuted}>skipped</Badge> : <Badge color={T.purple}>{item.time}</Badge>}
+        {essential ? (
+          <button onClick={onMenuToggle} style={{ border: "none", background: "none", cursor: "pointer", padding: "2px 4px", fontSize: 18, fontWeight: 900, color: T.inkMuted, lineHeight: 1 }} aria-label="Options">⋯</button>
+        ) : (
+          <div style={{ display: "flex", gap: 5, flexShrink: 0 }}>
+            <button onClick={onEdit} style={{ background: T.border, border: "none", borderRadius: 8, padding: "5px 8px", cursor: "pointer", fontSize: 12 }}>✏️</button>
+            <button onClick={onDelete} style={{ background: T.redL, border: "none", borderRadius: 8, padding: "5px 8px", cursor: "pointer", fontSize: 12 }}>🗑️</button>
+          </div>
+        )}
+      </div>
+
+      {menuOpen && (
+        <div style={{ margin: "2px 0 6px 34px", border: `1px solid ${T.border}`, borderRadius: 12, overflow: "hidden", background: T.surface, boxShadow: T.shadowM }}>
+          <button onClick={onEdit} style={{ ...rowMenuBtn, color: T.ink }}>✏️ Edit</button>
+          <div style={{ height: 1, background: T.border }} />
+          <button onClick={onSkip} style={{ ...rowMenuBtn, color: T.ink }}>{skipped ? "↩ Un-skip today" : "⏭ Skip for today"}</button>
+          <div style={{ height: 1, background: T.border }} />
+          <div style={{ ...rowMenuBtn, cursor: "default", color: T.inkMuted, fontSize: 12 }}>🔒 Essential · can't remove</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ScheduleScreen({ childCtx, push }) {
   const { activeChild, updateChild, children } = childCtx;
-  const [scheduleView, setScheduleView] = useState("today");
+  const [scheduleView, setScheduleView] = useState("today"); // "today" | "month"
+  const [monthCur, setMonthCur] = useState(() => { const t = new Date(); return { y: t.getFullYear(), m: t.getMonth() }; });
+  const [selectedEntry, setSelectedEntry] = useState(null);
+  const [kidView, setKidView] = useState(false);
+  const [skippedToday, setSkippedToday] = useState([]);
+  const [menuFor, setMenuFor] = useState(null);
   const [editing, setEditing] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
   const [newItem, setNewItem] = useState({ emoji: "⭐", label: "", time: "08:00" });
@@ -140,6 +196,8 @@ export function ScheduleScreen({ childCtx, push }) {
   useBackHandler(showAlarmSettings, () => setShowAlarmSettings(false));
   useBackHandler(showAdd, () => { setShowAdd(false); setShowEmojiPicker(false); });
   useBackHandler(!!editing, () => { setEditing(null); setShowEmojiPicker(false); });
+  useBackHandler(kidView, () => setKidView(false));
+  useBackHandler(!!selectedEntry, () => setSelectedEntry(null));
 
   const saveAlarm = (on, vol, tone) => {
     try {
@@ -229,14 +287,31 @@ export function ScheduleScreen({ childCtx, push }) {
 
   const items = activeChild.scheduleItems || DEFAULT_SCHEDULE;
   const history = activeChild.history || [];
-  const sorted = [...items].sort((a, b) => a.time.localeCompare(b.time));
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const today = startOfDay(new Date());
+  const todayStr = dateKey(today);
   // Checkmarks are pinned to today's date — a new day starts unchecked even if "Save Day" was skipped.
   const done = activeChild.todayDoneDate === todayStr ? activeChild.todayDone || {} : {};
-  const completedCount = items.filter(i => done[i.id]).length;
-  const progress = items.length ? Math.round((completedCount / items.length) * 100) : 0;
+
+  // "Essentials" are the default schedule's items (locked, can't be deleted — only
+  // edited or skipped for the day); anything the parent added on top is removable.
+  const isEssential = item => DEFAULT_SCHEDULE.some(d => d.id === item.id);
+  const sorted = [...items].sort((a, b) => a.time.localeCompare(b.time));
+  const essentials = sorted.filter(isEssential);
+  const added = sorted.filter(i => !isEssential(i));
+
+  const activeItems = items.filter(i => !skippedToday.includes(i.id));
+  const completedCount = activeItems.filter(i => done[i.id]).length;
+  const progress = activeItems.length ? Math.round((completedCount / activeItems.length) * 100) : 0;
 
   const toggleDone = id => updateChild(activeChild.id, { todayDone: { ...done, [id]: !done[id] }, todayDoneDate: todayStr });
+
+  // Skip is a today-only, local override (not persisted) — it clears each reload,
+  // matching the "for today" scope of the action.
+  const skipToggle = id => {
+    setSkippedToday(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
+    if (done[id]) toggleDone(id);
+    setMenuFor(null);
+  };
 
   const addItem = () => {
     if (!newItem.label.trim()) return;
@@ -247,7 +322,7 @@ export function ScheduleScreen({ childCtx, push }) {
 
   const deleteItem = id => updateChild(activeChild.id, { scheduleItems: items.filter(i => i.id !== id) });
 
-  const startEdit = item => { setEditing(item.id); setEditData({ ...item }); };
+  const startEdit = item => { setEditing(item.id); setEditData({ ...item }); setMenuFor(null); };
   const saveEdit = () => {
     updateChild(activeChild.id, { scheduleItems: items.map(i => i.id === editing ? { ...editData } : i) });
     setEditing(null);
@@ -256,13 +331,69 @@ export function ScheduleScreen({ childCtx, push }) {
   const saveDay = () => {
     const entry = {
       id: Date.now().toString(),
+      isoDate: todayStr,
       date: new Date().toLocaleDateString("en-SG", { weekday: "short", day: "numeric", month: "short", year: "numeric" }),
-      total: items.length, completedCount,
-      completed: items.filter(i => done[i.id]).map(i => ({ emoji: i.emoji, label: i.label, time: i.time })),
-      missed: items.filter(i => !done[i.id]).map(i => ({ emoji: i.emoji, label: i.label, time: i.time })),
+      total: activeItems.length, completedCount,
+      completed: activeItems.filter(i => done[i.id]).map(i => ({ emoji: i.emoji, label: i.label, time: i.time })),
+      missed: activeItems.filter(i => !done[i.id]).map(i => ({ emoji: i.emoji, label: i.label, time: i.time })),
     };
     updateChild(activeChild.id, { history: [entry, ...history].slice(0, 30), todayDone: {}, todayDoneDate: todayStr });
+    setSkippedToday([]);
     alert("✅ Day saved!");
+  };
+
+  // Kid view — the single next thing to do, in order, across essentials + added.
+  const kidList = [...essentials, ...added].filter(i => !skippedToday.includes(i.id)).sort((a, b) => a.time.localeCompare(b.time));
+  const nextKidItem = kidList.find(i => !done[i.id]);
+  const nextKidIdx = nextKidItem ? kidList.findIndex(i => i.id === nextKidItem.id) : -1;
+  const thenItem = nextKidIdx >= 0 ? kidList[nextKidIdx + 1] : null;
+
+  // Month calendar
+  const { y: monthY, m: monthM } = monthCur;
+  const onThisMonth = monthY === today.getFullYear() && monthM === today.getMonth();
+  const prevMonth = () => setMonthCur(({ y, m }) => (m === 0 ? { y: y - 1, m: 11 } : { y, m: m - 1 }));
+  const nextMonth = () => setMonthCur(({ y, m }) => (m === 11 ? { y: y + 1, m: 0 } : { y, m: m + 1 }));
+  const monthFirst = new Date(monthY, monthM, 1);
+  const monthLead = (monthFirst.getDay() + 6) % 7; // Monday-start
+  const monthDays = new Date(monthY, monthM + 1, 0).getDate();
+  const monthCells = [];
+  for (let i = 0; i < monthLead; i++) monthCells.push(null);
+  for (let d = 1; d <= monthDays; d++) monthCells.push(new Date(monthY, monthM, d));
+
+  const dayStatus = (d, entry, isToday) => {
+    if (isToday) return activeItems.length === 0 ? "none" : completedCount === 0 ? "none" : completedCount >= activeItems.length ? "full" : "partial";
+    if (!entry) return "none";
+    if (entry.total === 0 || entry.completedCount === 0) return "rest";
+    return entry.completedCount >= entry.total ? "full" : "partial";
+  };
+
+  const renderItem = (item, essential) => {
+    if (editing === item.id) {
+      return (
+        <Card key={item.id} style={{ background: T.purpleL }}>
+          <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+            <button onClick={() => setShowEmojiPicker(!showEmojiPicker)} style={{ fontSize: 24, background: T.surface, border: `1.5px solid ${T.border}`, borderRadius: T.r, padding: "6px 10px", cursor: "pointer" }}>{editData.emoji}</button>
+            <input value={editData.label} onChange={e => setEditData({ ...editData, label: e.target.value })} style={{ flex: 1, minWidth: 0, boxSizing: "border-box", padding: "8px 12px", borderRadius: T.r, border: `1.5px solid ${T.purple}`, fontSize: 14, fontFamily: T.fontBody, color: T.ink, background: T.surface, outline: "none" }} />
+            <input type="time" value={editData.time} onChange={e => setEditData({ ...editData, time: e.target.value })} style={{ flexShrink: 0, boxSizing: "border-box", padding: "8px 10px", borderRadius: T.r, border: `1.5px solid ${T.purple}`, fontSize: 13, fontFamily: T.fontBody, color: T.ink, background: T.surface, outline: "none", width: 88 }} />
+          </div>
+          {showEmojiPicker && <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: 10, background: T.surface, borderRadius: T.r, marginBottom: 10 }}>{EMOJI_OPTS.map(e => <button key={e} onClick={() => { setEditData({ ...editData, emoji: e }); setShowEmojiPicker(false); }} style={{ fontSize: 20, background: "none", border: "none", cursor: "pointer", borderRadius: 8, padding: 3 }}>{e}</button>)}</div>}
+          <div style={{ display: "flex", gap: 8 }}>
+            <Btn onClick={saveEdit} style={{ flex: 1 }}>Save</Btn>
+            <Btn onClick={() => setEditing(null)} secondary style={{ flex: 1 }}>Cancel</Btn>
+          </div>
+        </Card>
+      );
+    }
+    return (
+      <ScheduleRow key={item.id} item={item} essential={essential} done={!!done[item.id]} skipped={skippedToday.includes(item.id)}
+        onToggle={() => toggleDone(item.id)}
+        menuOpen={menuFor === item.id}
+        onMenuToggle={() => setMenuFor(menuFor === item.id ? null : item.id)}
+        onEdit={() => startEdit(item)}
+        onSkip={() => skipToggle(item.id)}
+        onDelete={() => deleteItem(item.id)}
+      />
+    );
   };
 
   return (
@@ -274,6 +405,10 @@ export function ScheduleScreen({ childCtx, push }) {
           <p style={{ margin: "0 0 2px", fontWeight: 800, color: T.purple, fontSize: 16 }}>{activeChild.name}'s Schedule</p>
           {children.length > 1 && <p style={{ margin: 0, color: T.inkMuted, fontSize: 12 }}>Switch child on Home tab</p>}
         </div>
+
+        <button onClick={() => setScheduleView(v => v === "month" ? "today" : "month")} style={{ width: 40, height: 40, borderRadius: T.r, background: scheduleView === "month" ? T.purple : T.border, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 18, transition: "background 0.2s" }} title="Calendar view">
+          📅
+        </button>
 
         <button onClick={() => setShowAlarmSettings(!showAlarmSettings)} style={{ width: 40, height: 40, borderRadius: T.r, background: alarmOn ? T.purple : T.border, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "background 0.2s" }} title="Alarm Settings">
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -376,14 +511,11 @@ export function ScheduleScreen({ childCtx, push }) {
       )}
 
 
-      <div style={{ display: "flex", background: T.border, borderRadius: T.r, padding: 3, gap: 3, marginBottom: 20 }}>
-        {[["today","Today"],["history",`History${history.length ? ` (${history.length})` : ""}`]].map(([v, l]) => (
-          <button key={v} onClick={() => setScheduleView(v)} style={{ flex: 1, padding: "10px", borderRadius: 9, background: scheduleView === v ? T.surface : "transparent", border: "none", fontWeight: 700, fontSize: 13, color: scheduleView === v ? T.ink : T.inkMuted, cursor: "pointer", fontFamily: T.fontBody, boxShadow: scheduleView === v ? T.shadow : "none" }}>{l}</button>
-        ))}
-      </div>
-
       {scheduleView === "today" && (
         <>
+          <button onClick={() => setKidView(true)} style={{ width: "100%", marginBottom: 16, background: T.greenL, color: T.green, border: "none", borderRadius: T.r, padding: "11px 12px", fontWeight: 800, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, cursor: "pointer", fontFamily: T.fontBody }}>
+            😊 Open kid view
+          </button>
 
           <Card style={{ marginBottom: 20 }}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
@@ -393,46 +525,21 @@ export function ScheduleScreen({ childCtx, push }) {
             <div style={{ height: 6, background: T.border, borderRadius: 99, overflow: "hidden" }}>
               <div style={{ height: "100%", width: `${progress}%`, background: T.purple, borderRadius: 99, transition: "width 0.4s ease" }} />
             </div>
-            <p style={{ margin: "8px 0 0", color: T.inkMuted, fontSize: 12 }}>{completedCount} of {items.length} activities done</p>
+            <p style={{ margin: "8px 0 0", color: T.inkMuted, fontSize: 12 }}>{completedCount} of {activeItems.length} activities done</p>
           </Card>
 
-
-          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
-            {sorted.map(item => editing === item.id ? (
-              <Card key={item.id} style={{ background: T.purpleL }}>
-                <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-                  <button onClick={() => setShowEmojiPicker(!showEmojiPicker)} style={{ fontSize: 24, background: T.surface, border: `1.5px solid ${T.border}`, borderRadius: T.r, padding: "6px 10px", cursor: "pointer" }}>{editData.emoji}</button>
-                  <input value={editData.label} onChange={e => setEditData({ ...editData, label: e.target.value })} style={{ flex: 1, minWidth: 0, boxSizing: "border-box", padding: "8px 12px", borderRadius: T.r, border: `1.5px solid ${T.purple}`, fontSize: 14, fontFamily: T.fontBody, color: T.ink, background: T.surface, outline: "none" }} />
-                  <input type="time" value={editData.time} onChange={e => setEditData({ ...editData, time: e.target.value })} style={{ flexShrink: 0, boxSizing: "border-box", padding: "8px 10px", borderRadius: T.r, border: `1.5px solid ${T.purple}`, fontSize: 13, fontFamily: T.fontBody, color: T.ink, background: T.surface, outline: "none", width: 88 }} />
-                </div>
-                {showEmojiPicker && <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: 10, background: T.surface, borderRadius: T.r, marginBottom: 10 }}>{EMOJI_OPTS.map(e => <button key={e} onClick={() => { setEditData({ ...editData, emoji: e }); setShowEmojiPicker(false); }} style={{ fontSize: 20, background: "none", border: "none", cursor: "pointer", borderRadius: 8, padding: 3 }}>{e}</button>)}</div>}
-                <div style={{ display: "flex", gap: 8 }}>
-                  <Btn onClick={saveEdit} style={{ flex: 1 }}>Save</Btn>
-                  <Btn onClick={() => setEditing(null)} secondary style={{ flex: 1 }}>Cancel</Btn>
-                </div>
-              </Card>
-            ) : (
-              <Card key={item.id} onClick={() => toggleDone(item.id)} style={{ background: done[item.id] ? T.greenL : T.surface, border: `1px solid ${done[item.id] ? T.green + "40" : T.border}` }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <span style={{ fontSize: 28 }}>{item.emoji}</span>
-                  <div style={{ flex: 1 }}>
-                    <p style={{ margin: "0 0 2px", fontWeight: 700, color: T.ink, fontSize: 14, textDecoration: done[item.id] ? "line-through" : "none", opacity: done[item.id] ? 0.5 : 1 }}>{item.label}</p>
-                    <p style={{ margin: 0, color: T.inkMuted, fontSize: 12 }}>{item.time}</p>
-                  </div>
-                  <div style={{ display: "flex", gap: 6 }} onClick={e => e.stopPropagation()}>
-                    <button onClick={() => startEdit(item)} style={{ background: T.border, border: "none", borderRadius: 8, padding: "5px 9px", cursor: "pointer", fontSize: 13 }}>✏️</button>
-                    <button onClick={() => deleteItem(item.id)} style={{ background: T.redL, border: "none", borderRadius: 8, padding: "5px 9px", cursor: "pointer", fontSize: 13 }}>🗑️</button>
-                  </div>
-                  <div style={{ width: 24, height: 24, borderRadius: "50%", background: done[item.id] ? T.green : T.border, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "background 0.2s" }}>
-                    {done[item.id] && <span style={{ color: "white", fontSize: 12, fontWeight: 900 }}>✓</span>}
-                  </div>
-                </div>
-              </Card>
-            ))}
+          <SectionLabel action={<span style={{ display: "flex", alignItems: "center", gap: 3, fontFamily: T.fontBody, fontSize: 11, fontWeight: 700, color: T.inkMuted, textTransform: "none", letterSpacing: 0 }}>🔒 fixed</span>}>Essentials</SectionLabel>
+          <div style={{ display: "flex", flexDirection: "column", gap: 2, marginBottom: 18 }}>
+            {essentials.map(item => renderItem(item, true))}
+            {essentials.length === 0 && <p style={{ color: T.inkMuted, fontSize: 12, margin: 0 }}>No essentials set up.</p>}
           </div>
 
+          <SectionLabel>Added by you</SectionLabel>
+          <div style={{ display: "flex", flexDirection: "column", gap: 2, marginBottom: 12 }}>
+            {added.map(item => renderItem(item, false))}
+          </div>
 
-          {showAdd && (
+          {showAdd ? (
             <Card style={{ background: T.purpleL, marginBottom: 10 }}>
               <p style={{ margin: "0 0 10px", fontWeight: 800, color: T.purple, fontSize: 14 }}>New Activity</p>
               <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
@@ -441,74 +548,150 @@ export function ScheduleScreen({ childCtx, push }) {
                 <input type="time" value={newItem.time} onChange={e => setNewItem({ ...newItem, time: e.target.value })} style={{ flexShrink: 0, boxSizing: "border-box", padding: "8px 8px", borderRadius: T.r, border: `1.5px solid ${T.purple}`, fontSize: 13, fontFamily: T.fontBody, color: T.ink, outline: "none", width: 88, background: T.surface }} />
               </div>
               {showEmojiPicker && <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: 10, background: T.surface, borderRadius: T.r, marginBottom: 10 }}>{EMOJI_OPTS.map(e => <button key={e} onClick={() => { setNewItem({ ...newItem, emoji: e }); setShowEmojiPicker(false); }} style={{ fontSize: 20, background: "none", border: "none", cursor: "pointer", borderRadius: 8, padding: 3 }}>{e}</button>)}</div>}
+              <p style={{ margin: "0 0 10px", color: T.inkMuted, fontSize: 11, lineHeight: 1.5 }}>You can edit or remove this anytime — it's yours, not an essential.</p>
               <div style={{ display: "flex", gap: 8 }}>
                 <Btn onClick={addItem} style={{ flex: 1 }}>Add ✓</Btn>
                 <Btn onClick={() => setShowAdd(false)} secondary style={{ flex: 1 }}>Cancel</Btn>
               </div>
             </Card>
+          ) : (
+            <button onClick={() => setShowAdd(true)} style={{ width: "100%", margin: "2px 0 16px", border: `1.5px dashed ${T.border}`, background: "none", color: T.ink, borderRadius: T.r, padding: "11px", fontWeight: 700, fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontFamily: T.fontBody }}>+ Add activity</button>
           )}
 
-          <div style={{ display: "flex", gap: 10 }}>
-            <Btn onClick={() => setShowAdd(!showAdd)} secondary style={{ flex: 1 }}>{showAdd ? "✕ Cancel" : "+ Add Activity"}</Btn>
-            <Btn onClick={saveDay} style={{ flex: 1, background: T.green }}>💾 Save Day</Btn>
+          <div style={{ margin: "4px 0 16px", background: T.purpleL, borderRadius: T.r, padding: "12px 14px", display: "flex", gap: 10 }}>
+            <span style={{ fontSize: 18 }}>🌱</span>
+            <p style={{ margin: 0, fontSize: 12, color: T.purple, fontWeight: 600, lineHeight: 1.5 }}>Every day you keep the rhythm, {activeChild.name}'s day feels a little safer and transitions get easier.</p>
           </div>
-          <p style={{ color: T.inkMuted, fontSize: 11, textAlign: "center", marginTop: 10 }}>Tap "Save Day" at end of day to record to history</p>
+
+          <Btn onClick={saveDay} full style={{ background: T.green }}>💾 Save Day</Btn>
+          <p style={{ color: T.inkMuted, fontSize: 11, textAlign: "center", marginTop: 10 }}>Tap "Save Day" at end of day to record to the calendar</p>
         </>
       )}
 
-      {scheduleView === "history" && (
-        history.length === 0 ? (
-          <div style={{ textAlign: "center", padding: "40px 20px" }}>
-            <div style={{ marginBottom: 20, display: "flex", justifyContent: "center" }}>
-              <svg width="96" height="96" viewBox="0 0 96 96" fill="none">
-                <circle cx="48" cy="48" r="42" fill={T.purpleL} opacity="0.7"/>
-                <rect x="22" y="26" width="52" height="46" rx="7" fill={T.surface} stroke={T.purple} strokeWidth="1.4"/>
-                <path d="M34 26 L34 32 M62 26 L62 32" stroke={T.purple} strokeWidth="1.6" strokeLinecap="round"/>
-                <path d="M22 40 L74 40" stroke={T.purple} strokeWidth="1" strokeLinecap="round" opacity="0.3"/>
-                <rect x="30" y="49" width="16" height="14" rx="3" fill={T.purpleL} stroke={T.purple} strokeWidth="1.2"/>
-                <path d="M33 56 L36 59 L42 53" stroke={T.purple} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" opacity="0.5"/>
-                <rect x="52" y="49" width="16" height="14" rx="3" fill={T.border}/>
-                <path d="M56 56 L64 56 M56 60 L62 60" stroke={T.inkMuted} strokeWidth="1.2" strokeLinecap="round" opacity="0.4"/>
-
-                <circle cx="74" cy="26" r="8" fill={T.amber} opacity="0.9"/>
-                <path d="M70.5 26 L77.5 26 M74 22.5 L74 29.5" stroke="white" strokeWidth="1.6" strokeLinecap="round"/>
-              </svg>
+      {scheduleView === "month" && (
+        <>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+            <button onClick={prevMonth} style={{ border: "none", background: T.border, cursor: "pointer", width: 34, height: 34, borderRadius: 10, fontSize: 15, fontWeight: 800, color: T.inkMuted }}>‹</button>
+            <div style={{ textAlign: "center" }}>
+              <p style={{ margin: 0, fontWeight: 800, color: T.ink, fontSize: 15 }}>{MONTHS_FULL[monthM]} {monthY}</p>
+              <p style={{ margin: "2px 0 0", color: T.inkMuted, fontSize: 11 }}>{history.length} day{history.length === 1 ? "" : "s"} recorded</p>
             </div>
-            <p style={{ fontWeight: 800, color: T.ink, fontSize: 16, margin: "0 0 8px" }}>No records yet</p>
-            <p style={{ color: T.inkSoft, fontSize: 13, lineHeight: 1.7, maxWidth: 240, margin: "0 auto" }}>Complete today's schedule and tap <strong style={{ color: T.purple }}>"Save Day"</strong> to start tracking your child's history.</p>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              {!onThisMonth && <button onClick={() => setMonthCur({ y: today.getFullYear(), m: today.getMonth() })} style={{ border: "none", background: T.purpleL, color: T.purple, fontSize: 11, fontWeight: 800, padding: "6px 10px", borderRadius: 99, cursor: "pointer", fontFamily: T.fontBody }}>Today</button>}
+              <button onClick={nextMonth} disabled={onThisMonth} style={{ border: "none", background: T.border, cursor: onThisMonth ? "default" : "pointer", width: 34, height: 34, borderRadius: 10, fontSize: 15, fontWeight: 800, color: onThisMonth ? T.border : T.inkMuted, opacity: onThisMonth ? 0.5 : 1 }}>›</button>
+            </div>
           </div>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {history.map(entry => <HistoryCard key={entry.id} entry={entry} />)}
+
+          <Card style={{ padding: "14px 8px" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", marginBottom: 6 }}>
+              {WEEKDAYS.map((d, i) => <div key={i} style={{ textAlign: "center", fontSize: 10, fontWeight: 800, color: T.inkMuted }}>{d}</div>)}
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 2 }}>
+              {monthCells.map((d, i) => {
+                if (!d) return <div key={i} />;
+                const dKey = dateKey(d);
+                const isToday = dKey === todayStr;
+                const future = d > today;
+                const entry = history.find(h => h.isoDate === dKey);
+                const status = dayStatus(d, entry, isToday);
+                const dotColor = status === "full" ? T.green : status === "partial" ? T.amber : "transparent";
+                const hollow = status === "rest";
+                const clickable = isToday || (!future && entry);
+                return (
+                  <button key={i} disabled={!clickable}
+                    onClick={() => { if (isToday) setScheduleView("today"); else if (entry) setSelectedEntry(entry); }}
+                    style={{ aspectRatio: "1", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, border: isToday ? `1.5px solid ${T.purple}` : "none", background: isToday ? T.purpleL : "transparent", borderRadius: 9, cursor: clickable ? "pointer" : "default", fontFamily: "inherit" }}>
+                    <span style={{ fontSize: 12, fontWeight: isToday ? 800 : 600, color: future ? T.inkMuted : isToday ? T.purple : T.ink, opacity: future ? 0.4 : 1 }}>{d.getDate()}</span>
+                    <span style={{ width: 5, height: 5, borderRadius: 99, background: dotColor, border: hollow ? `1.3px solid ${T.border}` : "none" }} />
+                  </button>
+                );
+              })}
+            </div>
+          </Card>
+
+          <div style={{ display: "flex", gap: 14, justifyContent: "center", padding: "14px 0 4px", fontSize: 11, color: T.inkMuted, fontWeight: 700 }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: 99, background: T.green, display: "inline-block" }} /> all done</span>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: 99, background: T.amber, display: "inline-block" }} /> some done</span>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: 99, border: `1.3px solid ${T.border}`, display: "inline-block" }} /> no record</span>
           </div>
-        )
+        </>
+      )}
+
+      {/* kid view */}
+      {kidView && (
+        <Overlay onClose={() => setKidView(false)}>
+          <div style={{ width: 300, maxWidth: "100%", background: T.surface, borderRadius: T.rXL, overflow: "hidden" }}>
+            <div style={{ padding: "14px 14px 4px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontWeight: 700, color: T.inkMuted, fontSize: 13 }}>Now it's time for</span>
+              <button onClick={() => setKidView(false)} style={{ border: "none", background: "none", cursor: "pointer", padding: 4, fontSize: 16, color: T.inkMuted }} aria-label="Close">✕</button>
+            </div>
+            {nextKidItem ? (
+              <>
+                <div style={{ margin: "4px 14px 14px", background: T.greenL, borderRadius: T.rL, padding: "24px 14px", textAlign: "center" }}>
+                  <div style={{ width: 88, height: 88, margin: "0 auto 10px", borderRadius: 20, background: T.surface, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 46 }}>{nextKidItem.emoji}</div>
+                  <div style={{ fontSize: 21, fontWeight: 800, color: T.green }}>{nextKidItem.label}</div>
+                </div>
+                <div style={{ padding: "0 14px 6px" }}><span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.04em", color: T.inkMuted }}>FIRST, THEN</span></div>
+                <div style={{ display: "flex", gap: 8, padding: "6px 14px 14px", alignItems: "center" }}>
+                  <div style={{ flex: 1, background: T.canvas, borderRadius: T.r, padding: "12px 8px", textAlign: "center" }}>
+                    <div style={{ fontSize: 26 }}>{nextKidItem.emoji}</div>
+                    <div style={{ fontSize: 11, fontWeight: 700, marginTop: 4, color: T.inkMuted }}>First</div>
+                  </div>
+                  <span style={{ color: T.inkMuted, fontSize: 16 }}>→</span>
+                  <div style={{ flex: 1, background: T.canvas, borderRadius: T.r, padding: "12px 8px", textAlign: "center" }}>
+                    <div style={{ fontSize: 26 }}>{thenItem ? thenItem.emoji : "🎉"}</div>
+                    <div style={{ fontSize: 11, fontWeight: 700, marginTop: 4, color: T.inkMuted }}>{thenItem ? "Then" : "Free!"}</div>
+                  </div>
+                </div>
+                <div style={{ padding: "0 14px 16px" }}>
+                  <Btn onClick={() => toggleDone(nextKidItem.id)} full style={{ background: T.green }}>✓ All done!</Btn>
+                </div>
+              </>
+            ) : (
+              <div style={{ padding: "36px 20px 44px", textAlign: "center" }}>
+                <div style={{ fontSize: 44 }}>🌱</div>
+                <div style={{ fontSize: 18, fontWeight: 800, marginTop: 10, color: T.ink }}>All done for today!</div>
+                <div style={{ fontSize: 13, color: T.inkMuted, fontWeight: 600, marginTop: 4 }}>Great rhythm today.</div>
+              </div>
+            )}
+          </div>
+        </Overlay>
+      )}
+
+      {/* saved-day detail, opened from the month calendar */}
+      {selectedEntry && (
+        <Overlay onClose={() => setSelectedEntry(null)} bottom>
+          <div style={{ width: "100%", maxWidth: 480, background: T.surface, borderRadius: "20px 20px 0 0", padding: "10px 18px calc(env(safe-area-inset-bottom, 0px) + 20px)", boxSizing: "border-box", maxHeight: "78vh", overflowY: "auto" }}>
+            <div style={{ width: 36, height: 4, background: T.border, borderRadius: 2, margin: "0 auto 14px" }} />
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+              <div>
+                <p style={{ margin: "0 0 2px", fontWeight: 800, color: T.ink, fontSize: 15 }}>{selectedEntry.date}</p>
+                <p style={{ margin: 0, color: T.inkMuted, fontSize: 12 }}>{selectedEntry.completedCount}/{selectedEntry.total} completed</p>
+              </div>
+              <Badge color={selectedEntry.total ? (selectedEntry.completedCount / selectedEntry.total >= 0.8 ? T.green : selectedEntry.completedCount / selectedEntry.total >= 0.5 ? T.amber : T.red) : T.inkMuted}>
+                {selectedEntry.total ? Math.round((selectedEntry.completedCount / selectedEntry.total) * 100) : 0}%
+              </Badge>
+            </div>
+            {selectedEntry.completed.length > 0 && <>
+              <p style={{ margin: "10px 0 6px", fontSize: 11, fontWeight: 700, color: T.green, textTransform: "uppercase", letterSpacing: "0.07em" }}>✅ Completed</p>
+              {selectedEntry.completed.map((a, i) => <div key={i} style={{ display: "flex", gap: 10, padding: "7px 0", borderTop: `1px solid ${T.border}`, alignItems: "center" }}><span style={{ fontSize: 18 }}>{a.emoji}</span><span style={{ fontSize: 13, fontWeight: 600, color: T.ink, flex: 1 }}>{a.label}</span><span style={{ fontSize: 12, color: T.inkMuted }}>{a.time}</span></div>)}
+            </>}
+            {selectedEntry.missed.length > 0 && <>
+              <p style={{ margin: "10px 0 6px", fontSize: 11, fontWeight: 700, color: T.red, textTransform: "uppercase", letterSpacing: "0.07em" }}>⏭ Missed</p>
+              {selectedEntry.missed.map((a, i) => <div key={i} style={{ display: "flex", gap: 10, padding: "7px 0", borderTop: `1px solid ${T.border}`, alignItems: "center", opacity: 0.6 }}><span style={{ fontSize: 18 }}>{a.emoji}</span><span style={{ fontSize: 13, fontWeight: 600, color: T.ink, flex: 1 }}>{a.label}</span><span style={{ fontSize: 12, color: T.inkMuted }}>{a.time}</span></div>)}
+            </>}
+          </div>
+        </Overlay>
       )}
     </Page>
   );
 }
 
-export function HistoryCard({ entry }) {
-  const [open, setOpen] = useState(false);
-  const pct = Math.round((entry.completedCount / entry.total) * 100);
-  const color = pct >= 80 ? T.green : pct >= 50 ? T.amber : T.red;
+// Backdrop + centered/bottom-sheet wrapper, matching the modal pattern used elsewhere in the app.
+function Overlay({ children, onClose, bottom }) {
   return (
-    <Card style={{ padding: 0, overflow: "hidden" }}>
-      <div onClick={() => setOpen(!open)} style={{ padding: "14px 16px", cursor: "pointer" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-          <div><p style={{ margin: "0 0 2px", fontWeight: 800, color: T.ink, fontSize: 14 }}>{entry.date}</p><p style={{ margin: 0, color: T.inkMuted, fontSize: 12 }}>{entry.completedCount}/{entry.total} completed</p></div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <Badge color={color} bg={color + "18"}>{pct}%</Badge>
-            <span style={{ color: T.inkMuted, fontWeight: 300, fontSize: 18, transform: open ? "rotate(45deg)" : "none", transition: "transform 0.2s", display: "block" }}>+</span>
-          </div>
-        </div>
-        <div style={{ height: 4, background: T.border, borderRadius: 99 }}><div style={{ height: "100%", width: `${pct}%`, background: color, borderRadius: 99 }} /></div>
-      </div>
-      {open && (
-        <div style={{ padding: "0 16px 14px" }}>
-          {entry.completed.length > 0 && <><p style={{ margin: "0 0 8px", fontSize: 11, fontWeight: 700, color: T.green, textTransform: "uppercase", letterSpacing: "0.07em" }}>✅ Completed</p>{entry.completed.map((a, i) => <div key={i} style={{ display: "flex", gap: 10, padding: "7px 0", borderTop: `1px solid ${T.border}`, alignItems: "center" }}><span style={{ fontSize: 18 }}>{a.emoji}</span><span style={{ fontSize: 13, fontWeight: 600, color: T.ink, flex: 1 }}>{a.label}</span><span style={{ fontSize: 12, color: T.inkMuted }}>{a.time}</span></div>)}</>}
-          {entry.missed.length > 0 && <><p style={{ margin: "10px 0 8px", fontSize: 11, fontWeight: 700, color: T.red, textTransform: "uppercase", letterSpacing: "0.07em" }}>⏭ Missed</p>{entry.missed.map((a, i) => <div key={i} style={{ display: "flex", gap: 10, padding: "7px 0", borderTop: `1px solid ${T.border}`, alignItems: "center", opacity: 0.6 }}><span style={{ fontSize: 18 }}>{a.emoji}</span><span style={{ fontSize: 13, fontWeight: 600, color: T.ink, flex: 1 }}>{a.label}</span><span style={{ fontSize: 12, color: T.inkMuted }}>{a.time}</span></div>)}</>}
-        </div>
-      )}
-    </Card>
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(35,32,28,.35)", zIndex: 200, display: "flex", alignItems: bottom ? "flex-end" : "center", justifyContent: "center", padding: bottom ? 0 : 16 }}>
+      <div onClick={e => e.stopPropagation()} style={{ width: "100%", display: "flex", justifyContent: "center" }}>{children}</div>
+    </div>
   );
 }
