@@ -1,4 +1,9 @@
 import { useState, useEffect, useRef, Fragment } from "react";
+import {
+  Plus, Camera, Users, MessageSquare, Settings, Link2, Search, Check, X,
+  ChevronRight, ChevronLeft, QrCode, Copy, UserPlus, MoreVertical, Lock,
+  Unlock, Send, Pin, Heart, Paperclip, FileText,
+} from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { T } from "../theme";
 import { Page, SectionLabel, Card, Badge, Btn, Input, TextArea, Avatar, Accordion, PageHero, AvatarIllustrations, ChildAvatar, ComAvatar, ROOM_ICONS, ACTIVITY_TEXTAREA_STYLE, ActionIllustration, HeroIllustration } from "../ui";
@@ -39,8 +44,8 @@ export function ChatUI({ msgs, input, setInput, onSend, onDelete, loading, color
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 130px)" }}>
       <div style={{ padding: "10px 18px 12px", display: "flex", alignItems: "center", gap: 12 }}>
-        <button onClick={backFn} aria-label="Back" style={{ width: 34, height: 34, borderRadius: "50%", border: "none", background: "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0, color: T.inkMuted }}>
-          <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M11 3.5 L5 9 L11 14.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none"/></svg>
+        <button onClick={backFn} aria-label="Back" style={{ width: 34, height: 34, borderRadius: "50%", border: "none", background: "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0, color: T.purple }}>
+          <ChevronLeft size={24} />
         </button>
         {isGroup ? (
           <div style={{ width: 42, height: 42, borderRadius: 12, background: bg, color, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -58,7 +63,7 @@ export function ChatUI({ msgs, input, setInput, onSend, onDelete, loading, color
       {belowHeader}
       <div style={{ flex: 1, overflowY: "auto", padding: "0 18px", display: "flex", flexDirection: "column", gap: 10 }}>
         {loading && <p style={{ textAlign: "center", color: T.inkMuted, padding: 24, fontSize: 14 }}>Loading...</p>}
-        {!loading && msgs.length === 0 && <div style={{ textAlign: "center", padding: "48px 20px" }}><div style={{ fontSize: 40, marginBottom: 12 }}>💬</div><p style={{ fontWeight: 700, color: T.ink, fontSize: 15 }}>No messages yet</p><p style={{ color: T.inkMuted, fontSize: 13 }}>{isGroup ? "Be the first to post!" : "Start a private conversation!"}</p></div>}
+        {!loading && msgs.length === 0 && <div style={{ textAlign: "center", padding: "48px 20px" }}><MessageSquare size={40} color={T.inkMuted} style={{ marginBottom: 12 }} /><p style={{ fontWeight: 700, color: T.ink, fontSize: 15 }}>No messages yet</p><p style={{ color: T.inkMuted, fontSize: 13 }}>{isGroup ? "Be the first to post!" : "Start a private conversation!"}</p></div>}
         {msgs.map((msg, i) => {
           const isMe = msg.authorId ? msg.authorId === account.id : msg.author === account.name;
           const showSep = i === 0 || msgs[i - 1].date !== msg.date;
@@ -78,7 +83,7 @@ export function ChatUI({ msgs, input, setInput, onSend, onDelete, loading, color
                 <div style={{ background: isMe ? color : T.surface, color: isMe ? "white" : T.ink, borderRadius: isMe ? "18px 18px 6px 18px" : "18px 18px 18px 6px", padding: msg.imageUrl && !isDocAttachment(msg.imageUrl) ? 6 : "10px 14px", boxShadow: T.shadow }}>
                   {msg.imageUrl && (isDocAttachment(msg.imageUrl) ? (
                     <a href={msg.imageUrl} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 8, color: "inherit", textDecoration: "none" }}>
-                      <span style={{ fontSize: 20 }}>📄</span>
+                      <FileText size={18} />
                       <span style={{ fontSize: 13, fontWeight: 700, wordBreak: "break-word", textDecoration: "underline" }}>{msg.fileName || "Document"}</span>
                     </a>
                   ) : (
@@ -105,22 +110,22 @@ export function ChatUI({ msgs, input, setInput, onSend, onDelete, loading, color
               {attachment.kind === "image" ? (
                 <img src={attachment.url} alt="" style={{ width: 52, height: 52, objectFit: "cover", borderRadius: 10, border: `1.5px solid ${T.border}`, display: "block" }} />
               ) : (
-                <div style={{ width: 52, height: 52, borderRadius: 10, border: `1.5px solid ${T.border}`, background: T.canvas, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>📄</div>
+                <div style={{ width: 52, height: 52, borderRadius: 10, border: `1.5px solid ${T.border}`, background: T.canvas, display: "flex", alignItems: "center", justifyContent: "center", color: T.inkMuted }}><FileText size={22} /></div>
               )}
-              <button onClick={onRemoveAttachment} style={{ position: "absolute", top: -6, right: -6, width: 18, height: 18, borderRadius: "50%", background: T.red, color: "white", border: "none", cursor: "pointer", fontSize: 11, lineHeight: 1, padding: 0 }}>×</button>
+              <button onClick={onRemoveAttachment} style={{ position: "absolute", top: -6, right: -6, width: 18, height: 18, borderRadius: "50%", background: T.red, color: "white", border: "none", cursor: "pointer", padding: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><X size={12} /></button>
             </div>
             <p style={{ margin: 0, fontSize: 12, color: T.inkMuted, wordBreak: "break-word" }}>{attachment.kind === "image" ? "Image attached" : attachment.name}</p>
           </div>
         )}
         <div style={{ padding: "10px 12px 6px", borderTop: `1px solid ${T.border}`, display: "flex", gap: 8, alignItems: "center" }}>
           <ComAvatar value={account.avatar} size={40} active={true} borderColor={bg} />
-          <label style={{ width: 38, height: 38, borderRadius: "50%", background: "transparent", border: `1.5px solid ${T.border}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0, fontSize: 16, color: T.inkMuted }}>
-            📎
+          <label style={{ width: 38, height: 38, borderRadius: "50%", background: "transparent", border: `1.5px solid ${T.border}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0, color: T.inkMuted }}>
+            <Paperclip size={16} />
             <input type="file" accept="image/*,.doc,.docx,.xls,.xlsx,.pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/pdf" onChange={onPickAttachment} style={{ display: "none" }} />
           </label>
           <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", background: T.surface, border: `1.5px solid ${T.border}`, borderRadius: 22, padding: "0 5px 0 16px" }}>
             <textarea value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSend(); } }} placeholder="Write a message… (Enter to send)" rows={1} style={{ flex: 1, minWidth: 0, padding: "11px 6px", border: "none", outline: "none", background: "transparent", fontSize: 14, fontFamily: T.fontBody, color: T.ink, resize: "none", lineHeight: 1.5 }} />
-            <button onClick={onSend} disabled={!input.trim() && !attachment} style={{ width: 34, height: 34, borderRadius: "50%", background: (input.trim() || attachment) ? color : T.border, border: "none", cursor: (input.trim() || attachment) ? "pointer" : "default", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0, transition: "background 0.2s", color: "white" }}>›</button>
+            <button onClick={onSend} disabled={!input.trim() && !attachment} style={{ width: 34, height: 34, borderRadius: "50%", background: (input.trim() || attachment) ? color : T.border, border: "none", cursor: (input.trim() || attachment) ? "pointer" : "default", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "background 0.2s", color: "white" }}><Send size={16} /></button>
           </div>
         </div>
         {!isGroup && (
@@ -137,8 +142,8 @@ export function ChatUI({ msgs, input, setInput, onSend, onDelete, loading, color
 function SubHeader({ title, onBack, right }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-      <button onClick={onBack} aria-label="Back" style={{ width: 34, height: 34, borderRadius: "50%", border: "none", background: "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0, color: T.inkMuted }}>
-        <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M11 3.5 L5 9 L11 14.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none"/></svg>
+      <button onClick={onBack} aria-label="Back" style={{ width: 34, height: 34, borderRadius: "50%", border: "none", background: "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0, color: T.purple }}>
+        <ChevronLeft size={24} />
       </button>
       <h2 style={{ margin: 0, fontFamily: T.fontDisplay, fontSize: 20, fontWeight: 600, color: T.ink, flex: 1 }}>{title}</h2>
       {right}
@@ -163,7 +168,7 @@ function GroupRow({ g, onClick }) {
           <p style={{ margin: 0, color: T.inkMuted, fontSize: 12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{g.description || (g.kind === "user" ? "Parent-made group" : "")}</p>
         </div>
         {g.kind === "user" && <Badge color={T.inkMuted} bg={T.canvas}>Parent-made</Badge>}
-        <span style={{ color: T.inkMuted, fontSize: 20 }}>›</span>
+        <ChevronRight size={20} color={T.inkMuted} />
       </div>
     </Card>
   );
@@ -517,6 +522,7 @@ export function CommunityScreen({ account }) {
     flash("Joined group");
   };
 
+  const [menuOpen, setMenuOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
   const [qrData, setQrData] = useState({ title: "", code: "", hint: "" });
   const openGroupInvite = group => { setQrData({ title: `Invite to ${group.label}`, code: `bonda.app/g/${group.id}`, hint: "Share this code or link so other parents can find and join this group." }); setQrOpen(true); };
@@ -561,7 +567,7 @@ export function CommunityScreen({ account }) {
         <div style={{ background: T.amberL, borderRadius: T.r, padding: "10px 14px", margin: "16px 0" }}>
           <p style={{ margin: 0, color: T.amber, fontSize: 11, fontWeight: 700, lineHeight: 1.6 }}>💡 In the live app this connects to Stripe / PayPal / Apple Pay. Tap below to simulate in this prototype.</p>
         </div>
-        <Btn onClick={purchase} full style={{ marginBottom: 10 }}>🔓 Unlock for SGD $10</Btn>
+        <Btn onClick={purchase} full style={{ marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}><Unlock size={16} /> Unlock for SGD $10</Btn>
         <Btn onClick={() => setShowPaywall(false)} full secondary>Maybe later</Btn>
       </div>
     </div>
@@ -575,11 +581,11 @@ export function CommunityScreen({ account }) {
     const memberRow = (
       <button onClick={() => openMembers(activeRoom)} style={{ width: "100%", textAlign: "left", background: "none", border: "none", borderBottom: `1px solid ${T.border}`, padding: "10px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", fontFamily: T.fontBody }}>
         <span style={{ fontSize: 13, fontWeight: 700, color: c.color }}>See members</span>
-        <span style={{ color: T.inkMuted, fontSize: 16 }}>›</span>
+        <ChevronRight size={16} color={T.inkMuted} />
       </button>
     );
     const inviteBtn = activeRoom.kind === "user" ? (
-      <button onClick={() => openGroupInvite(activeRoom)} style={{ background: "none", border: "none", color: c.color, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: T.fontBody, flexShrink: 0 }}>Invite</button>
+      <button onClick={() => openGroupInvite(activeRoom)} style={{ background: "none", border: "none", color: c.color, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: T.fontBody, flexShrink: 0, display: "flex", alignItems: "center", gap: 4 }}><Link2 size={15} /> Invite</button>
     ) : null;
     content = (
       <div style={{ position: "relative" }}>
@@ -596,17 +602,17 @@ export function CommunityScreen({ account }) {
     content = (
       <Page>
         {showPaywall && <Paywall />}
-        <button onClick={() => setView("home")} style={{ background: "none", border: "none", color: T.purple, fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: T.fontBody, padding: "0 0 16px", display: "flex", alignItems: "center", gap: 6 }}>← Back</button>
+        <button onClick={() => setView("home")} style={{ background: "none", border: "none", color: T.purple, fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: T.fontBody, padding: "0 0 16px", display: "flex", alignItems: "center", gap: 2 }}><ChevronLeft size={18} /> Back</button>
         <h2 style={{ margin: "0 0 6px", color: T.ink, fontSize: 20, fontWeight: 800 }}>Private Messages</h2>
         <p style={{ margin: "0 0 20px", color: T.inkSoft, fontSize: 14 }}>Choose a parent to message privately</p>
         {others.length > 0 && (
           <div style={{ position: "relative", marginBottom: 16 }}>
-            <span style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", fontSize: 14, pointerEvents: "none", opacity: 0.5 }}>🔍</span>
+            <Search size={16} color={T.inkMuted} style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
             <input value={dmSearch} onChange={e => setDmSearch(e.target.value)} placeholder="Search by name or message..." style={searchInputStyle} />
           </div>
         )}
-        {others.length === 0 ? <div style={{ textAlign: "center", padding: "48px 20px" }}><div style={{ fontSize: 44, marginBottom: 12 }}>👥</div><p style={{ fontWeight: 700, color: T.ink, fontSize: 15 }}>No other parents yet</p><p style={{ color: T.inkMuted, fontSize: 13, lineHeight: 1.6 }}>Once other parents join, they'll appear here.</p></div> :
-          filtered.length === 0 ? <div style={{ textAlign: "center", padding: "48px 20px" }}><div style={{ fontSize: 44, marginBottom: 12 }}>🔍</div><p style={{ fontWeight: 700, color: T.ink, fontSize: 15 }}>No matches</p><p style={{ color: T.inkMuted, fontSize: 13, lineHeight: 1.6 }}>No parent name or message matches "{dmSearch.trim()}".</p></div> :
+        {others.length === 0 ? <div style={{ textAlign: "center", padding: "48px 20px" }}><Users size={44} color={T.inkMuted} style={{ marginBottom: 12 }} /><p style={{ fontWeight: 700, color: T.ink, fontSize: 15 }}>No other parents yet</p><p style={{ color: T.inkMuted, fontSize: 13, lineHeight: 1.6 }}>Once other parents join, they'll appear here.</p></div> :
+          filtered.length === 0 ? <div style={{ textAlign: "center", padding: "48px 20px" }}><Search size={44} color={T.inkMuted} style={{ marginBottom: 12 }} /><p style={{ fontWeight: 700, color: T.ink, fontSize: 15 }}>No matches</p><p style={{ color: T.inkMuted, fontSize: 13, lineHeight: 1.6 }}>No parent name or message matches "{dmSearch.trim()}".</p></div> :
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {filtered.map(p => (
               <Card key={p.id} onClick={() => openDMChat(p)} style={{ padding: "14px 16px" }}>
@@ -663,11 +669,11 @@ export function CommunityScreen({ account }) {
           {momentPreview ? (
             <div style={{ position: "relative", borderRadius: T.rL, overflow: "hidden", marginBottom: 16 }}>
               <img src={momentPreview} alt="" style={{ width: "100%", maxHeight: 320, objectFit: "cover", display: "block" }} />
-              <button onClick={() => { URL.revokeObjectURL(momentPreview); setMomentFile(null); setMomentPreview(null); }} style={{ position: "absolute", top: 10, right: 10, width: 30, height: 30, borderRadius: "50%", background: "rgba(0,0,0,.5)", color: "white", border: "none", cursor: "pointer", fontSize: 16 }}>×</button>
+              <button onClick={() => { URL.revokeObjectURL(momentPreview); setMomentFile(null); setMomentPreview(null); }} style={{ position: "absolute", top: 10, right: 10, width: 30, height: 30, borderRadius: "50%", background: "rgba(0,0,0,.5)", color: "white", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><X size={16} /></button>
             </div>
           ) : (
             <label style={{ display: "block", border: `2px dashed ${T.border}`, borderRadius: T.rL, padding: "36px 16px", textAlign: "center", background: T.surface, cursor: "pointer", marginBottom: 16 }}>
-              <div style={{ fontSize: 34, marginBottom: 8 }}>📷</div>
+              <Camera size={34} color={T.purple} style={{ marginBottom: 8 }} />
               <p style={{ margin: 0, fontSize: 14, color: T.inkSoft, fontWeight: 600 }}>Choose a photo to share</p>
               <input type="file" accept="image/*" style={{ display: "none" }} onChange={pickMomentPhoto} />
             </label>
@@ -687,13 +693,14 @@ export function CommunityScreen({ account }) {
     content = (
       <Page style={{ paddingBottom: 110 }}>
         <SubHeader title="Groups" onBack={() => setView("home")} />
-        <div style={{ margin: "16px 0" }}>
+        <div style={{ position: "relative", margin: "16px 0" }}>
+          <Search size={16} color={T.inkMuted} style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
           <input value={groupQuery} onChange={e => setGroupQuery(e.target.value)} placeholder="Search groups" style={searchInputStyle} />
         </div>
         {filtered.map(g => <GroupRow key={`${g.kind}-${g.id}`} g={g} onClick={() => openGroup(g)} />)}
         {filtered.length === 0 && <p style={{ textAlign: "center", color: T.inkMuted, fontSize: 14, marginTop: 24 }}>No groups match "{groupQuery}".</p>}
         <div style={{ position: "fixed", bottom: 86, left: 0, right: 0, display: "flex", justifyContent: "center", zIndex: 60 }}>
-          <button onClick={() => setView("createGroup")} style={{ display: "flex", alignItems: "center", gap: 8, background: T.purple, color: "white", border: "none", borderRadius: 999, padding: "13px 24px", fontSize: 14.5, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody, boxShadow: T.shadowM }}>+ Create group</button>
+          <button onClick={() => setView("createGroup")} style={{ display: "flex", alignItems: "center", gap: 8, background: T.purple, color: "white", border: "none", borderRadius: 999, padding: "13px 24px", fontSize: 14.5, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody, boxShadow: T.shadowM }}><Plus size={18} /> Create group</button>
         </div>
       </Page>
     );
@@ -702,9 +709,24 @@ export function CommunityScreen({ account }) {
       <Page>
         <SubHeader title="Moments" onBack={() => setView("home")}
           right={
-            <div style={{ display: "flex", gap: 2 }}>
-              <button onClick={openProfileInvite} aria-label="Share your link" style={{ background: "none", border: "none", color: T.purple, fontSize: 19, cursor: "pointer", padding: 6 }}>🔗</button>
-              <button onClick={() => setSettingsOpen(true)} aria-label="Moments settings" style={{ background: "none", border: "none", color: T.inkSoft, fontSize: 19, cursor: "pointer", padding: 6 }}>⚙️</button>
+            <div style={{ position: "relative" }}>
+              <button onClick={() => setMenuOpen(o => !o)} aria-label="More options" style={{ background: "none", border: "none", color: T.inkSoft, cursor: "pointer", padding: 6, display: "flex" }}><MoreVertical size={22} /></button>
+              {menuOpen && (
+                <>
+                  <div onClick={() => setMenuOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 44 }} />
+                  <div style={{ position: "absolute", top: 38, right: 0, width: 200, background: T.surface, border: `1px solid ${T.border}`, borderRadius: 14, overflow: "hidden", boxShadow: T.shadowM, zIndex: 45 }}>
+                    {[
+                      { ic: Link2, label: "Share link", onClick: () => { setMenuOpen(false); copyText(`bonda.app/u/${account.id}`); flash("Link copied"); } },
+                      { ic: QrCode, label: "QR code", onClick: () => { setMenuOpen(false); openProfileInvite(); } },
+                      { ic: Settings, label: "Settings", onClick: () => { setMenuOpen(false); setSettingsOpen(true); } },
+                    ].map((it, i) => (
+                      <button key={it.label} onClick={it.onClick} style={{ width: "100%", textAlign: "left", display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", fontSize: 14, fontWeight: 600, color: T.ink, background: "none", border: "none", borderTop: i ? `1px solid ${T.border}` : "none", cursor: "pointer", fontFamily: T.fontBody }}>
+                        <it.ic size={17} color={T.purple} /> {it.label}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           } />
         <div style={{ marginTop: 16 }}>
@@ -717,7 +739,7 @@ export function CommunityScreen({ account }) {
                 <p style={{ margin: 0, fontSize: 16, fontWeight: 700, color: T.ink }}>{m.author_name}</p>
                 <p style={{ margin: "2px 0 0", fontSize: 12.5, color: T.inkMuted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{[m.location, timeAgo(m.created_at)].filter(Boolean).join(" · ")}</p>
               </button>
-              <button onClick={() => unfollowUser({ id: m.author_id, name: m.author_name })} aria-label={`Unfollow ${m.author_name}`} style={{ width: 40, height: 40, borderRadius: "50%", background: T.canvas, border: `1px solid ${T.border}`, color: T.purple, cursor: "pointer", fontSize: 16, flexShrink: 0 }}>✓</button>
+              <button onClick={() => unfollowUser({ id: m.author_id, name: m.author_name })} aria-label={`Unfollow ${m.author_name}`} style={{ width: 40, height: 40, borderRadius: "50%", background: T.canvas, border: `1px solid ${T.border}`, color: T.purple, cursor: "pointer", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><Check size={18} /></button>
             </div>
           ))}
           {moments.length === 0 && (
@@ -734,12 +756,13 @@ export function CommunityScreen({ account }) {
     content = (
       <Page>
         <SubHeader title="Members" onBack={() => setView("groupchat")}
-          right={activeRoom.kind === "user" && <button onClick={() => openGroupInvite(activeRoom)} style={{ background: "none", border: "none", color: c.color, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: T.fontBody }}>Invite</button>} />
+          right={activeRoom.kind === "user" && <button onClick={() => openGroupInvite(activeRoom)} style={{ background: "none", border: "none", color: c.color, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: T.fontBody, display: "flex", alignItems: "center", gap: 4 }}><Link2 size={15} /> Invite</button>} />
         <p style={{ margin: "14px 0 12px", fontSize: 13, color: T.inkMuted }}>{activeRoom.label} · {members.length} {members.length === 1 ? "member" : "members"}</p>
         {activeRoom.kind === "user" && !isGroupMember && (
           <Btn onClick={joinActiveGroup} disabled={joiningGroup} style={{ marginBottom: 16 }}>{joiningGroup ? "Joining..." : "Join this group"}</Btn>
         )}
-        <div style={{ marginBottom: 16 }}>
+        <div style={{ position: "relative", marginBottom: 16 }}>
+          <Search size={16} color={T.inkMuted} style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
           <input value={memberQuery} onChange={e => setMemberQuery(e.target.value)} placeholder="Search members" style={searchInputStyle} />
         </div>
         {membersLoading && <p style={{ textAlign: "center", color: T.inkMuted, padding: 20 }}>Loading...</p>}
@@ -754,9 +777,9 @@ export function CommunityScreen({ account }) {
               </div>
               {!isMe && (
                 <>
-                  <button onClick={() => messageMember(m)} aria-label={`Message ${m.name}`} style={{ background: "none", border: "none", color: T.purple, fontSize: 18, cursor: "pointer", padding: 6, flexShrink: 0 }}>💬</button>
+                  <button onClick={() => messageMember(m)} aria-label={`Message ${m.name}`} style={{ background: "none", border: "none", color: T.purple, cursor: "pointer", padding: 6, flexShrink: 0, display: "flex" }}><MessageSquare size={18} /></button>
                   <button onClick={() => following ? unfollowUser(m) : followUser(m)} style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 12px", borderRadius: 99, fontSize: 12.5, fontWeight: 700, background: following ? T.canvas : T.purple, color: following ? T.purple : "white", border: following ? `1px solid ${T.border}` : "none", cursor: "pointer", fontFamily: T.fontBody, flexShrink: 0 }}>
-                    {following ? "✓ Following" : "+ Follow"}
+                    {following ? <><Check size={14} /> Following</> : <><Plus size={14} /> Follow</>}
                   </button>
                 </>
               )}
@@ -776,7 +799,7 @@ export function CommunityScreen({ account }) {
             <h1 style={{ margin: 0, fontFamily: T.fontDisplay, fontSize: 25, fontWeight: 600, color: T.ink, letterSpacing: "-0.01em" }}>Communities</h1>
           </div>
           <button onClick={() => setSheetOpen(true)} aria-label="Start something new" style={{ background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 1, color: T.purple, fontFamily: T.fontBody }}>
-            <span style={{ fontSize: 22, lineHeight: 1 }}>+</span>
+            <Plus size={22} />
             <span style={{ fontSize: 10.5, fontWeight: 700 }}>New</span>
           </button>
         </div>
@@ -784,20 +807,21 @@ export function CommunityScreen({ account }) {
         {announcement && (
           <div style={{ display: "flex", gap: 10, alignItems: "flex-start", background: T.purpleL, borderRadius: T.r, padding: "12px 14px", marginBottom: 16, border: `1px solid ${T.purple}25` }}>
             <div style={{ flex: 1 }}>
-              <p style={{ margin: "0 0 2px", color: T.purple, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em" }}>📌 Announcement</p>
+              <p style={{ margin: "0 0 2px", color: T.purple, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em", display: "flex", alignItems: "center", gap: 5 }}><Pin size={12} /> Announcement</p>
               <p style={{ margin: 0, color: T.ink, fontSize: 13, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{announcement.text}</p>
             </div>
           </div>
         )}
 
-        <div style={{ background: T.amberL, borderRadius: T.r, padding: "12px 14px", marginBottom: 22, border: `1px solid ${T.amber}20` }}>
-          <p style={{ margin: 0, color: T.amber, fontSize: 12, fontWeight: 700, lineHeight: 1.6 }}>💛 Be kind and supportive. Everyone here is doing their best.</p>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, background: T.amberL, borderRadius: T.r, padding: "12px 14px", marginBottom: 22, border: `1px solid ${T.amber}20` }}>
+          <Heart size={15} color={T.amber} style={{ flexShrink: 0 }} />
+          <p style={{ margin: 0, color: T.amber, fontSize: 12, fontWeight: 700, lineHeight: 1.6 }}>Be kind and supportive. Everyone here is doing their best.</p>
         </div>
 
         <SectionLabel action={<button onClick={() => setView("allMoments")} style={{ background: "none", border: "none", color: T.purple, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: T.fontBody }}>See all</button>}>Share a Moment</SectionLabel>
         <div style={{ display: "flex", gap: 14, overflowX: "auto", paddingBottom: 8, marginBottom: 24 }}>
           <button onClick={() => setView("shareMoment")} aria-label="Add a moment" style={{ background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 6, flexShrink: 0, fontFamily: T.fontBody }}>
-            <span style={{ width: 56, height: 56, borderRadius: "50%", border: `2px dashed ${T.purple}`, display: "flex", alignItems: "center", justifyContent: "center", color: T.purple, fontSize: 22 }}>📷</span>
+            <span style={{ width: 56, height: 56, borderRadius: "50%", border: `2px dashed ${T.purple}`, display: "flex", alignItems: "center", justifyContent: "center", color: T.purple }}><Camera size={22} /></span>
             <span style={{ fontSize: 12, color: T.inkSoft, fontWeight: 600 }}>Add</span>
           </button>
           {moments.map(m => (
@@ -817,7 +841,7 @@ export function CommunityScreen({ account }) {
         <div style={{ marginBottom: 24 }}>
           {rooms.map(r => <GroupRow key={`admin-${r.id}`} g={roomToGroup(r)} onClick={() => openGroup(roomToGroup(r))} />)}
           {groups.slice(0, 3).map(g => <GroupRow key={`user-${g.id}`} g={groupToGroup(g)} onClick={() => openGroup(groupToGroup(g))} />)}
-          <button onClick={() => setView("createGroup")} style={{ width: "100%", background: "none", border: `1.5px dashed ${T.border}`, borderRadius: T.r, padding: "14px", color: T.purple, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: T.fontBody, textAlign: "center" }}>+ Create your own group</button>
+          <button onClick={() => setView("createGroup")} style={{ width: "100%", background: "none", border: `1.5px dashed ${T.border}`, borderRadius: T.r, padding: "14px", color: T.purple, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: T.fontBody, textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}><Plus size={16} /> Create your own group</button>
         </div>
 
         <SectionLabel style={{ marginBottom: 10 }}>Private Messages</SectionLabel>
@@ -885,7 +909,7 @@ export function CommunityScreen({ account }) {
           /* ── LOCKED STATE — clear premium prompt ── */
           <Card onClick={openDMList} style={{ background: T.surface }}>
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              <div style={{ width: 44, height: 44, borderRadius: 12, background: T.border, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>🔒</div>
+              <div style={{ width: 44, height: 44, borderRadius: 12, background: T.border, display: "flex", alignItems: "center", justifyContent: "center", color: T.inkSoft, flexShrink: 0 }}><Lock size={20} /></div>
               <div style={{ flex: 1 }}>
                 <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 3 }}>
                   <p style={{ margin: 0, fontWeight: 800, color: T.ink, fontSize: 14 }}>Message a Parent</p>
@@ -893,7 +917,7 @@ export function CommunityScreen({ account }) {
                 </div>
                 <p style={{ margin: 0, color: T.inkMuted, fontSize: 12 }}>Unlock private 1-on-1 chat · one-time · lifetime access</p>
               </div>
-              <span style={{ color: T.inkMuted, fontSize: 20 }}>›</span>
+              <ChevronRight size={20} color={T.inkMuted} />
             </div>
           </Card>
         )}
@@ -911,22 +935,22 @@ export function CommunityScreen({ account }) {
             <div style={{ width: 40, height: 4, borderRadius: 2, background: T.border, margin: "6px auto 14px" }} />
             <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10 }}>
               <span style={{ fontFamily: T.fontDisplay, fontSize: 20, fontWeight: 600, color: T.ink }}>Start something new</span>
-              <button onClick={() => setSheetOpen(false)} aria-label="Close" style={{ background: "none", border: "none", cursor: "pointer", color: T.inkMuted, fontSize: 20 }}>×</button>
+              <button onClick={() => setSheetOpen(false)} aria-label="Close" style={{ background: "none", border: "none", cursor: "pointer", color: T.inkMuted, display: "flex" }}><X size={22} /></button>
             </div>
             {[
-              { tone: "red", emoji: "📷", title: "Share a moment", sub: "Post a photo for people who follow you", onClick: () => { setSheetOpen(false); setView("shareMoment"); } },
-              { tone: "purple", emoji: "👥", title: "Create a group", sub: "Bring parents together around something", onClick: () => { setSheetOpen(false); setView("createGroup"); } },
-              { tone: "teal", emoji: "💬", title: "Message a parent", sub: "Start a private one-on-one chat", onClick: () => { setSheetOpen(false); openDMList(); } },
+              { tone: "red", ic: Camera, title: "Share a moment", sub: "Post a photo for people who follow you", onClick: () => { setSheetOpen(false); setView("shareMoment"); } },
+              { tone: "purple", ic: Users, title: "Create a group", sub: "Bring parents together around something", onClick: () => { setSheetOpen(false); setView("createGroup"); } },
+              { tone: "teal", ic: MessageSquare, title: "Message a parent", sub: "Start a private one-on-one chat", onClick: () => { setSheetOpen(false); openDMList(); } },
             ].map(a => {
               const c = ROOM_COLORS[a.tone] || ROOM_COLORS.purple;
               return (
                 <button key={a.title} onClick={a.onClick} style={{ width: "100%", textAlign: "left", display: "flex", alignItems: "center", gap: 14, padding: "13px 4px", borderBottom: `1px solid ${T.border}`, background: "none", border: "none", cursor: "pointer", fontFamily: T.fontBody }}>
-                  <span style={{ width: 46, height: 46, borderRadius: 12, background: c.bg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 20 }}>{a.emoji}</span>
+                  <span style={{ width: 46, height: 46, borderRadius: 12, background: c.bg, color: c.color, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><a.ic size={22} /></span>
                   <span style={{ flex: 1 }}>
                     <span style={{ display: "block", fontSize: 16, fontWeight: 700, color: T.ink }}>{a.title}</span>
                     <span style={{ display: "block", fontSize: 12.5, color: T.inkMuted, marginTop: 2 }}>{a.sub}</span>
                   </span>
-                  <span style={{ color: T.inkMuted, fontSize: 18 }}>›</span>
+                  <ChevronRight size={18} color={T.inkMuted} />
                 </button>
               );
             })}
@@ -942,7 +966,7 @@ export function CommunityScreen({ account }) {
               <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: "#F4F1EB" }}>{viewingMoment.author_name}</p>
               <p style={{ margin: 0, fontSize: 12, color: "rgba(244,241,235,.65)" }}>{[viewingMoment.location, timeAgo(viewingMoment.created_at)].filter(Boolean).join(" · ")}</p>
             </div>
-            <button onClick={() => setViewingMoment(null)} aria-label="Close" style={{ background: "none", border: "none", color: "#F4F1EB", fontSize: 26, cursor: "pointer" }}>×</button>
+            <button onClick={() => setViewingMoment(null)} aria-label="Close" style={{ background: "none", border: "none", color: "#F4F1EB", cursor: "pointer", display: "flex" }}><X size={26} /></button>
           </div>
           <div style={{ flex: 1, minHeight: 0, margin: "0 16px 16px", borderRadius: 18, overflow: "hidden", position: "relative", background: "#000" }}>
             <img src={viewingMoment.image_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
@@ -952,9 +976,9 @@ export function CommunityScreen({ account }) {
           </div>
           <div style={{ padding: 16 }}>
             {isFollowing(viewingMoment.author_id) ? (
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: 14, borderRadius: 12, background: "rgba(244,241,235,.14)", color: "#F4F1EB", fontSize: 15, fontWeight: 700 }}>✓ In your contacts</div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: 14, borderRadius: 12, background: "rgba(244,241,235,.14)", color: "#F4F1EB", fontSize: 15, fontWeight: 700 }}><Check size={20} /> In your contacts</div>
             ) : (
-              <button onClick={() => followUser({ id: viewingMoment.author_id, name: viewingMoment.author_name })} style={{ width: "100%", background: T.purple, color: "white", border: "none", borderRadius: 12, padding: 15, fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody }}>+ Add to contacts</button>
+              <button onClick={() => followUser({ id: viewingMoment.author_id, name: viewingMoment.author_name })} style={{ width: "100%", background: T.purple, color: "white", border: "none", borderRadius: 12, padding: 15, fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}><UserPlus size={18} /> Add to contacts</button>
             )}
           </div>
         </div>
@@ -966,7 +990,7 @@ export function CommunityScreen({ account }) {
             <div style={{ width: 40, height: 4, borderRadius: 2, background: T.border, margin: "6px auto 12px" }} />
             <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 6 }}>
               <span style={{ fontFamily: T.fontDisplay, fontSize: 19, fontWeight: 600, color: T.ink }}>{qrData.title}</span>
-              <button onClick={() => setQrOpen(false)} aria-label="Close" style={{ background: "none", border: "none", cursor: "pointer", color: T.inkMuted, fontSize: 20 }}>×</button>
+              <button onClick={() => setQrOpen(false)} aria-label="Close" style={{ background: "none", border: "none", cursor: "pointer", color: T.inkMuted, display: "flex" }}><X size={22} /></button>
             </div>
             <p style={{ margin: "0 0 16px", fontSize: 13, color: T.inkSoft, lineHeight: 1.5 }}>{qrData.hint}</p>
             <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
@@ -975,9 +999,10 @@ export function CommunityScreen({ account }) {
               </div>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, background: T.canvas, border: `1px solid ${T.border}`, borderRadius: 10, padding: "12px 14px", marginBottom: 12 }}>
+              <Link2 size={16} color={T.inkMuted} />
               <span style={{ flex: 1, fontSize: 13, color: T.inkSoft, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{qrData.code}</span>
             </div>
-            <Btn full onClick={() => { copyText(qrData.code); flash("Link copied"); }}>Copy link</Btn>
+            <Btn full onClick={() => { copyText(qrData.code); flash("Link copied"); }} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}><Copy size={16} /> Copy link</Btn>
           </div>
         </div>
       )}
@@ -988,7 +1013,7 @@ export function CommunityScreen({ account }) {
             <div style={{ width: 40, height: 4, borderRadius: 2, background: T.border, margin: "6px auto 14px" }} />
             <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 12 }}>
               <span style={{ fontFamily: T.fontDisplay, fontSize: 19, fontWeight: 600, color: T.ink }}>Moments settings</span>
-              <button onClick={() => setSettingsOpen(false)} aria-label="Close" style={{ background: "none", border: "none", cursor: "pointer", color: T.inkMuted, fontSize: 20 }}>×</button>
+              <button onClick={() => setSettingsOpen(false)} aria-label="Close" style={{ background: "none", border: "none", cursor: "pointer", color: T.inkMuted, display: "flex" }}><X size={22} /></button>
             </div>
             <ToggleRow label="Allow new followers" sub="Let other parents follow you from your link or QR" on={allowFollowers} onToggle={toggleAllowFollowers} />
             <ToggleRow label="Show location on my moments" sub='Display text like "Bedok" on your posts' on={showLocation} onToggle={toggleShowLocation} />
