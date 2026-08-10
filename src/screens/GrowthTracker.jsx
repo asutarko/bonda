@@ -14,7 +14,7 @@ import { useBackHandler } from "../hooks";
    consistently, not the child scoring higher.
    ================================================================== */
 
-const fontMono = "'JetBrains Mono', ui-monospace, monospace";
+const fontMono = "'Fraunces', Georgia, serif";
 
 const CATS = [
   {

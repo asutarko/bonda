@@ -20,7 +20,7 @@ export const ActionIllustration = ({ type, size = 44 }) => {
         <rect width="80" height="80" rx="14" fill="#FEF3C7"/>
         <circle cx="40" cy="38" r="20" fill="#D97706" opacity="0.2"/>
         <circle cx="40" cy="38" r="12" fill="#D97706" opacity="0.35"/>
-        <text x="40" y="43" textAnchor="middle" fontSize="16" fontWeight="700" fill="#92400E" fontFamily="system-ui">$</text>
+        <text x="40" y="43" textAnchor="middle" fontSize="16" fontWeight="700" fill="#92400E" fontFamily="'Fraunces', Georgia, serif">$</text>
         <rect x="18" y="60" width="44" height="3" rx="1.5" fill="#D97706" opacity="0.25"/>
         <rect x="28" y="66" width="24" height="3" rx="1.5" fill="#D97706" opacity="0.15"/>
       </svg>

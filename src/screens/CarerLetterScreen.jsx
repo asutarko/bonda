@@ -204,7 +204,7 @@ const exportLetterToPdf = async (html, fileName) => {
   // is meant for the in-app editor — a printed letter shouldn't have an orange
   // highlight box, just the plain bracketed text, same as the mockup's own
   // `@media print { .bk { background: none } }` rule.
-  container.innerHTML = `<style>.bonda-bk{background:none!important;padding:0!important;color:${T.amber}!important;}</style><div style="font-family:'Times New Roman',Times,serif;font-size:12pt;line-height:1.5;color:#000;">${html}</div>`;
+  container.innerHTML = `<style>.bonda-bk{background:none!important;padding:0!important;color:${T.amber}!important;}</style><div style="font-family:'Fraunces',Georgia,serif;font-size:12pt;line-height:1.5;color:#000;">${html}</div>`;
   hider.appendChild(container);
   document.body.appendChild(hider);
 
@@ -463,7 +463,7 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
                   plugins: "lists link table",
                   toolbar: "undo redo | bold italic underline | bullist numlist | link table | removeformat",
                   content_style: `
-                    body { font-family: 'Times New Roman', Times, serif; font-size: 13px; line-height: 1.65; color: ${T.ink}; }
+                    body { font-family: ${T.fontDisplay}; font-size: 13px; line-height: 1.65; color: ${T.ink}; }
                     h1,h2,h3,h4 { font-family: ${T.fontDisplay}; font-weight: 600; letter-spacing: -0.01em; margin: 20px 0 10px; color: ${T.ink}; }
                     h1 { font-size: 20px; } h2 { font-size: 18px; } h3 { font-size: 15px; } h4 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; }
                     p { margin: 0 0 12px; }
