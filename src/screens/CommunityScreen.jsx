@@ -136,7 +136,7 @@ export function ChatUI({ msgs, input, setInput, onSend, onDelete, loading, color
   );
 }
 
-// Sub-screen header — back chevron + Fraunces title, same chrome across
+// Sub-screen header — back chevron + Literata title, same chrome across
 // every screen pushed inside the Community tab (create group, share moment,
 // all groups, all moments, members).
 function SubHeader({ title, onBack, right }) {

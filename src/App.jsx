@@ -156,7 +156,7 @@ export default function Bonda() {
   if (passwordRecovery) {
     return (
       <div style={{ minHeight: "100vh", background: T.canvas, fontFamily: T.fontBody, display: "flex", flexDirection: "column", maxWidth: 480, margin: "0 auto", position: "relative" }}>
-        <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;0,9..144,800;1,9..144,400;1,9..144,500;1,9..144,600&display=swap" rel="stylesheet" />
+        <link href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,500;0,7..72,600;0,7..72,700;0,7..72,800;1,7..72,400;1,7..72,500;1,7..72,600&display=swap" rel="stylesheet" />
         <Suspense fallback={<ScreenFallback />}><ResetPasswordScreen onDone={() => setPasswordRecovery(false)} /></Suspense>
       </div>
     );
@@ -165,7 +165,7 @@ export default function Bonda() {
   if (!account) {
     return (
       <div style={{ minHeight: "100vh", background: T.canvas, fontFamily: T.fontBody, display: "flex", flexDirection: "column", maxWidth: 480, margin: "0 auto", position: "relative" }}>
-        <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;0,9..144,800;1,9..144,400;1,9..144,500;1,9..144,600&display=swap" rel="stylesheet" />
+        <link href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,500;0,7..72,600;0,7..72,700;0,7..72,800;1,7..72,400;1,7..72,500;1,7..72,600&display=swap" rel="stylesheet" />
         <Suspense fallback={<ScreenFallback />}><AuthScreen /></Suspense>
       </div>
     );
@@ -174,7 +174,7 @@ export default function Bonda() {
   if (pendingPhone) {
     return (
       <div style={{ minHeight: "100vh", background: T.canvas, fontFamily: T.fontBody, display: "flex", flexDirection: "column", maxWidth: 480, margin: "0 auto", position: "relative" }}>
-        <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;0,9..144,800;1,9..144,400;1,9..144,500;1,9..144,600&display=swap" rel="stylesheet" />
+        <link href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,500;0,7..72,600;0,7..72,700;0,7..72,800;1,7..72,400;1,7..72,500;1,7..72,600&display=swap" rel="stylesheet" />
         <Suspense fallback={<ScreenFallback />}><PhoneCaptureScreen account={account} onDone={() => setPendingPhone(false)} /></Suspense>
       </div>
     );
@@ -191,7 +191,7 @@ export default function Bonda() {
   if (!complianceAgreed) {
     return (
       <div style={{ minHeight: "100vh", background: T.canvas, fontFamily: T.fontBody, display: "flex", flexDirection: "column", maxWidth: 480, margin: "0 auto", position: "relative" }}>
-        <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;0,9..144,800;1,9..144,400;1,9..144,500;1,9..144,600&display=swap" rel="stylesheet" />
+        <link href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,500;0,7..72,600;0,7..72,700;0,7..72,800;1,7..72,400;1,7..72,500;1,7..72,600&display=swap" rel="stylesheet" />
         <Suspense fallback={<ScreenFallback />}><LegalHub mandatory onAgree={agreeToCompliance} /></Suspense>
       </div>
     );
@@ -310,7 +310,7 @@ export default function Bonda() {
 
   return (
     <div style={{ minHeight: "100vh", background: T.canvas, fontFamily: T.fontBody, display: "flex", flexDirection: "column", maxWidth: 480, margin: "0 auto", position: "relative" }}>
-      <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;0,9..144,800;1,9..144,400;1,9..144,500;1,9..144,600&display=swap" rel="stylesheet" />
+      <link href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,500;0,7..72,600;0,7..72,700;0,7..72,800;1,7..72,400;1,7..72,500;1,7..72,600&display=swap" rel="stylesheet" />
 
 
       {(current || tab !== "home") ? (

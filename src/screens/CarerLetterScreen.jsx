@@ -204,7 +204,7 @@ const exportLetterToPdf = async (html, fileName) => {
   // is meant for the in-app editor — a printed letter shouldn't have an orange
   // highlight box, just the plain bracketed text, same as the mockup's own
   // `@media print { .bk { background: none } }` rule.
-  container.innerHTML = `<style>.bonda-bk{background:none!important;padding:0!important;color:${T.amber}!important;}</style><div style="font-family:'Fraunces',Georgia,serif;font-size:12pt;line-height:1.5;color:#000;">${html}</div>`;
+  container.innerHTML = `<style>.bonda-bk{background:none!important;padding:0!important;color:${T.amber}!important;}</style><div style="font-family:'Literata',Georgia,serif;font-size:12pt;line-height:1.5;color:#000;">${html}</div>`;
   hider.appendChild(container);
   document.body.appendChild(hider);
 

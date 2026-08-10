@@ -10,11 +10,11 @@ const CANVAS = "#F4F1EB";
 const ERROR = "#B4544F";
 const SUCCESS_BG = "#E6EDEC";
 const SUCCESS_TX = "#2E5A56";
-const FONT_TITLE = "'Fraunces', Georgia, serif";
+const FONT_TITLE = "'Literata', Georgia, serif";
 
 const AUTH_CSS = `
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&display=swap');
-.bonda-auth { font-family: 'Fraunces', Georgia, serif; color: ${INK}; overflow-x: hidden; }
+@import url('https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,400;7..72,500;7..72,600;7..72,700&display=swap');
+.bonda-auth { font-family: 'Literata', Georgia, serif; color: ${INK}; overflow-x: hidden; }
 .bonda-auth .field-input, .bonda-auth .field-select {
   width: 100%; height: 50px; border-radius: 14px; border: 1.5px solid rgba(35,32,28,.14);
   background: #FFFFFF; padding: 0 14px; font-size: 15px; font-family: inherit; color: ${INK};

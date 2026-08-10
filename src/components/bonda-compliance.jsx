@@ -48,7 +48,7 @@ const C = {
   greenL:   "#DCFCE7",
   r:        "12px",
   rL:       "20px",
-  font:     "'Fraunces', Georgia, serif",
+  font:     "'Literata', Georgia, serif",
 };
 
 // ── SHARED PRIMITIVES ─────────────────────────────────────────
