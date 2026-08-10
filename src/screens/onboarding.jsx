@@ -20,6 +20,11 @@ const defaultChildDob = () => {
 // before this UI existed (known_triggers, diet_program, diagnosis, allergies)
 // — so carer letters and every other reader of those columns need no changes.
 
+// Capitalises the first letter of each word as the child's name is typed —
+// "aiden smith" becomes "Aiden Smith" live, without touching the rest of each
+// word (so it doesn't fight names with intentional internal capitals).
+const autoCapName = text => text.replace(/(^|\s)([a-z])/g, (_, boundary, letter) => boundary + letter.toUpperCase());
+
 const splitJoined = text => text ? text.split(/,\s*/).map(s => s.trim()).filter(Boolean) : [];
 
 const joinMultiField = (selected, other) =>
@@ -441,29 +446,30 @@ export function AddChildScreen({ childCtx, pop }) {
   return (
     <Page>
       <h1 style={{ margin: "6px 0 20px", fontFamily: T.fontDisplay, fontWeight: 600, fontSize: 26, lineHeight: 1.15, letterSpacing: "-0.01em", color: T.ink }}>Add a child profile</h1>
-      <p style={{ margin: "-12px 0 20px", color: T.inkSoft, fontSize: 14, lineHeight: 1.6 }}>Each child gets their own schedule, emotion log, and history. You can switch between children anytime.</p>
+      <p style={{ margin: "-12px 0 6px", color: T.inkSoft, fontSize: 14, lineHeight: 1.6 }}>Each child gets their own schedule, emotion log, and history. You can switch between children anytime.</p>
+      <p style={{ margin: "0 0 20px", color: T.inkMuted, fontSize: 12.5, fontWeight: 600 }}><span style={{ color: T.red }}>*</span> Required</p>
 
       <PhotoPicker photo={photo} setPhoto={setPhoto} photoErr={photoErr} setPhotoErr={setPhotoErr}
         cameraSupported={camera.cameraSupported} openCamera={camera.openCamera} />
       <CameraPanel show={camera.showCamera} videoRef={camera.videoRef} cameraReady={camera.cameraReady} takePhoto={camera.takePhoto} stopCamera={camera.stopCamera} />
 
       <FormSection title="General information">
-        <Input label="Child's name" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Aiden" />
+        <Input label={<>Child's name <span style={{ color: T.red }}>*</span></>} value={name} onChange={e => setName(autoCapName(e.target.value))} placeholder="e.g. Aiden" />
         <FieldError>{errors.name}</FieldError>
-        <Input label="Date of birth" value={dob} onChange={e => setDob(e.target.value)} type="date" />
+        <Input label={<>Date of birth <span style={{ color: T.red }}>*</span></>} value={dob} onChange={e => setDob(e.target.value)} type="date" />
         <FieldError>{errors.dob}</FieldError>
-        <Select label="Gender" value={gender} onChange={e => setGender(e.target.value)} placeholder="Select gender" options={["Male", "Female", "Prefer not to say"]} />
+        <Select label={<>Gender <span style={{ color: T.red }}>*</span></>} value={gender} onChange={e => setGender(e.target.value)} placeholder="Select gender" options={["Male", "Female", "Prefer not to say"]} />
         <FieldError>{errors.gender}</FieldError>
 
         <Select label="Your relationship to this child" value={caregiverType} onChange={e => setCaregiverType(e.target.value)} options={CAREGIVER_TYPE_OPTIONS} />
 
         {caregiverType === "other" && (
           <div style={{ marginBottom: 14 }}>
-            <Select label="What is your relationship to this child?" value={caregiverLabel} onChange={e => setCaregiverLabel(e.target.value)} placeholder="Select relationship" options={OTHER_CAREGIVER_OPTIONS} />
+            <Select label={<>What is your relationship to this child? <span style={{ color: T.red }}>*</span></>} value={caregiverLabel} onChange={e => setCaregiverLabel(e.target.value)} placeholder="Select relationship" options={OTHER_CAREGIVER_OPTIONS} />
             <FieldError>{errors.relationshipDetail}</FieldError>
             {caregiverLabel === "Others" && (
               <div style={{ marginTop: 10 }}>
-                <Input value={customRelative} onChange={e => setCustomRelative(e.target.value)} placeholder="e.g. Cousin" />
+                <Input label={<>Please specify <span style={{ color: T.red }}>*</span></>} value={customRelative} onChange={e => setCustomRelative(e.target.value)} placeholder="e.g. Cousin" />
                 <FieldError>{errors.customRelative}</FieldError>
               </div>
             )}
@@ -642,7 +648,8 @@ export function ChildProfileForm({ childCtx, onSaved, onCancel, onDeleted, showH
       {showHeader && (
         <>
           <h1 style={{ margin: "6px 0 20px", fontFamily: T.fontDisplay, fontWeight: 600, fontSize: 26, lineHeight: 1.15, letterSpacing: "-0.01em", color: T.ink }}>Edit child profile</h1>
-          <p style={{ margin: "-12px 0 20px", color: T.inkSoft, fontSize: 14, lineHeight: 1.6 }}>Update {activeChild.name}'s details below.</p>
+          <p style={{ margin: "-12px 0 6px", color: T.inkSoft, fontSize: 14, lineHeight: 1.6 }}>Update {activeChild.name}'s details below.</p>
+          <p style={{ margin: "0 0 20px", color: T.inkMuted, fontSize: 12.5, fontWeight: 600 }}><span style={{ color: T.red }}>*</span> Required</p>
         </>
       )}
 
@@ -651,22 +658,22 @@ export function ChildProfileForm({ childCtx, onSaved, onCancel, onDeleted, showH
       <CameraPanel show={camera.showCamera} videoRef={camera.videoRef} cameraReady={camera.cameraReady} takePhoto={camera.takePhoto} stopCamera={camera.stopCamera} />
 
       <FormSection title="General information">
-        <Input label="Child's name" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Aiden" />
+        <Input label={<>Child's name <span style={{ color: T.red }}>*</span></>} value={name} onChange={e => setName(autoCapName(e.target.value))} placeholder="e.g. Aiden" />
         <FieldError>{errors.name}</FieldError>
-        <Input label="Date of birth" value={dob} onChange={e => setDob(e.target.value)} type="date" />
+        <Input label={<>Date of birth <span style={{ color: T.red }}>*</span></>} value={dob} onChange={e => setDob(e.target.value)} type="date" />
         <FieldError>{errors.dob}</FieldError>
-        <Select label="Gender" value={gender} onChange={e => setGender(e.target.value)} placeholder="Select gender" options={["Male", "Female", "Prefer not to say"]} />
+        <Select label={<>Gender <span style={{ color: T.red }}>*</span></>} value={gender} onChange={e => setGender(e.target.value)} placeholder="Select gender" options={["Male", "Female", "Prefer not to say"]} />
         <FieldError>{errors.gender}</FieldError>
 
         <Select label="Your relationship to this child" value={caregiverType} onChange={e => setCaregiverType(e.target.value)} options={CAREGIVER_TYPE_OPTIONS} />
 
         {caregiverType === "other" && (
           <div style={{ marginBottom: 14 }}>
-            <Select label="What is your relationship to this child?" value={caregiverLabel} onChange={e => setCaregiverLabel(e.target.value)} placeholder="Select relationship" options={OTHER_CAREGIVER_OPTIONS} />
+            <Select label={<>What is your relationship to this child? <span style={{ color: T.red }}>*</span></>} value={caregiverLabel} onChange={e => setCaregiverLabel(e.target.value)} placeholder="Select relationship" options={OTHER_CAREGIVER_OPTIONS} />
             <FieldError>{errors.relationshipDetail}</FieldError>
             {caregiverLabel === "Others" && (
               <div style={{ marginTop: 10 }}>
-                <Input value={customRelative} onChange={e => setCustomRelative(e.target.value)} placeholder="e.g. Cousin" />
+                <Input label={<>Please specify <span style={{ color: T.red }}>*</span></>} value={customRelative} onChange={e => setCustomRelative(e.target.value)} placeholder="e.g. Cousin" />
                 <FieldError>{errors.customRelative}</FieldError>
               </div>
             )}
