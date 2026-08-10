@@ -283,7 +283,6 @@ export function SubsidiesScreen({ pop, account }) {
 
   return (
     <Page>
-      <h2 style={{ margin: "0 0 4px", color: T.ink, fontSize: 22, fontWeight: 800 }}>Subsidies & grants</h2>
       <p style={{ margin: "0 0 20px", color: T.inkSoft, fontSize: 14, lineHeight: 1.6 }}>Find the support your family may qualify for.</p>
 
       <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>

@@ -359,7 +359,6 @@ export default function SupportDirectory() {
       {/* header (white zone) */}
       <header className="bd-head">
         <div className="bd-wrap">
-          <h1 className="bd-title">Support directory</h1>
           <p className="bd-sub">Singapore contacts for autism and caregiver support.</p>
         </div>
         <div className="bd-head__tools bd-wrap">
@@ -475,8 +474,7 @@ const CSS = `
   border-bottom:1px solid var(--line); padding-top:env(safe-area-inset-top);
 }
 .bd-head > .bd-wrap:first-child{padding-top:18px; padding-bottom:2px;}
-.bd-title{margin:0; font-size:21px; font-weight:700; letter-spacing:-0.015em;}
-.bd-sub{margin:5px 0 0; font-size:13.5px; color:var(--ink-2);}
+.bd-sub{margin:0; font-size:13.5px; color:var(--ink-2);}
 .bd-head__tools{display:flex; gap:10px; padding-top:14px; padding-bottom:14px;}
 
 .bd-search{
