@@ -813,11 +813,6 @@ export function CommunityScreen({ account }) {
           </div>
         )}
 
-        <div style={{ display: "flex", alignItems: "center", gap: 8, background: T.amberL, borderRadius: T.r, padding: "12px 14px", marginBottom: 22, border: `1px solid ${T.amber}20` }}>
-          <Heart size={15} color={T.amber} style={{ flexShrink: 0 }} />
-          <p style={{ margin: 0, color: T.amber, fontSize: 12, fontWeight: 700, lineHeight: 1.6 }}>Be kind and supportive. Everyone here is doing their best.</p>
-        </div>
-
         <SectionLabel action={<button onClick={() => setView("allMoments")} style={{ background: "none", border: "none", color: T.purple, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: T.fontBody }}>See all</button>}>Share a Moment</SectionLabel>
         <div style={{ display: "flex", gap: 14, overflowX: "auto", paddingBottom: 8, marginBottom: 24 }}>
           <button onClick={() => setView("shareMoment")} aria-label="Add a moment" style={{ background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 6, flexShrink: 0, fontFamily: T.fontBody }}>
@@ -921,6 +916,11 @@ export function CommunityScreen({ account }) {
             </div>
           </Card>
         )}
+
+        <div style={{ display: "flex", alignItems: "center", gap: 8, background: T.amberL, borderRadius: T.r, padding: "12px 14px", marginTop: 22, border: `1px solid ${T.amber}20` }}>
+          <Heart size={15} color={T.amber} style={{ flexShrink: 0 }} />
+          <p style={{ margin: 0, color: T.amber, fontSize: 12, fontWeight: 700, lineHeight: 1.6 }}>Be kind and supportive. Everyone here is doing their best.</p>
+        </div>
       </Page>
     );
   }
