@@ -142,7 +142,7 @@ function ScheduleRow({ item, essential, done, skipped, onToggle, menuOpen, onMen
         </button>
         <span style={{ fontSize: 22, flexShrink: 0, lineHeight: 1 }}>{item.emoji}</span>
         <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 700, color: done ? T.inkMuted : T.ink, textDecoration: done ? "line-through" : "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.label}</span>
-        {skipped ? <Badge color={T.inkMuted}>skipped</Badge> : <Badge color={T.purple}>{item.time}</Badge>}
+        {skipped ? <Badge color={T.inkMuted}>skipped</Badge> : <Badge color={T.purple}>{item.endTime ? `${item.time}–${item.endTime}` : item.time}</Badge>}
         {essential ? (
           <button onClick={onMenuToggle} style={{ border: "none", background: "none", cursor: "pointer", padding: "2px 4px", fontSize: 18, fontWeight: 900, color: T.inkMuted, lineHeight: 1 }} aria-label="Options">⋯</button>
         ) : (
@@ -176,7 +176,7 @@ export function ScheduleScreen({ childCtx, push }) {
   const [menuFor, setMenuFor] = useState(null);
   const [editing, setEditing] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
-  const [newItem, setNewItem] = useState({ emoji: "⭐", label: "", time: "08:00" });
+  const [newItem, setNewItem] = useState({ emoji: "⭐", label: "", time: "08:00", endTime: "", isRange: false });
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [editData, setEditData] = useState({});
   const [showAlarmSettings, setShowAlarmSettings] = useState(false);
@@ -224,7 +224,7 @@ export function ScheduleScreen({ childCtx, push }) {
       const items = activeChild?.scheduleItems || DEFAULT_SCHEDULE;
       const now = new Date();
       const hhmm = now.getHours().toString().padStart(2,"0") + ":" + now.getMinutes().toString().padStart(2,"0");
-      const match = items.find(i => i.time === hhmm);
+      const match = items.find(i => i.time === hhmm || i.endTime === hhmm);
       if (match) {
         try {
           if (!audioCtxRef.current) audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
@@ -316,15 +316,20 @@ export function ScheduleScreen({ childCtx, push }) {
   const addItem = () => {
     if (!newItem.label.trim()) return;
     const id = Date.now().toString();
-    updateChild(activeChild.id, { scheduleItems: [...items, { ...newItem, id }] });
-    setNewItem({ emoji: "⭐", label: "", time: "08:00" }); setShowAdd(false);
+    const item = { emoji: newItem.emoji, label: newItem.label, time: newItem.time, id };
+    if (newItem.isRange && newItem.endTime) item.endTime = newItem.endTime;
+    updateChild(activeChild.id, { scheduleItems: [...items, item] });
+    setNewItem({ emoji: "⭐", label: "", time: "08:00", endTime: "", isRange: false }); setShowAdd(false);
   };
 
   const deleteItem = id => updateChild(activeChild.id, { scheduleItems: items.filter(i => i.id !== id) });
 
-  const startEdit = item => { setEditing(item.id); setEditData({ ...item }); setMenuFor(null); };
+  const startEdit = item => { setEditing(item.id); setEditData({ ...item, isRange: !!item.endTime }); setMenuFor(null); };
   const saveEdit = () => {
-    updateChild(activeChild.id, { scheduleItems: items.map(i => i.id === editing ? { ...editData } : i) });
+    const { isRange, ...rest } = editData;
+    const item = { ...rest };
+    if (!(isRange && item.endTime)) delete item.endTime;
+    updateChild(activeChild.id, { scheduleItems: items.map(i => i.id === editing ? item : i) });
     setEditing(null);
   };
 
@@ -334,8 +339,8 @@ export function ScheduleScreen({ childCtx, push }) {
       isoDate: todayStr,
       date: new Date().toLocaleDateString("en-SG", { weekday: "short", day: "numeric", month: "short", year: "numeric" }),
       total: activeItems.length, completedCount,
-      completed: activeItems.filter(i => done[i.id]).map(i => ({ emoji: i.emoji, label: i.label, time: i.time })),
-      missed: activeItems.filter(i => !done[i.id]).map(i => ({ emoji: i.emoji, label: i.label, time: i.time })),
+      completed: activeItems.filter(i => done[i.id]).map(i => ({ emoji: i.emoji, label: i.label, time: i.time, endTime: i.endTime })),
+      missed: activeItems.filter(i => !done[i.id]).map(i => ({ emoji: i.emoji, label: i.label, time: i.time, endTime: i.endTime })),
     };
     updateChild(activeChild.id, { history: [entry, ...history].slice(0, 30), todayDone: {}, todayDoneDate: todayStr });
     setSkippedToday([]);
@@ -374,8 +379,17 @@ export function ScheduleScreen({ childCtx, push }) {
           <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
             <button onClick={() => setShowEmojiPicker(!showEmojiPicker)} style={{ fontSize: 24, background: T.surface, border: `1.5px solid ${T.border}`, borderRadius: T.r, padding: "6px 10px", cursor: "pointer" }}>{editData.emoji}</button>
             <input value={editData.label} onChange={e => setEditData({ ...editData, label: e.target.value })} style={{ flex: 1, minWidth: 0, boxSizing: "border-box", padding: "8px 12px", borderRadius: T.r, border: `1.5px solid ${T.purple}`, fontSize: 14, fontFamily: T.fontBody, color: T.ink, background: T.surface, outline: "none" }} />
-            <input type="time" value={editData.time} onChange={e => setEditData({ ...editData, time: e.target.value })} style={{ flexShrink: 0, boxSizing: "border-box", padding: "8px 10px", borderRadius: T.r, border: `1.5px solid ${T.purple}`, fontSize: 13, fontFamily: T.fontBody, color: T.ink, background: T.surface, outline: "none", width: 88 }} />
           </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <input type="time" value={editData.time} onChange={e => setEditData({ ...editData, time: e.target.value })} style={{ flexShrink: 0, boxSizing: "border-box", padding: "8px 10px", borderRadius: T.r, border: `1.5px solid ${T.purple}`, fontSize: 13, fontFamily: T.fontBody, color: T.ink, background: T.surface, outline: "none", width: 118 }} />
+            {editData.isRange && <>
+              <span style={{ color: T.inkMuted, fontSize: 13, fontWeight: 700 }}>–</span>
+              <input type="time" value={editData.endTime || ""} onChange={e => setEditData({ ...editData, endTime: e.target.value })} style={{ flexShrink: 0, boxSizing: "border-box", padding: "8px 10px", borderRadius: T.r, border: `1.5px solid ${T.purple}`, fontSize: 13, fontFamily: T.fontBody, color: T.ink, background: T.surface, outline: "none", width: 118 }} />
+            </>}
+          </div>
+          <button onClick={() => setEditData({ ...editData, isRange: !editData.isRange })} style={{ border: "none", background: "none", padding: "0 0 10px", cursor: "pointer", fontSize: 12, fontWeight: 700, color: T.purple, fontFamily: T.fontBody, display: "block" }}>
+            {editData.isRange ? "✕ Remove end time" : "+ Add end time (interval)"}
+          </button>
           {showEmojiPicker && <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: 10, background: T.surface, borderRadius: T.r, marginBottom: 10 }}>{EMOJI_OPTS.map(e => <button key={e} onClick={() => { setEditData({ ...editData, emoji: e }); setShowEmojiPicker(false); }} style={{ fontSize: 20, background: "none", border: "none", cursor: "pointer", borderRadius: 8, padding: 3 }}>{e}</button>)}</div>}
           <div style={{ display: "flex", gap: 8 }}>
             <Btn onClick={saveEdit} style={{ flex: 1 }}>Save</Btn>
@@ -545,8 +559,17 @@ export function ScheduleScreen({ childCtx, push }) {
               <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
                 <button onClick={() => setShowEmojiPicker(!showEmojiPicker)} style={{ fontSize: 24, background: T.surface, border: `1.5px solid ${T.border}`, borderRadius: T.r, padding: "6px 10px", cursor: "pointer" }}>{newItem.emoji}</button>
                 <input value={newItem.label} onChange={e => setNewItem({ ...newItem, label: e.target.value })} placeholder="Activity name" style={{ flex: 1, minWidth: 0, boxSizing: "border-box", padding: "8px 12px", borderRadius: T.r, border: `1.5px solid ${T.purple}`, fontSize: 14, fontFamily: T.fontBody, color: T.ink, outline: "none", background: T.surface }} />
-                <input type="time" value={newItem.time} onChange={e => setNewItem({ ...newItem, time: e.target.value })} style={{ flexShrink: 0, boxSizing: "border-box", padding: "8px 8px", borderRadius: T.r, border: `1.5px solid ${T.purple}`, fontSize: 13, fontFamily: T.fontBody, color: T.ink, outline: "none", width: 88, background: T.surface }} />
               </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                <input type="time" value={newItem.time} onChange={e => setNewItem({ ...newItem, time: e.target.value })} style={{ flexShrink: 0, boxSizing: "border-box", padding: "8px 8px", borderRadius: T.r, border: `1.5px solid ${T.purple}`, fontSize: 13, fontFamily: T.fontBody, color: T.ink, outline: "none", width: 118, background: T.surface }} />
+                {newItem.isRange && <>
+                  <span style={{ color: T.inkMuted, fontSize: 13, fontWeight: 700 }}>–</span>
+                  <input type="time" value={newItem.endTime} onChange={e => setNewItem({ ...newItem, endTime: e.target.value })} style={{ flexShrink: 0, boxSizing: "border-box", padding: "8px 8px", borderRadius: T.r, border: `1.5px solid ${T.purple}`, fontSize: 13, fontFamily: T.fontBody, color: T.ink, outline: "none", width: 118, background: T.surface }} />
+                </>}
+              </div>
+              <button onClick={() => setNewItem({ ...newItem, isRange: !newItem.isRange })} style={{ border: "none", background: "none", padding: "0 0 10px", cursor: "pointer", fontSize: 12, fontWeight: 700, color: T.purple, fontFamily: T.fontBody, display: "block" }}>
+                {newItem.isRange ? "✕ Remove end time" : "+ Add end time (interval, e.g. school 08:00–12:00)"}
+              </button>
               {showEmojiPicker && <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: 10, background: T.surface, borderRadius: T.r, marginBottom: 10 }}>{EMOJI_OPTS.map(e => <button key={e} onClick={() => { setNewItem({ ...newItem, emoji: e }); setShowEmojiPicker(false); }} style={{ fontSize: 20, background: "none", border: "none", cursor: "pointer", borderRadius: 8, padding: 3 }}>{e}</button>)}</div>}
               <p style={{ margin: "0 0 10px", color: T.inkMuted, fontSize: 11, lineHeight: 1.5 }}>You can edit or remove this anytime — it's yours, not an essential.</p>
               <div style={{ display: "flex", gap: 8 }}>
@@ -674,11 +697,11 @@ export function ScheduleScreen({ childCtx, push }) {
             </div>
             {selectedEntry.completed.length > 0 && <>
               <p style={{ margin: "10px 0 6px", fontSize: 11, fontWeight: 700, color: T.green, textTransform: "uppercase", letterSpacing: "0.07em" }}>✅ Completed</p>
-              {selectedEntry.completed.map((a, i) => <div key={i} style={{ display: "flex", gap: 10, padding: "7px 0", borderTop: `1px solid ${T.border}`, alignItems: "center" }}><span style={{ fontSize: 18 }}>{a.emoji}</span><span style={{ fontSize: 13, fontWeight: 600, color: T.ink, flex: 1 }}>{a.label}</span><span style={{ fontSize: 12, color: T.inkMuted }}>{a.time}</span></div>)}
+              {selectedEntry.completed.map((a, i) => <div key={i} style={{ display: "flex", gap: 10, padding: "7px 0", borderTop: `1px solid ${T.border}`, alignItems: "center" }}><span style={{ fontSize: 18 }}>{a.emoji}</span><span style={{ fontSize: 13, fontWeight: 600, color: T.ink, flex: 1 }}>{a.label}</span><span style={{ fontSize: 12, color: T.inkMuted }}>{a.endTime ? `${a.time}–${a.endTime}` : a.time}</span></div>)}
             </>}
             {selectedEntry.missed.length > 0 && <>
               <p style={{ margin: "10px 0 6px", fontSize: 11, fontWeight: 700, color: T.red, textTransform: "uppercase", letterSpacing: "0.07em" }}>⏭ Missed</p>
-              {selectedEntry.missed.map((a, i) => <div key={i} style={{ display: "flex", gap: 10, padding: "7px 0", borderTop: `1px solid ${T.border}`, alignItems: "center", opacity: 0.6 }}><span style={{ fontSize: 18 }}>{a.emoji}</span><span style={{ fontSize: 13, fontWeight: 600, color: T.ink, flex: 1 }}>{a.label}</span><span style={{ fontSize: 12, color: T.inkMuted }}>{a.time}</span></div>)}
+              {selectedEntry.missed.map((a, i) => <div key={i} style={{ display: "flex", gap: 10, padding: "7px 0", borderTop: `1px solid ${T.border}`, alignItems: "center", opacity: 0.6 }}><span style={{ fontSize: 18 }}>{a.emoji}</span><span style={{ fontSize: 13, fontWeight: 600, color: T.ink, flex: 1 }}>{a.label}</span><span style={{ fontSize: 12, color: T.inkMuted }}>{a.endTime ? `${a.time}–${a.endTime}` : a.time}</span></div>)}
             </>}
           </div>
         </Overlay>
