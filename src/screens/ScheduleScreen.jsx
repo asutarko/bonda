@@ -8,6 +8,30 @@ import { useBackHandler } from "../hooks";
 export const EMOJI_OPTS = ["🌅","🍳","🥗","🍎","🦷","🛁","👗","🎨","📚","🎮","🏃","🧩","🎵","🌳","😴","🚌","🏠","💊","🧸","🐾","🎭","🖥️","🏊","🛌","⭐","🎯","🏋️","🛝"];
 //  EMOTION DATA
 
+// Quick-add presets for the "New Activity" modal — one tap fills emoji, label
+// and duration, so a caregiver isn't retyping the same routine every day.
+const ADD_ACTIVITY_TEMPLATES = [
+  { emoji: "🌅", label: "Wake Up",              category: "routine",  duration: 15 },
+  { emoji: "🪥", label: "Brush Teeth",          category: "routine",  duration: 5 },
+  { emoji: "🛁", label: "Bath",                 category: "routine",  duration: 20 },
+  { emoji: "💊", label: "Medication",           category: "routine",  duration: 5 },
+  { emoji: "🍳", label: "Breakfast",            category: "meals",    duration: 30 },
+  { emoji: "🥗", label: "Lunch",                category: "meals",    duration: 30 },
+  { emoji: "🍽️", label: "Dinner",               category: "meals",    duration: 30 },
+  { emoji: "🧩", label: "Occupational Therapy", category: "therapy",  duration: 60 },
+  { emoji: "🗣️", label: "Speech Therapy",       category: "therapy",  duration: 45 },
+  { emoji: "🎨", label: "Art Therapy",          category: "therapy",  duration: 45 },
+  { emoji: "🧸", label: "Free Play",            category: "play",     duration: 30 },
+  { emoji: "🎵", label: "Music Time",           category: "play",     duration: 20 },
+  { emoji: "🏃", label: "Exercise",             category: "play",     duration: 30 },
+  { emoji: "🖥️", label: "Screen Time",          category: "play",     duration: 30 },
+  { emoji: "📚", label: "Study Time",           category: "learning", duration: 30 },
+  { emoji: "😴", label: "Nap",                  category: "rest",     duration: 60 },
+  { emoji: "🤗", label: "Quiet Time",           category: "rest",     duration: 15 },
+  { emoji: "🌙", label: "Bedtime",              category: "rest",     duration: 0 },
+];
+const TEMPLATE_CATEGORIES = { routine: "🔁 Routine", meals: "🍴 Meals", therapy: "💜 Therapy", play: "🎈 Play", learning: "📖 Learning", rest: "😌 Rest" };
+
 export const ALARM_TONES = [
   {
     id: "lullaby", label: "Lullaby", desc: "Soft & gentle",
@@ -201,9 +225,11 @@ function hhmmNow() {
   return d.getHours().toString().padStart(2, "0") + ":" + d.getMinutes().toString().padStart(2, "0");
 }
 
-function hhmmToMin(t) {
-  const [h, m] = t.split(":").map(Number);
-  return h * 60 + m;
+// Adds a duration (minutes) to a "HH:MM" start time, wrapping past midnight.
+function addMinutesToTime(time, minutes) {
+  const [h, m] = time.split(":").map(Number);
+  const total = (h * 60 + m + minutes + 1440) % 1440;
+  return Math.floor(total / 60).toString().padStart(2, "0") + ":" + (total % 60).toString().padStart(2, "0");
 }
 
 // Compact label for a day pattern — recognizes the two common presets so
@@ -243,31 +269,120 @@ function DayChips({ selected, onSet }) {
   );
 }
 
+const modeTabBtn = active => ({ flex: 1, padding: 10, borderRadius: T.r, border: `1.5px solid ${active ? T.purple : T.border}`, background: active ? T.purpleL : T.surface, fontSize: 13, fontWeight: 700, color: active ? T.purple : T.inkMuted, cursor: "pointer", fontFamily: T.fontBody });
+const catChipBtn = active => ({ padding: "6px 12px", borderRadius: 99, border: `1.5px solid ${active ? T.purple : T.border}`, background: active ? T.purpleL : T.surface, fontSize: 12, fontWeight: 700, color: active ? T.purple : T.inkMuted, cursor: "pointer", fontFamily: T.fontBody, whiteSpace: "nowrap" });
+
+// Bottom-sheet for creating an "Added by you" activity — tap a template
+// (emoji + label + duration filled in one go) or build a custom one, then set
+// the time, an optional repeat pattern and notes.
+function AddActivityModal({ newItem, setNewItem, showEmojiPicker, setShowEmojiPicker, onAdd, onClose }) {
+  const [mode, setMode] = useState("template");
+  const [selectedCat, setSelectedCat] = useState(null);
+  const filtered = selectedCat ? ADD_ACTIVITY_TEMPLATES.filter(t => t.category === selectedCat) : ADD_ACTIVITY_TEMPLATES;
+  const pickTemplate = t => setNewItem(n => ({ ...n, emoji: t.emoji, label: t.label, duration: t.duration }));
+  const isPicked = t => newItem.emoji === t.emoji && newItem.label === t.label;
+
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(35,32,28,0.45)", zIndex: 1000, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: T.surface, borderRadius: "24px 24px 0 0", width: "100%", maxWidth: 420, maxHeight: "88vh", overflowY: "auto", boxSizing: "border-box", padding: "20px 20px 28px", boxShadow: T.shadowM, fontFamily: T.fontBody }}>
+        <div style={{ width: 40, height: 4, background: T.border, borderRadius: 2, margin: "0 auto 16px" }} />
+        <p style={{ margin: "0 0 16px", fontWeight: 800, color: T.ink, fontSize: 17, textAlign: "center" }}>New Activity</p>
+
+        <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+          <button type="button" onClick={() => setMode("template")} style={modeTabBtn(mode === "template")}>📋 Template</button>
+          <button type="button" onClick={() => setMode("custom")} style={modeTabBtn(mode === "custom")}>✏️ Custom</button>
+        </div>
+
+        {mode === "template" ? (
+          <>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
+              <button type="button" onClick={() => setSelectedCat(null)} style={catChipBtn(!selectedCat)}>All</button>
+              {Object.entries(TEMPLATE_CATEGORIES).map(([k, v]) => (
+                <button key={k} type="button" onClick={() => setSelectedCat(k)} style={catChipBtn(selectedCat === k)}>{v}</button>
+              ))}
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 }}>
+              {filtered.map(t => (
+                <button key={t.label} type="button" onClick={() => pickTemplate(t)} style={{ padding: "14px 10px", borderRadius: T.r, border: `2px solid ${isPicked(t) ? T.purple : T.border}`, background: isPicked(t) ? T.purpleL : T.canvas, cursor: "pointer", textAlign: "center", fontFamily: T.fontBody }}>
+                  <div style={{ fontSize: 28, marginBottom: 4 }}>{t.emoji}</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: T.ink }}>{t.label}</div>
+                  <div style={{ fontSize: 11, color: T.inkMuted, marginTop: 2 }}>{t.duration > 0 ? `${t.duration} min` : "no end time"}</div>
+                </button>
+              ))}
+            </div>
+          </>
+        ) : (
+          <>
+            <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+              <button type="button" onClick={() => setShowEmojiPicker(!showEmojiPicker)} style={{ fontSize: 24, background: T.surface, border: `1.5px solid ${T.border}`, borderRadius: T.r, padding: "6px 10px", cursor: "pointer" }}>{newItem.emoji}</button>
+              <input value={newItem.label} onChange={e => setNewItem({ ...newItem, label: e.target.value })} placeholder="Activity name" style={{ flex: 1, minWidth: 0, boxSizing: "border-box", padding: "8px 12px", borderRadius: T.r, border: `1.5px solid ${T.purple}`, fontSize: 14, fontFamily: T.fontBody, color: T.ink, outline: "none", background: T.surface }} />
+            </div>
+            {showEmojiPicker && <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: 10, background: T.canvas, borderRadius: T.r, marginBottom: 10 }}>{EMOJI_OPTS.map(e => <button key={e} type="button" onClick={() => { setNewItem({ ...newItem, emoji: e }); setShowEmojiPicker(false); }} style={{ fontSize: 20, background: "none", border: "none", cursor: "pointer", borderRadius: 8, padding: 3 }}>{e}</button>)}</div>}
+            <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkMuted }}>Duration</p>
+            <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+              {[0, 15, 30, 45, 60].map(d => (
+                <button key={d} type="button" onClick={() => setNewItem({ ...newItem, duration: d })} style={{ flex: 1, padding: "9px 0", borderRadius: T.r, border: `1.5px solid ${newItem.duration === d ? T.purple : T.border}`, background: newItem.duration === d ? T.purpleL : T.surface, fontSize: 13, fontWeight: 700, color: newItem.duration === d ? T.purple : T.inkMuted, cursor: "pointer", fontFamily: T.fontBody }}>{d === 0 ? "None" : `${d}m`}</button>
+              ))}
+            </div>
+          </>
+        )}
+
+        <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkMuted }}>Time</p>
+        <div style={{ marginBottom: 14 }}>
+          <TimeSelect value={newItem.time} onChange={v => setNewItem({ ...newItem, time: v })} width={140} />
+        </div>
+
+        <button type="button" onClick={() => setNewItem(n => ({ ...n, isRecurring: !n.isRecurring, days: !n.isRecurring && n.days.length === 0 ? [1, 2, 3, 4, 5] : n.days }))} style={{ border: "none", background: "none", padding: "0 0 10px", cursor: "pointer", fontSize: 12, fontWeight: 700, color: T.purple, fontFamily: T.fontBody, display: "block" }}>
+          {newItem.isRecurring ? "✕ Remove day pattern" : "+ Repeat on specific days (e.g. school on weekdays)"}
+        </button>
+        {newItem.isRecurring && <DayChips selected={newItem.days} onSet={d => setNewItem({ ...newItem, days: d })} />}
+
+        <p style={{ margin: "10px 0 8px", fontSize: 12, fontWeight: 700, color: T.inkMuted }}>Notes (optional)</p>
+        <input value={newItem.notes} onChange={e => setNewItem({ ...newItem, notes: e.target.value })} placeholder="e.g. Avoid loud noises" style={{ width: "100%", boxSizing: "border-box", padding: "8px 12px", borderRadius: T.r, border: `1.5px solid ${T.border}`, fontSize: 13, fontFamily: T.fontBody, color: T.ink, outline: "none", background: T.surface, marginBottom: 16 }} />
+
+        <p style={{ margin: "0 0 12px", color: T.inkMuted, fontSize: 11, lineHeight: 1.5 }}>You can edit or remove this anytime — it's yours, not an essential.</p>
+
+        <div style={{ display: "flex", gap: 8 }}>
+          <Btn onClick={onAdd} disabled={!newItem.label.trim()} style={{ flex: 1 }}>Add ✓</Btn>
+          <Btn onClick={onClose} secondary style={{ flex: 1 }}>Cancel</Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function DoneDot({ state }) {
   if (state === "done") return <div style={{ width: 24, height: 24, borderRadius: "50%", background: T.green, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><span style={{ color: "#fff", fontSize: 12, fontWeight: 900 }}>✓</span></div>;
   if (state === "skip") return <div style={{ width: 24, height: 24, borderRadius: "50%", border: `1.5px solid ${T.border}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><span style={{ color: T.inkMuted, fontSize: 14, fontWeight: 900, lineHeight: 1 }}>–</span></div>;
   return <div style={{ width: 24, height: 24, borderRadius: "50%", border: `1.5px solid ${T.border}`, flexShrink: 0 }} />;
 }
 
-// Thin fill bar under a row showing how far along an activity is — full time-
-// based fill for essentials (0% before it starts, filling across a time range,
-// 100% once past), a plain 0/100 flip for manually-tapped added items.
-function ActivityProgressBar({ percent, done, inactive }) {
-  const fillColor = inactive ? T.border : done ? T.green : T.purple;
+// Caregiver-facing status: a colored dot + plain-language word, not a percentage —
+// meant to be scannable at a glance rather than requiring any interpretation.
+const STATUS_META = {
+  completed:   { label: "Completed",   color: T.green },
+  in_progress: { label: "In Progress", color: T.teal },
+  upcoming:    { label: "Upcoming",    color: T.amber },
+  missed:      { label: "Missed",      color: T.red },
+  skipped:     { label: "Skipped",     color: T.inkMuted },
+};
+
+function StatusPill({ status }) {
+  const meta = STATUS_META[status];
+  if (!meta) return null;
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
-      <div style={{ flex: 1, height: 5, borderRadius: 99, background: T.border, overflow: "hidden" }}>
-        <div style={{ width: `${percent}%`, height: "100%", borderRadius: 99, background: fillColor, transition: "width 0.3s" }} />
-      </div>
-      <span style={{ fontSize: 10, fontWeight: 800, color: T.inkMuted, minWidth: 28, textAlign: "right", flexShrink: 0 }}>{percent}%</span>
+    <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4 }}>
+      <span style={{ width: 7, height: 7, borderRadius: "50%", background: meta.color, flexShrink: 0 }} />
+      <span style={{ fontSize: 12, fontWeight: 700, color: meta.color }}>{meta.label}</span>
     </div>
   );
 }
 
 // A single schedule item row — essentials (from the default schedule) get a
 // "…" menu with edit/skip; items the parent added get inline edit/delete.
-function ScheduleRow({ item, essential, done, progress, skipped, notToday, onToggle, menuOpen, onMenuToggle, onEdit, onSkip, onDelete }) {
-  const inactive = skipped || notToday;
+function ScheduleRow({ item, essential, status, skipped, notToday, onToggle, menuOpen, onMenuToggle, onEdit, onSkip, onDelete }) {
+  const done = status === "completed";
+  const inactive = status === "skipped" || notToday;
   // Essentials are reminders, not a tap-to-check list — their row is static and
   // "done" ticks over on its own once the clock passes their time.
   const clickable = !essential && !inactive;
@@ -283,8 +398,7 @@ function ScheduleRow({ item, essential, done, progress, skipped, notToday, onTog
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <span style={{ fontSize: 22, flexShrink: 0, lineHeight: 1 }}>{item.emoji}</span>
           <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 700, color: done ? T.inkMuted : T.ink, textDecoration: done ? "line-through" : "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.label}</span>
-          {skipped ? <Badge color={T.inkMuted}>skipped</Badge>
-            : notToday ? <Badge color={T.inkMuted}>{pattern} · not today</Badge>
+          {notToday ? <Badge color={T.inkMuted}>{pattern} · not today</Badge>
             : <Badge color={T.purple}>{pattern ? `${pattern} · ` : ""}{timeRangeLabel(item)}</Badge>}
           {essential ? (
             <button onClick={e => { e.stopPropagation(); onMenuToggle(); }} style={{ border: "none", background: "none", cursor: "pointer", padding: "2px 4px", fontSize: 18, fontWeight: 900, color: T.inkMuted, lineHeight: 1 }} aria-label="Options">⋯</button>
@@ -295,7 +409,8 @@ function ScheduleRow({ item, essential, done, progress, skipped, notToday, onTog
             </div>
           )}
         </div>
-        <ActivityProgressBar percent={progress} done={done} inactive={inactive} />
+        {!notToday && <StatusPill status={status} />}
+        {item.notes && <p style={{ margin: "5px 0 0 32px", fontSize: 11, color: T.inkMuted, lineHeight: 1.4 }}>📝 {item.notes}</p>}
       </div>
 
       {menuOpen && (
@@ -379,7 +494,7 @@ export function ScheduleScreen({ childCtx, push }) {
   const [menuFor, setMenuFor] = useState(null);
   const [editing, setEditing] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
-  const [newItem, setNewItem] = useState({ emoji: "⭐", label: "", time: "08:00", endTime: "", isRange: false, days: [], isRecurring: false });
+  const [newItem, setNewItem] = useState({ emoji: "⭐", label: "", time: "08:00", duration: 30, notes: "", days: [], isRecurring: false });
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [editData, setEditData] = useState({});
   const [showAlarmSettings, setShowAlarmSettings] = useState(false);
@@ -511,20 +626,28 @@ export function ScheduleScreen({ childCtx, push }) {
   const essentials = sorted.filter(isEssential);
   const added = sorted.filter(i => !isEssential(i));
 
-  // Essentials auto-complete once their time has passed (they're reminders, not
-  // a tap-to-check list) — for a time range, progress fills in between; items
-  // the parent added still track a manual tap, so their bar is just 0 or 100.
-  const activityPercent = item => {
-    if (!isEssential(item)) return done[item.id] ? 100 : 0;
+  // Caregiver-facing status for a row — five plain states instead of a raw
+  // percentage. Essentials are reminders tied to the clock: they auto-complete
+  // once their time passes and never sit as "Missed" (that's the point of
+  // wiring them to the alarm instead of a checklist). Added items still need a
+  // manual tap, so an unaddressed one flips to "Missed" once its time is gone.
+  const activityStatus = item => {
+    if (skippedToday.includes(item.id)) return "skipped";
     const start = item.time, end = item.endTime || item.time;
-    if (nowHHMM >= end) return 100;
-    if (nowHHMM < start) return 0;
-    return Math.max(0, Math.min(100, Math.round(((hhmmToMin(nowHHMM) - hhmmToMin(start)) / (hhmmToMin(end) - hhmmToMin(start))) * 100)));
+    if (isEssential(item)) {
+      if (nowHHMM < start) return "upcoming";
+      if (item.endTime && nowHHMM < end) return "in_progress";
+      return "completed";
+    }
+    if (done[item.id]) return "completed";
+    if (nowHHMM < start) return "upcoming";
+    if (item.endTime && nowHHMM < end) return "in_progress";
+    return "missed";
   };
-  const isDone = item => activityPercent(item) >= 100;
+  const isCompleted = item => activityStatus(item) === "completed";
 
   const activeItems = items.filter(i => !skippedToday.includes(i.id) && appliesToday(i, todayDow));
-  const completedCount = activeItems.filter(isDone).length;
+  const completedCount = activeItems.filter(isCompleted).length;
   const progress = activeItems.length ? Math.round((completedCount / activeItems.length) * 100) : 0;
 
   const toggleDone = id => updateChild(activeChild.id, { todayDone: { ...done, [id]: !done[id] }, todayDoneDate: todayStr });
@@ -541,10 +664,11 @@ export function ScheduleScreen({ childCtx, push }) {
     if (!newItem.label.trim()) return;
     const id = Date.now().toString();
     const item = { emoji: newItem.emoji, label: newItem.label, time: newItem.time, id };
-    if (newItem.isRange && newItem.endTime) item.endTime = newItem.endTime;
+    if (newItem.duration > 0) item.endTime = addMinutesToTime(newItem.time, newItem.duration);
+    if (newItem.notes.trim()) item.notes = newItem.notes.trim();
     if (newItem.isRecurring && newItem.days.length) item.days = newItem.days;
     updateChild(activeChild.id, { scheduleItems: [...items, item] });
-    setNewItem({ emoji: "⭐", label: "", time: "08:00", endTime: "", isRange: false, days: [], isRecurring: false }); setShowAdd(false);
+    setNewItem({ emoji: "⭐", label: "", time: "08:00", duration: 30, notes: "", days: [], isRecurring: false }); setShowAdd(false);
   };
 
   const deleteItem = id => updateChild(activeChild.id, { scheduleItems: items.filter(i => i.id !== id) });
@@ -565,8 +689,8 @@ export function ScheduleScreen({ childCtx, push }) {
       isoDate: todayStr,
       date: new Date().toLocaleDateString("en-SG", { weekday: "short", day: "numeric", month: "short", year: "numeric" }),
       total: activeItems.length, completedCount,
-      completed: activeItems.filter(isDone).map(i => ({ emoji: i.emoji, label: i.label, time: i.time, endTime: i.endTime, essential: isEssential(i) })),
-      missed: activeItems.filter(i => !isDone(i)).map(i => ({ emoji: i.emoji, label: i.label, time: i.time, endTime: i.endTime, essential: isEssential(i) })),
+      completed: activeItems.filter(isCompleted).map(i => ({ emoji: i.emoji, label: i.label, time: i.time, endTime: i.endTime, essential: isEssential(i) })),
+      missed: activeItems.filter(i => !isCompleted(i)).map(i => ({ emoji: i.emoji, label: i.label, time: i.time, endTime: i.endTime, essential: isEssential(i) })),
     };
     updateChild(activeChild.id, { history: [entry, ...history].slice(0, 30), todayDone: {}, todayDoneDate: todayStr });
     setSkippedToday([]);
@@ -575,7 +699,7 @@ export function ScheduleScreen({ childCtx, push }) {
 
   // Kid view — the single next thing to do, in order, across essentials + added.
   const kidList = [...essentials, ...added].filter(i => !skippedToday.includes(i.id) && appliesToday(i, todayDow)).sort((a, b) => a.time.localeCompare(b.time));
-  const nextKidItem = kidList.find(i => !isDone(i));
+  const nextKidItem = kidList.find(i => !isCompleted(i));
   const nextKidIdx = nextKidItem ? kidList.findIndex(i => i.id === nextKidItem.id) : -1;
   const thenItem = nextKidIdx >= 0 ? kidList[nextKidIdx + 1] : null;
 
@@ -629,7 +753,7 @@ export function ScheduleScreen({ childCtx, push }) {
       );
     }
     return (
-      <ScheduleRow key={item.id} item={item} essential={essential} done={isDone(item)} progress={activityPercent(item)} skipped={skippedToday.includes(item.id)} notToday={!appliesToday(item, todayDow)}
+      <ScheduleRow key={item.id} item={item} essential={essential} status={activityStatus(item)} skipped={skippedToday.includes(item.id)} notToday={!appliesToday(item, todayDow)}
         onToggle={essential ? undefined : () => toggleDone(item.id)}
         menuOpen={menuFor === item.id}
         onMenuToggle={() => setMenuFor(menuFor === item.id ? null : item.id)}
@@ -761,6 +885,20 @@ export function ScheduleScreen({ childCtx, push }) {
             😊 Open kid view
           </button>
 
+          {nextKidItem && (
+            <Card style={{ marginBottom: 16, border: `1.5px solid ${T.purple}`, background: T.purpleL }}>
+              <p style={{ margin: "0 0 10px", fontWeight: 800, color: T.purple, fontSize: 11, letterSpacing: "0.06em", textTransform: "uppercase" }}>Next</p>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <span style={{ fontSize: 30, lineHeight: 1, flexShrink: 0 }}>{nextKidItem.emoji}</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ margin: 0, fontWeight: 800, color: T.ink, fontSize: 15, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{nextKidItem.label}</p>
+                  <p style={{ margin: "2px 0 0", color: T.inkMuted, fontSize: 12, fontWeight: 700 }}>{timeRangeLabel(nextKidItem)}</p>
+                </div>
+              </div>
+              {alarmOn && <p style={{ margin: "10px 0 0", color: T.purple, fontSize: 11, fontWeight: 700 }}>🔔 Alarm will ring at this time</p>}
+            </Card>
+          )}
+
           <Card style={{ marginBottom: 20 }}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
               <p style={{ margin: 0, fontWeight: 700, color: T.ink, fontSize: 14 }}>Today's Progress</p>
@@ -783,36 +921,17 @@ export function ScheduleScreen({ childCtx, push }) {
             {added.map(item => renderItem(item, false))}
           </div>
 
-          {showAdd ? (
-            <Card style={{ background: T.purpleL, marginBottom: 10 }}>
-              <p style={{ margin: "0 0 10px", fontWeight: 800, color: T.purple, fontSize: 14 }}>New Activity</p>
-              <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-                <button onClick={() => setShowEmojiPicker(!showEmojiPicker)} style={{ fontSize: 24, background: T.surface, border: `1.5px solid ${T.border}`, borderRadius: T.r, padding: "6px 10px", cursor: "pointer" }}>{newItem.emoji}</button>
-                <input value={newItem.label} onChange={e => setNewItem({ ...newItem, label: e.target.value })} placeholder="Activity name" style={{ flex: 1, minWidth: 0, boxSizing: "border-box", padding: "8px 12px", borderRadius: T.r, border: `1.5px solid ${T.purple}`, fontSize: 14, fontFamily: T.fontBody, color: T.ink, outline: "none", background: T.surface }} />
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                <TimeSelect value={newItem.time} onChange={v => setNewItem({ ...newItem, time: v })} />
-                {newItem.isRange && <>
-                  <span style={{ color: T.inkMuted, fontSize: 13, fontWeight: 700 }}>–</span>
-                  <TimeSelect value={newItem.endTime} onChange={v => setNewItem({ ...newItem, endTime: v })} />
-                </>}
-              </div>
-              <button onClick={() => setNewItem({ ...newItem, isRange: !newItem.isRange })} style={{ border: "none", background: "none", padding: "0 0 10px", cursor: "pointer", fontSize: 12, fontWeight: 700, color: T.purple, fontFamily: T.fontBody, display: "block" }}>
-                {newItem.isRange ? "✕ Remove end time" : "+ Add end time (interval, e.g. 08:00–12:00)"}
-              </button>
-              <button onClick={() => setNewItem(n => ({ ...n, isRecurring: !n.isRecurring, days: !n.isRecurring && n.days.length === 0 ? [1, 2, 3, 4, 5] : n.days }))} style={{ border: "none", background: "none", padding: "0 0 10px", cursor: "pointer", fontSize: 12, fontWeight: 700, color: T.purple, fontFamily: T.fontBody, display: "block" }}>
-                {newItem.isRecurring ? "✕ Remove day pattern" : "+ Repeat on specific days (e.g. school on weekdays)"}
-              </button>
-              {newItem.isRecurring && <DayChips selected={newItem.days} onSet={d => setNewItem({ ...newItem, days: d })} />}
-              {showEmojiPicker && <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: 10, background: T.surface, borderRadius: T.r, marginBottom: 10 }}>{EMOJI_OPTS.map(e => <button key={e} onClick={() => { setNewItem({ ...newItem, emoji: e }); setShowEmojiPicker(false); }} style={{ fontSize: 20, background: "none", border: "none", cursor: "pointer", borderRadius: 8, padding: 3 }}>{e}</button>)}</div>}
-              <p style={{ margin: "0 0 10px", color: T.inkMuted, fontSize: 11, lineHeight: 1.5 }}>You can edit or remove this anytime — it's yours, not an essential.</p>
-              <div style={{ display: "flex", gap: 8 }}>
-                <Btn onClick={addItem} style={{ flex: 1 }}>Add ✓</Btn>
-                <Btn onClick={() => setShowAdd(false)} secondary style={{ flex: 1 }}>Cancel</Btn>
-              </div>
-            </Card>
-          ) : (
-            <button onClick={() => setShowAdd(true)} style={{ width: "100%", margin: "2px 0 16px", border: `1.5px dashed ${T.border}`, background: "none", color: T.ink, borderRadius: T.r, padding: "11px", fontWeight: 700, fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontFamily: T.fontBody }}>+ Add activity</button>
+          <button onClick={() => setShowAdd(true)} style={{ width: "100%", margin: "2px 0 16px", border: `1.5px dashed ${T.border}`, background: "none", color: T.ink, borderRadius: T.r, padding: "11px", fontWeight: 700, fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontFamily: T.fontBody }}>+ Add activity</button>
+
+          {showAdd && (
+            <AddActivityModal
+              newItem={newItem}
+              setNewItem={setNewItem}
+              showEmojiPicker={showEmojiPicker}
+              setShowEmojiPicker={setShowEmojiPicker}
+              onAdd={addItem}
+              onClose={() => { setShowAdd(false); setShowEmojiPicker(false); }}
+            />
           )}
 
           <div style={{ margin: "4px 0 16px", background: T.purpleL, borderRadius: T.r, padding: "12px 14px", display: "flex", gap: 10 }}>
