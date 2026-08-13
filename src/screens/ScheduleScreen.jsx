@@ -232,6 +232,15 @@ function addMinutesToTime(time, minutes) {
   return Math.floor(total / 60).toString().padStart(2, "0") + ":" + (total % 60).toString().padStart(2, "0");
 }
 
+// Minutes from a "HH:MM" start to a "HH:MM" end, wrapping past midnight —
+// the inverse of addMinutesToTime, used to pre-fill the duration preset an
+// existing item's endTime corresponds to when opening it for edit.
+function minutesBetween(start, end) {
+  const [h1, m1] = start.split(":").map(Number);
+  const [h2, m2] = end.split(":").map(Number);
+  return ((h2 * 60 + m2) - (h1 * 60 + m1) + 1440) % 1440;
+}
+
 // Compact label for a day pattern — recognizes the two common presets so
 // "school every weekday" reads as "Weekdays" instead of "Mon, Tue, Wed, Thu, Fri".
 function daysSummary(days) {
@@ -673,11 +682,16 @@ export function ScheduleScreen({ childCtx, push }) {
 
   const deleteItem = id => updateChild(activeChild.id, { scheduleItems: items.filter(i => i.id !== id) });
 
-  const startEdit = item => { setEditing(item.id); setEditData({ ...item, isRange: !!item.endTime, isRecurring: !!(item.days && item.days.length), days: item.days || [] }); setMenuFor(null); };
+  const startEdit = item => {
+    setEditing(item.id);
+    setEditData({ ...item, duration: item.endTime ? minutesBetween(item.time, item.endTime) : 0, isRecurring: !!(item.days && item.days.length), days: item.days || [], notes: item.notes || "" });
+    setMenuFor(null);
+  };
   const saveEdit = () => {
-    const { isRange, isRecurring, ...rest } = editData;
+    const { duration, isRecurring, ...rest } = editData;
     const item = { ...rest };
-    if (!(isRange && item.endTime)) delete item.endTime;
+    if (duration > 0) item.endTime = addMinutesToTime(item.time, duration); else delete item.endTime;
+    if (item.notes && item.notes.trim()) item.notes = item.notes.trim(); else delete item.notes;
     if (!(isRecurring && item.days && item.days.length)) delete item.days;
     updateChild(activeChild.id, { scheduleItems: items.map(i => i.id === editing ? item : i) });
     setEditing(null);
@@ -730,21 +744,22 @@ export function ScheduleScreen({ childCtx, push }) {
             <button onClick={() => setShowEmojiPicker(!showEmojiPicker)} style={{ fontSize: 24, background: T.surface, border: `1.5px solid ${T.border}`, borderRadius: T.r, padding: "6px 10px", cursor: "pointer" }}>{editData.emoji}</button>
             <input value={editData.label} onChange={e => setEditData({ ...editData, label: e.target.value })} style={{ flex: 1, minWidth: 0, boxSizing: "border-box", padding: "8px 12px", borderRadius: T.r, border: `1.5px solid ${T.purple}`, fontSize: 14, fontFamily: T.fontBody, color: T.ink, background: T.surface, outline: "none" }} />
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+          <div style={{ marginBottom: 8 }}>
             <TimeSelect value={editData.time} onChange={v => setEditData({ ...editData, time: v })} />
-            {editData.isRange && <>
-              <span style={{ color: T.inkMuted, fontSize: 13, fontWeight: 700 }}>–</span>
-              <TimeSelect value={editData.endTime || ""} onChange={v => setEditData({ ...editData, endTime: v })} />
-            </>}
           </div>
-          <button onClick={() => setEditData({ ...editData, isRange: !editData.isRange })} style={{ border: "none", background: "none", padding: "0 0 10px", cursor: "pointer", fontSize: 12, fontWeight: 700, color: T.purple, fontFamily: T.fontBody, display: "block" }}>
-            {editData.isRange ? "✕ Remove end time" : "+ Add end time (interval)"}
-          </button>
+          <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkMuted }}>Duration</p>
+          <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+            {[0, 15, 30, 45, 60].map(d => (
+              <button key={d} type="button" onClick={() => setEditData({ ...editData, duration: d })} style={{ flex: 1, padding: "9px 0", borderRadius: T.r, border: `1.5px solid ${editData.duration === d ? T.purple : T.border}`, background: editData.duration === d ? T.purpleL : T.surface, fontSize: 13, fontWeight: 700, color: editData.duration === d ? T.purple : T.inkMuted, cursor: "pointer", fontFamily: T.fontBody }}>{d === 0 ? "None" : `${d}m`}</button>
+            ))}
+          </div>
           <button onClick={() => setEditData(d => ({ ...d, isRecurring: !d.isRecurring, days: !d.isRecurring && d.days.length === 0 ? [1, 2, 3, 4, 5] : d.days }))} style={{ border: "none", background: "none", padding: "0 0 10px", cursor: "pointer", fontSize: 12, fontWeight: 700, color: T.purple, fontFamily: T.fontBody, display: "block" }}>
             {editData.isRecurring ? "✕ Remove day pattern" : "+ Repeat on specific days (e.g. school on weekdays)"}
           </button>
           {editData.isRecurring && <DayChips selected={editData.days} onSet={d => setEditData({ ...editData, days: d })} />}
           {showEmojiPicker && <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: 10, background: T.surface, borderRadius: T.r, marginBottom: 10 }}>{EMOJI_OPTS.map(e => <button key={e} onClick={() => { setEditData({ ...editData, emoji: e }); setShowEmojiPicker(false); }} style={{ fontSize: 20, background: "none", border: "none", cursor: "pointer", borderRadius: 8, padding: 3 }}>{e}</button>)}</div>}
+          <p style={{ margin: "10px 0 8px", fontSize: 12, fontWeight: 700, color: T.inkMuted }}>Notes (optional)</p>
+          <input value={editData.notes || ""} onChange={e => setEditData({ ...editData, notes: e.target.value })} placeholder="e.g. Avoid loud noises" style={{ width: "100%", boxSizing: "border-box", padding: "8px 12px", borderRadius: T.r, border: `1.5px solid ${T.border}`, fontSize: 13, fontFamily: T.fontBody, color: T.ink, outline: "none", background: T.surface, marginBottom: 12 }} />
           <div style={{ display: "flex", gap: 8 }}>
             <Btn onClick={saveEdit} style={{ flex: 1 }}>Save</Btn>
             <Btn onClick={() => setEditing(null)} secondary style={{ flex: 1 }}>Cancel</Btn>
