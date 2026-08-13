@@ -21,7 +21,7 @@ alter table public.subsidies
 
 -- residency: any of 'SC' | 'PR' | 'Foreigner'
 -- support_types: any of 'financial' | 'therapy' | 'education' | 'devices' | 'transport' | 'caregiving' | 'work'
--- target_groups: any of 'ASD' | 'special_needs' | 'pwd'
+-- target_groups: any of 'ASD' | 'ADHD' | 'special_needs' | 'pwd'
 
 comment on column public.subsidies.available_online is
   'Set to false by the automated checker when source_url stops resolving. Rows with available_online = false are excluded from the app.';

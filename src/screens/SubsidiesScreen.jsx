@@ -378,6 +378,12 @@ export function SubsidiesScreen({ pop, account }) {
         </div>
       )}
 
+      {target === "ADHD" && (
+        <div style={{ marginBottom: 12, background: T.purpleL, border: `1px solid ${T.purple}30`, borderRadius: T.r, padding: "10px 14px" }}>
+          <p style={{ margin: 0, color: T.ink, fontSize: 12.5, lineHeight: 1.55 }}>These schemes accept an ADHD diagnosis too — eligibility depends on your doctor's assessment of severity, so confirm the exact criteria on each scheme's page.</p>
+        </div>
+      )}
+
       {res === "Foreigner" && (
         <div style={{ marginBottom: 12, background: T.canvas, border: `1px solid ${T.border}`, borderRadius: T.r, padding: "10px 14px" }}>
           <p style={{ margin: 0, color: T.inkSoft, fontSize: 12.5, lineHeight: 1.55 }}>Most government subsidies are for citizens and PRs. Foreigners can still access special education school places (at full international fees) and private therapy. Speak to your child's school or a social worker about options.</p>
