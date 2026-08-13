@@ -124,37 +124,182 @@ const WEEKDAYS = ["M", "T", "W", "T", "F", "S", "S"];
 
 const rowMenuBtn = { width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", border: "none", background: "none", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody, textAlign: "left" };
 
+// 15-minute increments, 12-hour labels — matches Google Calendar's time picker.
+const TIME_OPTIONS = (() => {
+  const opts = [];
+  for (let h = 0; h < 24; h++) {
+    for (let m = 0; m < 60; m += 15) {
+      const value = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+      const h12 = h % 12 === 0 ? 12 : h % 12;
+      opts.push({ value, label: `${h12}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}` });
+    }
+  }
+  return opts;
+})();
+
+function formatTimeLabel(value) {
+  if (!value) return "";
+  const [hStr, mStr] = value.split(":");
+  const h = parseInt(hStr, 10);
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h12}:${mStr} ${h < 12 ? "AM" : "PM"}`;
+}
+
+// Click-to-open dropdown of 15-min time slots, styled like Google Calendar's
+// event time picker — replaces the native <input type="time"> scrubber.
+function TimeSelect({ value, onChange, width = 118 }) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef(null);
+  const selectedRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = e => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
+
+  useEffect(() => {
+    if (open && selectedRef.current) selectedRef.current.scrollIntoView({ block: "center" });
+  }, [open]);
+
+  return (
+    <div ref={wrapRef} style={{ position: "relative", flexShrink: 0, width }}>
+      <button type="button" onClick={() => setOpen(o => !o)} style={{ width: "100%", boxSizing: "border-box", padding: "8px 10px", borderRadius: T.r, border: `1.5px solid ${T.purple}`, fontSize: 13, fontFamily: T.fontBody, color: T.ink, background: T.surface, outline: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 4 }}>
+        <span>{formatTimeLabel(value) || "Time"}</span>
+        <span style={{ fontSize: 9, color: T.inkMuted }}>{open ? "▴" : "▾"}</span>
+      </button>
+      {open && (
+        <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, zIndex: 60, width: Math.max(width, 116), maxHeight: 210, overflowY: "auto", background: T.surface, border: `1px solid ${T.border}`, borderRadius: T.r, boxShadow: T.shadowM, padding: 4 }}>
+          {TIME_OPTIONS.map(opt => (
+            <button key={opt.value} ref={opt.value === value ? selectedRef : null} type="button"
+              onClick={() => { onChange(opt.value); setOpen(false); }}
+              style={{ width: "100%", textAlign: "left", padding: "7px 10px", border: "none", borderRadius: 8, background: value === opt.value ? T.purpleL : "transparent", color: value === opt.value ? T.purple : T.ink, fontWeight: value === opt.value ? 800 : 600, fontSize: 13, cursor: "pointer", fontFamily: T.fontBody, display: "block" }}>
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const DAY_LETTERS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+
+// An item recurs every day unless it has a non-empty, non-full `days` list
+// (0=Sun..6=Sat) — added by parents for things like school that only happen
+// on weekdays. Essentials never set `days`, so they always apply.
+function appliesToday(item, dow) {
+  return !item.days || item.days.length === 0 || item.days.length === 7 || item.days.includes(dow);
+}
+
+// "HH:MM" for right now, in the device's local time — comparable directly
+// against item.time/endTime since both are zero-padded 24h strings.
+function hhmmNow() {
+  const d = new Date();
+  return d.getHours().toString().padStart(2, "0") + ":" + d.getMinutes().toString().padStart(2, "0");
+}
+
+function hhmmToMin(t) {
+  const [h, m] = t.split(":").map(Number);
+  return h * 60 + m;
+}
+
+// Compact label for a day pattern — recognizes the two common presets so
+// "school every weekday" reads as "Weekdays" instead of "Mon, Tue, Wed, Thu, Fri".
+function daysSummary(days) {
+  if (!days || days.length === 0 || days.length === 7) return null;
+  const sorted = [...days].sort();
+  if (sorted.join(",") === "1,2,3,4,5") return "Weekdays";
+  if (sorted.join(",") === "0,6") return "Weekends";
+  return sorted.map(d => DAY_NAMES[d]).join(", ");
+}
+
+function timeRangeLabel(item) {
+  return item.endTime ? `${formatTimeLabel(item.time)}–${formatTimeLabel(item.endTime)}` : formatTimeLabel(item.time);
+}
+
+const dayChipBtn = active => ({ width: 32, height: 32, borderRadius: "50%", border: `1.5px solid ${active ? T.purple : T.border}`, background: active ? T.purple : T.surface, color: active ? "#fff" : T.ink, fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody, flexShrink: 0 });
+const dayPresetBtn = { border: "none", background: T.surface, color: T.purple, fontSize: 11, fontWeight: 700, padding: "5px 9px", borderRadius: 99, cursor: "pointer", fontFamily: T.fontBody };
+
+// Day-of-week picker for a recurring activity — tap letters to toggle, or use
+// a preset. `selected` is an array of 0-6 (Sun..Sat).
+function DayChips({ selected, onSet }) {
+  const toggle = d => onSet(selected.includes(d) ? selected.filter(x => x !== d) : [...selected, d].sort());
+  return (
+    <div style={{ marginBottom: 8 }}>
+      <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+        <button type="button" onClick={() => onSet([1, 2, 3, 4, 5])} style={dayPresetBtn}>Weekdays</button>
+        <button type="button" onClick={() => onSet([0, 6])} style={dayPresetBtn}>Weekends</button>
+        <button type="button" onClick={() => onSet([0, 1, 2, 3, 4, 5, 6])} style={dayPresetBtn}>Every day</button>
+      </div>
+      <div style={{ display: "flex", gap: 5 }}>
+        {DAY_LETTERS.map((lbl, d) => (
+          <button key={d} type="button" onClick={() => toggle(d)} style={dayChipBtn(selected.includes(d))}>{lbl}</button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function DoneDot({ state }) {
   if (state === "done") return <div style={{ width: 24, height: 24, borderRadius: "50%", background: T.green, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><span style={{ color: "#fff", fontSize: 12, fontWeight: 900 }}>✓</span></div>;
   if (state === "skip") return <div style={{ width: 24, height: 24, borderRadius: "50%", border: `1.5px solid ${T.border}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><span style={{ color: T.inkMuted, fontSize: 14, fontWeight: 900, lineHeight: 1 }}>–</span></div>;
   return <div style={{ width: 24, height: 24, borderRadius: "50%", border: `1.5px solid ${T.border}`, flexShrink: 0 }} />;
 }
 
+// Thin fill bar under a row showing how far along an activity is — full time-
+// based fill for essentials (0% before it starts, filling across a time range,
+// 100% once past), a plain 0/100 flip for manually-tapped added items.
+function ActivityProgressBar({ percent, done, inactive }) {
+  const fillColor = inactive ? T.border : done ? T.green : T.purple;
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
+      <div style={{ flex: 1, height: 5, borderRadius: 99, background: T.border, overflow: "hidden" }}>
+        <div style={{ width: `${percent}%`, height: "100%", borderRadius: 99, background: fillColor, transition: "width 0.3s" }} />
+      </div>
+      <span style={{ fontSize: 10, fontWeight: 800, color: T.inkMuted, minWidth: 28, textAlign: "right", flexShrink: 0 }}>{percent}%</span>
+    </div>
+  );
+}
+
 // A single schedule item row — essentials (from the default schedule) get a
 // "…" menu with edit/skip; items the parent added get inline edit/delete.
-function ScheduleRow({ item, essential, done, skipped, onToggle, menuOpen, onMenuToggle, onEdit, onSkip, onDelete }) {
-  const state = skipped ? "skip" : done ? "done" : "todo";
+function ScheduleRow({ item, essential, done, progress, skipped, notToday, onToggle, menuOpen, onMenuToggle, onEdit, onSkip, onDelete }) {
+  const inactive = skipped || notToday;
+  // Essentials are reminders, not a tap-to-check list — their row is static and
+  // "done" ticks over on its own once the clock passes their time.
+  const clickable = !essential && !inactive;
+  const pattern = daysSummary(item.days);
   return (
     <div style={{ position: "relative" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 2px", opacity: skipped ? 0.55 : 1 }}>
-        <button onClick={() => !skipped && onToggle()} disabled={skipped} style={{ border: "none", background: "none", padding: 0, cursor: skipped ? "default" : "pointer", display: "flex" }} aria-label={done ? "Mark not done" : "Mark done"}>
-          <DoneDot state={state} />
-        </button>
-        <span style={{ fontSize: 22, flexShrink: 0, lineHeight: 1 }}>{item.emoji}</span>
-        <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 700, color: done ? T.inkMuted : T.ink, textDecoration: done ? "line-through" : "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.label}</span>
-        {skipped ? <Badge color={T.inkMuted}>skipped</Badge> : <Badge color={T.purple}>{item.endTime ? `${item.time}–${item.endTime}` : item.time}</Badge>}
-        {essential ? (
-          <button onClick={onMenuToggle} style={{ border: "none", background: "none", cursor: "pointer", padding: "2px 4px", fontSize: 18, fontWeight: 900, color: T.inkMuted, lineHeight: 1 }} aria-label="Options">⋯</button>
-        ) : (
-          <div style={{ display: "flex", gap: 5, flexShrink: 0 }}>
-            <button onClick={onEdit} style={{ background: T.border, border: "none", borderRadius: 8, padding: "5px 8px", cursor: "pointer", fontSize: 12 }}>✏️</button>
-            <button onClick={onDelete} style={{ background: T.redL, border: "none", borderRadius: 8, padding: "5px 8px", cursor: "pointer", fontSize: 12 }}>🗑️</button>
-          </div>
-        )}
+      <div
+        onClick={() => clickable && onToggle()}
+        role={clickable ? "button" : undefined}
+        aria-label={clickable ? (done ? "Mark not done" : "Mark done") : undefined}
+        style={{ padding: "9px 2px", opacity: inactive ? 0.55 : 1, cursor: clickable ? "pointer" : "default" }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ fontSize: 22, flexShrink: 0, lineHeight: 1 }}>{item.emoji}</span>
+          <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 700, color: done ? T.inkMuted : T.ink, textDecoration: done ? "line-through" : "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.label}</span>
+          {skipped ? <Badge color={T.inkMuted}>skipped</Badge>
+            : notToday ? <Badge color={T.inkMuted}>{pattern} · not today</Badge>
+            : <Badge color={T.purple}>{pattern ? `${pattern} · ` : ""}{timeRangeLabel(item)}</Badge>}
+          {essential ? (
+            <button onClick={e => { e.stopPropagation(); onMenuToggle(); }} style={{ border: "none", background: "none", cursor: "pointer", padding: "2px 4px", fontSize: 18, fontWeight: 900, color: T.inkMuted, lineHeight: 1 }} aria-label="Options">⋯</button>
+          ) : (
+            <div style={{ display: "flex", gap: 5, flexShrink: 0 }}>
+              <button onClick={e => { e.stopPropagation(); onEdit(); }} style={{ background: T.border, border: "none", borderRadius: 8, padding: "5px 8px", cursor: "pointer", fontSize: 12 }}>✏️</button>
+              <button onClick={e => { e.stopPropagation(); onDelete(); }} style={{ background: T.redL, border: "none", borderRadius: 8, padding: "5px 8px", cursor: "pointer", fontSize: 12 }}>🗑️</button>
+            </div>
+          )}
+        </div>
+        <ActivityProgressBar percent={progress} done={done} inactive={inactive} />
       </div>
 
       {menuOpen && (
-        <div style={{ margin: "2px 0 6px 34px", border: `1px solid ${T.border}`, borderRadius: 12, overflow: "hidden", background: T.surface, boxShadow: T.shadowM }}>
+        <div style={{ margin: "2px 0 6px 0", border: `1px solid ${T.border}`, borderRadius: 12, overflow: "hidden", background: T.surface, boxShadow: T.shadowM }}>
           <button onClick={onEdit} style={{ ...rowMenuBtn, color: T.ink }}>✏️ Edit</button>
           <div style={{ height: 1, background: T.border }} />
           <button onClick={onSkip} style={{ ...rowMenuBtn, color: T.ink }}>{skipped ? "↩ Un-skip today" : "⏭ Skip for today"}</button>
@@ -166,9 +311,67 @@ function ScheduleRow({ item, essential, done, skipped, onToggle, menuOpen, onMen
   );
 }
 
+// Read-only row for a past day's snapshot — no toggle/edit/menu, just what
+// happened (done vs missed), matching the live row's look.
+function HistoryRow({ item }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 2px", opacity: item.done ? 1 : 0.6 }}>
+      <DoneDot state={item.done ? "done" : "todo"} />
+      <span style={{ fontSize: 22, flexShrink: 0, lineHeight: 1 }}>{item.emoji}</span>
+      <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 700, color: item.done ? T.ink : T.inkMuted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.label}</span>
+      <Badge color={item.done ? T.purple : T.inkMuted}>{timeRangeLabel(item)}</Badge>
+    </div>
+  );
+}
+
+// Full-page read-only replay of a past day, opened by tapping a date on the
+// month calendar — mirrors the live "today" list's Essentials/Added-by-you
+// layout instead of a summary sheet. Entries saved before the `essential`
+// flag existed fall back to one flat list.
+function DayHistoryView({ entry, onBack }) {
+  const dayItems = [
+    ...entry.completed.map(i => ({ ...i, done: true })),
+    ...entry.missed.map(i => ({ ...i, done: false })),
+  ].sort((a, b) => a.time.localeCompare(b.time));
+  const hasEssentialFlag = dayItems.some(i => "essential" in i);
+  const essentials = hasEssentialFlag ? dayItems.filter(i => i.essential) : dayItems;
+  const added = hasEssentialFlag ? dayItems.filter(i => !i.essential) : [];
+
+  return (
+    <>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
+        <button onClick={onBack} style={{ border: "none", background: T.border, cursor: "pointer", width: 34, height: 34, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }} aria-label="Back to month">
+          <svg width="16" height="16" viewBox="0 0 18 18" fill="none"><path d="M11 3.5 L5 9 L11 14.5" stroke={T.inkMuted} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none" /></svg>
+        </button>
+        <div style={{ textAlign: "center" }}>
+          <p style={{ margin: 0, fontWeight: 800, color: T.ink, fontSize: 15 }}>{entry.date}</p>
+          <p style={{ margin: "2px 0 0", color: T.inkMuted, fontSize: 11 }}>{entry.completedCount} of {entry.total} activities</p>
+        </div>
+        <span style={{ width: 34, flexShrink: 0 }} />
+      </div>
+
+      <SectionLabel>Essentials</SectionLabel>
+      <div style={{ display: "flex", flexDirection: "column", gap: 2, marginBottom: 18 }}>
+        {essentials.length ? essentials.map((it, i) => <HistoryRow key={i} item={it} />) : <p style={{ color: T.inkMuted, fontSize: 12, margin: 0 }}>No activities recorded.</p>}
+      </div>
+
+      {hasEssentialFlag && added.length > 0 && (
+        <>
+          <SectionLabel>Added by you</SectionLabel>
+          <div style={{ display: "flex", flexDirection: "column", gap: 2, marginBottom: 12 }}>
+            {added.map((it, i) => <HistoryRow key={i} item={it} />)}
+          </div>
+        </>
+      )}
+
+      <p style={{ textAlign: "center", color: T.inkMuted, fontSize: 11, fontWeight: 700, marginTop: 8 }}>Day view · history</p>
+    </>
+  );
+}
+
 export function ScheduleScreen({ childCtx, push }) {
   const { activeChild, updateChild, children } = childCtx;
-  const [scheduleView, setScheduleView] = useState("today"); // "today" | "month"
+  const [scheduleView, setScheduleView] = useState("today"); // "today" | "month" | "day"
   const [monthCur, setMonthCur] = useState(() => { const t = new Date(); return { y: t.getFullYear(), m: t.getMonth() }; });
   const [selectedEntry, setSelectedEntry] = useState(null);
   const [kidView, setKidView] = useState(false);
@@ -176,7 +379,7 @@ export function ScheduleScreen({ childCtx, push }) {
   const [menuFor, setMenuFor] = useState(null);
   const [editing, setEditing] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
-  const [newItem, setNewItem] = useState({ emoji: "⭐", label: "", time: "08:00", endTime: "", isRange: false });
+  const [newItem, setNewItem] = useState({ emoji: "⭐", label: "", time: "08:00", endTime: "", isRange: false, days: [], isRecurring: false });
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [editData, setEditData] = useState({});
   const [showAlarmSettings, setShowAlarmSettings] = useState(false);
@@ -191,13 +394,21 @@ export function ScheduleScreen({ childCtx, push }) {
   });
   const [previewPlaying, setPreviewPlaying] = useState(null);
   const audioCtxRef = useRef(null);
+  const [nowHHMM, setNowHHMM] = useState(() => hhmmNow());
+
+  // Essentials aren't a manual checklist — they're reminders tied to the clock,
+  // so their "done" state ticks over on its own once their time has passed.
+  useEffect(() => {
+    const iv = setInterval(() => setNowHHMM(hhmmNow()), 30000);
+    return () => clearInterval(iv);
+  }, []);
 
   useBackHandler(showEmojiPicker, () => setShowEmojiPicker(false));
   useBackHandler(showAlarmSettings, () => setShowAlarmSettings(false));
   useBackHandler(showAdd, () => { setShowAdd(false); setShowEmojiPicker(false); });
   useBackHandler(!!editing, () => { setEditing(null); setShowEmojiPicker(false); });
   useBackHandler(kidView, () => setKidView(false));
-  useBackHandler(!!selectedEntry, () => setSelectedEntry(null));
+  useBackHandler(scheduleView === "day", () => setScheduleView("month"));
 
   const saveAlarm = (on, vol, tone) => {
     try {
@@ -221,10 +432,10 @@ export function ScheduleScreen({ childCtx, push }) {
   useEffect(() => {
     if (!alarmOn) return;
     const check = () => {
-      const items = activeChild?.scheduleItems || DEFAULT_SCHEDULE;
+      const items = activeChild?.scheduleItems?.length ? activeChild.scheduleItems : DEFAULT_SCHEDULE;
       const now = new Date();
       const hhmm = now.getHours().toString().padStart(2,"0") + ":" + now.getMinutes().toString().padStart(2,"0");
-      const match = items.find(i => i.time === hhmm || i.endTime === hhmm);
+      const match = items.find(i => (i.time === hhmm || i.endTime === hhmm) && appliesToday(i, now.getDay()));
       if (match) {
         try {
           if (!audioCtxRef.current) audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
@@ -285,10 +496,11 @@ export function ScheduleScreen({ childCtx, push }) {
     </Page>
   );
 
-  const items = activeChild.scheduleItems || DEFAULT_SCHEDULE;
+  const items = activeChild.scheduleItems?.length ? activeChild.scheduleItems : DEFAULT_SCHEDULE;
   const history = activeChild.history || [];
   const today = startOfDay(new Date());
   const todayStr = dateKey(today);
+  const todayDow = today.getDay(); // 0=Sun..6=Sat, for recurring "Added by you" activities
   // Checkmarks are pinned to today's date — a new day starts unchecked even if "Save Day" was skipped.
   const done = activeChild.todayDoneDate === todayStr ? activeChild.todayDone || {} : {};
 
@@ -299,8 +511,20 @@ export function ScheduleScreen({ childCtx, push }) {
   const essentials = sorted.filter(isEssential);
   const added = sorted.filter(i => !isEssential(i));
 
-  const activeItems = items.filter(i => !skippedToday.includes(i.id));
-  const completedCount = activeItems.filter(i => done[i.id]).length;
+  // Essentials auto-complete once their time has passed (they're reminders, not
+  // a tap-to-check list) — for a time range, progress fills in between; items
+  // the parent added still track a manual tap, so their bar is just 0 or 100.
+  const activityPercent = item => {
+    if (!isEssential(item)) return done[item.id] ? 100 : 0;
+    const start = item.time, end = item.endTime || item.time;
+    if (nowHHMM >= end) return 100;
+    if (nowHHMM < start) return 0;
+    return Math.max(0, Math.min(100, Math.round(((hhmmToMin(nowHHMM) - hhmmToMin(start)) / (hhmmToMin(end) - hhmmToMin(start))) * 100)));
+  };
+  const isDone = item => activityPercent(item) >= 100;
+
+  const activeItems = items.filter(i => !skippedToday.includes(i.id) && appliesToday(i, todayDow));
+  const completedCount = activeItems.filter(isDone).length;
   const progress = activeItems.length ? Math.round((completedCount / activeItems.length) * 100) : 0;
 
   const toggleDone = id => updateChild(activeChild.id, { todayDone: { ...done, [id]: !done[id] }, todayDoneDate: todayStr });
@@ -318,17 +542,19 @@ export function ScheduleScreen({ childCtx, push }) {
     const id = Date.now().toString();
     const item = { emoji: newItem.emoji, label: newItem.label, time: newItem.time, id };
     if (newItem.isRange && newItem.endTime) item.endTime = newItem.endTime;
+    if (newItem.isRecurring && newItem.days.length) item.days = newItem.days;
     updateChild(activeChild.id, { scheduleItems: [...items, item] });
-    setNewItem({ emoji: "⭐", label: "", time: "08:00", endTime: "", isRange: false }); setShowAdd(false);
+    setNewItem({ emoji: "⭐", label: "", time: "08:00", endTime: "", isRange: false, days: [], isRecurring: false }); setShowAdd(false);
   };
 
   const deleteItem = id => updateChild(activeChild.id, { scheduleItems: items.filter(i => i.id !== id) });
 
-  const startEdit = item => { setEditing(item.id); setEditData({ ...item, isRange: !!item.endTime }); setMenuFor(null); };
+  const startEdit = item => { setEditing(item.id); setEditData({ ...item, isRange: !!item.endTime, isRecurring: !!(item.days && item.days.length), days: item.days || [] }); setMenuFor(null); };
   const saveEdit = () => {
-    const { isRange, ...rest } = editData;
+    const { isRange, isRecurring, ...rest } = editData;
     const item = { ...rest };
     if (!(isRange && item.endTime)) delete item.endTime;
+    if (!(isRecurring && item.days && item.days.length)) delete item.days;
     updateChild(activeChild.id, { scheduleItems: items.map(i => i.id === editing ? item : i) });
     setEditing(null);
   };
@@ -339,8 +565,8 @@ export function ScheduleScreen({ childCtx, push }) {
       isoDate: todayStr,
       date: new Date().toLocaleDateString("en-SG", { weekday: "short", day: "numeric", month: "short", year: "numeric" }),
       total: activeItems.length, completedCount,
-      completed: activeItems.filter(i => done[i.id]).map(i => ({ emoji: i.emoji, label: i.label, time: i.time, endTime: i.endTime })),
-      missed: activeItems.filter(i => !done[i.id]).map(i => ({ emoji: i.emoji, label: i.label, time: i.time, endTime: i.endTime })),
+      completed: activeItems.filter(isDone).map(i => ({ emoji: i.emoji, label: i.label, time: i.time, endTime: i.endTime, essential: isEssential(i) })),
+      missed: activeItems.filter(i => !isDone(i)).map(i => ({ emoji: i.emoji, label: i.label, time: i.time, endTime: i.endTime, essential: isEssential(i) })),
     };
     updateChild(activeChild.id, { history: [entry, ...history].slice(0, 30), todayDone: {}, todayDoneDate: todayStr });
     setSkippedToday([]);
@@ -348,8 +574,8 @@ export function ScheduleScreen({ childCtx, push }) {
   };
 
   // Kid view — the single next thing to do, in order, across essentials + added.
-  const kidList = [...essentials, ...added].filter(i => !skippedToday.includes(i.id)).sort((a, b) => a.time.localeCompare(b.time));
-  const nextKidItem = kidList.find(i => !done[i.id]);
+  const kidList = [...essentials, ...added].filter(i => !skippedToday.includes(i.id) && appliesToday(i, todayDow)).sort((a, b) => a.time.localeCompare(b.time));
+  const nextKidItem = kidList.find(i => !isDone(i));
   const nextKidIdx = nextKidItem ? kidList.findIndex(i => i.id === nextKidItem.id) : -1;
   const thenItem = nextKidIdx >= 0 ? kidList[nextKidIdx + 1] : null;
 
@@ -381,15 +607,19 @@ export function ScheduleScreen({ childCtx, push }) {
             <input value={editData.label} onChange={e => setEditData({ ...editData, label: e.target.value })} style={{ flex: 1, minWidth: 0, boxSizing: "border-box", padding: "8px 12px", borderRadius: T.r, border: `1.5px solid ${T.purple}`, fontSize: 14, fontFamily: T.fontBody, color: T.ink, background: T.surface, outline: "none" }} />
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-            <input type="time" value={editData.time} onChange={e => setEditData({ ...editData, time: e.target.value })} style={{ flexShrink: 0, boxSizing: "border-box", padding: "8px 10px", borderRadius: T.r, border: `1.5px solid ${T.purple}`, fontSize: 13, fontFamily: T.fontBody, color: T.ink, background: T.surface, outline: "none", width: 118 }} />
+            <TimeSelect value={editData.time} onChange={v => setEditData({ ...editData, time: v })} />
             {editData.isRange && <>
               <span style={{ color: T.inkMuted, fontSize: 13, fontWeight: 700 }}>–</span>
-              <input type="time" value={editData.endTime || ""} onChange={e => setEditData({ ...editData, endTime: e.target.value })} style={{ flexShrink: 0, boxSizing: "border-box", padding: "8px 10px", borderRadius: T.r, border: `1.5px solid ${T.purple}`, fontSize: 13, fontFamily: T.fontBody, color: T.ink, background: T.surface, outline: "none", width: 118 }} />
+              <TimeSelect value={editData.endTime || ""} onChange={v => setEditData({ ...editData, endTime: v })} />
             </>}
           </div>
           <button onClick={() => setEditData({ ...editData, isRange: !editData.isRange })} style={{ border: "none", background: "none", padding: "0 0 10px", cursor: "pointer", fontSize: 12, fontWeight: 700, color: T.purple, fontFamily: T.fontBody, display: "block" }}>
             {editData.isRange ? "✕ Remove end time" : "+ Add end time (interval)"}
           </button>
+          <button onClick={() => setEditData(d => ({ ...d, isRecurring: !d.isRecurring, days: !d.isRecurring && d.days.length === 0 ? [1, 2, 3, 4, 5] : d.days }))} style={{ border: "none", background: "none", padding: "0 0 10px", cursor: "pointer", fontSize: 12, fontWeight: 700, color: T.purple, fontFamily: T.fontBody, display: "block" }}>
+            {editData.isRecurring ? "✕ Remove day pattern" : "+ Repeat on specific days (e.g. school on weekdays)"}
+          </button>
+          {editData.isRecurring && <DayChips selected={editData.days} onSet={d => setEditData({ ...editData, days: d })} />}
           {showEmojiPicker && <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: 10, background: T.surface, borderRadius: T.r, marginBottom: 10 }}>{EMOJI_OPTS.map(e => <button key={e} onClick={() => { setEditData({ ...editData, emoji: e }); setShowEmojiPicker(false); }} style={{ fontSize: 20, background: "none", border: "none", cursor: "pointer", borderRadius: 8, padding: 3 }}>{e}</button>)}</div>}
           <div style={{ display: "flex", gap: 8 }}>
             <Btn onClick={saveEdit} style={{ flex: 1 }}>Save</Btn>
@@ -399,8 +629,8 @@ export function ScheduleScreen({ childCtx, push }) {
       );
     }
     return (
-      <ScheduleRow key={item.id} item={item} essential={essential} done={!!done[item.id]} skipped={skippedToday.includes(item.id)}
-        onToggle={() => toggleDone(item.id)}
+      <ScheduleRow key={item.id} item={item} essential={essential} done={isDone(item)} progress={activityPercent(item)} skipped={skippedToday.includes(item.id)} notToday={!appliesToday(item, todayDow)}
+        onToggle={essential ? undefined : () => toggleDone(item.id)}
         menuOpen={menuFor === item.id}
         onMenuToggle={() => setMenuFor(menuFor === item.id ? null : item.id)}
         onEdit={() => startEdit(item)}
@@ -561,15 +791,19 @@ export function ScheduleScreen({ childCtx, push }) {
                 <input value={newItem.label} onChange={e => setNewItem({ ...newItem, label: e.target.value })} placeholder="Activity name" style={{ flex: 1, minWidth: 0, boxSizing: "border-box", padding: "8px 12px", borderRadius: T.r, border: `1.5px solid ${T.purple}`, fontSize: 14, fontFamily: T.fontBody, color: T.ink, outline: "none", background: T.surface }} />
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                <input type="time" value={newItem.time} onChange={e => setNewItem({ ...newItem, time: e.target.value })} style={{ flexShrink: 0, boxSizing: "border-box", padding: "8px 8px", borderRadius: T.r, border: `1.5px solid ${T.purple}`, fontSize: 13, fontFamily: T.fontBody, color: T.ink, outline: "none", width: 118, background: T.surface }} />
+                <TimeSelect value={newItem.time} onChange={v => setNewItem({ ...newItem, time: v })} />
                 {newItem.isRange && <>
                   <span style={{ color: T.inkMuted, fontSize: 13, fontWeight: 700 }}>–</span>
-                  <input type="time" value={newItem.endTime} onChange={e => setNewItem({ ...newItem, endTime: e.target.value })} style={{ flexShrink: 0, boxSizing: "border-box", padding: "8px 8px", borderRadius: T.r, border: `1.5px solid ${T.purple}`, fontSize: 13, fontFamily: T.fontBody, color: T.ink, outline: "none", width: 118, background: T.surface }} />
+                  <TimeSelect value={newItem.endTime} onChange={v => setNewItem({ ...newItem, endTime: v })} />
                 </>}
               </div>
               <button onClick={() => setNewItem({ ...newItem, isRange: !newItem.isRange })} style={{ border: "none", background: "none", padding: "0 0 10px", cursor: "pointer", fontSize: 12, fontWeight: 700, color: T.purple, fontFamily: T.fontBody, display: "block" }}>
-                {newItem.isRange ? "✕ Remove end time" : "+ Add end time (interval, e.g. school 08:00–12:00)"}
+                {newItem.isRange ? "✕ Remove end time" : "+ Add end time (interval, e.g. 08:00–12:00)"}
               </button>
+              <button onClick={() => setNewItem(n => ({ ...n, isRecurring: !n.isRecurring, days: !n.isRecurring && n.days.length === 0 ? [1, 2, 3, 4, 5] : n.days }))} style={{ border: "none", background: "none", padding: "0 0 10px", cursor: "pointer", fontSize: 12, fontWeight: 700, color: T.purple, fontFamily: T.fontBody, display: "block" }}>
+                {newItem.isRecurring ? "✕ Remove day pattern" : "+ Repeat on specific days (e.g. school on weekdays)"}
+              </button>
+              {newItem.isRecurring && <DayChips selected={newItem.days} onSet={d => setNewItem({ ...newItem, days: d })} />}
               {showEmojiPicker && <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: 10, background: T.surface, borderRadius: T.r, marginBottom: 10 }}>{EMOJI_OPTS.map(e => <button key={e} onClick={() => { setNewItem({ ...newItem, emoji: e }); setShowEmojiPicker(false); }} style={{ fontSize: 20, background: "none", border: "none", cursor: "pointer", borderRadius: 8, padding: 3 }}>{e}</button>)}</div>}
               <p style={{ margin: "0 0 10px", color: T.inkMuted, fontSize: 11, lineHeight: 1.5 }}>You can edit or remove this anytime — it's yours, not an essential.</p>
               <div style={{ display: "flex", gap: 8 }}>
@@ -622,7 +856,7 @@ export function ScheduleScreen({ childCtx, push }) {
                 const clickable = isToday || (!future && entry);
                 return (
                   <button key={i} disabled={!clickable}
-                    onClick={() => { if (isToday) setScheduleView("today"); else if (entry) setSelectedEntry(entry); }}
+                    onClick={() => { if (isToday) setScheduleView("today"); else if (entry) { setSelectedEntry(entry); setScheduleView("day"); } }}
                     style={{ aspectRatio: "1", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, border: isToday ? `1.5px solid ${T.purple}` : "none", background: isToday ? T.purpleL : "transparent", borderRadius: 9, cursor: clickable ? "pointer" : "default", fontFamily: "inherit" }}>
                     <span style={{ fontSize: 12, fontWeight: isToday ? 800 : 600, color: future ? T.inkMuted : isToday ? T.purple : T.ink, opacity: future ? 0.4 : 1 }}>{d.getDate()}</span>
                     <span style={{ width: 5, height: 5, borderRadius: 99, background: dotColor, border: hollow ? `1.3px solid ${T.border}` : "none" }} />
@@ -635,7 +869,7 @@ export function ScheduleScreen({ childCtx, push }) {
           <div style={{ display: "flex", gap: 14, justifyContent: "center", padding: "14px 0 4px", fontSize: 11, color: T.inkMuted, fontWeight: 700 }}>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: 99, background: T.green, display: "inline-block" }} /> all done</span>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: 99, background: T.amber, display: "inline-block" }} /> some done</span>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: 99, border: `1.3px solid ${T.border}`, display: "inline-block" }} /> no record</span>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: 99, border: `1.3px solid ${T.border}`, display: "inline-block" }} /> rest day</span>
           </div>
         </>
       )}
@@ -681,30 +915,8 @@ export function ScheduleScreen({ childCtx, push }) {
         </Overlay>
       )}
 
-      {/* saved-day detail, opened from the month calendar */}
-      {selectedEntry && (
-        <Overlay onClose={() => setSelectedEntry(null)} bottom>
-          <div style={{ width: "100%", maxWidth: 480, background: T.surface, borderRadius: "20px 20px 0 0", padding: "10px 18px calc(env(safe-area-inset-bottom, 0px) + 20px)", boxSizing: "border-box", maxHeight: "78vh", overflowY: "auto" }}>
-            <div style={{ width: 36, height: 4, background: T.border, borderRadius: 2, margin: "0 auto 14px" }} />
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-              <div>
-                <p style={{ margin: "0 0 2px", fontWeight: 800, color: T.ink, fontSize: 15 }}>{selectedEntry.date}</p>
-                <p style={{ margin: 0, color: T.inkMuted, fontSize: 12 }}>{selectedEntry.completedCount}/{selectedEntry.total} completed</p>
-              </div>
-              <Badge color={selectedEntry.total ? (selectedEntry.completedCount / selectedEntry.total >= 0.8 ? T.green : selectedEntry.completedCount / selectedEntry.total >= 0.5 ? T.amber : T.red) : T.inkMuted}>
-                {selectedEntry.total ? Math.round((selectedEntry.completedCount / selectedEntry.total) * 100) : 0}%
-              </Badge>
-            </div>
-            {selectedEntry.completed.length > 0 && <>
-              <p style={{ margin: "10px 0 6px", fontSize: 11, fontWeight: 700, color: T.green, textTransform: "uppercase", letterSpacing: "0.07em" }}>✅ Completed</p>
-              {selectedEntry.completed.map((a, i) => <div key={i} style={{ display: "flex", gap: 10, padding: "7px 0", borderTop: `1px solid ${T.border}`, alignItems: "center" }}><span style={{ fontSize: 18 }}>{a.emoji}</span><span style={{ fontSize: 13, fontWeight: 600, color: T.ink, flex: 1 }}>{a.label}</span><span style={{ fontSize: 12, color: T.inkMuted }}>{a.endTime ? `${a.time}–${a.endTime}` : a.time}</span></div>)}
-            </>}
-            {selectedEntry.missed.length > 0 && <>
-              <p style={{ margin: "10px 0 6px", fontSize: 11, fontWeight: 700, color: T.red, textTransform: "uppercase", letterSpacing: "0.07em" }}>⏭ Missed</p>
-              {selectedEntry.missed.map((a, i) => <div key={i} style={{ display: "flex", gap: 10, padding: "7px 0", borderTop: `1px solid ${T.border}`, alignItems: "center", opacity: 0.6 }}><span style={{ fontSize: 18 }}>{a.emoji}</span><span style={{ fontSize: 13, fontWeight: 600, color: T.ink, flex: 1 }}>{a.label}</span><span style={{ fontSize: 12, color: T.inkMuted }}>{a.endTime ? `${a.time}–${a.endTime}` : a.time}</span></div>)}
-            </>}
-          </div>
-        </Overlay>
+      {scheduleView === "day" && selectedEntry && (
+        <DayHistoryView entry={selectedEntry} onBack={() => { setScheduleView("month"); setSelectedEntry(null); }} />
       )}
     </Page>
   );
