@@ -32,6 +32,19 @@ const ADD_ACTIVITY_TEMPLATES = [
 ];
 const TEMPLATE_CATEGORIES = { routine: "🔁 Routine", meals: "🍴 Meals", therapy: "💜 Therapy", play: "🎈 Play", learning: "📖 Learning", rest: "😌 Rest" };
 
+// Per-category accent used to color timeline blocks and category pills —
+// falls back to the primary teal for items with no category (legacy items,
+// or a custom activity where the caregiver skipped picking one).
+const CATEGORY_COLORS = {
+  routine:  { c: T.teal,   l: T.tealL },
+  meals:    { c: T.amber,  l: T.amberL },
+  therapy:  { c: T.violet, l: T.violetL },
+  play:     { c: T.green,  l: T.greenL },
+  learning: { c: T.indigo, l: T.indigoL },
+  rest:     { c: T.slate,  l: T.slateL },
+};
+const categoryColor = category => CATEGORY_COLORS[category] || { c: T.purple, l: T.purpleL };
+
 export const ALARM_TONES = [
   {
     id: "lullaby", label: "Lullaby", desc: "Soft & gentle",
@@ -232,15 +245,6 @@ function addMinutesToTime(time, minutes) {
   return Math.floor(total / 60).toString().padStart(2, "0") + ":" + (total % 60).toString().padStart(2, "0");
 }
 
-// Minutes from a "HH:MM" start to a "HH:MM" end, wrapping past midnight —
-// the inverse of addMinutesToTime, used to pre-fill the duration preset an
-// existing item's endTime corresponds to when opening it for edit.
-function minutesBetween(start, end) {
-  const [h1, m1] = start.split(":").map(Number);
-  const [h2, m2] = end.split(":").map(Number);
-  return ((h2 * 60 + m2) - (h1 * 60 + m1) + 1440) % 1440;
-}
-
 // Compact label for a day pattern — recognizes the two common presets so
 // "school every weekday" reads as "Weekdays" instead of "Mon, Tue, Wed, Thu, Fri".
 function daysSummary(days) {
@@ -281,6 +285,23 @@ function DayChips({ selected, onSet }) {
 const modeTabBtn = active => ({ flex: 1, padding: 10, borderRadius: T.r, border: `1.5px solid ${active ? T.purple : T.border}`, background: active ? T.purpleL : T.surface, fontSize: 13, fontWeight: 700, color: active ? T.purple : T.inkMuted, cursor: "pointer", fontFamily: T.fontBody });
 const catChipBtn = active => ({ padding: "6px 12px", borderRadius: 99, border: `1.5px solid ${active ? T.purple : T.border}`, background: active ? T.purpleL : T.surface, fontSize: 12, fontWeight: 700, color: active ? T.purple : T.inkMuted, cursor: "pointer", fontFamily: T.fontBody, whiteSpace: "nowrap" });
 
+// Colored category pills for the add/edit form — same six buckets as the
+// template picker, but selectable on their own for custom activities and
+// re-editable after a template's been picked.
+function CategoryPills({ value, onChange }) {
+  return (
+    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+      {Object.entries(TEMPLATE_CATEGORIES).map(([k, label]) => {
+        const { c, l } = categoryColor(k);
+        const active = value === k;
+        return (
+          <button key={k} type="button" onClick={() => onChange(active ? null : k)} style={{ padding: "6px 12px", borderRadius: 99, border: `1.5px solid ${active ? c : T.border}`, background: active ? l : T.surface, fontSize: 12, fontWeight: 700, color: active ? c : T.inkMuted, cursor: "pointer", fontFamily: T.fontBody, whiteSpace: "nowrap" }}>{label}</button>
+        );
+      })}
+    </div>
+  );
+}
+
 // Bottom-sheet for creating an "Added by you" activity — tap a template
 // (emoji + label + duration filled in one go) or build a custom one, then set
 // the time, an optional repeat pattern and notes.
@@ -288,7 +309,7 @@ function AddActivityModal({ newItem, setNewItem, showEmojiPicker, setShowEmojiPi
   const [mode, setMode] = useState("template");
   const [selectedCat, setSelectedCat] = useState(null);
   const filtered = selectedCat ? ADD_ACTIVITY_TEMPLATES.filter(t => t.category === selectedCat) : ADD_ACTIVITY_TEMPLATES;
-  const pickTemplate = t => setNewItem(n => ({ ...n, emoji: t.emoji, label: t.label, duration: t.duration }));
+  const pickTemplate = t => setNewItem(n => ({ ...n, emoji: t.emoji, label: t.label, category: t.category, endTime: t.duration > 0 ? addMinutesToTime(n.time, t.duration) : "" }));
   const isPicked = t => newItem.emoji === t.emoji && newItem.label === t.label;
 
   return (
@@ -327,18 +348,29 @@ function AddActivityModal({ newItem, setNewItem, showEmojiPicker, setShowEmojiPi
               <input value={newItem.label} onChange={e => setNewItem({ ...newItem, label: e.target.value })} placeholder="Activity name" style={{ flex: 1, minWidth: 0, boxSizing: "border-box", padding: "8px 12px", borderRadius: T.r, border: `1.5px solid ${T.purple}`, fontSize: 14, fontFamily: T.fontBody, color: T.ink, outline: "none", background: T.surface }} />
             </div>
             {showEmojiPicker && <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: 10, background: T.canvas, borderRadius: T.r, marginBottom: 10 }}>{EMOJI_OPTS.map(e => <button key={e} type="button" onClick={() => { setNewItem({ ...newItem, emoji: e }); setShowEmojiPicker(false); }} style={{ fontSize: 20, background: "none", border: "none", cursor: "pointer", borderRadius: 8, padding: 3 }}>{e}</button>)}</div>}
-            <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkMuted }}>Duration</p>
-            <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-              {[0, 15, 30, 45, 60].map(d => (
-                <button key={d} type="button" onClick={() => setNewItem({ ...newItem, duration: d })} style={{ flex: 1, padding: "9px 0", borderRadius: T.r, border: `1.5px solid ${newItem.duration === d ? T.purple : T.border}`, background: newItem.duration === d ? T.purpleL : T.surface, fontSize: 13, fontWeight: 700, color: newItem.duration === d ? T.purple : T.inkMuted, cursor: "pointer", fontFamily: T.fontBody }}>{d === 0 ? "None" : `${d}m`}</button>
-              ))}
-            </div>
           </>
         )}
 
-        <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkMuted }}>Time</p>
-        <div style={{ marginBottom: 14 }}>
+        <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkMuted }}>Starts</p>
+        <div style={{ marginBottom: 12 }}>
           <TimeSelect value={newItem.time} onChange={v => setNewItem({ ...newItem, time: v })} width={140} />
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+          <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: T.inkMuted }}>Ends</p>
+          <button type="button" onClick={() => setNewItem(n => ({ ...n, endTime: n.endTime ? "" : addMinutesToTime(n.time, 30) }))} style={{ border: "none", background: "none", cursor: "pointer", fontSize: 11, fontWeight: 700, color: T.purple, fontFamily: T.fontBody }}>
+            {newItem.endTime ? "No end time" : "+ Set end time"}
+          </button>
+        </div>
+        {newItem.endTime && (
+          <div style={{ marginBottom: 14 }}>
+            <TimeSelect value={newItem.endTime} onChange={v => setNewItem({ ...newItem, endTime: v })} width={140} />
+          </div>
+        )}
+
+        <p style={{ margin: "14px 0 8px", fontSize: 12, fontWeight: 700, color: T.inkMuted }}>Category</p>
+        <div style={{ marginBottom: 14 }}>
+          <CategoryPills value={newItem.category} onChange={cat => setNewItem({ ...newItem, category: cat })} />
         </div>
 
         <button type="button" onClick={() => setNewItem(n => ({ ...n, isRecurring: !n.isRecurring, days: !n.isRecurring && n.days.length === 0 ? [1, 2, 3, 4, 5] : n.days }))} style={{ border: "none", background: "none", padding: "0 0 10px", cursor: "pointer", fontSize: 12, fontWeight: 700, color: T.purple, fontFamily: T.fontBody, display: "block" }}>
@@ -387,51 +419,132 @@ function StatusPill({ status }) {
   );
 }
 
-// A single schedule item row — essentials (from the default schedule) get a
-// "…" menu with edit/skip; items the parent added get inline edit/delete.
-function ScheduleRow({ item, essential, status, skipped, notToday, onToggle, menuOpen, onMenuToggle, onEdit, onSkip, onDelete }) {
+// A single timeline row — a left time-column label plus a colored block
+// (tinted by category) on the right. Essentials (from the default schedule)
+// get a locked "…" menu with edit/skip; items the parent added get inline
+// edit/delete. Merging essentials + added into one time-sorted timeline
+// (instead of two separate list sections) is purely visual — the "done"
+// semantics per type are unchanged: essentials tick over on the clock,
+// added items need a tap.
+function TimelineRow({ item, essential, status, skipped, notToday, onToggle, menuOpen, onMenuToggle, onEdit, onSkip, onDelete }) {
   const done = status === "completed";
   const inactive = status === "skipped" || notToday;
-  // Essentials are reminders, not a tap-to-check list — their row is static and
-  // "done" ticks over on its own once the clock passes their time.
   const clickable = !essential && !inactive;
   const pattern = daysSummary(item.days);
+  const { c, l } = categoryColor(item.category);
   return (
-    <div style={{ position: "relative" }}>
-      <div
-        onClick={() => clickable && onToggle()}
-        role={clickable ? "button" : undefined}
-        aria-label={clickable ? (done ? "Mark not done" : "Mark done") : undefined}
-        style={{ padding: "9px 2px", opacity: inactive ? 0.55 : 1, cursor: clickable ? "pointer" : "default" }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <span style={{ fontSize: 22, flexShrink: 0, lineHeight: 1 }}>{item.emoji}</span>
-          <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 700, color: done ? T.inkMuted : T.ink, textDecoration: done ? "line-through" : "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.label}</span>
-          {notToday ? <Badge color={T.inkMuted}>{pattern} · not today</Badge>
-            : <Badge color={T.purple}>{pattern ? `${pattern} · ` : ""}{timeRangeLabel(item)}</Badge>}
-          {essential ? (
-            <button onClick={e => { e.stopPropagation(); onMenuToggle(); }} style={{ border: "none", background: "none", cursor: "pointer", padding: "2px 4px", fontSize: 18, fontWeight: 900, color: T.inkMuted, lineHeight: 1 }} aria-label="Options">⋯</button>
-          ) : (
-            <div style={{ display: "flex", gap: 5, flexShrink: 0 }}>
-              <button onClick={e => { e.stopPropagation(); onEdit(); }} style={{ background: T.border, border: "none", borderRadius: 8, padding: "5px 8px", cursor: "pointer", fontSize: 12 }}>✏️</button>
-              <button onClick={e => { e.stopPropagation(); onDelete(); }} style={{ background: T.redL, border: "none", borderRadius: 8, padding: "5px 8px", cursor: "pointer", fontSize: 12 }}>🗑️</button>
-            </div>
-          )}
+    <div style={{ position: "relative", display: "flex", gap: 10 }}>
+      <div style={{ width: 44, flexShrink: 0, textAlign: "right", paddingTop: 12, fontSize: 11, fontWeight: 700, color: T.inkMuted, opacity: inactive ? 0.55 : 1 }}>
+        {formatTimeLabel(item.time).replace(" ", " ")}
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div
+          onClick={() => clickable && onToggle()}
+          role={clickable ? "button" : undefined}
+          aria-label={clickable ? (done ? "Mark not done" : "Mark done") : undefined}
+          style={{ padding: "10px 12px", borderRadius: T.r, background: done ? T.canvas : l, borderLeft: `3px solid ${done ? T.border : c}`, opacity: inactive ? 0.55 : 1, cursor: clickable ? "pointer" : "default", marginBottom: 8 }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 20, flexShrink: 0, lineHeight: 1 }}>{item.emoji}</span>
+            <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 700, color: done ? T.inkMuted : T.ink, textDecoration: done ? "line-through" : "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.label}</span>
+            {essential && <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 10, fontWeight: 800, color: T.amber, background: T.amberL, padding: "3px 7px", borderRadius: 99, flexShrink: 0, whiteSpace: "nowrap" }}>🔒 Essential</span>}
+            {essential ? (
+              <button onClick={e => { e.stopPropagation(); onMenuToggle(); }} style={{ border: "none", background: "none", cursor: "pointer", padding: "2px 4px", fontSize: 18, fontWeight: 900, color: T.inkMuted, lineHeight: 1 }} aria-label="Options">⋯</button>
+            ) : (
+              <div style={{ display: "flex", gap: 5, flexShrink: 0 }}>
+                <button onClick={e => { e.stopPropagation(); onEdit(); }} style={{ background: T.surface, border: "none", borderRadius: 8, padding: "5px 8px", cursor: "pointer", fontSize: 12 }}>✏️</button>
+                <button onClick={e => { e.stopPropagation(); onDelete(); }} style={{ background: T.redL, border: "none", borderRadius: 8, padding: "5px 8px", cursor: "pointer", fontSize: 12 }}>🗑️</button>
+              </div>
+            )}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginTop: 3 }}>
+            {notToday ? <Badge color={T.inkMuted}>{pattern} · not today</Badge>
+              : <Badge color={c}>{pattern ? `${pattern} · ` : ""}{timeRangeLabel(item)}</Badge>}
+            {!notToday && <StatusPill status={status} />}
+          </div>
+          {item.notes && <p style={{ margin: "5px 0 0 30px", fontSize: 11, color: T.inkMuted, lineHeight: 1.4 }}>📝 {item.notes}</p>}
         </div>
-        {!notToday && <StatusPill status={status} />}
-        {item.notes && <p style={{ margin: "5px 0 0 32px", fontSize: 11, color: T.inkMuted, lineHeight: 1.4 }}>📝 {item.notes}</p>}
+
+        {menuOpen && (
+          <div style={{ margin: "-4px 0 8px 0", border: `1px solid ${T.border}`, borderRadius: 12, overflow: "hidden", background: T.surface, boxShadow: T.shadowM }}>
+            <button onClick={onEdit} style={{ ...rowMenuBtn, color: T.ink }}>✏️ Edit</button>
+            <div style={{ height: 1, background: T.border }} />
+            <button onClick={onSkip} style={{ ...rowMenuBtn, color: T.ink }}>{skipped ? "↩ Un-skip today" : "⏭ Skip for today"}</button>
+            <div style={{ height: 1, background: T.border }} />
+            <div style={{ ...rowMenuBtn, cursor: "default", color: T.inkMuted, fontSize: 12 }}>🔒 Essential · can't remove</div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Horizontal Mon–Sun strip for quick day navigation from the live "today"
+// view — tapping today keeps the live timeline, a past day with a saved
+// history entry opens its read-only replay, and any other day (future, or
+// past with nothing saved) opens a lightweight recurring-schedule preview.
+function WeekStrip({ today, history, onSelect }) {
+  const monOffset = (today.getDay() + 6) % 7;
+  const weekStart = new Date(today);
+  weekStart.setDate(today.getDate() - monOffset);
+  const days = Array.from({ length: 7 }, (_, i) => { const d = new Date(weekStart); d.setDate(weekStart.getDate() + i); return d; });
+  const todayKey = dateKey(today);
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", gap: 4, marginBottom: 18 }}>
+      {days.map((d, i) => {
+        const dKey = dateKey(d);
+        const isToday = dKey === todayKey;
+        const entry = history.find(h => h.isoDate === dKey);
+        return (
+          <button key={i} onClick={() => onSelect(d, entry)} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4, padding: "8px 2px", border: "none", borderRadius: T.r, background: isToday ? T.purple : "transparent", cursor: "pointer", fontFamily: T.fontBody }}>
+            <span style={{ fontSize: 10, fontWeight: 700, color: isToday ? "#fff" : T.inkMuted, textTransform: "uppercase" }}>{WEEKDAYS[i]}</span>
+            <span style={{ fontSize: 14, fontWeight: 800, color: isToday ? "#fff" : T.ink }}>{d.getDate()}</span>
+            <span style={{ width: 4, height: 4, borderRadius: 99, background: isToday ? "#fff" : entry ? (entry.completedCount >= entry.total ? T.green : T.amber) : "transparent" }} />
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// Read-only preview of a non-today weekday's recurring schedule — opened
+// from the week strip for a future day, or a past day with nothing saved.
+// Not a checklist: just what would be scheduled, no done/status state.
+function DayPreviewView({ date, items, onBack }) {
+  const dow = date.getDay();
+  const dayItems = items.filter(i => appliesToday(i, dow)).sort((a, b) => a.time.localeCompare(b.time));
+  const label = date.toLocaleDateString("en-SG", { weekday: "long", day: "numeric", month: "short" });
+  return (
+    <>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
+        <button onClick={onBack} style={{ border: "none", background: T.border, cursor: "pointer", width: 34, height: 34, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }} aria-label="Back to today">
+          <svg width="16" height="16" viewBox="0 0 18 18" fill="none"><path d="M11 3.5 L5 9 L11 14.5" stroke={T.inkMuted} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none" /></svg>
+        </button>
+        <div style={{ textAlign: "center" }}>
+          <p style={{ margin: 0, fontWeight: 800, color: T.ink, fontSize: 15 }}>{label}</p>
+          <p style={{ margin: "2px 0 0", color: T.inkMuted, fontSize: 11 }}>{dayItems.length} scheduled</p>
+        </div>
+        <span style={{ width: 34, flexShrink: 0 }} />
       </div>
 
-      {menuOpen && (
-        <div style={{ margin: "2px 0 6px 0", border: `1px solid ${T.border}`, borderRadius: 12, overflow: "hidden", background: T.surface, boxShadow: T.shadowM }}>
-          <button onClick={onEdit} style={{ ...rowMenuBtn, color: T.ink }}>✏️ Edit</button>
-          <div style={{ height: 1, background: T.border }} />
-          <button onClick={onSkip} style={{ ...rowMenuBtn, color: T.ink }}>{skipped ? "↩ Un-skip today" : "⏭ Skip for today"}</button>
-          <div style={{ height: 1, background: T.border }} />
-          <div style={{ ...rowMenuBtn, cursor: "default", color: T.inkMuted, fontSize: 12 }}>🔒 Essential · can't remove</div>
-        </div>
-      )}
-    </div>
+      <div style={{ display: "flex", flexDirection: "column" }}>
+        {dayItems.length ? dayItems.map(item => {
+          const { c, l } = categoryColor(item.category);
+          return (
+            <div key={item.id} style={{ display: "flex", gap: 10 }}>
+              <div style={{ width: 44, flexShrink: 0, textAlign: "right", paddingTop: 12, fontSize: 11, fontWeight: 700, color: T.inkMuted }}>{formatTimeLabel(item.time)}</div>
+              <div style={{ flex: 1, minWidth: 0, padding: "10px 12px", borderRadius: T.r, background: l, borderLeft: `3px solid ${c}`, marginBottom: 8, display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: 20, flexShrink: 0, lineHeight: 1 }}>{item.emoji}</span>
+                <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 700, color: T.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.label}</span>
+                <Badge color={c}>{timeRangeLabel(item)}</Badge>
+              </div>
+            </div>
+          );
+        }) : <p style={{ color: T.inkMuted, fontSize: 12, margin: 0 }}>Nothing scheduled this day.</p>}
+      </div>
+
+      <p style={{ textAlign: "center", color: T.inkMuted, fontSize: 11, fontWeight: 700, marginTop: 8 }}>Preview · not yet happened</p>
+    </>
   );
 }
 
@@ -498,12 +611,14 @@ export function ScheduleScreen({ childCtx, push }) {
   const [scheduleView, setScheduleView] = useState("today"); // "today" | "month" | "day"
   const [monthCur, setMonthCur] = useState(() => { const t = new Date(); return { y: t.getFullYear(), m: t.getMonth() }; });
   const [selectedEntry, setSelectedEntry] = useState(null);
+  const [previewDate, setPreviewDate] = useState(null);
+  const [dayReturnTo, setDayReturnTo] = useState("month"); // where "day" view's back button goes: "month" or "today"
   const [kidView, setKidView] = useState(false);
   const [skippedToday, setSkippedToday] = useState([]);
   const [menuFor, setMenuFor] = useState(null);
   const [editing, setEditing] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
-  const [newItem, setNewItem] = useState({ emoji: "⭐", label: "", time: "08:00", duration: 30, notes: "", days: [], isRecurring: false });
+  const [newItem, setNewItem] = useState({ emoji: "⭐", label: "", time: "08:00", endTime: "08:30", category: null, notes: "", days: [], isRecurring: false });
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [editData, setEditData] = useState({});
   const [showAlarmSettings, setShowAlarmSettings] = useState(false);
@@ -532,7 +647,8 @@ export function ScheduleScreen({ childCtx, push }) {
   useBackHandler(showAdd, () => { setShowAdd(false); setShowEmojiPicker(false); });
   useBackHandler(!!editing, () => { setEditing(null); setShowEmojiPicker(false); });
   useBackHandler(kidView, () => setKidView(false));
-  useBackHandler(scheduleView === "day", () => setScheduleView("month"));
+  useBackHandler(scheduleView === "day", () => setScheduleView(dayReturnTo));
+  useBackHandler(scheduleView === "preview", () => { setScheduleView("today"); setPreviewDate(null); });
 
   const saveAlarm = (on, vol, tone) => {
     try {
@@ -673,24 +789,26 @@ export function ScheduleScreen({ childCtx, push }) {
     if (!newItem.label.trim()) return;
     const id = Date.now().toString();
     const item = { emoji: newItem.emoji, label: newItem.label, time: newItem.time, id };
-    if (newItem.duration > 0) item.endTime = addMinutesToTime(newItem.time, newItem.duration);
+    if (newItem.endTime) item.endTime = newItem.endTime;
+    if (newItem.category) item.category = newItem.category;
     if (newItem.notes.trim()) item.notes = newItem.notes.trim();
     if (newItem.isRecurring && newItem.days.length) item.days = newItem.days;
     updateChild(activeChild.id, { scheduleItems: [...items, item] });
-    setNewItem({ emoji: "⭐", label: "", time: "08:00", duration: 30, notes: "", days: [], isRecurring: false }); setShowAdd(false);
+    setNewItem({ emoji: "⭐", label: "", time: "08:00", endTime: "08:30", category: null, notes: "", days: [], isRecurring: false }); setShowAdd(false);
   };
 
   const deleteItem = id => updateChild(activeChild.id, { scheduleItems: items.filter(i => i.id !== id) });
 
   const startEdit = item => {
     setEditing(item.id);
-    setEditData({ ...item, duration: item.endTime ? minutesBetween(item.time, item.endTime) : 0, isRecurring: !!(item.days && item.days.length), days: item.days || [], notes: item.notes || "" });
+    setEditData({ ...item, isRecurring: !!(item.days && item.days.length), days: item.days || [], notes: item.notes || "" });
     setMenuFor(null);
   };
   const saveEdit = () => {
-    const { duration, isRecurring, ...rest } = editData;
+    const { isRecurring, ...rest } = editData;
     const item = { ...rest };
-    if (duration > 0) item.endTime = addMinutesToTime(item.time, duration); else delete item.endTime;
+    if (!item.endTime) delete item.endTime;
+    if (!item.category) delete item.category;
     if (item.notes && item.notes.trim()) item.notes = item.notes.trim(); else delete item.notes;
     if (!(isRecurring && item.days && item.days.length)) delete item.days;
     updateChild(activeChild.id, { scheduleItems: items.map(i => i.id === editing ? item : i) });
@@ -744,14 +862,24 @@ export function ScheduleScreen({ childCtx, push }) {
             <button onClick={() => setShowEmojiPicker(!showEmojiPicker)} style={{ fontSize: 24, background: T.surface, border: `1.5px solid ${T.border}`, borderRadius: T.r, padding: "6px 10px", cursor: "pointer" }}>{editData.emoji}</button>
             <input value={editData.label} onChange={e => setEditData({ ...editData, label: e.target.value })} style={{ flex: 1, minWidth: 0, boxSizing: "border-box", padding: "8px 12px", borderRadius: T.r, border: `1.5px solid ${T.purple}`, fontSize: 14, fontFamily: T.fontBody, color: T.ink, background: T.surface, outline: "none" }} />
           </div>
+          <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkMuted }}>Starts</p>
           <div style={{ marginBottom: 8 }}>
             <TimeSelect value={editData.time} onChange={v => setEditData({ ...editData, time: v })} />
           </div>
-          <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkMuted }}>Duration</p>
-          <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-            {[0, 15, 30, 45, 60].map(d => (
-              <button key={d} type="button" onClick={() => setEditData({ ...editData, duration: d })} style={{ flex: 1, padding: "9px 0", borderRadius: T.r, border: `1.5px solid ${editData.duration === d ? T.purple : T.border}`, background: editData.duration === d ? T.purpleL : T.surface, fontSize: 13, fontWeight: 700, color: editData.duration === d ? T.purple : T.inkMuted, cursor: "pointer", fontFamily: T.fontBody }}>{d === 0 ? "None" : `${d}m`}</button>
-            ))}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+            <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: T.inkMuted }}>Ends</p>
+            <button type="button" onClick={() => setEditData(d => ({ ...d, endTime: d.endTime ? "" : addMinutesToTime(d.time, 30) }))} style={{ border: "none", background: "none", cursor: "pointer", fontSize: 11, fontWeight: 700, color: T.purple, fontFamily: T.fontBody }}>
+              {editData.endTime ? "No end time" : "+ Set end time"}
+            </button>
+          </div>
+          {editData.endTime && (
+            <div style={{ marginBottom: 12 }}>
+              <TimeSelect value={editData.endTime} onChange={v => setEditData({ ...editData, endTime: v })} />
+            </div>
+          )}
+          <p style={{ margin: "12px 0 8px", fontSize: 12, fontWeight: 700, color: T.inkMuted }}>Category</p>
+          <div style={{ marginBottom: 12 }}>
+            <CategoryPills value={editData.category} onChange={cat => setEditData({ ...editData, category: cat })} />
           </div>
           <button onClick={() => setEditData(d => ({ ...d, isRecurring: !d.isRecurring, days: !d.isRecurring && d.days.length === 0 ? [1, 2, 3, 4, 5] : d.days }))} style={{ border: "none", background: "none", padding: "0 0 10px", cursor: "pointer", fontSize: 12, fontWeight: 700, color: T.purple, fontFamily: T.fontBody, display: "block" }}>
             {editData.isRecurring ? "✕ Remove day pattern" : "+ Repeat on specific days (e.g. school on weekdays)"}
@@ -768,7 +896,7 @@ export function ScheduleScreen({ childCtx, push }) {
       );
     }
     return (
-      <ScheduleRow key={item.id} item={item} essential={essential} status={activityStatus(item)} skipped={skippedToday.includes(item.id)} notToday={!appliesToday(item, todayDow)}
+      <TimelineRow key={item.id} item={item} essential={essential} status={activityStatus(item)} skipped={skippedToday.includes(item.id)} notToday={!appliesToday(item, todayDow)}
         onToggle={essential ? undefined : () => toggleDone(item.id)}
         menuOpen={menuFor === item.id}
         onMenuToggle={() => setMenuFor(menuFor === item.id ? null : item.id)}
@@ -896,9 +1024,12 @@ export function ScheduleScreen({ childCtx, push }) {
 
       {scheduleView === "today" && (
         <>
-          <button onClick={() => setKidView(true)} style={{ width: "100%", marginBottom: 16, background: T.greenL, color: T.green, border: "none", borderRadius: T.r, padding: "11px 12px", fontWeight: 800, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, cursor: "pointer", fontFamily: T.fontBody }}>
-            😊 Open kid view
-          </button>
+          <WeekStrip today={today} history={history} onSelect={(d, entry) => {
+            const dKey = dateKey(d);
+            if (dKey === todayStr) return;
+            if (d < today && entry) { setSelectedEntry(entry); setDayReturnTo("today"); setScheduleView("day"); }
+            else { setPreviewDate(d); setScheduleView("preview"); }
+          }} />
 
           {nextKidItem && (
             <Card style={{ marginBottom: 16, border: `1.5px solid ${T.purple}`, background: T.purpleL }}>
@@ -925,15 +1056,10 @@ export function ScheduleScreen({ childCtx, push }) {
             <p style={{ margin: "8px 0 0", color: T.inkMuted, fontSize: 12 }}>{completedCount} of {activeItems.length} activities done</p>
           </Card>
 
-          <SectionLabel action={<span style={{ display: "flex", alignItems: "center", gap: 3, fontFamily: T.fontBody, fontSize: 11, fontWeight: 700, color: T.inkMuted, textTransform: "none", letterSpacing: 0 }}>🔒 fixed</span>}>Essentials</SectionLabel>
-          <div style={{ display: "flex", flexDirection: "column", gap: 2, marginBottom: 18 }}>
-            {essentials.map(item => renderItem(item, true))}
-            {essentials.length === 0 && <p style={{ color: T.inkMuted, fontSize: 12, margin: 0 }}>No essentials set up.</p>}
-          </div>
-
-          <SectionLabel>Added by you</SectionLabel>
-          <div style={{ display: "flex", flexDirection: "column", gap: 2, marginBottom: 12 }}>
-            {added.map(item => renderItem(item, false))}
+          <SectionLabel action={<span style={{ display: "flex", alignItems: "center", gap: 3, fontFamily: T.fontBody, fontSize: 11, fontWeight: 700, color: T.inkMuted, textTransform: "none", letterSpacing: 0 }}>🔒 essential · ✏️ yours</span>}>Timeline</SectionLabel>
+          <div style={{ display: "flex", flexDirection: "column", marginBottom: 12 }}>
+            {sorted.map(item => renderItem(item, isEssential(item)))}
+            {sorted.length === 0 && <p style={{ color: T.inkMuted, fontSize: 12, margin: 0 }}>No activities set up.</p>}
           </div>
 
           <button onClick={() => setShowAdd(true)} style={{ width: "100%", margin: "2px 0 16px", border: `1.5px dashed ${T.border}`, background: "none", color: T.ink, borderRadius: T.r, padding: "11px", fontWeight: 700, fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontFamily: T.fontBody }}>+ Add activity</button>
@@ -973,11 +1099,11 @@ export function ScheduleScreen({ childCtx, push }) {
             </div>
           </div>
 
-          <Card style={{ padding: "14px 8px" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", marginBottom: 6 }}>
-              {WEEKDAYS.map((d, i) => <div key={i} style={{ textAlign: "center", fontSize: 10, fontWeight: 800, color: T.inkMuted }}>{d}</div>)}
+          <Card style={{ padding: "16px 10px" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", paddingBottom: 10, marginBottom: 6, borderBottom: `1px solid ${T.border}` }}>
+              {WEEKDAYS.map((d, i) => <div key={i} style={{ textAlign: "center", fontSize: 10, fontWeight: 800, color: T.inkMuted, letterSpacing: "0.04em" }}>{d}</div>)}
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 2 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 4 }}>
               {monthCells.map((d, i) => {
                 if (!d) return <div key={i} />;
                 const dKey = dateKey(d);
@@ -990,10 +1116,10 @@ export function ScheduleScreen({ childCtx, push }) {
                 const clickable = isToday || (!future && entry);
                 return (
                   <button key={i} disabled={!clickable}
-                    onClick={() => { if (isToday) setScheduleView("today"); else if (entry) { setSelectedEntry(entry); setScheduleView("day"); } }}
-                    style={{ aspectRatio: "1", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, border: isToday ? `1.5px solid ${T.purple}` : "none", background: isToday ? T.purpleL : "transparent", borderRadius: 9, cursor: clickable ? "pointer" : "default", fontFamily: "inherit" }}>
-                    <span style={{ fontSize: 12, fontWeight: isToday ? 800 : 600, color: future ? T.inkMuted : isToday ? T.purple : T.ink, opacity: future ? 0.4 : 1 }}>{d.getDate()}</span>
-                    <span style={{ width: 5, height: 5, borderRadius: 99, background: dotColor, border: hollow ? `1.3px solid ${T.border}` : "none" }} />
+                    onClick={() => { if (isToday) setScheduleView("today"); else if (entry) { setSelectedEntry(entry); setDayReturnTo("month"); setScheduleView("day"); } }}
+                    style={{ aspectRatio: "1", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, border: "none", background: isToday ? T.purple : "transparent", borderRadius: "50%", cursor: clickable ? "pointer" : "default", fontFamily: "inherit", transition: "background 0.15s" }}>
+                    <span style={{ fontSize: 12, fontWeight: isToday ? 800 : 600, color: isToday ? "#fff" : future ? T.inkMuted : T.ink, opacity: future ? 0.4 : 1 }}>{d.getDate()}</span>
+                    <span style={{ width: 5, height: 5, borderRadius: 99, background: isToday ? "rgba(255,255,255,0.7)" : dotColor, border: hollow ? `1.3px solid ${T.border}` : "none" }} />
                   </button>
                 );
               })}
@@ -1050,7 +1176,11 @@ export function ScheduleScreen({ childCtx, push }) {
       )}
 
       {scheduleView === "day" && selectedEntry && (
-        <DayHistoryView entry={selectedEntry} onBack={() => { setScheduleView("month"); setSelectedEntry(null); }} />
+        <DayHistoryView entry={selectedEntry} onBack={() => { setScheduleView(dayReturnTo); setSelectedEntry(null); }} />
+      )}
+
+      {scheduleView === "preview" && previewDate && (
+        <DayPreviewView date={previewDate} items={items} onBack={() => { setScheduleView("today"); setPreviewDate(null); }} />
       )}
     </Page>
   );
