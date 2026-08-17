@@ -411,6 +411,7 @@ const STATUS_META = {
 function StatusPill({ status }) {
   const meta = STATUS_META[status];
   if (!meta) return null;
+  if (status === "completed" || status === "missed" || status === "upcoming") return null;
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4 }}>
       <span style={{ width: 7, height: 7, borderRadius: "50%", background: meta.color, flexShrink: 0 }} />
@@ -428,6 +429,8 @@ function StatusPill({ status }) {
 // added items need a tap.
 function TimelineRow({ item, essential, status, skipped, notToday, onToggle, menuOpen, onMenuToggle, onEdit, onSkip, onDelete }) {
   const done = status === "completed";
+  const missed = status === "missed";
+  const upcoming = status === "upcoming";
   const inactive = status === "skipped" || notToday;
   const clickable = !essential && !inactive;
   const pattern = daysSummary(item.days);
@@ -442,7 +445,7 @@ function TimelineRow({ item, essential, status, skipped, notToday, onToggle, men
           onClick={() => clickable && onToggle()}
           role={clickable ? "button" : undefined}
           aria-label={clickable ? (done ? "Mark not done" : "Mark done") : undefined}
-          style={{ padding: "10px 12px", borderRadius: T.r, background: done ? T.canvas : l, borderLeft: `3px solid ${done ? T.border : c}`, opacity: inactive ? 0.55 : 1, cursor: clickable ? "pointer" : "default", marginBottom: 8 }}
+          style={{ padding: "10px 12px", borderRadius: T.r, background: done ? T.greenL : missed ? T.redL : upcoming ? T.amberL : l, borderLeft: `3px solid ${done ? T.green : missed ? T.red : upcoming ? T.amber : c}`, opacity: inactive ? 0.55 : 1, cursor: clickable ? "pointer" : "default", marginBottom: 8 }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <span style={{ fontSize: 20, flexShrink: 0, lineHeight: 1 }}>{item.emoji}</span>
@@ -1044,7 +1047,7 @@ export function ScheduleScreen({ childCtx, push }) {
             <p style={{ margin: "8px 0 0", color: T.inkMuted, fontSize: 12 }}>{completedCount} of {activeItems.length} activities done</p>
           </Card>
 
-          <SectionLabel action={<span style={{ display: "flex", alignItems: "center", gap: 3, fontFamily: T.fontBody, fontSize: 11, fontWeight: 700, color: T.inkMuted, textTransform: "none", letterSpacing: 0 }}>🔒 essential · ✏️ yours</span>}>Timeline</SectionLabel>
+          <SectionLabel>Timeline</SectionLabel>
           <div style={{ display: "flex", flexDirection: "column", marginBottom: 12 }}>
             {sorted.map(item => renderItem(item, isEssential(item)))}
             {sorted.length === 0 && <p style={{ color: T.inkMuted, fontSize: 12, margin: 0 }}>No activities set up.</p>}

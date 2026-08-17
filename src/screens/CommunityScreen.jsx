@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, Fragment } from "react";
 import {
   Plus, Camera, Users, MessageSquare, Settings, Link2, Search, Check, X,
-  ChevronRight, ChevronLeft, QrCode, Copy, UserPlus, MoreVertical, Lock,
-  Unlock, Send, Pin, Heart, Paperclip, FileText,
+  ChevronRight, QrCode, Copy, UserPlus, MoreVertical, Lock,
+  Unlock, Send, Pin, Heart, Paperclip, FileText, Bell, BellOff, Globe,
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { T } from "../theme";
@@ -18,11 +18,18 @@ const GROUP_ICON_KEYS = Object.keys(ROOM_ICONS);
 
 const searchInputStyle = { width: "100%", padding: "11px 14px 11px 38px", borderRadius: T.r, border: `1.5px solid ${T.border}`, fontSize: 14, fontFamily: T.fontBody, color: T.ink, background: T.canvas, outline: "none", boxSizing: "border-box" };
 
+// Cycled by index so a group's topic chips don't all read as the same color.
+const TOPIC_TAG_COLORS = ["teal", "indigo", "red", "violet", "purple", "slate"];
+
+// Display-only preference (see "Translate messages" in Group info) — no
+// actual translation happens, this just remembers what the user picked.
+const TRANSLATE_LANGUAGES = ["English", "Malay", "Mandarin", "Tamil"];
+
 // Normalizes an admin community_rooms row or a parent-created community_groups
 // row into the same shape, so chat/members/invite code doesn't need to care
 // which kind of group it's dealing with.
-const roomToGroup = r => ({ id: r.id, label: r.label, description: r.description, icon_key: r.icon_key, color_key: r.color_key, kind: "admin" });
-const groupToGroup = g => ({ id: g.id, label: g.name, description: g.description, icon_key: g.icon_key, color_key: g.color_key, kind: "user" });
+const roomToGroup = r => ({ id: r.id, label: r.label, description: r.description, icon_key: r.icon_key, color_key: r.color_key, topics: r.topics || [], kind: "admin" });
+const groupToGroup = g => ({ id: g.id, label: g.name, description: g.description, icon_key: g.icon_key, color_key: g.color_key, topics: g.topics || [], kind: "user" });
 
 function timeAgo(iso) {
   const min = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
@@ -40,21 +47,34 @@ const copyText = async text => {
   }
 };
 
-export function ChatUI({ msgs, input, setInput, onSend, onDelete, loading, color, bg, icon, label, sub, isGroup, account, dmPartner, endRef, attachment, onPickAttachment, onRemoveAttachment, attachError, headerRight, belowHeader }) {
+export function ChatUI({ msgs, input, setInput, onSend, onDelete, loading, color, bg, icon, label, sub, isGroup, account, dmPartner, endRef, attachment, onPickAttachment, onRemoveAttachment, attachError, headerRight, belowHeader, onTitleClick }) {
+  const avatarEl = isGroup ? (
+    <div style={{ width: 42, height: 42, borderRadius: 12, background: bg, color, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="7.5" cy="7" r="3"/><path d="M2.5 17c0-3.2 2.2-5 5-5s5 1.8 5 5"/><path d="M13.5 12.6c2.4.2 4 1.8 4 4.4"/><path d="M12.6 4.4A2.7 2.7 0 0 1 14.7 9"/></svg>
+    </div>
+  ) : (
+    <ComAvatar value={icon} size={42} active={false} borderColor={T.border} />
+  );
+  const titleEl = (
+    <div style={{ minWidth: 0, flex: 1 }}>
+      <p style={{ margin: 0, fontWeight: 700, fontSize: 16, color: T.ink }}>{label}</p>
+      <p style={{ margin: "2px 0 0", fontSize: 12.5, color: T.inkMuted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{sub}</p>
+    </div>
+  );
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 130px)" }}>
       <div style={{ padding: "10px 18px 12px", display: "flex", alignItems: "center", gap: 12 }}>
-        {isGroup ? (
-          <div style={{ width: 42, height: 42, borderRadius: 12, background: bg, color, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="7.5" cy="7" r="3"/><path d="M2.5 17c0-3.2 2.2-5 5-5s5 1.8 5 5"/><path d="M13.5 12.6c2.4.2 4 1.8 4 4.4"/><path d="M12.6 4.4A2.7 2.7 0 0 1 14.7 9"/></svg>
-          </div>
+        {onTitleClick ? (
+          <button onClick={onTitleClick} style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 0, background: "none", border: "none", padding: 0, cursor: "pointer", textAlign: "left", fontFamily: T.fontBody }}>
+            {avatarEl}
+            {titleEl}
+          </button>
         ) : (
-          <ComAvatar value={icon} size={42} active={false} borderColor={T.border} />
+          <>
+            {avatarEl}
+            {titleEl}
+          </>
         )}
-        <div style={{ minWidth: 0, flex: 1 }}>
-          <p style={{ margin: 0, fontWeight: 700, fontSize: 16, color: T.ink }}>{label}</p>
-          <p style={{ margin: "2px 0 0", fontSize: 12.5, color: T.inkMuted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{sub}</p>
-        </div>
         {headerRight}
       </div>
       {belowHeader}
@@ -133,15 +153,13 @@ export function ChatUI({ msgs, input, setInput, onSend, onDelete, loading, color
   );
 }
 
-// Sub-screen header — back chevron + Literata title, same chrome across
-// every screen pushed inside the Community tab (create group, share moment,
-// all groups, all moments, members).
-function SubHeader({ title, onBack, right }) {
+// Sub-screen header — Literata title, same chrome across every screen pushed
+// inside the Community tab (create group, share moment, all groups, all
+// moments, members). No back button here — the app-bar back button already
+// returns to the right place via the useBackHandler registrations below.
+function SubHeader({ title, right }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-      <button onClick={onBack} aria-label="Back" style={{ width: 34, height: 34, borderRadius: "50%", border: "none", background: "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0, color: T.purple }}>
-        <ChevronLeft size={24} />
-      </button>
       <h2 style={{ margin: 0, fontFamily: T.fontDisplay, fontSize: 20, fontWeight: 600, color: T.ink, flex: 1 }}>{title}</h2>
       {right}
     </div>
@@ -352,12 +370,24 @@ export function CommunityScreen({ account }) {
 
   const leaveRoom = () => { if (channelRef.current) { supabase.removeChannel(channelRef.current); channelRef.current = null; } };
 
+  // Per-device group prefs (Group info's Notify/Translate) — no server-side
+  // push muting or real translation exists, so these just remember the
+  // user's choice on this device.
+  const [notifyOn, setNotifyOn] = useState(true);
+  const [translateOn, setTranslateOn] = useState(false);
+  const [translateLang, setTranslateLang] = useState("English");
+  const [translateSheetOpen, setTranslateSheetOpen] = useState(false);
+
   // Lets the app-bar back button (and hardware/browser back) return to the
   // room list instead of exiting the Community tab while a chat is open.
   useBackHandler(view === "groupchat" || view === "dm_chat", () => {
     leaveRoom();
     setView(view === "groupchat" ? "home" : "dm_list");
   });
+  useBackHandler(view === "createGroup" || view === "shareMoment" || view === "allGroups" || view === "allMoments" || view === "dm_list", () => setView("home"));
+  useBackHandler(view === "members", () => setView("groupchat"));
+  useBackHandler(view === "groupInfo", () => setView("groupchat"));
+  useBackHandler(translateSheetOpen, () => setTranslateSheetOpen(false));
 
   const openGroup = async group => {
     leaveRoom();
@@ -439,14 +469,16 @@ export function CommunityScreen({ account }) {
 
   const [gName, setGName] = useState(""); const [gDescription, setGDescription] = useState("");
   const [gColor, setGColor] = useState("purple"); const [gIcon, setGIcon] = useState("community");
+  const [gTopics, setGTopics] = useState("");
   const [creatingGroup, setCreatingGroup] = useState(false);
 
   const createGroup = async () => {
     const name = gName.trim();
     if (!name) return;
     setCreatingGroup(true);
+    const topics = gTopics.split(",").map(t => t.trim()).filter(Boolean);
     const { data, error } = await supabase.from("community_groups")
-      .insert({ name, description: gDescription.trim(), icon_key: gIcon, color_key: gColor, created_by: account.id })
+      .insert({ name, description: gDescription.trim(), icon_key: gIcon, color_key: gColor, topics, created_by: account.id })
       .select().single();
     if (!error && data) {
       await supabase.from("community_group_members").insert({ group_id: data.id, user_id: account.id });
@@ -454,7 +486,7 @@ export function CommunityScreen({ account }) {
     }
     setCreatingGroup(false);
     if (error || !data) { flash("Could not create the group. Please try again."); return; }
-    setGName(""); setGDescription(""); setGColor("purple"); setGIcon("community");
+    setGName(""); setGDescription(""); setGColor("purple"); setGIcon("community"); setGTopics("");
     flash("Group created");
     openGroup(groupToGroup(data));
   };
@@ -495,14 +527,33 @@ export function CommunityScreen({ account }) {
   const [memberQuery, setMemberQuery] = useState("");
   const [isGroupMember, setIsGroupMember] = useState(false);
   const [joiningGroup, setJoiningGroup] = useState(false);
+  const [leavingGroup, setLeavingGroup] = useState(false);
 
-  const openMembers = async group => {
-    setMemberQuery(""); setView("members"); setMembersLoading(true);
+  const toggleNotify = () => {
+    if (!activeRoom) return;
+    const next = !notifyOn;
+    setNotifyOn(next);
+    try { localStorage.setItem(`bonda_group_notify_${activeRoom.id}`, next ? "on" : "off"); } catch {}
+  };
+
+  const setTranslatePref = (on, lang) => {
+    if (!activeRoom) return;
+    setTranslateOn(on);
+    if (lang) setTranslateLang(lang);
+    try {
+      localStorage.setItem(`bonda_group_translate_${activeRoom.id}`, on ? "on" : "off");
+      if (lang) localStorage.setItem(`bonda_group_translate_lang_${activeRoom.id}`, lang);
+    } catch {}
+  };
+
+  // Shared by the "Members" list and "Group info" screens — both need the
+  // member roster and whether the current user is in it.
+  const loadGroupMembers = async group => {
     if (group.kind === "user") {
       const { data: memberRows } = await supabase.from("community_group_members").select("user_id").eq("group_id", group.id);
       setIsGroupMember((memberRows || []).some(m => m.user_id === account.id));
       const ids = (memberRows || []).map(m => m.user_id);
-      if (!ids.length) { setMembers([]); setMembersLoading(false); return; }
+      if (!ids.length) { setMembers([]); return; }
       const { data: profs } = await supabase.from("profiles").select("id, name, avatar").in("id", ids);
       setMembers(profs || []);
     } else {
@@ -512,6 +563,23 @@ export function CommunityScreen({ account }) {
       (data || []).forEach(m => { if (!seen.has(m.author_id)) seen.set(m.author_id, { id: m.author_id, name: m.author_name, avatar: m.author_avatar }); });
       setMembers([...seen.values()]);
     }
+  };
+
+  const openMembers = async group => {
+    setMemberQuery(""); setView("members"); setMembersLoading(true);
+    await loadGroupMembers(group);
+    setMembersLoading(false);
+  };
+
+  const openGroupInfo = async group => {
+    setView("groupInfo"); setMembersLoading(true);
+    setAboutExpanded(false);
+    try { setNotifyOn(localStorage.getItem(`bonda_group_notify_${group.id}`) !== "off"); } catch { setNotifyOn(true); }
+    try {
+      setTranslateOn(localStorage.getItem(`bonda_group_translate_${group.id}`) === "on");
+      setTranslateLang(localStorage.getItem(`bonda_group_translate_lang_${group.id}`) || "English");
+    } catch { setTranslateOn(false); setTranslateLang("English"); }
+    await loadGroupMembers(group);
     setMembersLoading(false);
   };
 
@@ -523,6 +591,16 @@ export function CommunityScreen({ account }) {
     setIsGroupMember(true);
     setMembers(ms => ms.some(m => m.id === account.id) ? ms : [...ms, { id: account.id, name: account.name, avatar: account.avatar || "none" }]);
     flash("Joined group");
+  };
+
+  const leaveActiveGroup = async () => {
+    if (!activeRoom || activeRoom.kind !== "user") return;
+    setLeavingGroup(true);
+    await supabase.from("community_group_members").delete().eq("group_id", activeRoom.id).eq("user_id", account.id);
+    setLeavingGroup(false);
+    leaveRoom();
+    setView("home");
+    flash("Left group");
   };
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -538,6 +616,7 @@ export function CommunityScreen({ account }) {
   const toggleShowLocation = async () => { const next = !showLocation; setShowLocation(next); await supabase.from("profiles").update({ show_location_on_moments: next }).eq("id", account.id); };
 
   const [groupQuery, setGroupQuery] = useState("");
+  const [aboutExpanded, setAboutExpanded] = useState(false);
 
   const Paywall = () => (
     <div style={{ position: "fixed", inset: 0, background: "rgba(26,26,46,0.7)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
@@ -587,13 +666,10 @@ export function CommunityScreen({ account }) {
         <ChevronRight size={16} color={T.inkMuted} />
       </button>
     );
-    const inviteBtn = activeRoom.kind === "user" ? (
-      <button onClick={() => openGroupInvite(activeRoom)} style={{ background: "none", border: "none", color: c.color, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: T.fontBody, flexShrink: 0, display: "flex", alignItems: "center", gap: 4 }}><Link2 size={15} /> Invite</button>
-    ) : null;
     content = (
       <div style={{ position: "relative" }}>
         {showPaywall && <Paywall />}
-        <ChatUI msgs={groupMsgs} input={groupInput} setInput={setGroupInput} onSend={sendGroup} onDelete={deleteGroup} loading={groupLoading} color={c.color} bg={c.bg} icon={null} label={activeRoom.label} sub={activeRoom.description} isGroup account={account} dmPartner={null} endRef={endRef} attachment={groupAttachment} onPickAttachment={pickAttachment(setGroupAttachment)} onRemoveAttachment={() => clearAttachment(setGroupAttachment, groupAttachment)} attachError={attachError} headerRight={inviteBtn} belowHeader={memberRow} />
+        <ChatUI msgs={groupMsgs} input={groupInput} setInput={setGroupInput} onSend={sendGroup} onDelete={deleteGroup} loading={groupLoading} color={c.color} bg={c.bg} icon={null} label={activeRoom.label} sub={activeRoom.description} isGroup account={account} dmPartner={null} endRef={endRef} attachment={groupAttachment} onPickAttachment={pickAttachment(setGroupAttachment)} onRemoveAttachment={() => clearAttachment(setGroupAttachment, groupAttachment)} attachError={attachError} belowHeader={memberRow} onTitleClick={() => openGroupInfo(activeRoom)} />
       </div>
     );
   } else if (view === "dm_chat" && dmPartner) {
@@ -605,7 +681,6 @@ export function CommunityScreen({ account }) {
     content = (
       <Page>
         {showPaywall && <Paywall />}
-        <button onClick={() => setView("home")} style={{ background: "none", border: "none", color: T.purple, fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: T.fontBody, padding: "0 0 16px", display: "flex", alignItems: "center", gap: 2 }}><ChevronLeft size={18} /> Back</button>
         <h2 style={{ margin: "0 0 6px", color: T.ink, fontSize: 20, fontWeight: 800 }}>Private Messages</h2>
         <p style={{ margin: "0 0 20px", color: T.inkSoft, fontSize: 14 }}>Choose a parent to message privately</p>
         {others.length > 0 && (
@@ -636,10 +711,12 @@ export function CommunityScreen({ account }) {
   } else if (view === "createGroup") {
     content = (
       <Page>
-        <SubHeader title="Create a group" onBack={() => setView("home")} />
+        <SubHeader title="Create a group" />
         <div style={{ marginTop: 18 }}>
           <Input label="Group name" value={gName} onChange={e => setGName(e.target.value)} placeholder="e.g. Weekend playgroup" />
           <TextArea label="What it's for" value={gDescription} onChange={e => setGDescription(e.target.value)} placeholder="Meetups, tips, and support" rows={2} />
+          <Input label="Topics (optional)" value={gTopics} onChange={e => setGTopics(e.target.value)} placeholder="e.g. HealthHub, CDA, Getting started" />
+          <p style={{ margin: "-10px 0 18px", fontSize: 11.5, color: T.inkMuted }}>Separate topics with commas — shown as tags on the group's info page.</p>
           <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>Colour</p>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 18 }}>
             {Object.keys(ROOM_COLORS).map(key => {
@@ -667,7 +744,7 @@ export function CommunityScreen({ account }) {
   } else if (view === "shareMoment") {
     content = (
       <Page>
-        <SubHeader title="Share a moment" onBack={() => setView("home")} />
+        <SubHeader title="Share a moment" />
         <div style={{ marginTop: 18 }}>
           {momentPreview ? (
             <div style={{ position: "relative", borderRadius: T.rL, overflow: "hidden", marginBottom: 16 }}>
@@ -695,7 +772,7 @@ export function CommunityScreen({ account }) {
     const filtered = !q ? combined : combined.filter(g => g.label.toLowerCase().includes(q) || (g.description || "").toLowerCase().includes(q));
     content = (
       <Page style={{ paddingBottom: 110 }}>
-        <SubHeader title="Groups" onBack={() => setView("home")} />
+        <SubHeader title="Groups" />
         <div style={{ position: "relative", margin: "16px 0" }}>
           <Search size={16} color={T.inkMuted} style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
           <input value={groupQuery} onChange={e => setGroupQuery(e.target.value)} placeholder="Search groups" style={searchInputStyle} />
@@ -710,7 +787,7 @@ export function CommunityScreen({ account }) {
   } else if (view === "allMoments") {
     content = (
       <Page>
-        <SubHeader title="Moments" onBack={() => setView("home")}
+        <SubHeader title="Moments"
           right={
             <div style={{ position: "relative" }}>
               <button onClick={() => setMenuOpen(o => !o)} aria-label="More options" style={{ background: "none", border: "none", color: T.inkSoft, cursor: "pointer", padding: 6, display: "flex" }}><MoreVertical size={22} /></button>
@@ -753,17 +830,12 @@ export function CommunityScreen({ account }) {
       </Page>
     );
   } else if (view === "members" && activeRoom) {
-    const c = ROOM_COLORS[activeRoom.color_key] || ROOM_COLORS.purple;
     const q = memberQuery.trim().toLowerCase();
     const shown = !q ? members : members.filter(m => m.name.toLowerCase().includes(q));
     content = (
       <Page>
-        <SubHeader title="Members" onBack={() => setView("groupchat")}
-          right={activeRoom.kind === "user" && <button onClick={() => openGroupInvite(activeRoom)} style={{ background: "none", border: "none", color: c.color, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: T.fontBody, display: "flex", alignItems: "center", gap: 4 }}><Link2 size={15} /> Invite</button>} />
+        <SubHeader title="Members" />
         <p style={{ margin: "14px 0 12px", fontSize: 13, color: T.inkMuted }}>{activeRoom.label} · {members.length} {members.length === 1 ? "member" : "members"}</p>
-        {activeRoom.kind === "user" && !isGroupMember && (
-          <Btn onClick={joinActiveGroup} disabled={joiningGroup} style={{ marginBottom: 16 }}>{joiningGroup ? "Joining..." : "Join this group"}</Btn>
-        )}
         <div style={{ position: "relative", marginBottom: 16 }}>
           <Search size={16} color={T.inkMuted} style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
           <input value={memberQuery} onChange={e => setMemberQuery(e.target.value)} placeholder="Search members" style={searchInputStyle} />
@@ -790,6 +862,121 @@ export function CommunityScreen({ account }) {
           );
         })}
         {!membersLoading && shown.length === 0 && <p style={{ textAlign: "center", color: T.inkMuted, fontSize: 14, marginTop: 24 }}>No members match "{memberQuery}".</p>}
+      </Page>
+    );
+  } else if (view === "groupInfo" && activeRoom) {
+    const c = ROOM_COLORS[activeRoom.color_key] || ROOM_COLORS.purple;
+    const iconFn = ROOM_ICONS[activeRoom.icon_key] || ROOM_ICONS.community;
+    const desc = (activeRoom.description || "").trim();
+    const canJoin = activeRoom.kind === "user" && !isGroupMember;
+    const tiles = [
+      canJoin
+        ? { key: "join", Icon: Plus, label: joiningGroup ? "Joining…" : "Join", onClick: joinActiveGroup, disabled: joiningGroup }
+        : { key: "join", Icon: Check, label: "Joined", disabled: true },
+      { key: "invite", Icon: UserPlus, label: "Invite", onClick: () => openGroupInvite(activeRoom) },
+      { key: "notify", Icon: notifyOn ? Bell : BellOff, label: notifyOn ? "Notify" : "Muted", onClick: toggleNotify },
+    ];
+    content = (
+      <Page>
+        <SubHeader title="Group info" />
+
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", margin: "8px 0 20px" }}>
+          <div style={{ width: 72, height: 72, borderRadius: "50%", background: c.bg, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
+            {iconFn(c.color)}
+          </div>
+          <h2 style={{ margin: 0, fontFamily: T.fontDisplay, fontSize: 22, fontWeight: 700, color: T.ink }}>{activeRoom.label}</h2>
+          <p style={{ margin: "4px 0 0", color: T.inkMuted, fontSize: 13 }}>
+            {activeRoom.kind === "admin" ? "Community group" : "Parent group"} · {membersLoading ? "…" : `${members.length} ${members.length === 1 ? "member" : "members"}`}
+          </p>
+        </div>
+
+        <div style={{ display: "flex", gap: 10, marginBottom: 24 }}>
+          {tiles.map(t => (
+            <button key={t.key} onClick={t.onClick} disabled={t.disabled}
+              style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6, padding: "14px 8px", background: T.surface, border: `1px solid ${T.border}`, borderRadius: T.r, cursor: "pointer", fontFamily: T.fontBody, opacity: t.disabled ? 0.6 : 1 }}>
+              <t.Icon size={18} color={c.color} />
+              <span style={{ fontSize: 12, fontWeight: 700, color: T.ink }}>{t.label}</span>
+            </button>
+          ))}
+        </div>
+
+        <SectionLabel style={{ marginBottom: 10 }}>About this group</SectionLabel>
+        <Card style={{ marginBottom: 24 }}>
+          <p style={{ margin: 0, color: T.inkSoft, fontSize: 13.5, lineHeight: 1.6, ...(aboutExpanded ? {} : { display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }) }}>
+            {desc || "No description yet."}
+          </p>
+          {desc.length > 140 && (
+            <button onClick={() => setAboutExpanded(v => !v)} style={{ background: "none", border: "none", color: c.color, fontWeight: 700, fontSize: 12.5, cursor: "pointer", fontFamily: T.fontBody, padding: "8px 0 0" }}>
+              {aboutExpanded ? "Show less" : "Read more"}
+            </button>
+          )}
+        </Card>
+
+        {activeRoom.topics?.length > 0 && (
+          <>
+            <SectionLabel style={{ marginBottom: 10 }}>Topics</SectionLabel>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 24 }}>
+              {activeRoom.topics.map((topic, i) => {
+                const tc = ROOM_COLORS[TOPIC_TAG_COLORS[i % TOPIC_TAG_COLORS.length]];
+                return (
+                  <span key={topic} style={{ padding: "7px 13px", borderRadius: 99, fontSize: 12.5, fontWeight: 700, background: tc.bg, color: tc.color }}>{topic}</span>
+                );
+              })}
+            </div>
+          </>
+        )}
+
+        <SectionLabel style={{ marginBottom: 10 }}>Language</SectionLabel>
+        <Card onClick={() => setTranslateSheetOpen(true)} style={{ marginBottom: 24, cursor: "pointer" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ width: 38, height: 38, borderRadius: 10, background: T.purpleL, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <Globe size={18} color={T.purple} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <p style={{ margin: 0, fontWeight: 700, color: T.ink, fontSize: 14 }}>Translate messages</p>
+              <p style={{ margin: "2px 0 0", color: T.inkMuted, fontSize: 12.5 }}>{translateOn ? `On · to ${translateLang}` : "Off"}</p>
+            </div>
+            <ChevronRight size={18} color={T.inkMuted} />
+          </div>
+        </Card>
+
+        <SectionLabel style={{ marginBottom: 10 }}>Good to know</SectionLabel>
+        <Card style={{ marginBottom: (activeRoom.kind === "user" && isGroupMember) ? 24 : 8 }}>
+          <p style={{ margin: 0, color: T.inkSoft, fontSize: 13.5, lineHeight: 1.6 }}>
+            <span style={{ fontWeight: 800, color: T.ink }}>Keep it private.</span> Please don't share full names, addresses, or a child's case details here. Be kind and supportive — everyone here is doing their best. What's said in the group stays in the group.
+          </p>
+        </Card>
+
+        {activeRoom.kind === "user" && isGroupMember && (
+          <button onClick={leaveActiveGroup} disabled={leavingGroup} style={{ display: "block", width: "100%", background: "none", border: "none", color: T.red, fontWeight: 700, fontSize: 14, cursor: leavingGroup ? "default" : "pointer", fontFamily: T.fontBody, padding: "8px 0", textAlign: "center", opacity: leavingGroup ? 0.6 : 1 }}>
+            {leavingGroup ? "Leaving…" : "Leave group"}
+          </button>
+        )}
+
+        {translateSheetOpen && (
+          <div onClick={() => setTranslateSheetOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(35,32,28,.35)", display: "flex", alignItems: "flex-end", zIndex: 230 }}>
+            <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 560, margin: "0 auto", background: T.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: "10px 20px 24px" }}>
+              <div style={{ width: 40, height: 4, borderRadius: 2, background: T.border, margin: "6px auto 14px" }} />
+              <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 12 }}>
+                <span style={{ fontFamily: T.fontDisplay, fontSize: 19, fontWeight: 600, color: T.ink }}>Translate messages</span>
+                <button onClick={() => setTranslateSheetOpen(false)} aria-label="Close" style={{ background: "none", border: "none", cursor: "pointer", color: T.inkMuted, display: "flex" }}><X size={22} /></button>
+              </div>
+              <ToggleRow label="Translate this group's messages" sub="Shows a translated view for you only" on={translateOn} onToggle={() => setTranslatePref(!translateOn)} />
+              {translateOn && (
+                <>
+                  <p style={{ margin: "14px 4px 8px", fontSize: 11.5, fontWeight: 700, color: T.inkSoft, textTransform: "uppercase", letterSpacing: "0.05em" }}>Translate to</p>
+                  {TRANSLATE_LANGUAGES.map(lang => (
+                    <button key={lang} onClick={() => setTranslatePref(true, lang)} style={{ width: "100%", textAlign: "left", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 4px", background: "none", border: "none", borderBottom: `1px solid ${T.border}`, cursor: "pointer", fontFamily: T.fontBody }}>
+                      <span style={{ fontSize: 14, fontWeight: 600, color: T.ink }}>{lang}</span>
+                      {translateLang === lang && <Check size={16} color={T.purple} />}
+                    </button>
+                  ))}
+                </>
+              )}
+              <p style={{ margin: "14px 4px 0", fontSize: 11.5, color: T.inkMuted, lineHeight: 1.5 }}>This is a display preference only — it doesn't translate messages for anyone else in the group.</p>
+            </div>
+          </div>
+        )}
       </Page>
     );
   } else if (view === "home") {
