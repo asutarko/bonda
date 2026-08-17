@@ -510,21 +510,15 @@ function WeekStrip({ today, history, onSelect }) {
 // Read-only preview of a non-today weekday's recurring schedule — opened
 // from the week strip for a future day, or a past day with nothing saved.
 // Not a checklist: just what would be scheduled, no done/status state.
-function DayPreviewView({ date, items, onBack }) {
+function DayPreviewView({ date, items }) {
   const dow = date.getDay();
   const dayItems = items.filter(i => appliesToday(i, dow)).sort((a, b) => a.time.localeCompare(b.time));
   const label = date.toLocaleDateString("en-SG", { weekday: "long", day: "numeric", month: "short" });
   return (
     <>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
-        <button onClick={onBack} style={{ border: "none", background: T.border, cursor: "pointer", width: 34, height: 34, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }} aria-label="Back to today">
-          <svg width="16" height="16" viewBox="0 0 18 18" fill="none"><path d="M11 3.5 L5 9 L11 14.5" stroke={T.inkMuted} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none" /></svg>
-        </button>
-        <div style={{ textAlign: "center" }}>
-          <p style={{ margin: 0, fontWeight: 800, color: T.ink, fontSize: 15 }}>{label}</p>
-          <p style={{ margin: "2px 0 0", color: T.inkMuted, fontSize: 11 }}>{dayItems.length} scheduled</p>
-        </div>
-        <span style={{ width: 34, flexShrink: 0 }} />
+      <div style={{ textAlign: "center", marginBottom: 18 }}>
+        <p style={{ margin: 0, fontWeight: 800, color: T.ink, fontSize: 15 }}>{label}</p>
+        <p style={{ margin: "2px 0 0", color: T.inkMuted, fontSize: 11 }}>{dayItems.length} scheduled</p>
       </div>
 
       <div style={{ display: "flex", flexDirection: "column" }}>
@@ -565,7 +559,7 @@ function HistoryRow({ item }) {
 // month calendar — mirrors the live "today" list's Essentials/Added-by-you
 // layout instead of a summary sheet. Entries saved before the `essential`
 // flag existed fall back to one flat list.
-function DayHistoryView({ entry, onBack }) {
+function DayHistoryView({ entry }) {
   const dayItems = [
     ...entry.completed.map(i => ({ ...i, done: true })),
     ...entry.missed.map(i => ({ ...i, done: false })),
@@ -576,15 +570,9 @@ function DayHistoryView({ entry, onBack }) {
 
   return (
     <>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
-        <button onClick={onBack} style={{ border: "none", background: T.border, cursor: "pointer", width: 34, height: 34, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }} aria-label="Back to month">
-          <svg width="16" height="16" viewBox="0 0 18 18" fill="none"><path d="M11 3.5 L5 9 L11 14.5" stroke={T.inkMuted} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none" /></svg>
-        </button>
-        <div style={{ textAlign: "center" }}>
-          <p style={{ margin: 0, fontWeight: 800, color: T.ink, fontSize: 15 }}>{entry.date}</p>
-          <p style={{ margin: "2px 0 0", color: T.inkMuted, fontSize: 11 }}>{entry.completedCount} of {entry.total} activities</p>
-        </div>
-        <span style={{ width: 34, flexShrink: 0 }} />
+      <div style={{ textAlign: "center", marginBottom: 18 }}>
+        <p style={{ margin: 0, fontWeight: 800, color: T.ink, fontSize: 15 }}>{entry.date}</p>
+        <p style={{ margin: "2px 0 0", color: T.inkMuted, fontSize: 11 }}>{entry.completedCount} of {entry.total} activities</p>
       </div>
 
       <SectionLabel>Essentials</SectionLabel>
@@ -647,7 +635,7 @@ export function ScheduleScreen({ childCtx, push }) {
   useBackHandler(showAdd, () => { setShowAdd(false); setShowEmojiPicker(false); });
   useBackHandler(!!editing, () => { setEditing(null); setShowEmojiPicker(false); });
   useBackHandler(kidView, () => setKidView(false));
-  useBackHandler(scheduleView === "day", () => setScheduleView(dayReturnTo));
+  useBackHandler(scheduleView === "day", () => { setScheduleView(dayReturnTo); setSelectedEntry(null); });
   useBackHandler(scheduleView === "preview", () => { setScheduleView("today"); setPreviewDate(null); });
 
   const saveAlarm = (on, vol, tone) => {
@@ -1176,11 +1164,11 @@ export function ScheduleScreen({ childCtx, push }) {
       )}
 
       {scheduleView === "day" && selectedEntry && (
-        <DayHistoryView entry={selectedEntry} onBack={() => { setScheduleView(dayReturnTo); setSelectedEntry(null); }} />
+        <DayHistoryView entry={selectedEntry} />
       )}
 
       {scheduleView === "preview" && previewDate && (
-        <DayPreviewView date={previewDate} items={items} onBack={() => { setScheduleView("today"); setPreviewDate(null); }} />
+        <DayPreviewView date={previewDate} items={items} />
       )}
     </Page>
   );

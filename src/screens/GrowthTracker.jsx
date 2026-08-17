@@ -181,10 +181,10 @@ export function GrowthTrackerSection({ activeChild, updateChild }) {
     return <Quiz cat={quizCat} onDone={(obs) => { logObservations(obs); setView("home"); }} onClose={() => setView("home")} />;
   }
   if (view === "redeem") {
-    return <Redeem points={total} claimed={claimed} onRedeem={redeem} onClose={() => setView("home")} />;
+    return <Redeem points={total} claimed={claimed} onRedeem={redeem} />;
   }
   if (view === "progress") {
-    return <Progress observations={observations} childName={activeChild.name} onClose={() => setView("home")} />;
+    return <Progress observations={observations} childName={activeChild.name} />;
   }
 
   return (
@@ -297,10 +297,9 @@ function Home({ childName, earned, total, onStartQuiz, onRedeem, onProgress }) {
 /* ==================================================================
    REDEEM — points catalogue
    ================================================================== */
-function Redeem({ points, claimed, onRedeem, onClose }) {
+function Redeem({ points, claimed, onRedeem }) {
   return (
     <>
-      <button onClick={onClose} style={backBtnStyle}>← Back</button>
       <h3 style={{ margin: "0 0 16px", color: T.ink, fontSize: 18, fontWeight: 800 }}>Redeem points</h3>
 
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 6 }}>
@@ -427,7 +426,7 @@ function Quiz({ cat, onDone, onClose }) {
 /* ==================================================================
    PROGRESS OVER TIME — week / month / year
    ================================================================== */
-function Progress({ observations, childName, onClose }) {
+function Progress({ observations, childName }) {
   const [period, setPeriod] = useState("month");
   const P = PERIODS.find(p => p.key === period);
   const DAY = 86400000;
@@ -460,7 +459,6 @@ function Progress({ observations, childName, onClose }) {
 
   return (
     <>
-      <button onClick={onClose} style={backBtnStyle}>← Back</button>
       <h3 style={{ margin: "0 0 16px", color: T.ink, fontSize: 18, fontWeight: 800 }}>Progress over time</h3>
 
       <div style={{ display: "flex", gap: 5, background: T.border, borderRadius: T.r, padding: 3, marginBottom: 18 }}>

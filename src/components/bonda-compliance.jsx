@@ -20,6 +20,7 @@
 // ============================================================
 
 import { useState } from "react";
+import { useBackHandler } from "../hooks";
 
 // ── CONFIG — update these before launch ──────────────────────
 const COMPLIANCE_CONFIG = {
@@ -87,7 +88,7 @@ const BackButton = ({ onBack, label = "← Back" }) => (
 //  Full PDPA-compliant policy. Can be shown standalone
 //  or navigated to from LegalHub.
 // ═════════════════════════════════════════════════════════════
-export function PrivacyPolicyScreen({ onBack }) {
+export function PrivacyPolicyScreen({ onBack, hideBack = false }) {
   const { appName, dpoName, dpoEmail, policyDate } = COMPLIANCE_CONFIG;
 
   const sections = [
@@ -182,7 +183,7 @@ export function PrivacyPolicyScreen({ onBack }) {
   return (
     <div style={{ minHeight: "100vh", background: C.canvas, fontFamily: C.font, overflowY: "auto" }}>
       <div style={{ maxWidth: 480, margin: "0 auto", padding: "20px 20px 40px" }}>
-        <BackButton onBack={onBack} />
+        {!hideBack && <BackButton onBack={onBack} />}
         <h2 style={{ margin: "0 0 4px", fontSize: 22, fontWeight: 800, color: C.ink }}>Privacy Policy</h2>
         <p style={{ margin: "0 0 24px", color: C.inkMuted, fontSize: 12 }}>
           Version {COMPLIANCE_CONFIG.policyVersion} · {policyDate} · {appName}
@@ -209,7 +210,7 @@ export function PrivacyPolicyScreen({ onBack }) {
 // ═════════════════════════════════════════════════════════════
 //  2. MEDICAL DISCLAIMER SCREEN
 // ═════════════════════════════════════════════════════════════
-export function MedicalDisclaimerScreen({ onBack }) {
+export function MedicalDisclaimerScreen({ onBack, hideBack = false }) {
   const clauses = [
     {
       title: "Educational purposes only",
@@ -246,7 +247,7 @@ export function MedicalDisclaimerScreen({ onBack }) {
   return (
     <div style={{ minHeight: "100vh", background: C.canvas, fontFamily: C.font, overflowY: "auto" }}>
       <div style={{ maxWidth: 480, margin: "0 auto", padding: "20px 20px 40px" }}>
-        <BackButton onBack={onBack} />
+        {!hideBack && <BackButton onBack={onBack} />}
         <h2 style={{ margin: "0 0 20px", fontSize: 22, fontWeight: 800, color: C.ink }}>Medical Disclaimer</h2>
 
         <div style={{ background: C.amberL, borderRadius: C.r, padding: "14px 16px", marginBottom: 20, border: `1.5px solid ${C.amber}40` }}>
@@ -276,9 +277,14 @@ export function LegalHub({ onBack, mandatory = false, onAgree }) {
   const [agreeing, setAgreeing] = useState(false);
   const [agreeErr, setAgreeErr] = useState("");
 
-  if (screen === "privacy")    return <PrivacyPolicyScreen    onBack={() => setScreen(null)} />;
-  if (screen === "disclaimer") return <MedicalDisclaimerScreen onBack={() => setScreen(null)} />;
-  if (screen === "dpia")       return <DPIASummaryScreen       onBack={() => setScreen(null)} />;
+  // While a sub-document is open, let the app's back button (and hardware/
+  // browser back) return to this hub instead of exiting it — mirrors how
+  // LegalHub itself gets pushed/popped when not mandatory.
+  useBackHandler(screen !== null, () => setScreen(null));
+
+  if (screen === "privacy")    return <PrivacyPolicyScreen    onBack={() => setScreen(null)} hideBack={!mandatory} />;
+  if (screen === "disclaimer") return <MedicalDisclaimerScreen onBack={() => setScreen(null)} hideBack={!mandatory} />;
+  if (screen === "dpia")       return <DPIASummaryScreen       onBack={() => setScreen(null)} hideBack={!mandatory} />;
 
   const items = [
     { id: "privacy",    icon: "🔒", label: "Privacy Policy",    sub: "How we collect, use and protect your data", color: C.primary },
@@ -289,17 +295,12 @@ export function LegalHub({ onBack, mandatory = false, onAgree }) {
   return (
     <div style={{ minHeight: "100vh", background: C.canvas, fontFamily: C.font, overflowY: "auto" }}>
       <div style={{ maxWidth: 480, margin: "0 auto", padding: "20px 20px 40px" }}>
-        {mandatory ? (
+        {mandatory && (
           <>
             <h2 style={{ margin: "0 0 4px", fontSize: 22, fontWeight: 800, color: C.ink }}>Before you start</h2>
             <p style={{ margin: "0 0 24px", color: C.inkSoft, fontSize: 13, lineHeight: 1.7 }}>
               Please review the Privacy Policy and Medical Disclaimer below before using Bonda.
             </p>
-          </>
-        ) : (
-          <>
-            <BackButton onBack={onBack} />
-            <h2 style={{ margin: "0 0 24px", fontSize: 22, fontWeight: 800, color: C.ink }}>Legal & Privacy</h2>
           </>
         )}
 
@@ -377,7 +378,7 @@ export function LegalHub({ onBack, mandatory = false, onAgree }) {
 //  4. DPIA SUMMARY SCREEN
 //  Internal compliance document. Accessible from LegalHub.
 // ═════════════════════════════════════════════════════════════
-export function DPIASummaryScreen({ onBack }) {
+export function DPIASummaryScreen({ onBack, hideBack = false }) {
   const { appName, dpoName, dpoEmail, policyDate } = COMPLIANCE_CONFIG;
 
   const items = [
@@ -395,7 +396,7 @@ export function DPIASummaryScreen({ onBack }) {
   return (
     <div style={{ minHeight: "100vh", background: C.canvas, fontFamily: C.font, overflowY: "auto" }}>
       <div style={{ maxWidth: 480, margin: "0 auto", padding: "20px 20px 40px" }}>
-        <BackButton onBack={onBack} />
+        {!hideBack && <BackButton onBack={onBack} />}
         <h2 style={{ margin: "0 0 4px", fontSize: 20, fontWeight: 800, color: C.ink }}>Data Protection Impact Assessment</h2>
         <p style={{ margin: "0 0 24px", color: C.inkMuted, fontSize: 12 }}>DPIA conducted: {policyDate} · Prepared by: {dpoName}</p>
 

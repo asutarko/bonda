@@ -8,7 +8,7 @@ import { supabase } from "../lib/supabase";
 import { T } from "../theme";
 import { Page, SectionLabel, Card, Badge, Btn, Input, TextArea, Avatar, Accordion, PageHero, AvatarIllustrations, ChildAvatar, ComAvatar, ROOM_ICONS, ACTIVITY_TEXTAREA_STYLE, ActionIllustration, HeroIllustration } from "../ui";
 import { CHILD_AVATARS, DEFAULT_CHILDREN, DEFAULT_SCHEDULE, ROOM_COLORS, SOS_COLORS, VERBAL_STATUS_OPTIONS } from "../data";
-import { uploadCommunityAttachment, compressImage, classifyCommunityAttachment, MAX_COMMUNITY_ATTACHMENT_BYTES } from "../hooks";
+import { uploadCommunityAttachment, compressImage, classifyCommunityAttachment, MAX_COMMUNITY_ATTACHMENT_BYTES, useBackHandler } from "../hooks";
 
 const isDocAttachment = url => /\.(docx?|xlsx?|pdf)$/i.test(url || "");
 
@@ -40,13 +40,10 @@ const copyText = async text => {
   }
 };
 
-export function ChatUI({ msgs, input, setInput, onSend, onDelete, loading, color, bg, backFn, icon, label, sub, isGroup, account, dmPartner, endRef, attachment, onPickAttachment, onRemoveAttachment, attachError, headerRight, belowHeader }) {
+export function ChatUI({ msgs, input, setInput, onSend, onDelete, loading, color, bg, icon, label, sub, isGroup, account, dmPartner, endRef, attachment, onPickAttachment, onRemoveAttachment, attachError, headerRight, belowHeader }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 130px)" }}>
       <div style={{ padding: "10px 18px 12px", display: "flex", alignItems: "center", gap: 12 }}>
-        <button onClick={backFn} aria-label="Back" style={{ width: 34, height: 34, borderRadius: "50%", border: "none", background: "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0, color: T.purple }}>
-          <ChevronLeft size={24} />
-        </button>
         {isGroup ? (
           <div style={{ width: 42, height: 42, borderRadius: 12, background: bg, color, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="7.5" cy="7" r="3"/><path d="M2.5 17c0-3.2 2.2-5 5-5s5 1.8 5 5"/><path d="M13.5 12.6c2.4.2 4 1.8 4 4.4"/><path d="M12.6 4.4A2.7 2.7 0 0 1 14.7 9"/></svg>
@@ -355,6 +352,13 @@ export function CommunityScreen({ account }) {
 
   const leaveRoom = () => { if (channelRef.current) { supabase.removeChannel(channelRef.current); channelRef.current = null; } };
 
+  // Lets the app-bar back button (and hardware/browser back) return to the
+  // room list instead of exiting the Community tab while a chat is open.
+  useBackHandler(view === "groupchat" || view === "dm_chat", () => {
+    leaveRoom();
+    setView(view === "groupchat" ? "home" : "dm_list");
+  });
+
   const openGroup = async group => {
     leaveRoom();
     setActiveRoom(group); setGroupLoading(true); setView("groupchat");
@@ -429,8 +433,7 @@ export function CommunityScreen({ account }) {
 
   const purchase = () => { try { localStorage.setItem(`cb_premium_${account.name.toLowerCase()}`, "true"); } catch {} setDmPremium(true); setShowPaywall(false); setTimeout(openDMList, 300); };
 
-  // ---- New / toast / groups / moments / members / invite UI state ---------
-  const [sheetOpen, setSheetOpen] = useState(false);
+  // ---- toast / groups / moments / members / invite UI state ---------------
   const [toast, setToast] = useState("");
   function flash(msg) { setToast(msg); window.clearTimeout(flash._t); flash._t = window.setTimeout(() => setToast(""), 2200); }
 
@@ -590,11 +593,11 @@ export function CommunityScreen({ account }) {
     content = (
       <div style={{ position: "relative" }}>
         {showPaywall && <Paywall />}
-        <ChatUI msgs={groupMsgs} input={groupInput} setInput={setGroupInput} onSend={sendGroup} onDelete={deleteGroup} loading={groupLoading} color={c.color} bg={c.bg} backFn={() => { leaveRoom(); setView("home"); }} icon={null} label={activeRoom.label} sub={activeRoom.description} isGroup account={account} dmPartner={null} endRef={endRef} attachment={groupAttachment} onPickAttachment={pickAttachment(setGroupAttachment)} onRemoveAttachment={() => clearAttachment(setGroupAttachment, groupAttachment)} attachError={attachError} headerRight={inviteBtn} belowHeader={memberRow} />
+        <ChatUI msgs={groupMsgs} input={groupInput} setInput={setGroupInput} onSend={sendGroup} onDelete={deleteGroup} loading={groupLoading} color={c.color} bg={c.bg} icon={null} label={activeRoom.label} sub={activeRoom.description} isGroup account={account} dmPartner={null} endRef={endRef} attachment={groupAttachment} onPickAttachment={pickAttachment(setGroupAttachment)} onRemoveAttachment={() => clearAttachment(setGroupAttachment, groupAttachment)} attachError={attachError} headerRight={inviteBtn} belowHeader={memberRow} />
       </div>
     );
   } else if (view === "dm_chat" && dmPartner) {
-    content = <div style={{ position: "relative" }}>{showPaywall && <Paywall />}<ChatUI msgs={dmMsgs} input={dmInput} setInput={setDmInput} onSend={sendDM} onDelete={deleteDM} loading={dmLoading} color={T.purple} bg={T.purpleL} backFn={() => { leaveRoom(); setView("dm_list"); }} icon={dmPartner.avatar} label={dmPartner.name} sub="Private message" isGroup={false} account={account} dmPartner={dmPartner} endRef={endRef} attachment={dmAttachment} onPickAttachment={pickAttachment(setDmAttachment)} onRemoveAttachment={() => clearAttachment(setDmAttachment, dmAttachment)} attachError={attachError} /></div>;
+    content = <div style={{ position: "relative" }}>{showPaywall && <Paywall />}<ChatUI msgs={dmMsgs} input={dmInput} setInput={setDmInput} onSend={sendDM} onDelete={deleteDM} loading={dmLoading} color={T.purple} bg={T.purpleL} icon={dmPartner.avatar} label={dmPartner.name} sub="Private message" isGroup={false} account={account} dmPartner={dmPartner} endRef={endRef} attachment={dmAttachment} onPickAttachment={pickAttachment(setDmAttachment)} onRemoveAttachment={() => clearAttachment(setDmAttachment, dmAttachment)} attachError={attachError} /></div>;
   } else if (view === "dm_list") {
     const others = allUsers.filter(u => u.id !== account.id);
     const term = dmSearch.trim().toLowerCase();
@@ -793,15 +796,9 @@ export function CommunityScreen({ account }) {
     content = (
       <Page>
         {showPaywall && <Paywall />}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke={T.ink} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><circle cx="8" cy="7.5" r="3.2"/><path d="M2.5 18c0-3.4 2.4-5.3 5.5-5.3s5.5 1.9 5.5 5.3"/><path d="M14.5 13.2c2.6.2 4.3 1.9 4.3 4.8"/><path d="M13.5 4.6a2.9 2.9 0 0 1 2.3 4.9"/></svg>
-            <h1 style={{ margin: 0, fontFamily: T.fontDisplay, fontSize: 25, fontWeight: 600, color: T.ink, letterSpacing: "-0.01em" }}>Communities</h1>
-          </div>
-          <button onClick={() => setSheetOpen(true)} aria-label="Start something new" style={{ background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 1, color: T.purple, fontFamily: T.fontBody }}>
-            <Plus size={22} />
-            <span style={{ fontSize: 10.5, fontWeight: 700 }}>New</span>
-          </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 18 }}>
+          <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke={T.ink} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><circle cx="8" cy="7.5" r="3.2"/><path d="M2.5 18c0-3.4 2.4-5.3 5.5-5.3s5.5 1.9 5.5 5.3"/><path d="M14.5 13.2c2.6.2 4.3 1.9 4.3 4.8"/><path d="M13.5 4.6a2.9 2.9 0 0 1 2.3 4.9"/></svg>
+          <h1 style={{ margin: 0, fontFamily: T.fontDisplay, fontSize: 25, fontWeight: 600, color: T.ink, letterSpacing: "-0.01em" }}>Communities</h1>
         </div>
 
         {announcement && (
@@ -928,35 +925,6 @@ export function CommunityScreen({ account }) {
   return (
     <>
       {content}
-
-      {sheetOpen && (
-        <div onClick={() => setSheetOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(35,32,28,.35)", display: "flex", alignItems: "flex-end", zIndex: 200 }}>
-          <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 560, margin: "0 auto", background: T.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: "10px 16px 22px" }}>
-            <div style={{ width: 40, height: 4, borderRadius: 2, background: T.border, margin: "6px auto 14px" }} />
-            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10 }}>
-              <span style={{ fontFamily: T.fontDisplay, fontSize: 20, fontWeight: 600, color: T.ink }}>Start something new</span>
-              <button onClick={() => setSheetOpen(false)} aria-label="Close" style={{ background: "none", border: "none", cursor: "pointer", color: T.inkMuted, display: "flex" }}><X size={22} /></button>
-            </div>
-            {[
-              { tone: "red", ic: Camera, title: "Share a moment", sub: "Post a photo for people who follow you", onClick: () => { setSheetOpen(false); setView("shareMoment"); } },
-              { tone: "purple", ic: Users, title: "Create a group", sub: "Bring parents together around something", onClick: () => { setSheetOpen(false); setView("createGroup"); } },
-              { tone: "teal", ic: MessageSquare, title: "Message a parent", sub: "Start a private one-on-one chat", onClick: () => { setSheetOpen(false); openDMList(); } },
-            ].map(a => {
-              const c = ROOM_COLORS[a.tone] || ROOM_COLORS.purple;
-              return (
-                <button key={a.title} onClick={a.onClick} style={{ width: "100%", textAlign: "left", display: "flex", alignItems: "center", gap: 14, padding: "13px 4px", borderBottom: `1px solid ${T.border}`, background: "none", border: "none", cursor: "pointer", fontFamily: T.fontBody }}>
-                  <span style={{ width: 46, height: 46, borderRadius: 12, background: c.bg, color: c.color, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><a.ic size={22} /></span>
-                  <span style={{ flex: 1 }}>
-                    <span style={{ display: "block", fontSize: 16, fontWeight: 700, color: T.ink }}>{a.title}</span>
-                    <span style={{ display: "block", fontSize: 12.5, color: T.inkMuted, marginTop: 2 }}>{a.sub}</span>
-                  </span>
-                  <ChevronRight size={18} color={T.inkMuted} />
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
 
       {viewingMoment && (
         <div style={{ position: "fixed", inset: 0, background: T.ink, zIndex: 250, display: "flex", flexDirection: "column" }}>

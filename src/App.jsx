@@ -315,7 +315,7 @@ export default function Bonda() {
 
       {(current || tab !== "home") ? (
         <div style={{ background: T.surface, borderBottom: `1px solid ${T.border}`, padding: "10px 18px", position: "sticky", top: 0, zIndex: 100, display: "flex", alignItems: "center", gap: 10 }}>
-          <button onClick={() => current ? pop() : setTab("home")} title="Back" style={{ width: 34, height: 34, borderRadius: "50%", border: "none", background: T.purpleL, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer" }}>
+          <button onClick={() => { if (backHandlerStack.length) return backHandlerStack[backHandlerStack.length - 1](); current ? pop() : setTab("home"); }} title="Back" style={{ width: 34, height: 34, borderRadius: "50%", border: "none", background: T.purpleL, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer" }}>
             <svg width="17" height="17" viewBox="0 0 18 18" fill="none">
               <path d="M11 3.5 L5 9 L11 14.5" stroke={T.purple} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
             </svg>

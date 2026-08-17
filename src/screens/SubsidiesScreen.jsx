@@ -4,6 +4,7 @@ import { T } from "../theme";
 import { Page, SectionLabel, Card, Badge, Btn, Input, TextArea, Avatar, Accordion, PageHero, AvatarIllustrations, ChildAvatar, ComAvatar, ROOM_ICONS, ACTIVITY_TEXTAREA_STYLE, ActionIllustration, HeroIllustration } from "../ui";
 import { CHILD_AVATARS, DEFAULT_CHILDREN, DEFAULT_SCHEDULE, ROOM_COLORS, SOS_COLORS, VERBAL_STATUS_OPTIONS } from "../data";
 import { RESIDENCY, STAGE, SUPPORT, TARGET, MEANS } from "../data/subsidyFilters";
+import { useBackHandler } from "../hooks";
 
 function Chip({ active, onClick, children }) {
   return (
@@ -135,6 +136,10 @@ export function SubsidiesScreen({ pop, account }) {
   const [means, setMeans] = useState("any");
   const [showFilters, setShowFilters] = useState(false);
 
+  // Lets the app-bar back button (and hardware/browser back) return to the
+  // scheme list instead of exiting this screen while a detail view is open.
+  useBackHandler(!!detail, () => setDetail(null));
+
   const trackRef = useRef(null);
   const pausedRef = useRef(false);
   const [slide, setSlide] = useState(0);
@@ -226,7 +231,6 @@ export function SubsidiesScreen({ pop, account }) {
 
   if (detail) return (
     <Page>
-      <button onClick={() => setDetail(null)} style={{ background: "none", border: "none", color: T.purple, fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: T.fontBody, padding: "0 0 16px", display: "flex", alignItems: "center", gap: 6 }}>← All Schemes</button>
       <div style={{ padding: "18px 16px", background: detail.color + "15", borderRadius: T.rL, marginBottom: 14 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
           <div style={{ width: 52, height: 52, borderRadius: 14, background: detail.color + "20", display: "flex", alignItems: "center", justifyContent: "center", border: `1.5px solid ${detail.color}30` }}>
