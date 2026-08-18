@@ -28,6 +28,13 @@ const TRANSLATE_LANGUAGES = ["English", "Malay", "Mandarin", "Tamil"];
 const roomToGroup = r => ({ id: r.id, label: r.label, description: r.description, icon_key: r.icon_key, color_key: r.color_key, topics: r.topics || [], kind: "admin" });
 const groupToGroup = g => ({ id: g.id, label: g.name, description: g.description, icon_key: g.icon_key, color_key: g.color_key, topics: g.topics || [], kind: "user" });
 
+// Admin rooms (community_rooms) and parent-created groups (community_groups)
+// each need their own join. Their membership rows live in different tables —
+// community_group_members.group_id references community_groups, while
+// community_room_members.room_id references community_rooms.
+const membershipTable = kind => kind === "user" ? "community_group_members" : "community_room_members";
+const membershipKey = kind => kind === "user" ? "group_id" : "room_id";
+
 function timeAgo(iso) {
   const min = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
   if (min < 1) return "just now";
@@ -391,14 +398,12 @@ export function CommunityScreen({ account }) {
   useBackHandler(view === "groupInfo", () => setView(groupInfoReturnTo));
   useBackHandler(translateSheetOpen, () => setTranslateSheetOpen(false));
 
-  // Parent-created groups need membership to chat — a user who hasn't joined
-  // yet gets the info screen (with a Join button) instead of dropping straight
-  // into the chat. Admin rooms are open to everyone, so they always go straight in.
+  // Every group — admin room or parent-created — needs membership to chat.
+  // A user who hasn't joined yet gets the info screen (with a Join button)
+  // instead of dropping straight into the chat.
   const openGroup = async group => {
-    if (group.kind === "user") {
-      const { data: memberRows } = await supabase.from("community_group_members").select("user_id").eq("group_id", group.id).eq("user_id", account.id).limit(1);
-      if (!memberRows?.length) { openGroupInfo(group, "home"); return; }
-    }
+    const { data: memberRows } = await supabase.from(membershipTable(group.kind)).select("user_id").eq(membershipKey(group.kind), group.id).eq("user_id", account.id).limit(1);
+    if (!memberRows?.length) { openGroupInfo(group, "home"); return; }
     leaveRoom();
     setActiveRoom(group); setGroupLoading(true); setView("groupchat");
     const { data } = await supabase.from("messages").select("id,author_id,author_name,author_avatar,text,image_url,file_name,created_at").eq("room", `room_${group.id}`).order("created_at", { ascending: true }).limit(120);
@@ -558,20 +563,12 @@ export function CommunityScreen({ account }) {
   // Shared by the "Members" list and "Group info" screens — both need the
   // member roster and whether the current user is in it.
   const loadGroupMembers = async group => {
-    if (group.kind === "user") {
-      const { data: memberRows } = await supabase.from("community_group_members").select("user_id").eq("group_id", group.id);
-      setIsGroupMember((memberRows || []).some(m => m.user_id === account.id));
-      const ids = (memberRows || []).map(m => m.user_id);
-      if (!ids.length) { setMembers([]); return; }
-      const { data: profs } = await supabase.from("profiles").select("id, name, avatar").in("id", ids);
-      setMembers(profs || []);
-    } else {
-      setIsGroupMember(true); // admin rooms are open to everyone
-      const { data } = await supabase.from("messages").select("author_id, author_name, author_avatar").eq("room", `room_${group.id}`).limit(500);
-      const seen = new Map();
-      (data || []).forEach(m => { if (!seen.has(m.author_id)) seen.set(m.author_id, { id: m.author_id, name: m.author_name, avatar: m.author_avatar }); });
-      setMembers([...seen.values()]);
-    }
+    const { data: memberRows } = await supabase.from(membershipTable(group.kind)).select("user_id").eq(membershipKey(group.kind), group.id);
+    setIsGroupMember((memberRows || []).some(m => m.user_id === account.id));
+    const ids = (memberRows || []).map(m => m.user_id);
+    if (!ids.length) { setMembers([]); return; }
+    const { data: profs } = await supabase.from("profiles").select("id, name, avatar").in("id", ids);
+    setMembers(profs || []);
   };
 
   const openGroupInfo = async (group, returnTo = "groupchat") => {
@@ -589,19 +586,20 @@ export function CommunityScreen({ account }) {
   };
 
   const joinActiveGroup = async () => {
-    if (!activeRoom || activeRoom.kind !== "user") return;
+    if (!activeRoom) return;
     setJoiningGroup(true);
-    await supabase.from("community_group_members").insert({ group_id: activeRoom.id, user_id: account.id });
+    await supabase.from(membershipTable(activeRoom.kind)).insert({ [membershipKey(activeRoom.kind)]: activeRoom.id, user_id: account.id });
     setJoiningGroup(false);
     setIsGroupMember(true);
     setMembers(ms => ms.some(m => m.id === account.id) ? ms : [...ms, { id: account.id, name: account.name, avatar: account.avatar || "none" }]);
     flash("Joined group");
+    openGroup(activeRoom);
   };
 
   const leaveActiveGroup = async () => {
-    if (!activeRoom || activeRoom.kind !== "user") return;
+    if (!activeRoom) return;
     setLeavingGroup(true);
-    await supabase.from("community_group_members").delete().eq("group_id", activeRoom.id).eq("user_id", account.id);
+    await supabase.from(membershipTable(activeRoom.kind)).delete().eq(membershipKey(activeRoom.kind), activeRoom.id).eq("user_id", account.id);
     setLeavingGroup(false);
     leaveRoom();
     setView("home");
@@ -867,7 +865,7 @@ export function CommunityScreen({ account }) {
     const c = ROOM_COLORS[activeRoom.color_key] || ROOM_COLORS.purple;
     const iconFn = ROOM_ICONS[activeRoom.icon_key] || ROOM_ICONS.community;
     const desc = (activeRoom.description || "").trim();
-    const canJoin = activeRoom.kind === "user" && !isGroupMember;
+    const canJoin = !isGroupMember;
     const tiles = [
       canJoin
         ? { key: "join", Icon: Plus, label: joiningGroup ? "Joining…" : "Join", onClick: joinActiveGroup, disabled: joiningGroup }
@@ -926,13 +924,13 @@ export function CommunityScreen({ account }) {
         </Card>
 
         <SectionLabel style={{ marginBottom: 10 }}>Good to know</SectionLabel>
-        <Card style={{ marginBottom: (activeRoom.kind === "user" && isGroupMember) ? 24 : 8 }}>
+        <Card style={{ marginBottom: isGroupMember ? 24 : 8 }}>
           <p style={{ margin: 0, color: T.inkSoft, fontSize: 13.5, lineHeight: 1.6 }}>
             <span style={{ fontWeight: 800, color: T.ink }}>Keep it private.</span> Please don't share full names, addresses, or a child's case details here. Be kind and supportive — everyone here is doing their best. What's said in the group stays in the group.
           </p>
         </Card>
 
-        {activeRoom.kind === "user" && isGroupMember && (
+        {isGroupMember && (
           <button onClick={leaveActiveGroup} disabled={leavingGroup} style={{ display: "block", width: "100%", background: "none", border: "none", color: T.red, fontWeight: 700, fontSize: 14, cursor: leavingGroup ? "default" : "pointer", fontFamily: T.fontBody, padding: "8px 0", textAlign: "center", opacity: leavingGroup ? 0.6 : 1 }}>
             {leavingGroup ? "Leaving…" : "Leave group"}
           </button>
