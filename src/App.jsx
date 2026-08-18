@@ -55,11 +55,6 @@ export default function Bonda() {
   const [passwordRecovery, setPasswordRecovery] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [pendingPhone, setPendingPhone] = useState(false);
-  // Whether the signed-in account still needs to tick the compliance
-  // checkbox — backed by profiles.compliance_agreed_at so it's checked
-  // per-account (not per-device) and existing users aren't re-prompted.
-  const [complianceAgreed, setComplianceAgreed] = useState(true);
-  const [complianceChecked, setComplianceChecked] = useState(false);
 
   // Loads the account and, if it just came from a fresh registration, flags
   // the mandatory phone-capture screen so it's shown before the app is usable.
@@ -82,25 +77,6 @@ export default function Bonda() {
     });
     return () => { cancelled = true; sub.subscription.unsubscribe(); };
   }, []);
-
-  useEffect(() => {
-    if (!account) { setComplianceChecked(false); return; }
-    let cancelled = false;
-    setComplianceChecked(false);
-    supabase.from("profiles").select("compliance_agreed_at").eq("id", account.id).single()
-      .then(({ data }) => {
-        if (cancelled) return;
-        setComplianceAgreed(!!data?.compliance_agreed_at);
-        setComplianceChecked(true);
-      });
-    return () => { cancelled = true; };
-  }, [account?.id]);
-
-  const agreeToCompliance = async () => {
-    const { error } = await supabase.from("profiles").update({ compliance_agreed_at: new Date().toISOString() }).eq("id", account.id);
-    if (error) throw error;
-    setComplianceAgreed(true);
-  };
 
   const childCtx = useChildren(account?.id);
 
@@ -176,23 +152,6 @@ export default function Bonda() {
       <div style={{ minHeight: "100vh", background: T.canvas, fontFamily: T.fontBody, display: "flex", flexDirection: "column", maxWidth: 480, margin: "0 auto", position: "relative" }}>
         <link href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,500;0,7..72,600;0,7..72,700;0,7..72,800;1,7..72,400;1,7..72,500;1,7..72,600&display=swap" rel="stylesheet" />
         <Suspense fallback={<ScreenFallback />}><PhoneCaptureScreen account={account} onDone={() => setPendingPhone(false)} /></Suspense>
-      </div>
-    );
-  }
-
-  if (!complianceChecked) {
-    return (
-      <div style={{ minHeight: "100vh", background: T.canvas, fontFamily: T.fontBody, display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <p style={{ color: T.inkSoft, fontSize: 14, fontWeight: 700 }}>Loading…</p>
-      </div>
-    );
-  }
-
-  if (!complianceAgreed) {
-    return (
-      <div style={{ minHeight: "100vh", background: T.canvas, fontFamily: T.fontBody, display: "flex", flexDirection: "column", maxWidth: 480, margin: "0 auto", position: "relative" }}>
-        <link href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,500;0,7..72,600;0,7..72,700;0,7..72,800;1,7..72,400;1,7..72,500;1,7..72,600&display=swap" rel="stylesheet" />
-        <Suspense fallback={<ScreenFallback />}><LegalHub mandatory onAgree={agreeToCompliance} /></Suspense>
       </div>
     );
   }
