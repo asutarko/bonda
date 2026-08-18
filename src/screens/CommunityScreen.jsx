@@ -429,8 +429,14 @@ export function CommunityScreen({ account }) {
   };
 
   const deleteGroup = async id => {
+    const removed = groupMsgs.find(m => m.id === id);
     setGroupMsgs(prev => prev.filter(m => m.id !== id));
-    await supabase.from("messages").delete().eq("id", id).eq("author_id", account.id);
+    const { error } = await supabase.from("messages").delete().eq("id", id).eq("author_id", account.id);
+    if (error) {
+      console.error(error);
+      setAttachError("Could not delete the message. Please try again.");
+      if (removed) setGroupMsgs(prev => prev.some(m => m.id === id) ? prev : [...prev, removed].sort((a, b) => a.id - b.id));
+    }
   };
 
   const openDMList = async () => {
@@ -471,8 +477,14 @@ export function CommunityScreen({ account }) {
   };
 
   const deleteDM = async id => {
+    const removed = dmMsgs.find(m => m.id === id);
     setDmMsgs(prev => prev.filter(m => m.id !== id));
-    await supabase.from("messages").delete().eq("id", id).eq("author_id", account.id);
+    const { error } = await supabase.from("messages").delete().eq("id", id).eq("author_id", account.id);
+    if (error) {
+      console.error(error);
+      setAttachError("Could not delete the message. Please try again.");
+      if (removed) setDmMsgs(prev => prev.some(m => m.id === id) ? prev : [...prev, removed].sort((a, b) => a.id - b.id));
+    }
   };
 
   const purchase = () => { try { localStorage.setItem(`cb_premium_${account.name.toLowerCase()}`, "true"); } catch {} setDmPremium(true); setShowPaywall(false); setTimeout(openDMList, 300); };

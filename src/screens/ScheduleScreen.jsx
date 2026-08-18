@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { T } from "../theme";
 import { Page, SectionLabel, Card, Badge, Btn, Input, TextArea, Avatar, Accordion, PageHero, AvatarIllustrations, ChildAvatar, ComAvatar, ROOM_ICONS, ACTIVITY_TEXTAREA_STYLE, ActionIllustration, HeroIllustration } from "../ui";
@@ -486,26 +487,62 @@ function TimelineRow({ item, essential, status, skipped, notToday, onToggle, men
 // view — tapping today keeps the live timeline, a past day with a saved
 // history entry opens its read-only replay, and any other day (future, or
 // past with nothing saved) opens a lightweight recurring-schedule preview.
+// Swipeable up to 4 weeks either side (~1 month) to browse other weeks
+// without leaving the strip for the full month calendar.
+const WEEK_STRIP_MAX_OFFSET = 4;
+const WEEK_STRIP_SWIPE_THRESHOLD = 40;
 function WeekStrip({ today, history, onSelect }) {
+  const [weekOffset, setWeekOffset] = useState(0);
+  const dragRef = useRef(null);
+
   const monOffset = (today.getDay() + 6) % 7;
   const weekStart = new Date(today);
-  weekStart.setDate(today.getDate() - monOffset);
+  weekStart.setDate(today.getDate() - monOffset + weekOffset * 7);
   const days = Array.from({ length: 7 }, (_, i) => { const d = new Date(weekStart); d.setDate(weekStart.getDate() + i); return d; });
   const todayKey = dateKey(today);
+
+  const shiftWeek = dir => setWeekOffset(o => Math.max(-WEEK_STRIP_MAX_OFFSET, Math.min(WEEK_STRIP_MAX_OFFSET, o + dir)));
+  const onPointerDown = e => { dragRef.current = e.clientX; };
+  const onPointerUp = e => {
+    if (dragRef.current == null) return;
+    const dx = e.clientX - dragRef.current;
+    dragRef.current = null;
+    if (Math.abs(dx) < WEEK_STRIP_SWIPE_THRESHOLD) return;
+    shiftWeek(dx < 0 ? 1 : -1);
+  };
+
+  const atMin = weekOffset <= -WEEK_STRIP_MAX_OFFSET;
+  const atMax = weekOffset >= WEEK_STRIP_MAX_OFFSET;
+
   return (
-    <div style={{ display: "flex", justifyContent: "space-between", gap: 4, marginBottom: 18 }}>
-      {days.map((d, i) => {
-        const dKey = dateKey(d);
-        const isToday = dKey === todayKey;
-        const entry = history.find(h => h.isoDate === dKey);
-        return (
-          <button key={i} onClick={() => onSelect(d, entry)} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4, padding: "8px 2px", border: "none", borderRadius: T.r, background: isToday ? T.purple : "transparent", cursor: "pointer", fontFamily: T.fontBody }}>
-            <span style={{ fontSize: 10, fontWeight: 700, color: isToday ? "#fff" : T.inkMuted, textTransform: "uppercase" }}>{WEEKDAYS[i]}</span>
-            <span style={{ fontSize: 14, fontWeight: 800, color: isToday ? "#fff" : T.ink }}>{d.getDate()}</span>
-            <span style={{ width: 4, height: 4, borderRadius: 99, background: isToday ? "#fff" : entry ? (entry.completedCount >= entry.total ? T.green : T.amber) : "transparent" }} />
-          </button>
-        );
-      })}
+    <div>
+      <div style={{ display: "flex", alignItems: "center", gap: 2, marginBottom: 18 }}>
+        <button onClick={() => shiftWeek(-1)} disabled={atMin} aria-label="Previous week" style={{ width: 26, height: 26, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", border: "none", background: "none", padding: 0, cursor: atMin ? "default" : "pointer", opacity: atMin ? 0.3 : 1 }}>
+          <ChevronLeft size={18} color={T.inkMuted} />
+        </button>
+        <div
+          onPointerDown={onPointerDown}
+          onPointerUp={onPointerUp}
+          onPointerCancel={() => { dragRef.current = null; }}
+          style={{ flex: 1, display: "flex", justifyContent: "space-between", gap: 4, touchAction: "pan-y" }}
+        >
+          {days.map((d, i) => {
+            const dKey = dateKey(d);
+            const isToday = dKey === todayKey;
+            const entry = history.find(h => h.isoDate === dKey);
+            return (
+              <button key={i} onClick={() => onSelect(d, entry)} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4, padding: "8px 2px", border: "none", borderRadius: T.r, background: isToday ? T.purple : "transparent", cursor: "pointer", fontFamily: T.fontBody }}>
+                <span style={{ fontSize: 10, fontWeight: 700, color: isToday ? "#fff" : T.inkMuted, textTransform: "uppercase" }}>{WEEKDAYS[i]}</span>
+                <span style={{ fontSize: 14, fontWeight: 800, color: isToday ? "#fff" : T.ink }}>{d.getDate()}</span>
+                <span style={{ width: 4, height: 4, borderRadius: 99, background: isToday ? "#fff" : entry ? (entry.completedCount >= entry.total ? T.green : T.amber) : "transparent" }} />
+              </button>
+            );
+          })}
+        </div>
+        <button onClick={() => shiftWeek(1)} disabled={atMax} aria-label="Next week" style={{ width: 26, height: 26, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", border: "none", background: "none", padding: 0, cursor: atMax ? "default" : "pointer", opacity: atMax ? 0.3 : 1 }}>
+          <ChevronRight size={18} color={T.inkMuted} />
+        </button>
+      </div>
     </div>
   );
 }
