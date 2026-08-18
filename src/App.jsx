@@ -336,7 +336,7 @@ export default function Bonda() {
       )}
 
 
-      <div style={{ flex: 1, overflowY: "auto", paddingBottom: 8 }}>
+      <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflowY: "auto" }}>
         <Suspense fallback={<ScreenFallback />}>
           {current ? renderStack() : renderMain()}
         </Suspense>

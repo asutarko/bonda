@@ -18,9 +18,6 @@ const GROUP_ICON_KEYS = Object.keys(ROOM_ICONS);
 
 const searchInputStyle = { width: "100%", padding: "11px 14px 11px 38px", borderRadius: T.r, border: `1.5px solid ${T.border}`, fontSize: 14, fontFamily: T.fontBody, color: T.ink, background: T.canvas, outline: "none", boxSizing: "border-box" };
 
-// Cycled by index so a group's topic chips don't all read as the same color.
-const TOPIC_TAG_COLORS = ["teal", "indigo", "red", "violet", "purple", "slate"];
-
 // Display-only preference (see "Translate messages" in Group info) — no
 // actual translation happens, this just remembers what the user picked.
 const TRANSLATE_LANGUAGES = ["English", "Malay", "Mandarin", "Tamil"];
@@ -47,7 +44,7 @@ const copyText = async text => {
   }
 };
 
-export function ChatUI({ msgs, input, setInput, onSend, onDelete, loading, color, bg, icon, label, sub, isGroup, account, dmPartner, endRef, attachment, onPickAttachment, onRemoveAttachment, attachError, headerRight, belowHeader, onTitleClick }) {
+export function ChatUI({ msgs, input, setInput, onSend, onDelete, loading, color, bg, icon, label, sub, isGroup, account, dmPartner, endRef, attachment, onPickAttachment, onRemoveAttachment, attachError, headerRight, belowHeader, onTitleClick, allowAttachments = true }) {
   const avatarEl = isGroup ? (
     <div style={{ width: 42, height: 42, borderRadius: 12, background: bg, color, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="7.5" cy="7" r="3"/><path d="M2.5 17c0-3.2 2.2-5 5-5s5 1.8 5 5"/><path d="M13.5 12.6c2.4.2 4 1.8 4 4.4"/><path d="M12.6 4.4A2.7 2.7 0 0 1 14.7 9"/></svg>
@@ -62,7 +59,7 @@ export function ChatUI({ msgs, input, setInput, onSend, onDelete, loading, color
     </div>
   );
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 130px)" }}>
+    <div style={{ display: "flex", flexDirection: "column", flex: "1 1 auto", minHeight: 0 }}>
       <div style={{ padding: "10px 18px 12px", display: "flex", alignItems: "center", gap: 12 }}>
         {onTitleClick ? (
           <button onClick={onTitleClick} style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 0, background: "none", border: "none", padding: 0, cursor: "pointer", textAlign: "left", fontFamily: T.fontBody }}>
@@ -78,7 +75,7 @@ export function ChatUI({ msgs, input, setInput, onSend, onDelete, loading, color
         {headerRight}
       </div>
       {belowHeader}
-      <div style={{ flex: 1, overflowY: "auto", padding: "0 18px", display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 18px", display: "flex", flexDirection: "column", gap: 10 }}>
         {loading && <p style={{ textAlign: "center", color: T.inkMuted, padding: 24, fontSize: 14 }}>Loading...</p>}
         {!loading && msgs.length === 0 && <div style={{ textAlign: "center", padding: "48px 20px" }}><MessageSquare size={40} color={T.inkMuted} style={{ marginBottom: 12 }} /><p style={{ fontWeight: 700, color: T.ink, fontSize: 15 }}>No messages yet</p><p style={{ color: T.inkMuted, fontSize: 13 }}>{isGroup ? "Be the first to post!" : "Start a private conversation!"}</p></div>}
         {msgs.map((msg, i) => {
@@ -121,7 +118,7 @@ export function ChatUI({ msgs, input, setInput, onSend, onDelete, loading, color
       </div>
       <div style={{ position: "sticky", bottom: 0, background: T.surface, zIndex: 5 }}>
         {attachError && <p style={{ margin: "0 18px 6px", fontSize: 11, color: T.red, fontWeight: 700 }}>{attachError}</p>}
-        {attachment && (
+        {allowAttachments && attachment && (
           <div style={{ padding: "0 18px 8px", display: "flex", alignItems: "center", gap: 10 }}>
             <div style={{ position: "relative" }}>
               {attachment.kind === "image" ? (
@@ -136,10 +133,12 @@ export function ChatUI({ msgs, input, setInput, onSend, onDelete, loading, color
         )}
         <div style={{ padding: "10px 12px 6px", borderTop: `1px solid ${T.border}`, display: "flex", gap: 8, alignItems: "center" }}>
           <ComAvatar value={account.avatar} size={40} active={true} borderColor={bg} />
-          <label style={{ width: 38, height: 38, borderRadius: "50%", background: "transparent", border: `1.5px solid ${T.border}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0, color: T.inkMuted }}>
-            <Paperclip size={16} />
-            <input type="file" accept="image/*,.doc,.docx,.xls,.xlsx,.pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/pdf" onChange={onPickAttachment} style={{ display: "none" }} />
-          </label>
+          {allowAttachments && (
+            <label style={{ width: 38, height: 38, borderRadius: "50%", background: "transparent", border: `1.5px solid ${T.border}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0, color: T.inkMuted }}>
+              <Paperclip size={16} />
+              <input type="file" accept="image/*,.doc,.docx,.xls,.xlsx,.pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/pdf" onChange={onPickAttachment} style={{ display: "none" }} />
+            </label>
+          )}
           <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", background: T.surface, border: `1.5px solid ${T.border}`, borderRadius: 22, padding: "0 5px 0 16px" }}>
             <textarea value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSend(); } }} placeholder="Write a message… (Enter to send)" rows={1} style={{ flex: 1, minWidth: 0, padding: "11px 6px", border: "none", outline: "none", background: "transparent", fontSize: 14, fontFamily: T.fontBody, color: T.ink, resize: "none", lineHeight: 1.5 }} />
             <button onClick={onSend} disabled={!input.trim() && !attachment} style={{ width: 34, height: 34, borderRadius: "50%", background: (input.trim() || attachment) ? color : T.border, border: "none", cursor: (input.trim() || attachment) ? "pointer" : "default", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "background 0.2s", color: "white" }}><Send size={16} /></button>
@@ -377,6 +376,9 @@ export function CommunityScreen({ account }) {
   const [translateOn, setTranslateOn] = useState(false);
   const [translateLang, setTranslateLang] = useState("English");
   const [translateSheetOpen, setTranslateSheetOpen] = useState(false);
+  // Where Group info's back button returns to: the chat (opened via its title)
+  // or home (opened directly from the group list because the user hasn't joined yet).
+  const [groupInfoReturnTo, setGroupInfoReturnTo] = useState("groupchat");
 
   // Lets the app-bar back button (and hardware/browser back) return to the
   // room list instead of exiting the Community tab while a chat is open.
@@ -386,10 +388,17 @@ export function CommunityScreen({ account }) {
   });
   useBackHandler(view === "createGroup" || view === "shareMoment" || view === "allGroups" || view === "allMoments" || view === "dm_list", () => setView("home"));
   useBackHandler(view === "members", () => setView("groupchat"));
-  useBackHandler(view === "groupInfo", () => setView("groupchat"));
+  useBackHandler(view === "groupInfo", () => setView(groupInfoReturnTo));
   useBackHandler(translateSheetOpen, () => setTranslateSheetOpen(false));
 
+  // Parent-created groups need membership to chat — a user who hasn't joined
+  // yet gets the info screen (with a Join button) instead of dropping straight
+  // into the chat. Admin rooms are open to everyone, so they always go straight in.
   const openGroup = async group => {
+    if (group.kind === "user") {
+      const { data: memberRows } = await supabase.from("community_group_members").select("user_id").eq("group_id", group.id).eq("user_id", account.id).limit(1);
+      if (!memberRows?.length) { openGroupInfo(group, "home"); return; }
+    }
     leaveRoom();
     setActiveRoom(group); setGroupLoading(true); setView("groupchat");
     const { data } = await supabase.from("messages").select("id,author_id,author_name,author_avatar,text,image_url,file_name,created_at").eq("room", `room_${group.id}`).order("created_at", { ascending: true }).limit(120);
@@ -402,7 +411,7 @@ export function CommunityScreen({ account }) {
   };
 
   const sendGroup = async () => {
-    const text = groupInput.trim(); const attachment = groupAttachment;
+    const text = groupInput.trim(); const attachment = activeRoom.kind === "user" ? groupAttachment : null;
     if (!text && !attachment) return;
     setGroupInput(""); setGroupAttachment(null);
     const image_url = attachment ? await uploadCommunityAttachment(attachment.file, account.id, attachment.kind) : null;
@@ -565,13 +574,9 @@ export function CommunityScreen({ account }) {
     }
   };
 
-  const openMembers = async group => {
-    setMemberQuery(""); setView("members"); setMembersLoading(true);
-    await loadGroupMembers(group);
-    setMembersLoading(false);
-  };
-
-  const openGroupInfo = async group => {
+  const openGroupInfo = async (group, returnTo = "groupchat") => {
+    setActiveRoom(group);
+    setGroupInfoReturnTo(returnTo);
     setView("groupInfo"); setMembersLoading(true);
     setAboutExpanded(false);
     try { setNotifyOn(localStorage.getItem(`bonda_group_notify_${group.id}`) !== "off"); } catch { setNotifyOn(true); }
@@ -660,20 +665,14 @@ export function CommunityScreen({ account }) {
 
   if (view === "groupchat" && activeRoom) {
     const c = ROOM_COLORS[activeRoom.color_key] || ROOM_COLORS.purple;
-    const memberRow = (
-      <button onClick={() => openMembers(activeRoom)} style={{ width: "100%", textAlign: "left", background: "none", border: "none", borderBottom: `1px solid ${T.border}`, padding: "10px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", fontFamily: T.fontBody }}>
-        <span style={{ fontSize: 13, fontWeight: 700, color: c.color }}>See members</span>
-        <ChevronRight size={16} color={T.inkMuted} />
-      </button>
-    );
     content = (
-      <div style={{ position: "relative" }}>
+      <div style={{ position: "relative", display: "flex", flexDirection: "column", flex: "1 1 auto", minHeight: 0 }}>
         {showPaywall && <Paywall />}
-        <ChatUI msgs={groupMsgs} input={groupInput} setInput={setGroupInput} onSend={sendGroup} onDelete={deleteGroup} loading={groupLoading} color={c.color} bg={c.bg} icon={null} label={activeRoom.label} sub={activeRoom.description} isGroup account={account} dmPartner={null} endRef={endRef} attachment={groupAttachment} onPickAttachment={pickAttachment(setGroupAttachment)} onRemoveAttachment={() => clearAttachment(setGroupAttachment, groupAttachment)} attachError={attachError} belowHeader={memberRow} onTitleClick={() => openGroupInfo(activeRoom)} />
+        <ChatUI msgs={groupMsgs} input={groupInput} setInput={setGroupInput} onSend={sendGroup} onDelete={deleteGroup} loading={groupLoading} color={c.color} bg={c.bg} icon={null} label={activeRoom.label} sub={activeRoom.description} isGroup account={account} dmPartner={null} endRef={endRef} attachment={groupAttachment} onPickAttachment={pickAttachment(setGroupAttachment)} onRemoveAttachment={() => clearAttachment(setGroupAttachment, groupAttachment)} attachError={attachError} onTitleClick={() => openGroupInfo(activeRoom)} allowAttachments={activeRoom.kind === "user"} />
       </div>
     );
   } else if (view === "dm_chat" && dmPartner) {
-    content = <div style={{ position: "relative" }}>{showPaywall && <Paywall />}<ChatUI msgs={dmMsgs} input={dmInput} setInput={setDmInput} onSend={sendDM} onDelete={deleteDM} loading={dmLoading} color={T.purple} bg={T.purpleL} icon={dmPartner.avatar} label={dmPartner.name} sub="Private message" isGroup={false} account={account} dmPartner={dmPartner} endRef={endRef} attachment={dmAttachment} onPickAttachment={pickAttachment(setDmAttachment)} onRemoveAttachment={() => clearAttachment(setDmAttachment, dmAttachment)} attachError={attachError} /></div>;
+    content = <div style={{ position: "relative", display: "flex", flexDirection: "column", flex: "1 1 auto", minHeight: 0 }}>{showPaywall && <Paywall />}<ChatUI msgs={dmMsgs} input={dmInput} setInput={setDmInput} onSend={sendDM} onDelete={deleteDM} loading={dmLoading} color={T.purple} bg={T.purpleL} icon={dmPartner.avatar} label={dmPartner.name} sub="Private message" isGroup={false} account={account} dmPartner={dmPartner} endRef={endRef} attachment={dmAttachment} onPickAttachment={pickAttachment(setDmAttachment)} onRemoveAttachment={() => clearAttachment(setDmAttachment, dmAttachment)} attachError={attachError} /></div>;
   } else if (view === "dm_list") {
     const others = allUsers.filter(u => u.id !== account.id);
     const term = dmSearch.trim().toLowerCase();
@@ -911,20 +910,6 @@ export function CommunityScreen({ account }) {
             </button>
           )}
         </Card>
-
-        {activeRoom.topics?.length > 0 && (
-          <>
-            <SectionLabel style={{ marginBottom: 10 }}>Topics</SectionLabel>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 24 }}>
-              {activeRoom.topics.map((topic, i) => {
-                const tc = ROOM_COLORS[TOPIC_TAG_COLORS[i % TOPIC_TAG_COLORS.length]];
-                return (
-                  <span key={topic} style={{ padding: "7px 13px", borderRadius: 99, fontSize: 12.5, fontWeight: 700, background: tc.bg, color: tc.color }}>{topic}</span>
-                );
-              })}
-            </div>
-          </>
-        )}
 
         <SectionLabel style={{ marginBottom: 10 }}>Language</SectionLabel>
         <Card onClick={() => setTranslateSheetOpen(true)} style={{ marginBottom: 24, cursor: "pointer" }}>
