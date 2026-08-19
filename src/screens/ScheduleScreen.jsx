@@ -352,22 +352,23 @@ function AddActivityModal({ newItem, setNewItem, showEmojiPicker, setShowEmojiPi
           </>
         )}
 
-        <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkMuted }}>Starts</p>
-        <div style={{ marginBottom: 12 }}>
-          <TimeSelect value={newItem.time} onChange={v => setNewItem({ ...newItem, time: v })} width={140} />
-        </div>
-
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-          <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: T.inkMuted }}>Ends</p>
-          <button type="button" onClick={() => setNewItem(n => ({ ...n, endTime: n.endTime ? "" : addMinutesToTime(n.time, 30) }))} style={{ border: "none", background: "none", cursor: "pointer", fontSize: 11, fontWeight: 700, color: T.purple, fontFamily: T.fontBody }}>
-            {newItem.endTime ? "No end time" : "+ Set end time"}
-          </button>
+          <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: T.inkMuted }}>Starts</p>
+          {!newItem.endTime && (
+            <button type="button" onClick={() => setNewItem(n => ({ ...n, endTime: addMinutesToTime(n.time, 30) }))} style={{ border: "none", background: "none", cursor: "pointer", fontSize: 11, fontWeight: 700, color: T.purple, fontFamily: T.fontBody }}>
+              + Set end time
+            </button>
+          )}
         </div>
-        {newItem.endTime && (
-          <div style={{ marginBottom: 14 }}>
-            <TimeSelect value={newItem.endTime} onChange={v => setNewItem({ ...newItem, endTime: v })} width={140} />
-          </div>
-        )}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+          <TimeSelect value={newItem.time} onChange={v => setNewItem({ ...newItem, time: v })} width={newItem.endTime ? 110 : 140} />
+          {newItem.endTime && (
+            <>
+              <TimeSelect value={newItem.endTime} onChange={v => setNewItem({ ...newItem, endTime: v })} width={110} />
+              <button type="button" onClick={() => setNewItem(n => ({ ...n, endTime: "" }))} aria-label="Remove end time" style={{ border: "none", background: "none", cursor: "pointer", fontSize: 16, color: T.inkMuted, padding: "4px 2px", lineHeight: 1 }}>✕</button>
+            </>
+          )}
+        </div>
 
         <p style={{ margin: "14px 0 8px", fontSize: 12, fontWeight: 700, color: T.inkMuted }}>Category</p>
         <div style={{ marginBottom: 14 }}>
@@ -416,7 +417,6 @@ function StatusPill({ status }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4 }}>
       <span style={{ width: 7, height: 7, borderRadius: "50%", background: meta.color, flexShrink: 0 }} />
-      <span style={{ fontSize: 12, fontWeight: 700, color: meta.color }}>{meta.label}</span>
     </div>
   );
 }
@@ -428,7 +428,7 @@ function StatusPill({ status }) {
 // (instead of two separate list sections) is purely visual — the "done"
 // semantics per type are unchanged: essentials tick over on the clock,
 // added items need a tap.
-function TimelineRow({ item, essential, status, skipped, notToday, onToggle, menuOpen, onMenuToggle, onEdit, onSkip, onDelete }) {
+function TimelineRow({ item, essential, status, skipped, notToday, onToggle, menuOpen, onMenuToggle, onEdit, onSkip, onDelete, hideTime, tightBottom }) {
   const done = status === "completed";
   const missed = status === "missed";
   const upcoming = status === "upcoming";
@@ -439,21 +439,23 @@ function TimelineRow({ item, essential, status, skipped, notToday, onToggle, men
   return (
     <div style={{ position: "relative", display: "flex", gap: 10 }}>
       <div style={{ width: 44, flexShrink: 0, textAlign: "right", paddingTop: 12, fontSize: 11, fontWeight: 700, color: T.inkMuted, opacity: inactive ? 0.55 : 1 }}>
-        {formatTimeLabel(item.time).replace(" ", " ")}
+        {hideTime ? "" : formatTimeLabel(item.time).replace(" ", " ")}
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div
           onClick={() => clickable && onToggle()}
           role={clickable ? "button" : undefined}
           aria-label={clickable ? (done ? "Mark not done" : "Mark done") : undefined}
-          style={{ padding: "10px 12px", borderRadius: T.r, background: done ? T.greenL : missed ? T.redL : upcoming ? T.amberL : l, borderLeft: `3px solid ${done ? T.green : missed ? T.red : upcoming ? T.amber : c}`, opacity: inactive ? 0.55 : 1, cursor: clickable ? "pointer" : "default", marginBottom: 8 }}
+          style={{ padding: "10px 12px", borderRadius: T.r, background: done ? T.greenL : missed ? T.redL : upcoming ? T.amberL : l, borderLeft: `3px solid ${done ? T.green : missed ? T.red : upcoming ? T.amber : c}`, opacity: inactive ? 0.55 : 1, cursor: clickable ? "pointer" : "default", marginBottom: tightBottom ? 2 : 8 }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <span style={{ fontSize: 20, flexShrink: 0, lineHeight: 1 }}>{item.emoji}</span>
             <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 700, color: done ? T.inkMuted : T.ink, textDecoration: done ? "line-through" : "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.label}</span>
-            {essential && <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 10, fontWeight: 800, color: T.amber, background: T.amberL, padding: "3px 7px", borderRadius: 99, flexShrink: 0, whiteSpace: "nowrap" }}>🔒 Essential</span>}
             {essential ? (
-              <button onClick={e => { e.stopPropagation(); onMenuToggle(); }} style={{ border: "none", background: "none", cursor: "pointer", padding: "2px 4px", fontSize: 18, fontWeight: 900, color: T.inkMuted, lineHeight: 1 }} aria-label="Options">⋯</button>
+              <>
+                <span style={{ fontSize: 13, flexShrink: 0, lineHeight: 1 }}>🔒</span>
+                <button onClick={e => { e.stopPropagation(); onMenuToggle(); }} style={{ border: "none", background: "none", cursor: "pointer", padding: "2px 4px", fontSize: 18, fontWeight: 900, color: T.inkMuted, lineHeight: 1 }} aria-label="Options">⋯</button>
+              </>
             ) : (
               <div style={{ display: "flex", gap: 5, flexShrink: 0 }}>
                 <button onClick={e => { e.stopPropagation(); onEdit(); }} style={{ background: T.surface, border: "none", borderRadius: 8, padding: "5px 8px", cursor: "pointer", fontSize: 12 }}>✏️</button>
@@ -463,7 +465,7 @@ function TimelineRow({ item, essential, status, skipped, notToday, onToggle, men
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginTop: 3 }}>
             {notToday ? <Badge color={T.inkMuted}>{pattern} · not today</Badge>
-              : <Badge color={c}>{pattern ? `${pattern} · ` : ""}{timeRangeLabel(item)}</Badge>}
+              : pattern ? <Badge color={c}>{pattern}</Badge> : null}
             {!notToday && <StatusPill status={status} />}
           </div>
           {item.notes && <p style={{ margin: "5px 0 0 30px", fontSize: 11, color: T.inkMuted, lineHeight: 1.4 }}>📝 {item.notes}</p>}
@@ -882,7 +884,7 @@ export function ScheduleScreen({ childCtx, push }) {
     return entry.completedCount >= entry.total ? "full" : "partial";
   };
 
-  const renderItem = (item, essential) => {
+  const renderItem = (item, essential, hideTime, tightBottom) => {
     if (editing === item.id) {
       return (
         <Card key={item.id} style={{ background: T.purpleL }}>
@@ -890,21 +892,23 @@ export function ScheduleScreen({ childCtx, push }) {
             <button onClick={() => setShowEmojiPicker(!showEmojiPicker)} style={{ fontSize: 24, background: T.surface, border: `1.5px solid ${T.border}`, borderRadius: T.r, padding: "6px 10px", cursor: "pointer" }}>{editData.emoji}</button>
             <input value={editData.label} onChange={e => setEditData({ ...editData, label: e.target.value })} style={{ flex: 1, minWidth: 0, boxSizing: "border-box", padding: "8px 12px", borderRadius: T.r, border: `1.5px solid ${T.purple}`, fontSize: 14, fontFamily: T.fontBody, color: T.ink, background: T.surface, outline: "none" }} />
           </div>
-          <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkMuted }}>Starts</p>
-          <div style={{ marginBottom: 8 }}>
-            <TimeSelect value={editData.time} onChange={v => setEditData({ ...editData, time: v })} />
-          </div>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-            <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: T.inkMuted }}>Ends</p>
-            <button type="button" onClick={() => setEditData(d => ({ ...d, endTime: d.endTime ? "" : addMinutesToTime(d.time, 30) }))} style={{ border: "none", background: "none", cursor: "pointer", fontSize: 11, fontWeight: 700, color: T.purple, fontFamily: T.fontBody }}>
-              {editData.endTime ? "No end time" : "+ Set end time"}
-            </button>
+            <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: T.inkMuted }}>Starts</p>
+            {!editData.endTime && (
+              <button type="button" onClick={() => setEditData(d => ({ ...d, endTime: addMinutesToTime(d.time, 30) }))} style={{ border: "none", background: "none", cursor: "pointer", fontSize: 11, fontWeight: 700, color: T.purple, fontFamily: T.fontBody }}>
+                + Set end time
+              </button>
+            )}
           </div>
-          {editData.endTime && (
-            <div style={{ marginBottom: 12 }}>
-              <TimeSelect value={editData.endTime} onChange={v => setEditData({ ...editData, endTime: v })} />
-            </div>
-          )}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+            <TimeSelect value={editData.time} onChange={v => setEditData({ ...editData, time: v })} width={editData.endTime ? 110 : 118} />
+            {editData.endTime && (
+              <>
+                <TimeSelect value={editData.endTime} onChange={v => setEditData({ ...editData, endTime: v })} width={110} />
+                <button type="button" onClick={() => setEditData(d => ({ ...d, endTime: "" }))} aria-label="Remove end time" style={{ border: "none", background: "none", cursor: "pointer", fontSize: 16, color: T.inkMuted, padding: "4px 2px", lineHeight: 1 }}>✕</button>
+              </>
+            )}
+          </div>
           <p style={{ margin: "12px 0 8px", fontSize: 12, fontWeight: 700, color: T.inkMuted }}>Category</p>
           <div style={{ marginBottom: 12 }}>
             <CategoryPills value={editData.category} onChange={cat => setEditData({ ...editData, category: cat })} />
@@ -925,6 +929,7 @@ export function ScheduleScreen({ childCtx, push }) {
     }
     return (
       <TimelineRow key={item.id} item={item} essential={essential} status={activityStatus(item)} skipped={skippedToday.includes(item.id)} notToday={!appliesToday(item, todayDow)}
+        hideTime={hideTime} tightBottom={tightBottom}
         onToggle={essential ? undefined : () => toggleDone(item.id)}
         menuOpen={menuFor === item.id}
         onMenuToggle={() => setMenuFor(menuFor === item.id ? null : item.id)}
@@ -1086,7 +1091,7 @@ export function ScheduleScreen({ childCtx, push }) {
 
           <SectionLabel>Timeline</SectionLabel>
           <div style={{ display: "flex", flexDirection: "column", marginBottom: 12 }}>
-            {sorted.map(item => renderItem(item, isEssential(item)))}
+            {sorted.map((item, i) => renderItem(item, isEssential(item), i > 0 && sorted[i - 1].time === item.time, i < sorted.length - 1 && sorted[i + 1].time === item.time))}
             {sorted.length === 0 && <p style={{ color: T.inkMuted, fontSize: 12, margin: 0 }}>No activities set up.</p>}
           </div>
 
