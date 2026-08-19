@@ -246,6 +246,11 @@ function addMinutesToTime(time, minutes) {
   return Math.floor(total / 60).toString().padStart(2, "0") + ":" + (total % 60).toString().padStart(2, "0");
 }
 
+function timeToMinutes(time) {
+  const [h, m] = time.split(":").map(Number);
+  return h * 60 + m;
+}
+
 // Compact label for a day pattern — recognizes the two common presets so
 // "school every weekday" reads as "Weekdays" instead of "Mon, Tue, Wed, Thu, Fri".
 function daysSummary(days) {
@@ -428,7 +433,7 @@ function StatusPill({ status }) {
 // (instead of two separate list sections) is purely visual — the "done"
 // semantics per type are unchanged: essentials tick over on the clock,
 // added items need a tap.
-function TimelineRow({ item, essential, status, skipped, notToday, onToggle, menuOpen, onMenuToggle, onEdit, onSkip, onDelete, hideTime, tightBottom }) {
+function TimelineRow({ item, essential, status, skipped, notToday, onToggle, menuOpen, onMenuToggle, onEdit, onSkip, onDelete, hideTime, tightBottom, dragging, dragOver, onDragStartRow, onDragOverRow, onDropRow, onDragEndRow }) {
   const done = status === "completed";
   const missed = status === "missed";
   const upcoming = status === "upcoming";
@@ -437,7 +442,11 @@ function TimelineRow({ item, essential, status, skipped, notToday, onToggle, men
   const pattern = daysSummary(item.days);
   const { c, l } = categoryColor(item.category);
   return (
-    <div style={{ position: "relative", display: "flex", gap: 10 }}>
+    <div
+      onDragOver={e => onDragOverRow(e)}
+      onDrop={e => { e.preventDefault(); onDropRow(); }}
+      style={{ position: "relative", display: "flex", gap: 10, opacity: dragging ? 0.4 : 1 }}
+    >
       <div style={{ width: 44, flexShrink: 0, textAlign: "right", paddingTop: 12, fontSize: 11, fontWeight: 700, color: T.inkMuted, opacity: inactive ? 0.55 : 1 }}>
         {hideTime ? "" : formatTimeLabel(item.time).replace(" ", " ")}
       </div>
@@ -446,9 +455,17 @@ function TimelineRow({ item, essential, status, skipped, notToday, onToggle, men
           onClick={() => clickable && onToggle()}
           role={clickable ? "button" : undefined}
           aria-label={clickable ? (done ? "Mark not done" : "Mark done") : undefined}
-          style={{ padding: "10px 12px", borderRadius: T.r, background: done ? T.greenL : missed ? T.redL : upcoming ? T.amberL : l, borderLeft: `3px solid ${done ? T.green : missed ? T.red : upcoming ? T.amber : c}`, opacity: inactive ? 0.55 : 1, cursor: clickable ? "pointer" : "default", marginBottom: tightBottom ? 2 : 8 }}
+          style={{ padding: "10px 12px", borderRadius: T.r, background: done ? T.greenL : missed ? T.redL : upcoming ? T.amberL : l, borderLeft: `3px solid ${dragOver ? T.purple : done ? T.green : missed ? T.red : upcoming ? T.amber : c}`, boxShadow: dragOver ? `0 0 0 1.5px ${T.purple}` : "none", opacity: inactive ? 0.55 : 1, cursor: clickable ? "pointer" : "default", marginBottom: tightBottom ? 2 : 8 }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span
+              draggable
+              onDragStart={e => { e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", item.id); onDragStartRow(); }}
+              onDragEnd={onDragEndRow}
+              onClick={e => e.stopPropagation()}
+              aria-label="Drag to reorder"
+              style={{ cursor: "grab", flexShrink: 0, fontSize: 14, color: T.inkMuted, lineHeight: 1, padding: "2px 2px 2px 0", touchAction: "none" }}
+            >⠿</span>
             <span style={{ fontSize: 20, flexShrink: 0, lineHeight: 1 }}>{item.emoji}</span>
             <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 700, color: done ? T.inkMuted : T.ink, textDecoration: done ? "line-through" : "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.label}</span>
             {essential ? (
@@ -647,6 +664,8 @@ export function ScheduleScreen({ childCtx, push }) {
   const [skippedToday, setSkippedToday] = useState([]);
   const [menuFor, setMenuFor] = useState(null);
   const [editing, setEditing] = useState(null);
+  const [dragId, setDragId] = useState(null);
+  const [dragOverId, setDragOverId] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
   const [newItem, setNewItem] = useState({ emoji: "⭐", label: "", time: "08:00", endTime: "08:30", category: null, notes: "", days: [], isRecurring: false });
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -829,6 +848,35 @@ export function ScheduleScreen({ childCtx, push }) {
 
   const deleteItem = id => updateChild(activeChild.id, { scheduleItems: items.filter(i => i.id !== id) });
 
+  // Dragging a row to a new position reassigns start times to match — the
+  // dragged item (and everything between its old and new slot) takes on the
+  // time value that belongs to its new position, so the timeline stays in
+  // chronological order and there's never a manual "sort order" that can
+  // drift out of sync with the displayed times. Duration (endTime - time) is
+  // preserved for items that have an end time.
+  const reorderItems = (draggedId, targetId) => {
+    if (draggedId === targetId) return;
+    const order = [...items].sort((a, b) => a.time.localeCompare(b.time));
+    const originalTimes = order.map(i => i.time);
+    const fromIdx = order.findIndex(i => i.id === draggedId);
+    const toIdx = order.findIndex(i => i.id === targetId);
+    if (fromIdx === -1 || toIdx === -1) return;
+    const [moved] = order.splice(fromIdx, 1);
+    order.splice(toIdx, 0, moved);
+    const reordered = order.map((item, k) => {
+      const time = originalTimes[k];
+      if (!item.endTime) return { ...item, time };
+      const duration = timeToMinutes(item.endTime) - timeToMinutes(item.time);
+      return { ...item, time, endTime: addMinutesToTime(time, duration) };
+    });
+    updateChild(activeChild.id, { scheduleItems: reordered });
+  };
+
+  const handleDragStart = id => setDragId(id);
+  const handleDragOverRow = (e, id) => { e.preventDefault(); if (id !== dragOverId) setDragOverId(id); };
+  const handleDropRow = id => { if (dragId && dragId !== id) reorderItems(dragId, id); setDragId(null); setDragOverId(null); };
+  const handleDragEndRow = () => { setDragId(null); setDragOverId(null); };
+
   const startEdit = item => {
     setEditing(item.id);
     setEditData({ ...item, isRecurring: !!(item.days && item.days.length), days: item.days || [], notes: item.notes || "" });
@@ -885,6 +933,7 @@ export function ScheduleScreen({ childCtx, push }) {
   };
 
   const renderItem = (item, essential, hideTime, tightBottom) => {
+    const drag = { dragging: dragId === item.id, dragOver: dragOverId === item.id && dragId !== item.id, onDragStartRow: () => handleDragStart(item.id), onDragOverRow: e => handleDragOverRow(e, item.id), onDropRow: () => handleDropRow(item.id), onDragEndRow: handleDragEndRow };
     if (editing === item.id) {
       return (
         <Card key={item.id} style={{ background: T.purpleL }}>
@@ -929,7 +978,7 @@ export function ScheduleScreen({ childCtx, push }) {
     }
     return (
       <TimelineRow key={item.id} item={item} essential={essential} status={activityStatus(item)} skipped={skippedToday.includes(item.id)} notToday={!appliesToday(item, todayDow)}
-        hideTime={hideTime} tightBottom={tightBottom}
+        hideTime={hideTime} tightBottom={tightBottom} {...drag}
         onToggle={essential ? undefined : () => toggleDone(item.id)}
         menuOpen={menuFor === item.id}
         onMenuToggle={() => setMenuFor(menuFor === item.id ? null : item.id)}
