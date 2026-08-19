@@ -1,9 +1,8 @@
 import { useState, useEffect, useRef } from "react";
-import Swal from "sweetalert2";
 import { supabase } from "../lib/supabase";
 import { uploadPhoto } from "../hooks";
 import { T } from "../theme";
-import { Page, SectionLabel, Input, Select, FieldError, Btn, ComAvatar, COM_AVATAR_ILLUSTRATIONS } from "../ui";
+import { Page, SectionLabel, Input, Select, FieldError, Btn, ComAvatar } from "../ui";
 import { RELATIONSHIP_OPTIONS, OCCUPATION_OPTIONS, MARITAL_STATUS_OPTIONS } from "../data";
 
 export function EditProfileScreen({ account, pop, push }) {
@@ -11,7 +10,6 @@ export function EditProfileScreen({ account, pop, push }) {
 
   const [avatar, setAvatar] = useState(isExistingPhoto ? "none" : (account?.avatar || "none"));
   const [photo, setPhoto] = useState(isExistingPhoto ? account.avatar : null);
-  const [showAvatarPicker, setShowAvatarPicker] = useState(false);
   const [phone, setPhone] = useState(account?.phone || "");
   const [address, setAddress] = useState(account?.address || "");
   const [relationship, setRelationship] = useState(account?.relationship || "");
@@ -29,9 +27,11 @@ export function EditProfileScreen({ account, pop, push }) {
 
   const videoRef = useRef(null);
   const streamRef = useRef(null);
+  const fileInputRef = useRef(null);
   const [showCamera, setShowCamera] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraSupported, setCameraSupported] = useState(true);
+  const [photoMenuOpen, setPhotoMenuOpen] = useState(false);
 
   useEffect(() => {
     const check = async () => {
@@ -105,6 +105,9 @@ export function EditProfileScreen({ account, pop, push }) {
     if (error) { setSaving(false); return setErr(error.message); }
     await supabase.from("profiles").update({ avatar: avatarValue, phone: phone.trim(), address: address.trim(), relationship, occupation: finalOccupation, nationality: nationality.trim(), marital_status: maritalStatus }).eq("id", account.id);
     setSaving(false);
+    // Loaded on demand — sweetalert2 is only needed for this one success
+    // popup, so it's kept out of the main bundle until a save actually happens.
+    const { default: Swal } = await import("sweetalert2");
     await Swal.fire({ icon: "success", title: "Profile saved successfully", confirmButtonColor: T.purple });
     pop();
   };
@@ -116,41 +119,49 @@ export function EditProfileScreen({ account, pop, push }) {
 
       <SectionLabel style={{ marginBottom: 10 }}>Profile Picture</SectionLabel>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16, padding: "14px 16px", background: T.purpleL, borderRadius: T.r }}>
-        <ComAvatar value={photo || avatar} size={60} active borderColor={T.purple} />
-        <div style={{ flex: 1 }}>
-          <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>
-            {isPhotoSelected ? "Photo added ✓ — or choose an avatar below" : "Add a real photo (optional) — or pick an avatar below"}
-          </p>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <label onClick={() => setShowAvatarPicker(false)} style={{ flex: "1 1 92px", background: T.purple, color: "white", borderRadius: T.r, padding: "8px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", textAlign: "center", fontFamily: T.fontBody, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
-              <span style={{ fontSize: 15 }}>+</span> Upload
-              <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => {
-                const file = e.target.files[0];
-                if (!file) return;
-                if (file.size > 2 * 1024 * 1024) return setPhotoErr("Photo must be under 2 MB.");
-                const reader = new FileReader();
-                reader.onload = ev => { setPhoto(ev.target.result); setPhotoErr(""); };
-                reader.readAsDataURL(file);
-              }} />
-            </label>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", marginBottom: 16, padding: "24px 18px", background: T.purpleL, border: `1px solid ${T.border}`, borderRadius: T.rL }}>
+        <ComAvatar value={photo || avatar} size={88} active borderColor={T.purple} />
 
-            {cameraSupported && (
-              <button onClick={() => { setShowAvatarPicker(false); openCamera(); }} style={{ flex: "1 1 92px", background: T.surface, color: T.purple, borderRadius: T.r, padding: "8px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", border: `1.5px solid ${T.purple}`, fontFamily: T.fontBody, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
-                <span style={{ fontSize: 15 }}>+</span> Camera
-              </button>
-            )}
+        <div style={{ display: "flex", gap: 8, marginTop: 14, position: "relative" }}>
+          <button
+            onClick={() => cameraSupported ? setPhotoMenuOpen(v => !v) : fileInputRef.current?.click()}
+            style={{ background: T.purple, color: "white", borderRadius: 99, padding: "10px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", border: "none", textAlign: "center", fontFamily: T.fontBody, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}
+          >
+            <span style={{ fontSize: 15 }}>+</span> Upload photo
+          </button>
 
-            <button onClick={() => setShowAvatarPicker(v => !v)} style={{ flex: "1 1 92px", background: showAvatarPicker ? T.purple : T.surface, color: showAvatarPicker ? "white" : T.purple, borderRadius: T.r, padding: "8px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", border: `1.5px solid ${T.purple}`, fontFamily: T.fontBody, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
-              <span style={{ fontSize: 15 }}>+</span> Avatar
-            </button>
+          <input ref={fileInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={e => {
+            const file = e.target.files[0];
+            if (!file) return;
+            if (file.size > 2 * 1024 * 1024) return setPhotoErr("Photo must be under 2 MB.");
+            const reader = new FileReader();
+            reader.onload = ev => { setPhoto(ev.target.result); setPhotoErr(""); };
+            reader.readAsDataURL(file);
+          }} />
 
-            {isPhotoSelected && (
-              <button onClick={() => setPhoto(null)} style={{ background: T.redL, color: T.red, borderRadius: T.r, padding: "8px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", border: "none", fontFamily: T.fontBody }}>✕</button>
-            )}
-          </div>
-          {photoErr && <p style={{ margin: "6px 0 0", color: T.red, fontSize: 11, fontWeight: 700 }}>{photoErr}</p>}
+          {isPhotoSelected && (
+            <button onClick={() => setPhoto(null)} style={{ background: "transparent", color: T.red, borderRadius: 99, padding: "10px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", border: "none", fontFamily: T.fontBody }}>Remove photo</button>
+          )}
+
+          {photoMenuOpen && (
+            <>
+              <div onClick={() => setPhotoMenuOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 9 }} />
+              <div style={{ position: "absolute", top: "calc(100% + 6px)", left: "50%", transform: "translateX(-50%)", zIndex: 10, background: T.surface, border: `1px solid ${T.border}`, borderRadius: T.r, boxShadow: "0 8px 24px rgba(35,32,28,0.14)", overflow: "hidden", minWidth: 180 }}>
+                <button onClick={() => { setPhotoMenuOpen(false); openCamera(); }} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", background: "none", border: "none", padding: "10px 14px", fontSize: 13, fontWeight: 600, color: T.ink, cursor: "pointer", fontFamily: T.fontBody, textAlign: "left" }}>
+                  📷 Take Photo
+                </button>
+                <button onClick={() => { setPhotoMenuOpen(false); fileInputRef.current?.click(); }} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", background: "none", border: "none", borderTop: `1px solid ${T.border}`, padding: "10px 14px", fontSize: 13, fontWeight: 600, color: T.ink, cursor: "pointer", fontFamily: T.fontBody, textAlign: "left" }}>
+                  🖼️ Choose from Gallery
+                </button>
+              </div>
+            </>
+          )}
         </div>
+
+        <p style={{ margin: "12px 0 0", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>
+          {isPhotoSelected ? "Photo added ✓ — or choose an avatar below" : "Add a real photo (optional) — or pick an avatar below"}
+        </p>
+        {photoErr && <p style={{ margin: "6px 0 0", color: T.red, fontSize: 11, fontWeight: 700 }}>{photoErr}</p>}
       </div>
 
       {showCamera && (
@@ -161,25 +172,6 @@ export function EditProfileScreen({ account, pop, push }) {
             <Btn onClick={stopCamera} secondary style={{ flex: 1 }}>Cancel</Btn>
           </div>
         </div>
-      )}
-
-      {showAvatarPicker && (
-        <>
-          <SectionLabel style={{ marginBottom: 10 }}>Or choose an illustrated avatar</SectionLabel>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 24, opacity: isPhotoSelected ? 0.4 : 1, transition: "opacity 0.2s" }}>
-            {COM_AVATAR_ILLUSTRATIONS.map(av => {
-              const isActive = !isPhotoSelected && avatar === av.key;
-              return (
-                <div key={av.key} onClick={() => { if (!isPhotoSelected) setAvatar(av.key); }} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, cursor: isPhotoSelected ? "default" : "pointer" }}>
-                  <div style={{ border: `2.5px solid ${isActive ? T.purple : "transparent"}`, borderRadius: "50%", padding: 1, transform: isActive ? "scale(1.08)" : "scale(1)", transition: "all 0.15s" }}>
-                    {av.render(isActive)}
-                  </div>
-                  <p style={{ margin: 0, fontSize: 9, fontWeight: isActive ? 800 : 600, color: isActive ? T.purple : T.inkMuted, letterSpacing: "0.03em" }}>{av.label}</p>
-                </div>
-              );
-            })}
-          </div>
-        </>
       )}
 
       <SectionLabel style={{ marginBottom: 10 }}>Contact Details</SectionLabel>

@@ -64,6 +64,13 @@ alter table public.children add column if not exists case_worker_email text not 
 alter table public.children add column if not exists clinic_name text not null default '';
 alter table public.children add column if not exists location text not null default '';
 
+-- Allergies and regular medication, picked in the "Medical information" section of
+-- the child profile form. Stored as plain text (comma-joined selections, "Other: ..."
+-- appended when picked) — same convention as known_triggers/diet_program above —
+-- so presence/absence alone drives the form's Yes/No toggle instead of a separate flag.
+alter table public.children add column if not exists allergies text not null default '';
+alter table public.children add column if not exists medication text not null default '';
+
 -- Whether this child profile is active. New profiles start active immediately on
 -- registration; the owning parent can view this but cannot set or change it themselves
 -- after creation (enforced below) — only an admin account (profiles.role = 'admin',

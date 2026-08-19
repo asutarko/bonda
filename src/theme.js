@@ -28,9 +28,9 @@ export const T = {
   slate:    "#474C52",
   slateL:   "#E9EAEC",
 
-  // Typography — Fraunces for headings/titles, Plus Jakarta Sans for everything else
-  fontDisplay: "'Fraunces', Georgia, serif",
-  fontBody:    "'Plus Jakarta Sans', sans-serif",
+  // Typography — Literata everywhere (titles/headings and body copy)
+  fontDisplay: "'Literata', Georgia, serif",
+  fontBody:    "'Literata', Georgia, serif",
 
   // Spacing
   r:  "14px",

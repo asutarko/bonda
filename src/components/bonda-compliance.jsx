@@ -1,26 +1,26 @@
 // ============================================================
 // BONDA — COMPLIANCE MODULE
 // File: bonda-compliance.jsx
-// 
+//
 // Contains:
-//   1. ConsentGate      — blocks app until user accepts
-//   2. PrivacyPolicy    — full PDPA-compliant policy
-//   3. MedicalDisclaimer — required health content disclaimer
-//   4. LegalHub         — all legal docs in one screen
-//   5. DPIASummary      — Data Protection Impact Assessment
+//   1. PrivacyPolicy    — full PDPA-compliant policy
+//   2. MedicalDisclaimer — required health content disclaimer
+//   3. LegalHub         — all legal docs in one screen; mandatory mode
+//                          gates the app until the user ticks + agrees
+//                          (see LegalHub's mandatory prop in App.jsx)
+//   4. DPIASummary      — Data Protection Impact Assessment
 //
 // HOW TO USE:
-//   • Wrap your root <App /> with <ConsentGate>
 //   • Add <LegalHub /> to your settings/footer
 //   • Place <MedicalDisclaimerBanner /> on any health content screen
 //
 // DEVELOPER NOTES:
 //   • Replace DPO_EMAIL with a real monitored inbox before launch
-//   • All consent state uses localStorage — migrate to Supabase when ready
 //   • Tested against PDPA 2012 + PDPC Advisory Guidelines March 2024
 // ============================================================
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useBackHandler } from "../hooks";
 
 // ── CONFIG — update these before launch ──────────────────────
 const COMPLIANCE_CONFIG = {
@@ -29,7 +29,6 @@ const COMPLIANCE_CONFIG = {
   dpoEmail:      "norena@bondaapp.sg",       // ← set up this email before launch
   policyDate:    "July 2025",
   policyVersion: "1.0",
-  storageKey:    "bonda_consent_v1",         // bump version to force re-consent on major changes
 };
 
 // ── DESIGN TOKENS (matches Bonda design system) ───────────────
@@ -50,7 +49,7 @@ const C = {
   greenL:   "#DCFCE7",
   r:        "12px",
   rL:       "20px",
-  font:     "'Plus Jakarta Sans', sans-serif",
+  font:     "'Literata', Georgia, serif",
 };
 
 // ── SHARED PRIMITIVES ─────────────────────────────────────────
@@ -85,184 +84,11 @@ const BackButton = ({ onBack, label = "← Back" }) => (
 );
 
 // ═════════════════════════════════════════════════════════════
-//  1. CONSENT GATE
-//  Wrap your entire <App /> with this.
-//  The app will not render until the user has accepted.
-//
-//  Usage:
-//    <ConsentGate>
-//      <YourApp />
-//    </ConsentGate>
-// ═════════════════════════════════════════════════════════════
-export function ConsentGate({ children }) {
-  const [status, setStatus] = useState("loading"); // loading | pending | accepted
-  const [screen, setScreen] = useState("main");    // main | privacy | disclaimer
-  const [checked, setChecked] = useState(false);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(COMPLIANCE_CONFIG.storageKey);
-      if (saved) {
-        const { version, acceptedAt } = JSON.parse(saved);
-        if (version === COMPLIANCE_CONFIG.policyVersion) {
-          setStatus("accepted");
-          return;
-        }
-      }
-    } catch {}
-    setStatus("pending");
-  }, []);
-
-  const accept = () => {
-    if (!checked) {
-      setError("Please tick the checkbox above to continue.");
-      return;
-    }
-    const record = {
-      version: COMPLIANCE_CONFIG.policyVersion,
-      acceptedAt: new Date().toISOString(),
-      dpoEmail: COMPLIANCE_CONFIG.dpoEmail,
-    };
-    try { localStorage.setItem(COMPLIANCE_CONFIG.storageKey, JSON.stringify(record)); } catch {}
-    setStatus("accepted");
-  };
-
-  // App is fully consented — render children normally
-  if (status === "accepted") return children;
-
-  // Loading — brief flash while checking localStorage
-  if (status === "loading") return (
-    <div style={{ height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: C.canvas }}>
-      <div style={{ width: 40, height: 40, borderRadius: "50%", background: C.primary, display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <span style={{ color: "white", fontSize: 18 }}>◎</span>
-      </div>
-    </div>
-  );
-
-  // Sub-screens — Privacy Policy or Medical Disclaimer
-  if (screen === "privacy")    return <PrivacyPolicyScreen    onBack={() => setScreen("main")} />;
-  if (screen === "disclaimer") return <MedicalDisclaimerScreen onBack={() => setScreen("main")} />;
-
-  // ── CONSENT GATE MAIN SCREEN ──────────────────────────────
-  return (
-    <div style={{ minHeight: "100vh", background: C.canvas, fontFamily: C.font, overflowY: "auto" }}>
-      <div style={{ maxWidth: 480, margin: "0 auto", padding: "0 0 40px" }}>
-
-        {/* Header */}
-        <div style={{ background: C.primary, padding: "40px 24px 32px", textAlign: "center" }}>
-          <div style={{ width: 64, height: 64, borderRadius: "50%", background: "rgba(255,255,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
-            <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-              <circle cx="16" cy="16" r="11" stroke="white" strokeWidth="2"/>
-              <circle cx="16" cy="16" r="4.5" fill="white"/>
-              <circle cx="16" cy="4" r="2" fill="white" opacity="0.5"/>
-              <circle cx="28" cy="16" r="2" fill="white" opacity="0.5"/>
-              <circle cx="16" cy="28" r="2" fill="white" opacity="0.5"/>
-              <circle cx="4" cy="16" r="2" fill="white" opacity="0.5"/>
-            </svg>
-          </div>
-          <h1 style={{ margin: "0 0 8px", color: "white", fontSize: 28, fontWeight: 800, letterSpacing: "-0.03em" }}>Welcome to Bonda</h1>
-          <p style={{ margin: 0, color: "rgba(255,255,255,0.75)", fontSize: 15, lineHeight: 1.6 }}>
-            For the parent who stays.<br/>
-            <span style={{ fontSize: 13, opacity: 0.7 }}>Before you begin, please read and agree to the following.</span>
-          </p>
-        </div>
-
-        <div style={{ padding: "24px 20px" }}>
-
-          {/* What Bonda is */}
-          <Section title="What Bonda does" accent={C.primary}>
-            <BulletList items={[
-              "Helps you understand your autistic child's emotions and behaviours",
-              "Provides a daily visual schedule with activity reminders",
-              "Guides you through Singapore government subsidies and support",
-              "Connects you with other parents in a private community",
-              "Gives foster parents a hub for navigating system challenges",
-            ]} />
-          </Section>
-
-          {/* What Bonda is NOT */}
-          <Section title="⚕️ Important: what Bonda is NOT" accent={C.amber}>
-            <BulletList items={[
-              "Bonda is NOT a medical app and does not provide medical advice",
-              "Bonda does NOT diagnose autism or any other condition",
-              "Bonda does NOT replace therapists, doctors, or specialists",
-              "Always consult a qualified professional for your child's specific needs",
-              "In an emergency, call 995 or go to your nearest hospital",
-            ]} color={C.inkSoft} />
-          </Section>
-
-          {/* Your data */}
-          <Section title="🔒 Your data and privacy" accent={C.primary}>
-            <BulletList items={[
-              "Your child's profile, schedule, and health notes are stored on YOUR device only",
-              "Community accounts use a display name — not your real name",
-              "We never share your data with advertisers or third parties",
-              `Data Protection Officer: ${COMPLIANCE_CONFIG.dpoName} (${COMPLIANCE_CONFIG.dpoEmail})`,
-              "You can delete your data at any time from within the app",
-            ]} />
-            <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
-              <button onClick={() => setScreen("privacy")} style={{ flex: 1, padding: "8px 12px", borderRadius: C.r, border: `1.5px solid ${C.primary}`, background: "none", color: C.primary, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: C.font }}>
-                Read Privacy Policy →
-              </button>
-              <button onClick={() => setScreen("disclaimer")} style={{ flex: 1, padding: "8px 12px", borderRadius: C.r, border: `1.5px solid ${C.amber}`, background: "none", color: C.amber, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: C.font }}>
-                Read Medical Disclaimer →
-              </button>
-            </div>
-          </Section>
-
-          {/* Consent checkbox */}
-          <div style={{ background: C.surface, borderRadius: C.r, padding: "16px", marginBottom: 16, border: `2px solid ${checked ? C.primary : C.border}`, transition: "border-color 0.2s", cursor: "pointer" }}
-            onClick={() => { setChecked(!checked); setError(""); }}>
-            <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
-              <div style={{
-                width: 22, height: 22, borderRadius: 6, border: `2px solid ${checked ? C.primary : C.border}`,
-                background: checked ? C.primary : C.surface, display: "flex", alignItems: "center",
-                justifyContent: "center", flexShrink: 0, transition: "all 0.2s", marginTop: 1,
-              }}>
-                {checked && <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6 L5 9 L10 3" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
-              </div>
-              <p style={{ margin: 0, fontSize: 13, color: C.inkSoft, lineHeight: 1.7 }}>
-                I have read and understood the{" "}
-                <span onClick={e => { e.stopPropagation(); setScreen("privacy"); }} style={{ color: C.primary, fontWeight: 700, textDecoration: "underline" }}>Privacy Policy</span>
-                {" "}and the{" "}
-                <span onClick={e => { e.stopPropagation(); setScreen("disclaimer"); }} style={{ color: C.amber, fontWeight: 700, textDecoration: "underline" }}>Medical Disclaimer</span>.
-                {" "}I understand that Bonda is an educational app, not a medical product, and that my child's data is stored on my device.
-              </p>
-            </div>
-          </div>
-
-          {error && (
-            <div style={{ background: C.redL, borderRadius: C.r, padding: "10px 14px", marginBottom: 12, border: `1px solid ${C.red}25` }}>
-              <p style={{ margin: 0, color: C.red, fontSize: 13, fontWeight: 700 }}>⚠️ {error}</p>
-            </div>
-          )}
-
-          {/* Accept button */}
-          <button onClick={accept} style={{
-            width: "100%", padding: "16px", borderRadius: C.rL, border: "none",
-            background: C.primary, color: "white", fontWeight: 800, fontSize: 16,
-            cursor: "pointer", fontFamily: C.font, letterSpacing: "-0.01em",
-          }}>
-            I Agree — Enter Bonda →
-          </button>
-
-          <p style={{ textAlign: "center", marginTop: 12, color: C.inkMuted, fontSize: 11, lineHeight: 1.6 }}>
-            Bonda complies with Singapore's Personal Data Protection Act (PDPA) 2012<br/>
-            and the PDPC Advisory Guidelines on Children's Personal Data (March 2024).
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ═════════════════════════════════════════════════════════════
-//  2. PRIVACY POLICY SCREEN
+//  1. PRIVACY POLICY SCREEN
 //  Full PDPA-compliant policy. Can be shown standalone
-//  or navigated to from ConsentGate or LegalHub.
+//  or navigated to from LegalHub.
 // ═════════════════════════════════════════════════════════════
-export function PrivacyPolicyScreen({ onBack }) {
+export function PrivacyPolicyScreen({ onBack, hideBack = false }) {
   const { appName, dpoName, dpoEmail, policyDate } = COMPLIANCE_CONFIG;
 
   const sections = [
@@ -357,7 +183,7 @@ export function PrivacyPolicyScreen({ onBack }) {
   return (
     <div style={{ minHeight: "100vh", background: C.canvas, fontFamily: C.font, overflowY: "auto" }}>
       <div style={{ maxWidth: 480, margin: "0 auto", padding: "20px 20px 40px" }}>
-        <BackButton onBack={onBack} />
+        {!hideBack && <BackButton onBack={onBack} />}
         <h2 style={{ margin: "0 0 4px", fontSize: 22, fontWeight: 800, color: C.ink }}>Privacy Policy</h2>
         <p style={{ margin: "0 0 24px", color: C.inkMuted, fontSize: 12 }}>
           Version {COMPLIANCE_CONFIG.policyVersion} · {policyDate} · {appName}
@@ -382,9 +208,9 @@ export function PrivacyPolicyScreen({ onBack }) {
 }
 
 // ═════════════════════════════════════════════════════════════
-//  3. MEDICAL DISCLAIMER SCREEN
+//  2. MEDICAL DISCLAIMER SCREEN
 // ═════════════════════════════════════════════════════════════
-export function MedicalDisclaimerScreen({ onBack }) {
+export function MedicalDisclaimerScreen({ onBack, hideBack = false }) {
   const clauses = [
     {
       title: "Educational purposes only",
@@ -421,7 +247,7 @@ export function MedicalDisclaimerScreen({ onBack }) {
   return (
     <div style={{ minHeight: "100vh", background: C.canvas, fontFamily: C.font, overflowY: "auto" }}>
       <div style={{ maxWidth: 480, margin: "0 auto", padding: "20px 20px 40px" }}>
-        <BackButton onBack={onBack} />
+        {!hideBack && <BackButton onBack={onBack} />}
         <h2 style={{ margin: "0 0 20px", fontSize: 22, fontWeight: 800, color: C.ink }}>Medical Disclaimer</h2>
 
         <div style={{ background: C.amberL, borderRadius: C.r, padding: "14px 16px", marginBottom: 20, border: `1.5px solid ${C.amber}40` }}>
@@ -441,17 +267,24 @@ export function MedicalDisclaimerScreen({ onBack }) {
 }
 
 // ═════════════════════════════════════════════════════════════
-//  4. LEGAL HUB SCREEN
+//  3. LEGAL HUB SCREEN
 //  Put a link to this in your app's settings or footer.
 //  Usage: <LegalHub onBack={() => ...} />
 // ═════════════════════════════════════════════════════════════
 export function LegalHub({ onBack, mandatory = false, onAgree }) {
   const [screen, setScreen] = useState(null);
-  const { dpoName, dpoEmail } = COMPLIANCE_CONFIG;
+  const [checked, setChecked] = useState(false);
+  const [agreeing, setAgreeing] = useState(false);
+  const [agreeErr, setAgreeErr] = useState("");
 
-  if (screen === "privacy")    return <PrivacyPolicyScreen    onBack={() => setScreen(null)} />;
-  if (screen === "disclaimer") return <MedicalDisclaimerScreen onBack={() => setScreen(null)} />;
-  if (screen === "dpia")       return <DPIASummaryScreen       onBack={() => setScreen(null)} />;
+  // While a sub-document is open, let the app's back button (and hardware/
+  // browser back) return to this hub instead of exiting it — mirrors how
+  // LegalHub itself gets pushed/popped when not mandatory.
+  useBackHandler(screen !== null, () => setScreen(null));
+
+  if (screen === "privacy")    return <PrivacyPolicyScreen    onBack={() => setScreen(null)} hideBack={!mandatory} />;
+  if (screen === "disclaimer") return <MedicalDisclaimerScreen onBack={() => setScreen(null)} hideBack={!mandatory} />;
+  if (screen === "dpia")       return <DPIASummaryScreen       onBack={() => setScreen(null)} hideBack={!mandatory} />;
 
   const items = [
     { id: "privacy",    icon: "🔒", label: "Privacy Policy",    sub: "How we collect, use and protect your data", color: C.primary },
@@ -462,17 +295,12 @@ export function LegalHub({ onBack, mandatory = false, onAgree }) {
   return (
     <div style={{ minHeight: "100vh", background: C.canvas, fontFamily: C.font, overflowY: "auto" }}>
       <div style={{ maxWidth: 480, margin: "0 auto", padding: "20px 20px 40px" }}>
-        {mandatory ? (
+        {mandatory && (
           <>
             <h2 style={{ margin: "0 0 4px", fontSize: 22, fontWeight: 800, color: C.ink }}>Before you start</h2>
             <p style={{ margin: "0 0 24px", color: C.inkSoft, fontSize: 13, lineHeight: 1.7 }}>
               Please review the Privacy Policy and Medical Disclaimer below before using Bonda.
             </p>
-          </>
-        ) : (
-          <>
-            <BackButton onBack={onBack} />
-            <h2 style={{ margin: "0 0 24px", fontSize: 22, fontWeight: 800, color: C.ink }}>Legal & Privacy</h2>
           </>
         )}
 
@@ -490,28 +318,56 @@ export function LegalHub({ onBack, mandatory = false, onAgree }) {
           </div>
         ))}
 
-        <div style={{ marginTop: 20, padding: "16px", background: C.surface, borderRadius: C.r, border: `1px solid ${C.border}` }}>
-          <p style={{ margin: "0 0 6px", fontWeight: 800, color: C.ink, fontSize: 14 }}>Data Protection Officer</p>
-          <p style={{ margin: "0 0 4px", color: C.inkSoft, fontSize: 13 }}>{dpoName}</p>
-          <p style={{ margin: "0 0 12px", color: C.primary, fontSize: 13, fontWeight: 700 }}>📧 {dpoEmail}</p>
-          <p style={{ margin: 0, color: C.inkMuted, fontSize: 11, lineHeight: 1.6 }}>
-            For data access, correction, or deletion requests — or any privacy concerns — email the DPO directly. We respond within 30 days.
-          </p>
-        </div>
-
         <p style={{ textAlign: "center", marginTop: 20, color: C.inkMuted, fontSize: 11, lineHeight: 1.6 }}>
           Bonda complies with Singapore's PDPA 2012 and the<br/>
           PDPC Advisory Guidelines on Children's Personal Data (March 2024).
         </p>
 
         {mandatory && (
-          <button onClick={onAgree} style={{
-            width: "100%", marginTop: 20, padding: "16px", borderRadius: C.rL, border: "none",
-            background: C.primary, color: "white", fontWeight: 800, fontSize: 16,
-            cursor: "pointer", fontFamily: C.font, letterSpacing: "-0.01em",
-          }}>
-            I Understand — Continue to Bonda →
-          </button>
+          <>
+            <div style={{ background: C.surface, borderRadius: C.r, padding: "16px", marginTop: 20, border: `2px solid ${checked ? C.primary : C.border}`, transition: "border-color 0.2s", cursor: "pointer" }}
+              onClick={() => setChecked(v => !v)}>
+              <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+                <div style={{
+                  width: 22, height: 22, borderRadius: 6, border: `2px solid ${checked ? C.primary : C.border}`,
+                  background: checked ? C.primary : C.surface, display: "flex", alignItems: "center",
+                  justifyContent: "center", flexShrink: 0, transition: "all 0.2s", marginTop: 1,
+                }}>
+                  {checked && <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6 L5 9 L10 3" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                </div>
+                <p style={{ margin: 0, fontSize: 13, color: C.inkSoft, lineHeight: 1.7 }}>
+                  I have read and agree to the Privacy Policy and Medical Disclaimer above.
+                </p>
+              </div>
+            </div>
+
+            {agreeErr && (
+              <div style={{ background: C.redL, borderRadius: C.r, padding: "10px 14px", marginTop: 12, border: `1px solid ${C.red}25` }}>
+                <p style={{ margin: 0, color: C.red, fontSize: 13, fontWeight: 700 }}>⚠️ {agreeErr}</p>
+              </div>
+            )}
+
+            <button
+              disabled={!checked || agreeing}
+              onClick={async () => {
+                if (!checked || agreeing) return;
+                setAgreeing(true); setAgreeErr("");
+                try {
+                  await onAgree();
+                } catch {
+                  setAgreeErr("Something went wrong saving your consent. Please try again.");
+                }
+                setAgreeing(false);
+              }}
+              style={{
+                width: "100%", marginTop: 12, padding: "16px", borderRadius: C.rL, border: "none",
+                background: C.primary, color: "white", fontWeight: 800, fontSize: 16,
+                cursor: (!checked || agreeing) ? "default" : "pointer", fontFamily: C.font, letterSpacing: "-0.01em",
+                opacity: (!checked || agreeing) ? 0.5 : 1,
+              }}>
+              {agreeing ? "Saving…" : "I Understand — Continue to Bonda →"}
+            </button>
+          </>
         )}
       </div>
     </div>
@@ -519,10 +375,10 @@ export function LegalHub({ onBack, mandatory = false, onAgree }) {
 }
 
 // ═════════════════════════════════════════════════════════════
-//  5. DPIA SUMMARY SCREEN
+//  4. DPIA SUMMARY SCREEN
 //  Internal compliance document. Accessible from LegalHub.
 // ═════════════════════════════════════════════════════════════
-export function DPIASummaryScreen({ onBack }) {
+export function DPIASummaryScreen({ onBack, hideBack = false }) {
   const { appName, dpoName, dpoEmail, policyDate } = COMPLIANCE_CONFIG;
 
   const items = [
@@ -540,7 +396,7 @@ export function DPIASummaryScreen({ onBack }) {
   return (
     <div style={{ minHeight: "100vh", background: C.canvas, fontFamily: C.font, overflowY: "auto" }}>
       <div style={{ maxWidth: 480, margin: "0 auto", padding: "20px 20px 40px" }}>
-        <BackButton onBack={onBack} />
+        {!hideBack && <BackButton onBack={onBack} />}
         <h2 style={{ margin: "0 0 4px", fontSize: 20, fontWeight: 800, color: C.ink }}>Data Protection Impact Assessment</h2>
         <p style={{ margin: "0 0 24px", color: C.inkMuted, fontSize: 12 }}>DPIA conducted: {policyDate} · Prepared by: {dpoName}</p>
 
@@ -561,7 +417,7 @@ export function DPIASummaryScreen({ onBack }) {
 }
 
 // ═════════════════════════════════════════════════════════════
-//  6. MEDICAL DISCLAIMER BANNER (inline, for content screens)
+//  5. MEDICAL DISCLAIMER BANNER (inline, for content screens)
 //  Place this at the top of any screen with health content.
 //
 //  Usage: <MedicalDisclaimerBanner />

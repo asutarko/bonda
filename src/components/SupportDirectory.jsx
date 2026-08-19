@@ -1,4 +1,5 @@
-import React, { useState, useMemo, useRef } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
+import { supabase } from "../lib/supabase";
 
 /**
  * Bonda — Support Directory
@@ -23,7 +24,9 @@ import React, { useState, useMemo, useRef } from "react";
  * Logos: real org logos are trademarked and can't be reproduced faithfully in
  * code, so each card uses a monogram tinted with its category tone.
  *
- * Contacts checked July 2026 — details can change; confirm before relying on them.
+ * Data lives in public.support_directory (supabase/support_directory.sql) and
+ * website links are checked daily by supabase/functions/check-support-directory —
+ * details can still change; confirm before relying on them.
  */
 
 /* ---------- muted category tones (no yellow) ---------- */
@@ -46,144 +49,15 @@ const CATEGORIES = [
 ];
 const CAT = Object.fromEntries(CATEGORIES.map((c) => [c.id, c]));
 
-/* ---------- 14 contacts, one entry each, grouped by category ---------- */
-const ORGS = [
-  // Government & first stop
-  {
-    id: "sgenable", name: "SG Enable", initials: "SE", category: "gov",
-    context: "First stop",
-    desc: "The focal agency for disability in Singapore. Your starting point for schemes, referrals and the Enabling Guide directory of services.",
-    note: "Begin here if you're unsure where to go — they'll point you to the right service.",
-    tags: ["Islandwide", "Free", "All ages"],
-    phone: "1800 8585 885", tel: "18008585885",
-    email: "contactus@sgenable.sg",
-    web: "https://www.enablingguide.sg", webLabel: "enablingguide.sg",
-  },
-  // Diagnosis & assessment
-  {
-    id: "kkh", name: "KKH — Dept of Child Development", initials: "KK", category: "diagnosis",
-    context: "Under 7",
-    desc: "Public developmental and autism assessment for young children, led by developmental paediatricians.",
-    note: "Referral is usually through a polyclinic, GP or paediatrician.",
-    tags: ["Public", "Referral needed", "Subsidised"],
-    phone: "6394 3062", tel: "+6563943062",
-    web: "https://www.kkh.com.sg/our-specialties/child-development", webLabel: "kkh.com.sg",
-  },
-  {
-    id: "nuh", name: "NUH — Child Development Unit", initials: "NU", category: "diagnosis",
-    context: "Birth to 7",
-    desc: "Public assessment and support for autism, developmental delay and behavioural needs in early childhood.",
-    note: "Clinics at Jurong Medical Centre and Keat Hong.",
-    tags: ["Public", "Referral needed", "Subsidised"],
-    phone: "6665 0158", tel: "+6566650158",
-    web: "https://www.nuh.com.sg/care-at-nuh/services/paediatrics/developmental-and-behavioural-paediatrics", webLabel: "nuh.com.sg",
-  },
-  {
-    id: "imh-cgc", name: "IMH — Child Guidance Clinic", initials: "CGC", category: "diagnosis",
-    context: "School age",
-    desc: "Assessment and mental-health support for school-age children, including autism and ADHD.",
-    note: "For children in Primary 1 and above.",
-    tags: ["Public", "Ages 7+"],
-    phone: "6389 2200", tel: "+6563892200",
-    web: "https://www.imh.com.sg", webLabel: "imh.com.sg",
-  },
-  // Autism organisations
-  {
-    id: "arc", name: "Autism Resource Centre (Singapore)", initials: "ARC", category: "autism",
-    context: "All ages",
-    desc: "Charity dedicated to autism across the lifespan, with resources for families and professionals.",
-    note: "Runs Pathlight School and the E2C employment centre.",
-    tags: ["Charity", "School", "Employment"],
-    phone: "6323 3258", tel: "+6563233258",
-    email: "arc@autism.org.sg",
-    web: "https://www.autism.org.sg", webLabel: "autism.org.sg",
-  },
-  {
-    id: "aas", name: "Autism Association (Singapore)", initials: "AA", category: "autism",
-    context: "All ages",
-    desc: "Early intervention, a special-education school and adult day activities for people on the spectrum.",
-    note: "Also has a caregiver-support section and helpline links.",
-    tags: ["Charity", "School", "Adult day"],
-    phone: "6774 6649", tel: "+6567746649",
-    web: "https://www.autismlinks.org.sg", webLabel: "autismlinks.org.sg",
-  },
-  {
-    id: "saac", name: "St. Andrew's Autism Centre", initials: "SA", category: "autism",
-    context: "All ages",
-    desc: "School, adult day-activity and residential programmes, plus caregiver training.",
-    note: "Supports moderate to severe autism, including residential care.",
-    tags: ["Charity", "Residential", "Adult day"],
-    phone: "6517 3800", tel: "+6565173800",
-    web: "https://www.saac.org.sg", webLabel: "saac.org.sg",
-  },
-  // Therapy & early years
-  {
-    id: "rainbow", name: "Rainbow Centre", initials: "RC", category: "therapy",
-    context: "Early years",
-    desc: "Early Intervention (EIPIC) and special education for young children with developmental needs, including autism.",
-    note: "One of the largest EIPIC providers, with therapy and family services.",
-    tags: ["EIPIC", "Special ed", "Therapy"],
-    phone: "6472 7077", tel: "+6564727077",
-    web: "https://www.rainbowcentre.org.sg", webLabel: "rainbowcentre.org.sg",
-  },
-  // Caregiver support
-  {
-    id: "caringsg", name: "CaringSG", initials: "CG", category: "caregiver",
-    context: "For caregivers",
-    desc: "By caregivers, for caregivers of children with special needs — peer support and service coordination.",
-    note: "CAREbuddy peer support, CAREconnect groups and CAREwell coordination.",
-    tags: ["Peer support", "Free", "Caregiver-led"],
-    email: "contact@caring.sg",
-    web: "https://www.caring.sg", webLabel: "caring.sg",
-  },
-  {
-    id: "cal", name: "Caregivers Alliance (CAL)", initials: "CAL", category: "caregiver",
-    context: "For caregivers",
-    desc: "Caregiver training, support groups and counselling, with deep experience in mental-health caregiving.",
-    note: "Helpline is staffed on weekdays.",
-    tags: ["Training", "Counselling", "Support groups"],
-    phone: "6388 8631", tel: "+6563888631",
-    web: "https://www.cal.org.sg", webLabel: "cal.org.sg",
-  },
-  {
-    id: "awwa-cfc", name: "AWWA Centre for Caregivers", initials: "AW", category: "caregiver",
-    context: "For caregivers",
-    desc: "Individual and family counselling, caregiver training, and information on respite options.",
-    note: "Good place to ask about short-term respite for a break.",
-    tags: ["Counselling", "Training", "Respite info"],
-    phone: "6511 5280", tel: "+6565115280",
-    web: "https://www.awwa.org.sg", webLabel: "awwa.org.sg",
-  },
-  // Crisis & helplines
-  {
-    id: "sos", name: "Samaritans of Singapore (SOS)", initials: "SOS", category: "crisis",
-    context: "24-hour",
-    desc: "Free, confidential emotional support for anyone in distress or crisis, at any hour.",
-    note: "Call 1767, or message CareText on WhatsApp at 9151 1767.",
-    tags: ["Free", "Confidential", "Crisis"],
-    phone: "1767", tel: "1767",
-    whatsapp: "9151 1767", wa: "https://wa.me/6591511767",
-    web: "https://www.sos.org.sg", webLabel: "sos.org.sg",
-  },
-  {
-    id: "imh-helpline", name: "IMH Mental Health Helpline", initials: "MH", category: "crisis",
-    context: "24-hour",
-    desc: "Round-the-clock helpline from the Institute of Mental Health for anyone facing a mental-health crisis.",
-    note: "For urgent emotional or mental-health support, day or night.",
-    tags: ["Free", "Crisis", "Mental health"],
-    phone: "6389 2000", tel: "+6563892000",
-    web: "https://www.imh.com.sg", webLabel: "imh.com.sg",
-  },
-  {
-    id: "samh", name: "Singapore Association for Mental Health", initials: "SM", category: "crisis",
-    context: "Weekdays",
-    desc: "Counselling, rehabilitation and community mental-health support, with a toll-free general line.",
-    note: "A gentler, non-crisis option for ongoing mental-health support.",
-    tags: ["Counselling", "Community", "Toll-free"],
-    phone: "1800 283 7019", tel: "18002837019",
-    web: "https://www.samhealth.org.sg", webLabel: "samhealth.org.sg",
-  },
-];
+// Loaded from public.support_directory (see supabase/support_directory.sql),
+// kept live by the automated checker (supabase/functions/check-support-directory)
+// instead of being hardcoded here.
+const mapRow = (row) => ({
+  id: row.id, name: row.name, initials: row.initials, category: row.category,
+  context: row.context, desc: row.description, note: row.note, tags: row.tags || [],
+  phone: row.phone, tel: row.tel, email: row.email, whatsapp: row.whatsapp, wa: row.wa,
+  web: row.web, webLabel: row.web_label,
+});
 
 /* ---------- quick-access carousel content ---------- */
 const FEATURED = [
@@ -285,13 +159,20 @@ export default function SupportDirectory() {
   const [open, setOpen] = useState(false);
   const [slide, setSlide] = useState(0);
   const [flashCat, setFlashCat] = useState(null);
+  const [orgs, setOrgs] = useState([]);
+  const [loadingOrgs, setLoadingOrgs] = useState(true);
   const railRef = useRef(null);
   const flashTimer = useRef(null);
   const drag = useRef({ down: false, moved: false, startX: 0, startScroll: 0 });
 
+  useEffect(() => {
+    supabase.from("support_directory").select("*").eq("available_online", true).order("sort_order")
+      .then(({ data }) => { setOrgs((data || []).map(mapRow)); setLoadingOrgs(false); });
+  }, []);
+
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return ORGS.filter((o) => {
+    return orgs.filter((o) => {
       if (active !== "all" && o.category !== active) return false;
       if (!q) return true;
       return (
@@ -302,7 +183,7 @@ export default function SupportDirectory() {
         CAT[o.category].label.toLowerCase().includes(q)
       );
     });
-  }, [query, active]);
+  }, [orgs, query, active]);
 
   const onRail = () => {
     const el = railRef.current;
@@ -359,7 +240,6 @@ export default function SupportDirectory() {
       {/* header (white zone) */}
       <header className="bd-head">
         <div className="bd-wrap">
-          <h1 className="bd-title">Support directory</h1>
           <p className="bd-sub">Singapore contacts for autism and caregiver support.</p>
         </div>
         <div className="bd-head__tools bd-wrap">
@@ -427,7 +307,9 @@ export default function SupportDirectory() {
           </div>
 
           {/* list */}
-          {results.length === 0 ? (
+          {loadingOrgs ? (
+            <p className="bd-empty__b" style={{ padding: "20px 0" }}>Loading directory…</p>
+          ) : results.length === 0 ? (
             <div className="bd-empty">
               <p className="bd-empty__t">No matches</p>
               <p className="bd-empty__b">Try another word, or clear the filters to see everything.</p>
@@ -445,7 +327,7 @@ export default function SupportDirectory() {
               In an emergency, call <a href="tel:995">995</a> for an ambulance or <a href="tel:999">999</a> for the police.
             </p>
             <p className="bd-foot__note">
-              Contacts checked July 2026. Details can change — please confirm directly before you rely on them.
+              Website links are checked daily. Phone numbers and details can still change — please confirm directly before you rely on them.
             </p>
           </div>
         </div>
@@ -456,13 +338,13 @@ export default function SupportDirectory() {
 
 /* ---------- styles ---------- */
 const CSS = `
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,400;7..72,500;7..72,600;7..72,700&display=swap');
 
 .bd-root{
   --ink:#1E2320; --ink-2:#6B7069; --ink-3:#9A9E99;
   --canvas:#F3F2EF; --surface:#FFFFFF; --line:#EBE9E3; --fill:#F5F4F1;
   --teal:#2E7B6A; --teal-ink:#266657;
-  font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  font-family:'Literata',Georgia,serif;
   background:var(--canvas); color:var(--ink); min-height:100%;
   -webkit-font-smoothing:antialiased; -webkit-tap-highlight-color:transparent; line-height:1.5;
 }
@@ -475,8 +357,7 @@ const CSS = `
   border-bottom:1px solid var(--line); padding-top:env(safe-area-inset-top);
 }
 .bd-head > .bd-wrap:first-child{padding-top:18px; padding-bottom:2px;}
-.bd-title{margin:0; font-size:21px; font-weight:700; letter-spacing:-0.015em;}
-.bd-sub{margin:5px 0 0; font-size:13.5px; color:var(--ink-2);}
+.bd-sub{margin:0; font-size:13.5px; color:var(--ink-2);}
 .bd-head__tools{display:flex; gap:10px; padding-top:14px; padding-bottom:14px;}
 
 .bd-search{

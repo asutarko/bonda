@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "../lib/supabase";
 import { T } from "../theme";
-import { Page, SectionLabel, Card, Badge, Btn, Input, TextArea, Avatar, Accordion, PageHero, AvatarIllustrations, ChildAvatar, ComAvatar, ROOM_ICONS, ACTIVITY_TEXTAREA_STYLE, ActionIllustration, HeroIllustration } from "../ui";
+import { Page, SectionLabel, Card, Badge, Btn, Input, TextArea, Avatar, Accordion, PageHero, AvatarIllustrations, ChildAvatar, ComAvatar, ROOM_ICONS, ACTIVITY_TEXTAREA_STYLE, HeroIllustration } from "../ui";
 import { CHILD_AVATARS, DEFAULT_CHILDREN, DEFAULT_SCHEDULE, ROOM_COLORS, SOS_COLORS, VERBAL_STATUS_OPTIONS } from "../data";
 
 export const QUOTES = [
@@ -20,9 +20,11 @@ export const QUOTES = [
 ];
 //  COMMUNITY / CHAT STORAGE
 
-// Real, recent items (paraphrased). Replace with a live feed once one exists —
-// fetch a vetted autism/caregiving source and map each result into this shape.
-const NEWS = [
+// Fallback only — shown until public.articles has rows. The live feed is
+// populated automatically by the fetch-articles Edge Function (RSS from
+// ScienceDaily + Spectrum, see supabase/functions/fetch-articles), no admin
+// action needed.
+const FALLBACK_NEWS = [
   { tag: "Singapore", tone: "purple", source: "The Straits Times", date: "20 Jul 2026", title: "Shorter waits for early-intervention places", blurb: "Families now wait about 5.5 months on average for a subsidised EIPIC spot — noticeably down from earlier years.", url: "https://www.straitstimes.com" },
   { tag: "Policy", tone: "teal", source: "MSF Singapore", date: "2026", title: "More affordable, tailored early intervention", blurb: "Subsidised support now spans 21 EIPIC centres, plus learning support offered in about 550 preschools island-wide.", url: "https://www.msf.gov.sg" },
   { tag: "Research", tone: "violet", source: "ScienceDaily", date: "Jun 2026", title: "Autism may have distinct biological subtypes", blurb: "A large brain-imaging study points to several subtypes, each with its own pattern — a step toward more personalised support.", url: "https://www.sciencedaily.com/news/mind_brain/autism/" },
@@ -58,6 +60,33 @@ const ArrowIcon = ({ size = 14, color }) => (
   </svg>
 );
 
+// Quick-access chip tone + icon per action type — muted tag palette from theme.js
+const QUICK_TONES = {
+  letter:    { bg: T.indigoL, fg: T.indigo },
+  subsidies: { bg: T.greenL,  fg: T.green },
+  grants:    { bg: T.amberL,  fg: T.amber },
+  sos:       { bg: T.redL,    fg: T.red },
+  devGuide:  { bg: T.violetL, fg: T.violet },
+  emotions:  { bg: T.tealL,   fg: T.teal },
+  foster:    { bg: T.slateL,  fg: T.slate },
+  allTools:  { bg: T.border,  fg: T.inkSoft },
+};
+
+const QuickIcon = ({ type, size = 22, color }) => {
+  const p = { fill: "none", stroke: color, strokeWidth: 1.8, strokeLinecap: "round", strokeLinejoin: "round" };
+  const paths = {
+    letter: <><rect x="3" y="5" width="18" height="14" rx="2.6" {...p} /><path d="m4 7.5 8 5.5 8-5.5" {...p} /></>,
+    subsidies: <><circle cx="12" cy="12" r="9" {...p} /><path d="M12 6.5v11M15 9.4c0-1.4-1.4-2.1-3-2.1s-3 .8-3 2.1 1.4 1.9 3 2.3 3 .9 3 2.3-1.4 2.1-3 2.1-3-.7-3-2.1" {...p} /></>,
+    grants: <><circle cx="12" cy="9" r="5" {...p} /><path d="M9 13.4 7 21l5-2.6L17 21l-2-7.6" {...p} /></>,
+    sos: <><path d="M5 4h3l1.8 4.6L7.2 10a11 11 0 0 0 5.2 5.2l1.4-2.6L18.4 14V17a2 2 0 0 1-2.1 2A15.5 15.5 0 0 1 3 5.7 2 2 0 0 1 5 4Z" {...p} /></>,
+    devGuide: <><path d="M3 17 9 11l4 4 8-8" {...p} /><path d="M16.5 7H21v4.5" {...p} /></>,
+    emotions: <><circle cx="12" cy="12" r="9" {...p} /><path d="M8.4 14.4s1.3 2 3.6 2 3.6-2 3.6-2" {...p} /><path d="M9 9.6h.01M15 9.6h.01" {...p} /></>,
+    foster: <><path d="M12 3l7 3v5c0 4.6-3 7.6-7 9-4-1.4-7-4.4-7-9V6Z" {...p} /><path d="m9 12 2 2 4-4" {...p} /></>,
+    allTools: <><rect x="3" y="3" width="7.5" height="7.5" rx="2" fill={color} /><rect x="13.5" y="3" width="7.5" height="7.5" rx="2" fill={color} /><rect x="3" y="13.5" width="7.5" height="7.5" rx="2" fill={color} /><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="2" fill={color} /></>,
+  };
+  return <svg width={size} height={size} viewBox="0 0 24 24" style={{ display: "block" }}>{paths[type]}</svg>;
+};
+
 export function HomeScreen({ childCtx, setTab, push, account }) {
   const { children, activeChild, switchChild } = childCtx;
   const [quotes, setQuotes] = useState(QUOTES);
@@ -65,7 +94,6 @@ export function HomeScreen({ childCtx, setTab, push, account }) {
   const [seen, setSeen] = useState([]);
   const [fade, setFade] = useState(true);
   const [paused, setPaused] = useState(false);
-  const [banner, setBanner] = useState("");
 
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("all");
@@ -73,6 +101,7 @@ export function HomeScreen({ childCtx, setTab, push, account }) {
 
   const [newsActive, setNewsActive] = useState(0);
   const newsTrack = useRef(null);
+  const [articles, setArticles] = useState(FALLBACK_NEWS);
 
   const loadQuotes = async () => {
     const { data } = await supabase.from("parent_quotes").select("*").order("sort_order").order("created_at");
@@ -83,12 +112,26 @@ export function HomeScreen({ childCtx, setTab, push, account }) {
     }
   };
 
-  const loadBanner = async () => {
-    const { data } = await supabase.from("home_banner").select("message").eq("active", true).order("created_at").limit(1).maybeSingle();
-    if (data?.message) setBanner(data.message);
+  // Latest Articles: populated automatically by the fetch-articles Edge
+  // Function (see supabase/functions/fetch-articles). Falls back to the
+  // static list above only if the table is still empty (e.g. before the
+  // function's first scheduled run).
+  const loadArticles = async () => {
+    const { data } = await supabase.from("articles").select("*").order("published_at", { ascending: false }).limit(8);
+    if (data?.length) {
+      setArticles(data.map(r => ({
+        tag: r.tag,
+        tone: r.tone,
+        source: r.source,
+        date: new Date(r.published_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }),
+        title: r.title,
+        blurb: r.blurb,
+        url: r.url,
+      })));
+    }
   };
 
-  useEffect(() => { loadQuotes(); loadBanner(); }, []);
+  useEffect(() => { loadQuotes(); loadArticles(); }, []);
 
   useEffect(() => {
     if (paused || quotes.length < 2) return;
@@ -122,8 +165,8 @@ export function HomeScreen({ childCtx, setTab, push, account }) {
   const quickActions = [
     ...(isFoster ? [{ type: "foster", category: "documents", label: "Foster Parent Hub", desc: "HealthHub, CDA, school access guides", action: () => push("fosterHub"), isFoster: true }] : []),
     { type: "letter", category: "documents", label: "Generate Carer Letter", desc: "Introduction letter for clinics & schools", action: () => push("carerLetter") },
+    { type: "grants", category: "support", label: "Subsidies & Grants", desc: "Government schemes that cut therapy & care costs", action: () => push("subsidiesGrants") },
     { type: "subsidies", category: "support", label: "Support Directory", desc: "Singapore autism & caregiver contacts", action: () => push("subsidies") },
-    { type: "sos", category: "support", label: "Emergency Contacts", desc: "Singapore autism helplines", action: () => push("sos") },
     { type: "devGuide", category: "guides", label: "Development & Behaviour Guide", desc: "Home activities & behaviour training", action: () => push("devGuide") },
     { type: "emotions", category: "guides", label: "Emotion & Behaviour", desc: "Understand feelings & behaviours", action: () => push("emotionsGuide") },
   ];
@@ -145,7 +188,7 @@ export function HomeScreen({ childCtx, setTab, push, account }) {
   const onNewsScroll = () => {
     const el = newsTrack.current;
     if (!el) return;
-    setNewsActive(Math.max(0, Math.min(NEWS.length - 1, Math.round(el.scrollLeft / newsStep()))));
+    setNewsActive(Math.max(0, Math.min(articles.length - 1, Math.round(el.scrollLeft / newsStep()))));
   };
   const goToNews = (i) => newsTrack.current && newsTrack.current.scrollTo({ left: i * newsStep(), behavior: "smooth" });
 
@@ -194,47 +237,36 @@ export function HomeScreen({ childCtx, setTab, push, account }) {
           </Card>
         ) : (
           <div>
-            <SectionLabel action={<button onClick={() => push("addChild")} style={{ background: "none", border: "none", color: T.purple, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody }}>+ Add child</button>}>My Children</SectionLabel>
-            <Card style={{ padding: "16px 14px" }}>
+            <SectionLabel style={{ marginBottom: 10 }}>My Children</SectionLabel>
+            <Card style={{ padding: "16px 14px", position: "relative" }}>
+              <button onClick={() => push("allChildren")} style={{ position: "absolute", top: 14, right: 14, background: "none", border: "none", color: T.purple, fontWeight: 700, fontSize: 11.5, cursor: "pointer", fontFamily: T.fontBody }}>
+                View all
+              </button>
               <div style={{ display: "flex", gap: 14, overflowX: "auto", paddingBottom: 2 }}>
-                {children.map(c => {
-                  const active = activeChild?.id === c.id;
+                {children.filter(c => c.active).map(c => {
+                  const isSelected = activeChild?.id === c.id;
                   return (
-                    <div key={c.id} onClick={() => switchChild(c.id)} style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 6, cursor: "pointer" }}>
-                      <ChildAvatar value={c.emoji} size={52} active={active} borderColor={active ? T.purple : "transparent"} />
-                      <p style={{ margin: 0, fontSize: 11, fontWeight: active ? 800 : 600, color: active ? T.purple : T.inkSoft, whiteSpace: "nowrap" }}>{c.name}</p>
+                    <div key={c.id} onClick={() => { switchChild(c.id); setTab("mychild"); }} style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 6, cursor: "pointer" }}>
+                      <ChildAvatar value={c.emoji} size={52} active={isSelected} borderColor={isSelected ? T.purple : "transparent"} />
+                      <p style={{ margin: 0, fontSize: 11, fontWeight: isSelected ? 800 : 600, color: isSelected ? T.purple : T.inkSoft, whiteSpace: "nowrap" }}>{c.name}</p>
                     </div>
                   );
                 })}
+                {children.length < 6 && (
+                  <div onClick={() => push("addChild")} title="Add a child" style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 6, cursor: "pointer" }}>
+                    <span style={{ width: 52, height: 52, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", background: T.purpleL, border: `1.5px dashed ${T.purple}` }}>
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                        <path d="M12 5v14M5 12h14" stroke={T.purple} strokeWidth="2.2" strokeLinecap="round" />
+                      </svg>
+                    </span>
+                    <p style={{ margin: 0, fontSize: 11, fontWeight: 600, color: T.purple, whiteSpace: "nowrap" }}>Add child</p>
+                  </div>
+                )}
               </div>
             </Card>
           </div>
         )}
       </div>
-
-
-      {activeChild && (
-        <Card style={{ marginBottom: 24, background: T.ink, border: "none", overflow: "hidden", position: "relative" }}>
-          <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 80, opacity: 0.06 }}>
-            <svg viewBox="0 0 80 80" width="80" height="80" style={{ position: "absolute", right: -10, top: -10 }}>
-              <circle cx="60" cy="40" r="50" fill={T.purple}/>
-            </svg>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 14, position: "relative" }}>
-            <ChildAvatar value={activeChild.emoji} size={52} active={true} borderColor="rgba(255,255,255,0.15)" />
-            <div style={{ flex: 1 }}>
-              <p style={{ margin: "0 0 2px", color: "rgba(255,255,255,0.6)", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>Active child</p>
-              <p style={{ margin: 0, color: "white", fontSize: 18, fontWeight: 800 }}>{activeChild.name}</p>
-            </div>
-            <button onClick={() => setTab("mychild")} title="Edit profile" style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(255,255,255,0.12)", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
-              <svg width="14" height="14" viewBox="0 0 18 18" fill="none">
-                <path d="M11.5 2.5 L15.5 6.5 L6 16 L2 16.5 L2.5 12.5 Z" stroke="white" strokeWidth="1.4" strokeLinejoin="round" strokeLinecap="round" fill="none"/>
-              </svg>
-            </button>
-            <button onClick={() => { if (activeChild.active) setTab("schedule"); }} disabled={!activeChild.active} title={!activeChild.active ? `${activeChild.name}'s profile is pending admin approval` : undefined} style={{ background: activeChild.active ? T.purple : "rgba(255,255,255,0.12)", color: activeChild.active ? "white" : "rgba(255,255,255,0.4)", border: "none", borderRadius: T.r, padding: "8px 14px", fontWeight: 700, fontSize: 12, cursor: activeChild.active ? "pointer" : "not-allowed", fontFamily: T.fontBody }}>Schedule →</button>
-          </div>
-        </Card>
-      )}
 
 
       <SectionLabel style={{ marginBottom: 10 }}>Quick Access</SectionLabel>
@@ -246,17 +278,33 @@ export function HomeScreen({ childCtx, setTab, push, account }) {
         </Card>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 28 }}>
-          {filteredActions.map((a, i) => (
-            <button
-              key={i}
-              onClick={a.action}
-              title={a.desc}
-              style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: T.rL, padding: "16px 6px 14px", display: "flex", flexDirection: "column", alignItems: "center", gap: 9, cursor: "pointer", fontFamily: T.fontBody }}
-            >
-              <ActionIllustration type={a.type} size={40} />
-              <span style={{ fontSize: 11.5, fontWeight: 700, color: T.ink, textAlign: "center", lineHeight: 1.2 }}>{a.label}</span>
-            </button>
-          ))}
+          {filteredActions.map((a, i) => {
+            const tone = QUICK_TONES[a.type] || QUICK_TONES.letter;
+            return (
+              <button
+                key={i}
+                onClick={a.action}
+                title={a.desc}
+                style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: T.rL, padding: "14px 8px 12px", display: "flex", flexDirection: "column", alignItems: "center", gap: 9, cursor: "pointer", fontFamily: T.fontBody }}
+              >
+                <span style={{ width: 44, height: 44, borderRadius: 12, background: tone.bg, display: "grid", placeItems: "center", flexShrink: 0 }}>
+                  <QuickIcon type={a.type} size={22} color={tone.fg} />
+                </span>
+                <span style={{ fontFamily: T.fontDisplay, fontSize: 11.5, fontWeight: 600, color: T.ink, textAlign: "center", lineHeight: 1.15 }}>{a.label}</span>
+              </button>
+            );
+          })}
+
+          {/* TODO: wire onClick once the "All Tools" destination screen exists. */}
+          <button
+            title="Browse every tool"
+            style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: T.rL, padding: "14px 8px 12px", display: "flex", flexDirection: "column", alignItems: "center", gap: 9, cursor: "pointer", fontFamily: T.fontBody }}
+          >
+            <span style={{ width: 44, height: 44, borderRadius: 12, background: QUICK_TONES.allTools.bg, display: "grid", placeItems: "center", flexShrink: 0 }}>
+              <QuickIcon type="allTools" size={22} color={QUICK_TONES.allTools.fg} />
+            </span>
+            <span style={{ fontFamily: T.fontDisplay, fontSize: 11.5, fontWeight: 600, color: T.ink, textAlign: "center", lineHeight: 1.15 }}>All tools</span>
+          </button>
         </div>
       )}
 
@@ -278,20 +326,15 @@ export function HomeScreen({ childCtx, setTab, push, account }) {
         </div>
       )}
 
-      {banner && (
-        <div style={{ marginTop: 16, padding: "14px 16px", background: T.greenL, borderRadius: T.r, border: `1px solid ${T.green}25` }}>
-          <p style={{ margin: 0, color: T.green, fontSize: 12, fontWeight: 700, lineHeight: 1.7 }}>{banner}</p>
-        </div>
-      )}
 
 
-      <SectionLabel style={{ marginTop: 28, marginBottom: 10 }}>Latest for Families</SectionLabel>
+      <SectionLabel style={{ marginTop: 28, marginBottom: 10 }}>Latest Articles</SectionLabel>
       <div
         ref={newsTrack}
         onScroll={onNewsScroll}
-        style={{ display: "flex", gap: 12, overflowX: "auto", margin: "0 -18px", padding: "2px 18px 4px", scrollSnapType: "x mandatory" }}
+        style={{ display: "flex", gap: 12, overflowX: "auto", padding: "2px 0 4px", scrollSnapType: "x mandatory" }}
       >
-        {NEWS.map((n) => {
+        {articles.map((n) => {
           const c = newsTone(n.tone);
           return (
             <div
@@ -314,7 +357,7 @@ export function HomeScreen({ childCtx, setTab, push, account }) {
         })}
       </div>
       <div style={{ display: "flex", justifyContent: "center", gap: 6, marginTop: 12 }}>
-        {NEWS.map((_, i) => (
+        {articles.map((_, i) => (
           <button
             key={i}
             onClick={() => goToNews(i)}
@@ -323,11 +366,6 @@ export function HomeScreen({ childCtx, setTab, push, account }) {
           />
         ))}
       </div>
-
-      <p style={{ textAlign: "center", marginTop: 28, marginBottom: 0, color: T.inkMuted, fontSize: 10, fontWeight: 600, letterSpacing: "0.05em" }}>◎ Bonda · Made with 💛 by Norena Darsana</p>
-      <button onClick={() => push("legalHub")} style={{ display: "block", width: "100%", background: "none", border: "none", color: T.inkMuted, fontWeight: 600, fontSize: 10, letterSpacing: "0.05em", cursor: "pointer", fontFamily: T.fontBody, marginTop: 4, textAlign: "center", textDecoration: "underline" }}>
-        Privacy Policy · Legal · DPO Contact
-      </button>
 
       {filterOpen && (
         <>

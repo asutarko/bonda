@@ -28,8 +28,9 @@ export const db = {
   },
 };
 
-// Icon choices for Community group rooms — admins pick one of these
-// when creating a room (rooms themselves are stored in the database).
+// Colour choices for Community group rooms & groups — admins pick one of
+// these when creating an admin room, and parents pick one when creating
+// their own group (community_groups).
 
 export const ROOM_COLORS = {
   purple: { color: T.purple, bg: T.purpleL },
@@ -37,6 +38,9 @@ export const ROOM_COLORS = {
   amber:  { color: T.amber,  bg: T.amberL },
   teal:   { color: T.teal,   bg: T.tealL },
   red:    { color: T.red,    bg: T.redL },
+  violet: { color: T.violet, bg: T.violetL },
+  indigo: { color: T.indigo, bg: T.indigoL },
+  slate:  { color: T.slate,  bg: T.slateL },
 };
 
 export const SOS_COLORS = {
@@ -60,5 +64,41 @@ export const RELATIONSHIP_OPTIONS = ["Father", "Mother", "Foster/Adoptive Parent
 export const OCCUPATION_OPTIONS = ["Unemployed", "Homemaker", "Student", "Civil Servant", "Military/Police", "Private Employee", "Self-Employed", "Farmer", "Laborer", "Retired", "Other"];
 
 export const MARITAL_STATUS_OPTIONS = ["Single", "Married", "Divorced", "Widowed"];
+
+// Multi-select option lists for the child profile's "About your child" and
+// "Medical information" sections. Selections are joined into the existing
+// free-text columns (diagnosis, known_triggers, diet_program) on save, so an
+// "Other" pick always carries its typed detail along with it.
+export const DIAGNOSIS_OPTIONS = [
+  "Autism Spectrum Disorder (ASD)", "ADHD", "Sensory Processing Disorder",
+  "Global Developmental Delay", "Speech & Language Delay", "Intellectual Disability",
+  "Dyslexia", "Dyspraxia (DCD)", "Dyscalculia", "Anxiety", "OCD",
+  "Tourette / Tic Disorder", "Down Syndrome", "Epilepsy",
+  "Not yet diagnosed / In assessment", "Other",
+];
+
+export const TRIGGER_OPTIONS = [
+  "Loud or sudden noises", "Bright or flickering lights", "Crowded / busy places",
+  "Changes in routine", "Transitions between activities", "Certain textures",
+  "Strong smells", "Unexpected touch", "Hunger or tiredness", "Screen time ending",
+  "Waiting / delays", "Other",
+];
+
+export const DIET_OPTIONS = [
+  "Gluten-free", "Casein / dairy-free", "GFCF (gluten & casein-free)", "Low-sugar",
+  "Feingold diet", "Specific Carbohydrate Diet", "Ketogenic", "Elimination diet",
+  "Halal", "Vegetarian", "Other",
+];
+
+export const ALLERGY_OPTIONS = [
+  "Nuts", "Dairy", "Eggs", "Seafood / Shellfish", "Gluten / Wheat", "Soy",
+  "Pollen / Dust", "Other",
+];
+
+export const THERAPY_TYPES = [
+  "Occupational Therapy", "Speech & Language Therapy", "ABA Therapy", "Physiotherapy",
+  "Behavioural Therapy", "Psychology / Counselling", "Music Therapy",
+  "Early Intervention (EIPIC)", "Other",
+];
 
 // Optional additional-needs profile, filled in by the parent in their own words.

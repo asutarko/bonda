@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Bonda · Goals + redemption</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+  html,body{margin:0;padding:0;background:#e7e3da;}
+  #root{max-width:480px;margin:0 auto;min-height:100vh;background:#F4F1EB;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState, useEffect, useMemo} = React;
+
+/* ---- Bonda tokens (from the development component) ---- */
+const T = {
+  canvas:"#F4F1EB", card:"#FFFFFF", ink:"#23201C",
+  accent:"#3E6E6A", accentPress:"#345F5B",
+  ink70:"rgba(35,32,28,.70)", ink55:"rgba(35,32,28,.55)", ink40:"rgba(35,32,28,.40)", ink28:"rgba(35,32,28,.28)",
+  line:"rgba(35,32,28,.12)", lineStrong:"rgba(35,32,28,.20)", focus:"rgba(62,110,106,.16)",
+  tintBg:"#E6EDEC", tintTx:"#2E5A56",
+  title:'"Fraunces", Georgia, serif',
+  body:'"Plus Jakarta Sans", system-ui, sans-serif',
+  mono:'"JetBrains Mono", ui-monospace, monospace',
+};
+
+/* muted category tones — same as the tracker */
+const AREAS = {
+  communication:{ name:"Communication", icon:"chat", bg:"#EDE8F3", tx:"#574B78" },
+  dailyliving:  { name:"Daily living",  icon:"home", bg:"#E4ECF3", tx:"#3A5A78" },
+  socialization:{ name:"Socialization", icon:"users",bg:"#F3E7EA", tx:"#7A4651" },
+};
+const AREA_LIST = Object.keys(AREAS);
+
+/* ---- points economy: two sources, one balance ---- */
+const POINTS_PER_OBSERVATION = 20;   // existing source
+const POINTS_PER_GOAL_STEP   = 40;   // new source — ticking off a step of a goal
+const HEADLINE_TARGET = 10000;
+const REWARDS = [
+  { id:"off5",  title:"5% off Bonda",          cost:5000,  detail:"Applied to your next subscription payment." },
+  { id:"off10", title:"10% off Bonda",         cost:10000, detail:"Applied to your next subscription payment.", popular:true },
+  { id:"free1", title:"1 month of Bonda free", cost:20000, detail:"Added to your subscription as a free month." },
+];
+
+const CHILD = { name:"Mariam" };
+
+/* seeded so redemption is close — finishing the shoes goal crosses 5,000 */
+const SEED_OBS = 242;               // 242 x 20 = 4,840 pts from earlier observing
+const SEED_GOALS = [
+  { id:"g1", area:"dailyliving", title:"Put on shoes on her own",
+    why:"So mornings feel calmer for both of us.",
+    steps:[
+      { t:"Bring her shoes to the mat", done:true },
+      { t:"Push feet into both shoes", done:true },
+      { t:"Pull the velcro strap across", done:false },
+      { t:"Do the whole thing without a reminder", done:false },
+    ]},
+];
+
+/* ---------- icons ---------- */
+function Icon({ name, size=22, color="currentColor", w=1.8 }) {
+  const p = { fill:"none", stroke:color, strokeWidth:w, strokeLinecap:"round", strokeLinejoin:"round" };
+  const paths = {
+    chat:<><rect x="4.5" y="4.5" width="15" height="13" rx="3" {...p}/><path d="M9 17.5v3l4-3" {...p}/></>,
+    home:<><path d="M4 11 12 4l8 7" {...p}/><path d="M6 10.5V19h12v-8.5" {...p}/></>,
+    users:<><circle cx="9" cy="8" r="3.3" {...p}/><path d="M3.2 20c0-3.2 2.6-5 5.8-5s5.8 1.8 5.8 5" {...p}/><path d="M16 5.4a3.3 3.3 0 0 1 0 6.1M17.6 15.4c1.8.7 3.2 2.2 3.2 4.6" {...p}/></>,
+    target:<><circle cx="12" cy="12" r="8.4" {...p}/><circle cx="12" cy="12" r="4.4" {...p}/><circle cx="12" cy="12" r="0.6" fill={color} stroke="none"/></>,
+    gift:<><rect x="4" y="10" width="16" height="9" rx="1.6" {...p}/><path d="M4 13.5h16M12 10v9" {...p}/><path d="M12 10c-1.2-2.6-5-2.6-5-.4 0 1.5 2.6 1.4 5 .4zM12 10c1.2-2.6 5-2.6 5-.4 0 1.5-2.6 1.4-5 .4z" {...p}/></>,
+    coin:<><circle cx="12" cy="12" r="8.5" {...p}/><circle cx="12" cy="12" r="4.5" {...p}/></>,
+    eye:<><path d="M2 12s3.5-6.5 10-6.5S22 12 22 12s-3.5 6.5-10 6.5S2 12 2 12z" {...p}/><circle cx="12" cy="12" r="2.4" {...p}/></>,
+    chevron:<path d="m9 6 6 6-6 6" {...p}/>,
+    back:<path d="m15 6-6 6 6 6" {...p}/>,
+    check:<path d="M4 12l5 5L20 6" {...p}/>,
+    plus:<path d="M12 5v14M5 12h14" {...p}/>,
+    x:<path d="M6 6l12 12M18 6L6 18" {...p}/>,
+    bell:<><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" {...p}/><path d="M13.7 21a2 2 0 0 1-3.4 0" {...p}/></>,
+    spark:<><path d="M12 3l1.7 5L19 9.7 14 11l-2 5-2-5-5-1.3L10 8z" {...p}/></>,
+  };
+  return <svg width={size} height={size} viewBox="0 0 24 24" style={{display:"block"}}>{paths[name]}</svg>;
+}
+function IconChip({ name, bg, fg, size=44, radius=13 }) {
+  return <span style={{width:size,height:size,borderRadius:radius,background:bg,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
+    <Icon name={name} size={Math.round(size*0.5)} color={fg} w={1.9}/></span>;
+}
+function Donut({ value, target, size=112 }) {
+  const stroke=11, r=(size-stroke)/2, c=2*Math.PI*r, m=size/2;
+  const pct=Math.max(0,Math.min(1,value/target)), dash=c*pct;
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{flexShrink:0}}>
+      <circle cx={m} cy={m} r={r} fill="none" stroke={T.tintBg} strokeWidth={stroke}/>
+      <circle cx={m} cy={m} r={r} fill="none" stroke={T.accent} strokeWidth={stroke} strokeLinecap="round"
+        strokeDasharray={`${dash} ${c-dash}`} transform={`rotate(-90 ${m} ${m})`} style={{transition:"stroke-dasharray .5s ease"}}/>
+      <text x={m} y={m-2} textAnchor="middle" dominantBaseline="middle" style={{fontFamily:T.title,fontWeight:600,fontSize:19,fill:T.ink}}>{value.toLocaleString()}</text>
+      <text x={m} y={m+16} textAnchor="middle" dominantBaseline="middle" style={{fontFamily:T.body,fontSize:10.5,fill:T.ink55}}>points</text>
+    </svg>
+  );
+}
+
+const CSS = `
+  *{-webkit-tap-highlight-color:transparent;box-sizing:border-box;}
+  .safe-top{padding-top:max(14px,env(safe-area-inset-top));}
+  .primary{background:${T.accent};color:#fff;font-family:${T.body};font-weight:600;font-size:16px;padding:15px 24px;border-radius:14px;border:none;cursor:pointer;}
+  .primary:active{transform:translateY(1px);}
+  .primary:disabled{opacity:.4;cursor:default;}
+  .outline{width:100%;background:transparent;color:${T.accent};font-family:${T.body};font-weight:600;font-size:14.5px;padding:14px;border-radius:14px;border:1px solid ${T.lineStrong};cursor:pointer;}
+  .input{width:100%;font-family:${T.body};font-size:15.5px;color:${T.ink};background:${T.card};border:1px solid ${T.lineStrong};border-radius:12px;padding:13px 14px;outline:none;-webkit-appearance:none;transition:border-color .15s,box-shadow .15s;}
+  .input:focus{border-color:${T.accent};box-shadow:0 0 0 4px ${T.focus};}
+  .input::placeholder{color:${T.ink40};}
+  .icontap{width:38px;height:38px;border-radius:999px;border:none;background:${T.tintBg};cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+  .row{display:flex;align-items:center;}
+  @keyframes toastIn{from{opacity:0;transform:translate(-50%,10px);}to{opacity:1;transform:translate(-50%,0);}}
+`;
+
+/* ================= APP ================= */
+function App(){
+  const [view,setView]=useState("home");      // home | goalNew | goalDetail | redeem
+  const [obsCount,setObsCount]=useState(SEED_OBS);
+  const [goals,setGoals]=useState(SEED_GOALS);
+  const [activeGoal,setActiveGoal]=useState(null);
+  const [claimed,setClaimed]=useState({});
+  const [toast,setToast]=useState(null);
+
+  useEffect(()=>{
+    const l=document.createElement("link"); l.rel="stylesheet";
+    l.href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap";
+    document.head.appendChild(l);
+  },[]);
+
+  const stepsDone = goals.reduce((n,g)=>n+g.steps.filter(s=>s.done).length,0);
+  const total = obsCount*POINTS_PER_OBSERVATION + stepsDone*POINTS_PER_GOAL_STEP;
+
+  const flash=(msg)=>{ setToast(msg); setTimeout(()=>setToast(null),1700); };
+
+  const addGoal=(g)=>{ setGoals(gs=>[...gs,{...g,id:"g"+Date.now()}]); };
+  const toggleStep=(goalId,idx)=>{
+    setGoals(gs=>gs.map(g=>{
+      if(g.id!==goalId) return g;
+      const steps=g.steps.map((s,i)=>i===idx?{...s,done:!s.done}:s);
+      if(!g.steps[idx].done) flash(`+${POINTS_PER_GOAL_STEP} points · nice work`);
+      return {...g,steps};
+    }));
+  };
+  const addObservations=()=>{ setObsCount(n=>n+3); flash(`+${3*POINTS_PER_OBSERVATION} points · observed today`); };
+  const redeem=(r)=>{ if(total<r.cost||claimed[r.id]) return;
+    setClaimed(c=>({...c,[r.id]:"BONDA-"+Math.random().toString(36).slice(2,7).toUpperCase()})); };
+
+  const openGoal=(g)=>{ setActiveGoal(g.id); setView("goalDetail"); };
+  const current = goals.find(g=>g.id===activeGoal);
+
+  return (
+    <div style={{background:T.canvas,minHeight:"100vh",fontFamily:T.body,color:T.ink,position:"relative"}}>
+      <style>{CSS}</style>
+      {view==="home" && <Home total={total} obsCount={obsCount} stepsDone={stepsDone} goals={goals}
+        onSetGoal={()=>setView("goalNew")} onOpenGoal={openGoal} onRedeem={()=>setView("redeem")} onObserve={addObservations}/>}
+      {view==="goalNew" && <GoalNew onCancel={()=>setView("home")} onSave={(g)=>{addGoal(g);setView("home");flash("Goal added");}}/>}
+      {view==="goalDetail" && current && <GoalDetail goal={current} onBack={()=>setView("home")} onToggle={toggleStep} onSetGoal={()=>setView("goalNew")}/>}
+      {view==="redeem" && <Redeem points={total} obsCount={obsCount} stepsDone={stepsDone} claimed={claimed} onRedeem={redeem} onClose={()=>setView("home")}/>}
+
+      {toast && (
+        <div style={{position:"fixed",bottom:26,left:"50%",transform:"translateX(-50%)",background:T.ink,color:"#fff",
+          fontSize:13.5,fontWeight:600,padding:"11px 18px",borderRadius:999,display:"flex",alignItems:"center",gap:8,
+          animation:"toastIn .22s ease",zIndex:50,boxShadow:"0 6px 20px rgba(35,32,28,.22)"}}>
+          <Icon name="spark" size={16} color="#fff" w={1.9}/>{toast}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ================= HOME ================= */
+function Home({ total, obsCount, stepsDone, goals, onSetGoal, onOpenGoal, onRedeem, onObserve }){
+  const remaining = Math.max(0, 5000 - total);
+  const nextReward = total>=10000 ? {t:"1 month free",c:20000} : total>=5000 ? {t:"10% off Bonda",c:10000} : {t:"5% off Bonda",c:5000};
+  const toNext = Math.max(0, nextReward.c - total);
+  const today = new Date().toLocaleDateString(undefined,{weekday:"long",day:"numeric",month:"short"});
+
+  return (
+    <div>
+      <div className="safe-top" style={{padding:"14px 20px 6px"}}>
+        <div className="row" style={{gap:12}}>
+          <div style={{width:46,height:46,borderRadius:999,background:T.accent,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:T.title,fontWeight:600,fontSize:20,flexShrink:0}}>{CHILD.name[0]}</div>
+          <div style={{flex:1}}>
+            <div style={{fontSize:12.5,color:T.ink55}}>{today}</div>
+            <div style={{fontFamily:T.title,fontWeight:600,fontSize:22,lineHeight:1.1}}>{CHILD.name}</div>
+          </div>
+          <span style={{color:T.ink40}}><Icon name="bell" size={22} w={1.8}/></span>
+        </div>
+      </div>
+
+      <div style={{padding:"10px 18px 40px"}}>
+
+        {/* POINTS HERO — one balance, two sources */}
+        <div style={{background:T.card,border:`1px solid ${T.line}`,borderRadius:16,padding:16,marginBottom:14,display:"flex",alignItems:"center",gap:16}}>
+          <Donut value={total} target={HEADLINE_TARGET} size={112}/>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontFamily:T.title,fontWeight:600,fontSize:17,lineHeight:1.15}}>Redeem your points</div>
+            <div style={{fontSize:12.5,color:T.ink55,marginTop:3,lineHeight:1.45}}>
+              {toNext===0 ? `You've reached ${nextReward.t}.` : `${toNext.toLocaleString()} to ${nextReward.t}.`}
+            </div>
+            <button onClick={onRedeem} className="primary" style={{marginTop:12,padding:"11px 20px",fontSize:14.5}}>Redeem</button>
+          </div>
+        </div>
+
+        {/* source legend — makes the cooperation explicit */}
+        <div style={{display:"flex",gap:10,marginBottom:20}}>
+          <button onClick={onObserve} style={{flex:1,textAlign:"left",background:T.card,border:`1px solid ${T.line}`,borderRadius:14,padding:"12px 13px",cursor:"pointer"}}>
+            <div className="row" style={{gap:8,marginBottom:5}}><Icon name="eye" size={16} color={T.accent} w={1.9}/><span style={{fontSize:12.5,fontWeight:600}}>Observing</span></div>
+            <div style={{fontSize:12,color:T.ink55}}>{obsCount} logged · tap to add today</div>
+          </button>
+          <div style={{flex:1,background:T.card,border:`1px solid ${T.line}`,borderRadius:14,padding:"12px 13px"}}>
+            <div className="row" style={{gap:8,marginBottom:5}}><Icon name="target" size={16} color={T.accent} w={1.9}/><span style={{fontSize:12.5,fontWeight:600}}>Goals</span></div>
+            <div style={{fontSize:12,color:T.ink55}}>{stepsDone} steps ticked off</div>
+          </div>
+        </div>
+
+        {/* GOALS section */}
+        <div className="row" style={{justifyContent:"space-between",alignItems:"baseline",margin:"0 2px 4px"}}>
+          <h1 style={{fontFamily:T.title,fontWeight:600,fontSize:22,lineHeight:1.1,letterSpacing:"-0.01em",margin:0}}>Goals</h1>
+          <button onClick={onSetGoal} style={{background:"none",border:"none",color:T.accent,fontFamily:T.body,fontWeight:600,fontSize:13.5,cursor:"pointer",display:"flex",alignItems:"center",gap:4,padding:0}}>
+            <Icon name="plus" size={15} w={2.1}/>Set a goal
+          </button>
+        </div>
+        <p style={{fontSize:13.5,color:T.ink55,lineHeight:1.5,margin:"0 2px 14px"}}>
+          Small steps you're working on with {CHILD.name}. Each step you tick off earns points too.
+        </p>
+
+        {goals.length===0 ? (
+          <button onClick={onSetGoal} style={{width:"100%",textAlign:"left",background:T.card,border:`1px dashed ${T.lineStrong}`,borderRadius:16,padding:18,cursor:"pointer",display:"flex",alignItems:"center",gap:14}}>
+            <IconChip name="target" bg={T.tintBg} fg={T.tintTx} size={42}/>
+            <div>
+              <div style={{fontSize:15,fontWeight:600}}>Set your first goal</div>
+              <div style={{fontSize:12.5,color:T.ink55,marginTop:2}}>Pick something small and specific to work towards.</div>
+            </div>
+          </button>
+        ) : goals.map(g=>{
+          const A=AREAS[g.area], done=g.steps.filter(s=>s.done).length, pct=Math.round(done/g.steps.length*100);
+          const complete = done===g.steps.length;
+          return (
+            <button key={g.id} onClick={()=>onOpenGoal(g)} style={{width:"100%",textAlign:"left",background:T.card,border:`1px solid ${T.line}`,borderRadius:16,padding:16,marginBottom:11,cursor:"pointer"}}>
+              <div className="row" style={{gap:12}}>
+                <IconChip name={A.icon} bg={A.bg} fg={A.tx} size={42}/>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:15.5,fontWeight:600,lineHeight:1.25}}>{g.title}</div>
+                  <div style={{fontSize:12,color:A.tx,marginTop:3,fontWeight:600}}>{A.name}</div>
+                </div>
+                <span style={{color:T.ink40}}><Icon name="chevron" size={18} w={2}/></span>
+              </div>
+              <div style={{height:8,borderRadius:999,background:A.bg,overflow:"hidden",marginTop:14}}>
+                <div style={{width:`${pct}%`,height:"100%",background:A.tx,borderRadius:999,transition:"width .4s ease"}}/>
+              </div>
+              <div className="row" style={{justifyContent:"space-between",marginTop:8}}>
+                <span style={{fontSize:12,color:T.ink55,fontWeight:500}}>{complete?"All steps done":`${done} of ${g.steps.length} steps`}</span>
+                <span style={{fontSize:12,color:T.ink40}}>{complete?"🌱 reached":`earns as you go`}</span>
+              </div>
+            </button>
+          );
+        })}
+
+        <div style={{fontSize:11.5,color:T.ink40,lineHeight:1.55,marginTop:12,padding:"0 2px"}}>
+          Points reward the steady work of showing up — never a deadline, and never {CHILD.name}'s score. A quiet week is completely fine.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ================= SET A GOAL ================= */
+function GoalNew({ onCancel, onSave }){
+  const [area,setArea]=useState(null);
+  const [title,setTitle]=useState("");
+  const [why,setWhy]=useState("");
+  const [steps,setSteps]=useState(["",""]);
+
+  const setStep=(i,v)=>setSteps(s=>s.map((x,j)=>j===i?v:x));
+  const addStep=()=>setSteps(s=>s.length<6?[...s,""]:s);
+  const removeStep=(i)=>setSteps(s=>s.length>1?s.filter((_,j)=>j!==i):s);
+  const cleanSteps = steps.map(s=>s.trim()).filter(Boolean);
+  const canSave = area && title.trim() && cleanSteps.length>=1;
+
+  return (
+    <div style={{minHeight:"100vh",display:"flex",flexDirection:"column"}}>
+      <div className="safe-top row" style={{gap:12,padding:"14px 18px",background:T.card,borderBottom:`1px solid ${T.line}`,position:"sticky",top:0,zIndex:5}}>
+        <button onClick={onCancel} className="icontap" aria-label="Back"><Icon name="back" size={22} w={2} color={T.accent}/></button>
+        <div style={{fontWeight:600,fontSize:17}}>Set a goal</div>
+      </div>
+
+      <div style={{padding:"20px 20px 30px",flex:1}}>
+        <p style={{fontSize:13.5,color:T.ink55,lineHeight:1.5,margin:"0 0 22px"}}>
+          Pick one small, specific thing to work towards with {CHILD.name}. Break it into steps — you'll earn points as you tick each one off.
+        </p>
+
+        <FieldLabel>Focus area</FieldLabel>
+        <div style={{display:"flex",gap:8,marginBottom:22}}>
+          {AREA_LIST.map(key=>{
+            const A=AREAS[key], on=area===key;
+            return (
+              <button key={key} onClick={()=>setArea(key)} style={{flex:1,background:on?A.bg:T.card,border:`1.5px solid ${on?A.tx:T.lineStrong}`,borderRadius:14,padding:"12px 6px",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:7}}>
+                <Icon name={A.icon} size={22} color={on?A.tx:T.ink55} w={1.85}/>
+                <span style={{fontSize:11.5,fontWeight:600,color:on?A.tx:T.ink70,textAlign:"center",lineHeight:1.2}}>{A.name}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <FieldLabel>What are you working towards?</FieldLabel>
+        <input className="input" value={title} onChange={e=>setTitle(e.target.value)} placeholder="e.g. Wave goodbye at drop-off" style={{marginBottom:22}}/>
+
+        <FieldLabel>Why it matters <span style={{color:T.ink40,fontWeight:400}}>· optional</span></FieldLabel>
+        <input className="input" value={why} onChange={e=>setWhy(e.target.value)} placeholder="A line to remind you on the hard days" style={{marginBottom:22}}/>
+
+        <FieldLabel>Small steps to get there</FieldLabel>
+        <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:10}}>
+          {steps.map((s,i)=>(
+            <div key={i} className="row" style={{gap:8}}>
+              <span style={{width:24,height:24,borderRadius:999,background:T.tintBg,color:T.tintTx,fontSize:12,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{i+1}</span>
+              <input className="input" value={s} onChange={e=>setStep(i,e.target.value)} placeholder={i===0?"First tiny step":"Next step"} style={{flex:1}}/>
+              {steps.length>1 && <button onClick={()=>removeStep(i)} className="icontap" style={{background:"transparent"}} aria-label="Remove step"><Icon name="x" size={18} w={2} color={T.ink40}/></button>}
+            </div>
+          ))}
+        </div>
+        {steps.length<6 && (
+          <button onClick={addStep} style={{background:"none",border:"none",color:T.accent,fontFamily:T.body,fontWeight:600,fontSize:14,cursor:"pointer",display:"flex",alignItems:"center",gap:6,padding:"4px 2px"}}>
+            <Icon name="plus" size={16} w={2.1}/>Add a step
+          </button>
+        )}
+
+        <div style={{background:T.tintBg,borderRadius:12,padding:"12px 14px",fontSize:12.5,color:T.tintTx,lineHeight:1.5,margin:"18px 0 22px"}}>
+          Each step earns <b>{POINTS_PER_GOAL_STEP} points</b> when you tick it off — the same points you redeem for Bonda rewards.
+        </div>
+
+        <button className="primary" style={{width:"100%"}} disabled={!canSave}
+          onClick={()=>onSave({area,title:title.trim(),why:why.trim(),steps:cleanSteps.map(t=>({t,done:false}))})}>
+          Start this goal
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ================= GOAL DETAIL ================= */
+function GoalDetail({ goal, onBack, onToggle, onSetGoal }){
+  const A=AREAS[goal.area];
+  const done=goal.steps.filter(s=>s.done).length, pct=Math.round(done/goal.steps.length*100);
+  const complete=done===goal.steps.length;
+
+  return (
+    <div style={{minHeight:"100vh"}}>
+      <div className="safe-top row" style={{gap:12,padding:"14px 18px",background:T.card,borderBottom:`1px solid ${T.line}`,position:"sticky",top:0,zIndex:5}}>
+        <button onClick={onBack} className="icontap" aria-label="Back"><Icon name="back" size={22} w={2} color={T.accent}/></button>
+        <div style={{fontWeight:600,fontSize:17}}>Goal</div>
+      </div>
+
+      <div style={{padding:"20px 20px 34px"}}>
+        <div className="row" style={{gap:10,marginBottom:12}}>
+          <IconChip name={A.icon} bg={A.bg} fg={A.tx} size={40}/>
+          <span style={{fontSize:12,fontWeight:700,color:A.tx,letterSpacing:"0.03em",textTransform:"uppercase"}}>{A.name}</span>
+        </div>
+        <h1 style={{fontFamily:T.title,fontWeight:600,fontSize:25,lineHeight:1.2,letterSpacing:"-0.01em",margin:"0 0 8px"}}>{goal.title}</h1>
+        {goal.why && <p style={{fontSize:14,color:T.ink55,lineHeight:1.5,margin:"0 0 18px"}}>{goal.why}</p>}
+
+        <div style={{height:9,borderRadius:999,background:A.bg,overflow:"hidden",marginBottom:8}}>
+          <div style={{width:`${pct}%`,height:"100%",background:A.tx,borderRadius:999,transition:"width .4s ease"}}/>
+        </div>
+        <div className="row" style={{justifyContent:"space-between",marginBottom:22}}>
+          <span style={{fontSize:12.5,color:T.ink55,fontWeight:500}}>{done} of {goal.steps.length} steps</span>
+          <span style={{fontSize:12.5,color:T.ink40}}>{POINTS_PER_GOAL_STEP} points each</span>
+        </div>
+
+        {complete && (
+          <div style={{background:T.tintBg,borderRadius:16,padding:"16px 16px",marginBottom:18,display:"flex",gap:12,alignItems:"flex-start"}}>
+            <Icon name="spark" size={22} color={T.tintTx} w={1.8}/>
+            <div>
+              <div style={{fontFamily:T.title,fontWeight:600,fontSize:16,color:T.ink}}>You reached this with {CHILD.name}</div>
+              <div style={{fontSize:12.5,color:T.tintTx,marginTop:3,lineHeight:1.5}}>However long it took, that's real progress worth marking. Ready for the next small thing?</div>
+            </div>
+          </div>
+        )}
+
+        <FieldLabel>Steps</FieldLabel>
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          {goal.steps.map((s,i)=>(
+            <button key={i} onClick={()=>onToggle(goal.id,i)} style={{textAlign:"left",background:s.done?A.bg:T.card,border:`1.5px solid ${s.done?A.tx:T.lineStrong}`,borderRadius:14,padding:"14px 15px",cursor:"pointer",display:"flex",alignItems:"center",gap:13}}>
+              <span style={{width:26,height:26,borderRadius:999,flexShrink:0,border:`2px solid ${s.done?A.tx:T.lineStrong}`,background:s.done?A.tx:"transparent",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                {s.done && <Icon name="check" size={14} w={2.4} color="#fff"/>}
+              </span>
+              <span style={{fontSize:15,fontWeight:s.done?600:500,color:s.done?A.tx:T.ink,lineHeight:1.35}}>{s.t}</span>
+            </button>
+          ))}
+        </div>
+
+        {complete && <button onClick={onSetGoal} className="outline" style={{marginTop:18}}>Set another goal</button>}
+
+        <div style={{fontSize:11.5,color:T.ink40,lineHeight:1.55,marginTop:18,padding:"0 2px"}}>
+          Tick a step only when you've truly seen it — points reward honest, steady effort, not rushing {CHILD.name} along.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ================= REDEEM ================= */
+function Redeem({ points, obsCount, stepsDone, claimed, onRedeem, onClose }){
+  return (
+    <div style={{minHeight:"100vh",display:"flex",flexDirection:"column"}}>
+      <div className="safe-top row" style={{gap:12,padding:"14px 18px",background:T.card,borderBottom:`1px solid ${T.line}`,position:"sticky",top:0,zIndex:5}}>
+        <button onClick={onClose} className="icontap" aria-label="Back"><Icon name="back" size={22} w={2} color={T.accent}/></button>
+        <div style={{fontWeight:600,fontSize:17}}>Redeem points</div>
+      </div>
+
+      <div style={{padding:"18px 18px 30px",flex:1}}>
+        <div className="row" style={{gap:12,marginBottom:6}}>
+          <IconChip name="coin" bg={T.tintBg} fg={T.tintTx} size={40}/>
+          <div>
+            <div style={{fontFamily:T.title,fontWeight:600,fontSize:22,lineHeight:1.1}}>{points.toLocaleString()} points</div>
+            <div style={{fontSize:12.5,color:T.ink55}}>from {obsCount} observations · {stepsDone} goal steps</div>
+          </div>
+        </div>
+        <p style={{fontSize:12.5,color:T.ink40,lineHeight:1.5,margin:"8px 2px 18px"}}>
+          Points come from observing and working on goals. Reach a reward's total to unlock it — redeeming doesn't spend your points.
+        </p>
+
+        {REWARDS.map(r=>{
+          const code=claimed[r.id], afford=points>=r.cost;
+          return (
+            <div key={r.id} style={{background:T.card,border:`1px solid ${code?T.tintBg:T.line}`,borderRadius:16,padding:16,marginBottom:12}}>
+              <div className="row" style={{alignItems:"flex-start",gap:12}}>
+                <IconChip name="gift" bg={T.tintBg} fg={T.tintTx} size={40}/>
+                <div style={{flex:1,minWidth:0}}>
+                  <div className="row" style={{gap:8,flexWrap:"wrap"}}>
+                    <span style={{fontFamily:T.title,fontWeight:600,fontSize:16}}>{r.title}</span>
+                    {r.popular && <span style={{fontSize:10.5,fontWeight:600,color:T.tintTx,background:T.tintBg,padding:"3px 8px",borderRadius:999}}>Most popular</span>}
+                  </div>
+                  <div style={{fontSize:12.5,color:T.ink55,marginTop:3,lineHeight:1.45}}>{r.detail}</div>
+                </div>
+              </div>
+              <div className="row" style={{justifyContent:"space-between",gap:12,marginTop:14}}>
+                <span style={{fontSize:13,fontWeight:600,color:T.ink70}}>{r.cost.toLocaleString()} points</span>
+                {code ? <span style={{fontSize:12.5,color:T.tintTx,fontWeight:600}}>Redeemed · <span style={{fontFamily:T.mono,color:T.ink}}>{code}</span></span>
+                  : afford ? <button onClick={()=>onRedeem(r)} className="primary" style={{padding:"10px 18px",fontSize:14}}>Redeem</button>
+                  : <span style={{fontSize:12.5,color:T.ink40}}>Need {(r.cost-points).toLocaleString()} more</span>}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function FieldLabel({ children }){ return <div style={{fontSize:13,fontWeight:600,color:T.ink70,marginBottom:9}}>{children}</div>; }
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>

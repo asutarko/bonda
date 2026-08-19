@@ -30,6 +30,7 @@ export const SUPPORT = [
 export const TARGET = [
   { key: "all", label: "All" },
   { key: "ASD", label: "Autism (ASD)" },
+  { key: "ADHD", label: "ADHD" },
   { key: "special_needs", label: "Special needs" },
   { key: "pwd", label: "Disability (PWD)" },
 ];

@@ -245,7 +245,6 @@ export function DevelopmentGuideScreen() {
 
   return (
     <Page>
-      <h2 style={{ margin: "0 0 6px", color: T.ink, fontSize: 22, fontWeight: 800 }}>Development & Behaviour Guide</h2>
       <p style={{ margin: "0 0 20px", color: T.inkSoft, fontSize: 14, lineHeight: 1.6 }}>Research-backed activities and strategies to support your child — at home and at school.</p>
 
       <div style={{ display: "flex", background: T.border, borderRadius: T.r, padding: 3, gap: 3, marginBottom: 20 }}>

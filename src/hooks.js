@@ -13,6 +13,8 @@ export const childFromRow = (row) => ({
   scheduleItems: row.schedule_items?.length ? row.schedule_items : DEFAULT_SCHEDULE,
   history: row.history || [],
   devLog: row.dev_log || [],
+  growthObservations: row.growth_observations || [],
+  growthClaims: row.growth_claims || {},
   todayDone: row.today_done || {},
   todayDoneDate: row.today_done_date || null,
   hasSpecialNeeds: row.has_special_needs || false,
@@ -20,6 +22,8 @@ export const childFromRow = (row) => ({
   knownTriggers: row.known_triggers || "",
   therapySchedule: row.therapy_schedule || "",
   dietProgram: row.diet_program || "",
+  allergies: row.allergies || "",
+  medication: row.medication || "",
   diagnosis: row.diagnosis || "",
   placementStartDate: row.placement_start_date || "",
   fosteringAgency: row.fostering_agency || "",
@@ -64,9 +68,12 @@ export function useChildren(userId) {
   const addChild = async (child) => {
     // A real photo arrives as a "data:image/..." URL — upload it to Storage
     // (assets/children/) and store only its public URL, not the raw bytes.
+    // This child has no id yet, so a fresh random key scopes the upload to
+    // just this photo — otherwise it'd share the account-wide prefix and the
+    // stale-cleanup in uploadPhoto could delete an existing sibling's photo.
     let emoji = child.emoji;
     if (emoji && emoji.startsWith("data:")) {
-      const url = await uploadPhoto(emoji, "children", userId);
+      const url = await uploadPhoto(emoji, "children", userId, crypto.randomUUID());
       if (url) emoji = url;
     }
     const { data, error } = await supabase.from("children").insert({
@@ -80,11 +87,15 @@ export function useChildren(userId) {
       schedule_items: DEFAULT_SCHEDULE,
       history: [],
       dev_log: [],
+      growth_observations: [],
+      growth_claims: {},
       has_special_needs: child.hasSpecialNeeds || false,
       verbal_status: child.hasSpecialNeeds ? (child.verbalStatus || "") : "",
       known_triggers: child.hasSpecialNeeds ? (child.knownTriggers || "") : "",
       therapy_schedule: child.hasSpecialNeeds ? (child.therapySchedule || "") : "",
       diet_program: child.hasSpecialNeeds ? (child.dietProgram || "") : "",
+      allergies: child.allergies || "",
+      medication: child.medication || "",
       diagnosis: child.diagnosis || "",
       placement_start_date: child.placementStartDate || null,
       fostering_agency: child.fosteringAgency || "",
@@ -117,6 +128,8 @@ export function useChildren(userId) {
     if ("scheduleItems" in patch) dbPatch.schedule_items = patch.scheduleItems;
     if ("history" in patch) dbPatch.history = patch.history;
     if ("devLog" in patch) dbPatch.dev_log = patch.devLog;
+    if ("growthObservations" in patch) dbPatch.growth_observations = patch.growthObservations;
+    if ("growthClaims" in patch) dbPatch.growth_claims = patch.growthClaims;
     if ("todayDone" in patch) dbPatch.today_done = patch.todayDone;
     if ("todayDoneDate" in patch) dbPatch.today_done_date = patch.todayDoneDate;
     if ("hasSpecialNeeds" in patch) dbPatch.has_special_needs = patch.hasSpecialNeeds;
@@ -124,6 +137,8 @@ export function useChildren(userId) {
     if ("knownTriggers" in patch) dbPatch.known_triggers = patch.knownTriggers;
     if ("therapySchedule" in patch) dbPatch.therapy_schedule = patch.therapySchedule;
     if ("dietProgram" in patch) dbPatch.diet_program = patch.dietProgram;
+    if ("allergies" in patch) dbPatch.allergies = patch.allergies;
+    if ("medication" in patch) dbPatch.medication = patch.medication;
     if ("diagnosis" in patch) dbPatch.diagnosis = patch.diagnosis;
     if ("placementStartDate" in patch) dbPatch.placement_start_date = patch.placementStartDate || null;
     if ("fosteringAgency" in patch) dbPatch.fostering_agency = patch.fosteringAgency;
@@ -192,19 +207,25 @@ export const dataUrlToBlob = (dataUrl) => {
 // and returns its public URL — so only a short link is stored in the database/JWT,
 // never the raw image bytes (which previously bloated the auth token past 100KB).
 
-export const uploadPhoto = async (dataUrl, folder, ownerId) => {
+// entityId scopes the stale-cleanup below to one specific record (e.g. one
+// child) rather than the whole account — without it, uploading a photo for
+// one of several children under the same account would also delete the
+// others' photos, since they'd all share the same "ownerId-" prefix.
+export const uploadPhoto = async (dataUrl, folder, ownerId, entityId) => {
   if (!dataUrl || !dataUrl.startsWith("data:")) return null;
   const blob = dataUrlToBlob(dataUrl);
   const dir = `assets/${folder}`;
-  const fileName = `${ownerId}-${Date.now()}.jpg`;
+  const key = entityId ? `${ownerId}-${entityId}` : ownerId;
+  const fileName = `${key}-${Date.now()}.jpg`;
   const path = `${dir}/${fileName}`;
   const { error } = await supabase.storage.from("public").upload(path, blob, { contentType: blob.type, upsert: true });
   if (error) { console.error(`Failed to upload ${folder} photo:`, error.message); return null; }
 
-  // Remove this owner's previous photo(s) so old uploads don't pile up in storage.
-  const { data: existing } = await supabase.storage.from("public").list(dir, { search: `${ownerId}-` });
+  // Remove this owner's (or, with entityId, this specific record's) previous
+  // photo(s) so old uploads don't pile up in storage.
+  const { data: existing } = await supabase.storage.from("public").list(dir, { search: `${key}-` });
   const stale = (existing || [])
-    .filter(f => f.name.startsWith(`${ownerId}-`) && f.name !== fileName)
+    .filter(f => f.name.startsWith(`${key}-`) && f.name !== fileName)
     .map(f => `${dir}/${f.name}`);
   if (stale.length) await supabase.storage.from("public").remove(stale);
 

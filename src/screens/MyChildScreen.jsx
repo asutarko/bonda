@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "../lib/supabase";
 import { T } from "../theme";
-import { Page, SectionLabel, Card, Badge, Btn, Input, TextArea, Select, Avatar, Accordion, PageHero, AvatarIllustrations, ChildAvatar, ComAvatar, ROOM_ICONS, ACTIVITY_TEXTAREA_STYLE, ActionIllustration, HeroIllustration } from "../ui";
+import { Page, SectionLabel, Card, Badge, Btn, Input, TextArea, Select, Avatar, Accordion, PageHero, AvatarIllustrations, ComAvatar, ROOM_ICONS, ACTIVITY_TEXTAREA_STYLE, ActionIllustration, HeroIllustration } from "../ui";
 import { CHILD_AVATARS, DEFAULT_CHILDREN, DEFAULT_SCHEDULE, ROOM_COLORS, SOS_COLORS, VERBAL_STATUS_OPTIONS } from "../data";
 import { ChildProfileForm } from "./onboarding";
-import { MedicalDisclaimerBanner } from "../components/bonda-compliance";
+import { GrowthTrackerSection } from "./GrowthTracker";
 
 export const DEV_LOG_CATEGORIES = [
   { key: "sleep",         label: "Sleep",         emoji: "😴", color: T.purple },
@@ -372,8 +372,12 @@ export function DevLogSection({ activeChild, updateChild }) {
   );
 }
 
+// Development and Growth Tracker sub-tabs are temporarily hidden on the child
+// profile screen. Flip this back to true to restore both tabs.
+const SHOW_DEV_GROWTH_TABS = false;
+
 export function MyChildScreen({ childCtx, push }) {
-  const [subTab, setSubTab] = useState("profile"); // profile | devlog
+  const [subTab, setSubTab] = useState("profile"); // profile | devlog | growth
 
   const { activeChild, children, updateChild } = childCtx || {};
   const isFosterChild = activeChild?.caregiverType === "foster";
@@ -414,15 +418,12 @@ export function MyChildScreen({ childCtx, push }) {
 
   return (
     <Page>
-      <MedicalDisclaimerBanner />
-
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: children?.length > 1 ? 6 : 20 }}>
-        <ChildAvatar value={activeChild.emoji} size={36} active={true} borderColor={T.purple} />
         <p style={{ margin: 0, fontWeight: 800, color: T.ink, fontSize: 16 }}>{activeChild.name}</p>
         {ageFromDob(activeChild.dob) && (
           <span style={{ background: T.purpleL, color: T.purple, fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 99 }}>{ageFromDob(activeChild.dob)}</span>
         )}
-        <span style={{ background: activeChild.active ? T.greenL : T.amberL, color: activeChild.active ? T.green : T.amber, fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 99 }}>{activeChild.active ? "Active" : "Pending approval"}</span>
+        <span style={{ background: activeChild.active ? T.greenL : T.amberL, color: activeChild.active ? T.green : T.amber, fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 99 }}>{activeChild.active ? "Active" : "Inactive"}</span>
       </div>
 
       {children?.length > 1 && (
@@ -443,28 +444,34 @@ export function MyChildScreen({ childCtx, push }) {
         </div>
       )}
 
-      <div style={{ display: "flex", background: T.border, borderRadius: T.r, padding: 3, gap: 3, marginBottom: isChildActive ? 24 : 8 }}>
-        {[["profile","Child Profile"],["devlog","Development"]].map(([v, l]) => {
-          const disabled = v === "devlog" && !isChildActive;
-          return (
-            <button key={v} onClick={() => !disabled && setSubTab(v)} disabled={disabled}
-              style={{ flex: 1, padding: "10px", borderRadius: 9, background: subTab === v ? T.surface : "transparent", border: "none", fontWeight: 700, fontSize: 13, color: disabled ? T.inkMuted : (subTab === v ? T.ink : T.inkMuted), cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.5 : 1, fontFamily: T.fontBody, boxShadow: subTab === v ? T.shadow : "none", transition: "all 0.2s" }}>
-              {l}
-            </button>
-          );
-        })}
-      </div>
+      {SHOW_DEV_GROWTH_TABS && (
+        <div style={{ display: "flex", background: T.border, borderRadius: T.r, padding: 3, gap: 3, marginBottom: isChildActive ? 24 : 8 }}>
+          {[["profile","Child Profile"],["devlog","Development"],["growth","Growth Tracker"]].map(([v, l]) => {
+            const disabled = v === "devlog" && !isChildActive;
+            return (
+              <button key={v} onClick={() => !disabled && setSubTab(v)} disabled={disabled}
+                style={{ flex: 1, padding: "10px", borderRadius: 9, background: subTab === v ? T.surface : "transparent", border: "none", fontWeight: 700, fontSize: 13, color: disabled ? T.inkMuted : (subTab === v ? T.ink : T.inkMuted), cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.5 : 1, fontFamily: T.fontBody, boxShadow: subTab === v ? T.shadow : "none", transition: "all 0.2s" }}>
+                {l}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
-      {!isChildActive && (
+      {SHOW_DEV_GROWTH_TABS && !isChildActive && (
         <p style={{ margin: "0 0 20px", color: T.inkMuted, fontSize: 12, lineHeight: 1.5 }}>Development log unlocks once {activeChild.name}'s profile is approved.</p>
       )}
 
-      {subTab === "profile" && (
+      {(!SHOW_DEV_GROWTH_TABS || subTab === "profile") && (
         <ChildProfileForm childCtx={childCtx} showHeader={false} />
       )}
 
-      {subTab === "devlog" && (
+      {SHOW_DEV_GROWTH_TABS && subTab === "devlog" && (
         <DevLogSection activeChild={activeChild} updateChild={updateChild} />
+      )}
+
+      {SHOW_DEV_GROWTH_TABS && subTab === "growth" && (
+        <GrowthTrackerSection activeChild={activeChild} updateChild={updateChild} />
       )}
     </Page>
   );

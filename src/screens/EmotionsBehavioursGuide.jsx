@@ -3,6 +3,7 @@ import { supabase } from "../lib/supabase";
 import { T } from "../theme";
 import { Page, SectionLabel, Card, Badge } from "../ui";
 import { MedicalDisclaimerBanner } from "../components/bonda-compliance";
+import { useBackHandler } from "../hooks";
 
 export const emotionFromRow = (row) => ({
   id: row.key,
@@ -52,8 +53,13 @@ export function EmotionsBehavioursScreen({ pop }) {
     loadBehaviours();
   }, []);
 
-  if (activeBehaviour) return <BehaviourDetail b={activeBehaviour} onBack={() => setActiveBehaviour(null)} />;
-  if (activeEmotion) return <EmotionDetail e={activeEmotion} tab={emotionTab} setTab={setEmotionTab} onBack={() => setActiveEmotion(null)} />;
+  // Lets the app-bar back button (and hardware/browser back) return to the
+  // list instead of exiting this screen while a detail view is open.
+  useBackHandler(!!activeBehaviour, () => setActiveBehaviour(null));
+  useBackHandler(!!activeEmotion, () => setActiveEmotion(null));
+
+  if (activeBehaviour) return <BehaviourDetail b={activeBehaviour} />;
+  if (activeEmotion) return <EmotionDetail e={activeEmotion} tab={emotionTab} setTab={setEmotionTab} />;
 
   return (
     <Page>
@@ -444,14 +450,11 @@ export const SignActionIcon = ({ title, color, bg, active }) => {
   );
 };
 
-export function EmotionDetail({ e, tab, setTab, onBack }) {
+export function EmotionDetail({ e, tab, setTab }) {
   const [openIdx, setOpenIdx] = useState(null);
   const items = tab === "signs" ? e.signs : e.actions;
   return (
     <Page>
-      <button onClick={onBack} style={{ background: "none", border: "none", color: T.purple, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody, padding: "0 0 16px", display: "flex", alignItems: "center", gap: 6 }}>← Back</button>
-
-
       <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 20, padding: "16px 18px", background: e.bg, borderRadius: T.rL }}>
         <div style={{ width: 56, height: 56, borderRadius: "50%", flexShrink: 0, overflow: "hidden", border: `2px solid ${e.color}30` }}>
           <EmotionIllustration id={e.id} size={56} />
@@ -501,12 +504,11 @@ export function EmotionDetail({ e, tab, setTab, onBack }) {
   );
 }
 
-export function BehaviourDetail({ b, onBack }) {
+export function BehaviourDetail({ b }) {
   const [openWhy, setOpenWhy] = useState(null);
   const [showActions, setShowActions] = useState(false);
   return (
     <Page>
-      <button onClick={onBack} style={{ background: "none", border: "none", color: T.purple, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody, padding: "0 0 16px", display: "flex", alignItems: "center", gap: 6 }}>← Back</button>
       {b.urgency && (
         <div style={{ background: T.redL, borderRadius: T.r, padding: "12px 14px", marginBottom: 16, border: `1px solid ${T.red}30` }}>
           <p style={{ margin: 0, color: T.red, fontWeight: 800, fontSize: 13, lineHeight: 1.6 }}>{b.urgency}</p>
