@@ -9,29 +9,6 @@ import { useBackHandler } from "../hooks";
 export const EMOJI_OPTS = ["🌅","🍳","🥗","🍎","🦷","🛁","👗","🎨","📚","🎮","🏃","🧩","🎵","🌳","😴","🚌","🏠","💊","🧸","🐾","🎭","🖥️","🏊","🛌","⭐","🎯","🏋️","🛝"];
 //  EMOTION DATA
 
-// Quick-add presets for the "New Activity" modal — one tap fills emoji, label
-// and duration, so a caregiver isn't retyping the same routine every day.
-const ADD_ACTIVITY_TEMPLATES = [
-  { emoji: "🌅", label: "Wake Up",              category: "routine",  duration: 15 },
-  { emoji: "🪥", label: "Brush Teeth",          category: "routine",  duration: 5 },
-  { emoji: "🛁", label: "Bath",                 category: "routine",  duration: 20 },
-  { emoji: "💊", label: "Medication",           category: "routine",  duration: 5 },
-  { emoji: "🍳", label: "Breakfast",            category: "meals",    duration: 30 },
-  { emoji: "🥗", label: "Lunch",                category: "meals",    duration: 30 },
-  { emoji: "🍽️", label: "Dinner",               category: "meals",    duration: 30 },
-  { emoji: "🧩", label: "Occupational Therapy", category: "therapy",  duration: 60 },
-  { emoji: "🗣️", label: "Speech Therapy",       category: "therapy",  duration: 45 },
-  { emoji: "🎨", label: "Art Therapy",          category: "therapy",  duration: 45 },
-  { emoji: "🧸", label: "Free Play",            category: "play",     duration: 30 },
-  { emoji: "🎵", label: "Music Time",           category: "play",     duration: 20 },
-  { emoji: "🏃", label: "Exercise",             category: "play",     duration: 30 },
-  { emoji: "🖥️", label: "Screen Time",          category: "play",     duration: 30 },
-  { emoji: "📚", label: "Study Time",           category: "learning", duration: 30 },
-  { emoji: "😴", label: "Nap",                  category: "rest",     duration: 60 },
-  { emoji: "🤗", label: "Quiet Time",           category: "rest",     duration: 15 },
-  { emoji: "🌙", label: "Bedtime",              category: "rest",     duration: 0 },
-];
-const TEMPLATE_CATEGORIES = { routine: "🔁 Routine", meals: "🍴 Meals", therapy: "💜 Therapy", play: "🎈 Play", learning: "📖 Learning", rest: "😌 Rest" };
 
 // Per-category accent used to color timeline blocks and category pills —
 // falls back to the primary teal for items with no category (legacy items,
@@ -162,14 +139,13 @@ const WEEKDAYS = ["M", "T", "W", "T", "F", "S", "S"];
 
 const rowMenuBtn = { width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", border: "none", background: "none", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody, textAlign: "left" };
 
-// 15-minute increments, 12-hour labels — matches Google Calendar's time picker.
+// 15-minute increments, 24-hour labels — matches Google Calendar's time picker.
 const TIME_OPTIONS = (() => {
   const opts = [];
   for (let h = 0; h < 24; h++) {
     for (let m = 0; m < 60; m += 15) {
       const value = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-      const h12 = h % 12 === 0 ? 12 : h % 12;
-      opts.push({ value, label: `${h12}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}` });
+      opts.push({ value, label: value });
     }
   }
   return opts;
@@ -177,10 +153,7 @@ const TIME_OPTIONS = (() => {
 
 function formatTimeLabel(value) {
   if (!value) return "";
-  const [hStr, mStr] = value.split(":");
-  const h = parseInt(hStr, 10);
-  const h12 = h % 12 === 0 ? 12 : h % 12;
-  return `${h12}:${mStr} ${h < 12 ? "AM" : "PM"}`;
+  return value;
 }
 
 // Click-to-open dropdown of 15-min time slots, styled like Google Calendar's
@@ -288,107 +261,34 @@ function DayChips({ selected, onSet }) {
   );
 }
 
-const modeTabBtn = active => ({ flex: 1, padding: 10, borderRadius: T.r, border: `1.5px solid ${active ? T.purple : T.border}`, background: active ? T.purpleL : T.surface, fontSize: 13, fontWeight: 700, color: active ? T.purple : T.inkMuted, cursor: "pointer", fontFamily: T.fontBody });
-const catChipBtn = active => ({ padding: "6px 12px", borderRadius: 99, border: `1.5px solid ${active ? T.purple : T.border}`, background: active ? T.purpleL : T.surface, fontSize: 12, fontWeight: 700, color: active ? T.purple : T.inkMuted, cursor: "pointer", fontFamily: T.fontBody, whiteSpace: "nowrap" });
-
-// Colored category pills for the add/edit form — same six buckets as the
-// template picker, but selectable on their own for custom activities and
-// re-editable after a template's been picked.
-function CategoryPills({ value, onChange }) {
-  return (
-    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-      {Object.entries(TEMPLATE_CATEGORIES).map(([k, label]) => {
-        const { c, l } = categoryColor(k);
-        const active = value === k;
-        return (
-          <button key={k} type="button" onClick={() => onChange(active ? null : k)} style={{ padding: "6px 12px", borderRadius: 99, border: `1.5px solid ${active ? c : T.border}`, background: active ? l : T.surface, fontSize: 12, fontWeight: 700, color: active ? c : T.inkMuted, cursor: "pointer", fontFamily: T.fontBody, whiteSpace: "nowrap" }}>{label}</button>
-        );
-      })}
-    </div>
-  );
-}
-
-// Bottom-sheet for creating an "Added by you" activity — tap a template
-// (emoji + label + duration filled in one go) or build a custom one, then set
-// the time, an optional repeat pattern and notes.
+// Bottom-sheet for creating an "Added by you" activity — name, time and an
+// optional repeat pattern, fully custom-built by the caregiver.
 function AddActivityModal({ newItem, setNewItem, showEmojiPicker, setShowEmojiPicker, onAdd, onClose }) {
-  const [mode, setMode] = useState("template");
-  const [selectedCat, setSelectedCat] = useState(null);
-  const filtered = selectedCat ? ADD_ACTIVITY_TEMPLATES.filter(t => t.category === selectedCat) : ADD_ACTIVITY_TEMPLATES;
-  const pickTemplate = t => setNewItem(n => ({ ...n, emoji: t.emoji, label: t.label, category: t.category, endTime: t.duration > 0 ? addMinutesToTime(n.time, t.duration) : "" }));
-  const isPicked = t => newItem.emoji === t.emoji && newItem.label === t.label;
-
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(35,32,28,0.45)", zIndex: 1000, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
       <div onClick={e => e.stopPropagation()} style={{ background: T.surface, borderRadius: "24px 24px 0 0", width: "100%", maxWidth: 420, maxHeight: "88vh", overflowY: "auto", boxSizing: "border-box", padding: "20px 20px 28px", boxShadow: T.shadowM, fontFamily: T.fontBody }}>
         <div style={{ width: 40, height: 4, background: T.border, borderRadius: 2, margin: "0 auto 16px" }} />
         <p style={{ margin: "0 0 16px", fontWeight: 800, color: T.ink, fontSize: 17, textAlign: "center" }}>New Activity</p>
 
-        <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-          <button type="button" onClick={() => setMode("template")} style={modeTabBtn(mode === "template")}>📋 Template</button>
-          <button type="button" onClick={() => setMode("custom")} style={modeTabBtn(mode === "custom")}>✏️ Custom</button>
+        <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+          <button type="button" onClick={() => setShowEmojiPicker(!showEmojiPicker)} style={{ fontSize: 24, background: T.surface, border: `1.5px solid ${T.border}`, borderRadius: T.r, padding: "6px 10px", cursor: "pointer" }}>{newItem.emoji}</button>
+          <input value={newItem.label} onChange={e => setNewItem({ ...newItem, label: e.target.value })} placeholder="Activity name" style={{ flex: 1, minWidth: 0, boxSizing: "border-box", padding: "8px 12px", borderRadius: T.r, border: `1.5px solid ${T.purple}`, fontSize: 14, fontFamily: T.fontBody, color: T.ink, outline: "none", background: T.surface }} />
         </div>
+        {showEmojiPicker && <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: 10, background: T.canvas, borderRadius: T.r, marginBottom: 10 }}>{EMOJI_OPTS.map(e => <button key={e} type="button" onClick={() => { setNewItem({ ...newItem, emoji: e }); setShowEmojiPicker(false); }} style={{ fontSize: 20, background: "none", border: "none", cursor: "pointer", borderRadius: 8, padding: 3 }}>{e}</button>)}</div>}
 
-        {mode === "template" ? (
-          <>
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
-              <button type="button" onClick={() => setSelectedCat(null)} style={catChipBtn(!selectedCat)}>All</button>
-              {Object.entries(TEMPLATE_CATEGORIES).map(([k, v]) => (
-                <button key={k} type="button" onClick={() => setSelectedCat(k)} style={catChipBtn(selectedCat === k)}>{v}</button>
-              ))}
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 }}>
-              {filtered.map(t => (
-                <button key={t.label} type="button" onClick={() => pickTemplate(t)} style={{ padding: "14px 10px", borderRadius: T.r, border: `2px solid ${isPicked(t) ? T.purple : T.border}`, background: isPicked(t) ? T.purpleL : T.canvas, cursor: "pointer", textAlign: "center", fontFamily: T.fontBody }}>
-                  <div style={{ fontSize: 28, marginBottom: 4 }}>{t.emoji}</div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: T.ink }}>{t.label}</div>
-                  <div style={{ fontSize: 11, color: T.inkMuted, marginTop: 2 }}>{t.duration > 0 ? `${t.duration} min` : "no end time"}</div>
-                </button>
-              ))}
-            </div>
-          </>
-        ) : (
-          <>
-            <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-              <button type="button" onClick={() => setShowEmojiPicker(!showEmojiPicker)} style={{ fontSize: 24, background: T.surface, border: `1.5px solid ${T.border}`, borderRadius: T.r, padding: "6px 10px", cursor: "pointer" }}>{newItem.emoji}</button>
-              <input value={newItem.label} onChange={e => setNewItem({ ...newItem, label: e.target.value })} placeholder="Activity name" style={{ flex: 1, minWidth: 0, boxSizing: "border-box", padding: "8px 12px", borderRadius: T.r, border: `1.5px solid ${T.purple}`, fontSize: 14, fontFamily: T.fontBody, color: T.ink, outline: "none", background: T.surface }} />
-            </div>
-            {showEmojiPicker && <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: 10, background: T.canvas, borderRadius: T.r, marginBottom: 10 }}>{EMOJI_OPTS.map(e => <button key={e} type="button" onClick={() => { setNewItem({ ...newItem, emoji: e }); setShowEmojiPicker(false); }} style={{ fontSize: 20, background: "none", border: "none", cursor: "pointer", borderRadius: 8, padding: 3 }}>{e}</button>)}</div>}
-          </>
-        )}
-
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-          <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: T.inkMuted }}>Starts</p>
-          {!newItem.endTime && (
-            <button type="button" onClick={() => setNewItem(n => ({ ...n, endTime: addMinutesToTime(n.time, 30) }))} style={{ border: "none", background: "none", cursor: "pointer", fontSize: 11, fontWeight: 700, color: T.purple, fontFamily: T.fontBody }}>
-              + Set end time
-            </button>
-          )}
-        </div>
+        <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkMuted }}>Starts</p>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-          <TimeSelect value={newItem.time} onChange={v => setNewItem({ ...newItem, time: v })} width={newItem.endTime ? 110 : 140} />
-          {newItem.endTime && (
-            <>
-              <TimeSelect value={newItem.endTime} onChange={v => setNewItem({ ...newItem, endTime: v })} width={110} />
-              <button type="button" onClick={() => setNewItem(n => ({ ...n, endTime: "" }))} aria-label="Remove end time" style={{ border: "none", background: "none", cursor: "pointer", fontSize: 16, color: T.inkMuted, padding: "4px 2px", lineHeight: 1 }}>✕</button>
-            </>
-          )}
+          <TimeSelect value={newItem.time} onChange={v => setNewItem({ ...newItem, time: v })} width={110} />
+          <TimeSelect value={newItem.endTime} onChange={v => setNewItem({ ...newItem, endTime: v })} width={110} />
+          <button type="button" onClick={() => setNewItem(n => ({ ...n, endTime: "" }))} aria-label="Remove end time" style={{ border: "none", background: "none", cursor: "pointer", fontSize: 16, color: T.inkMuted, padding: "4px 2px", lineHeight: 1 }}>✕</button>
         </div>
 
-        <p style={{ margin: "14px 0 8px", fontSize: 12, fontWeight: 700, color: T.inkMuted }}>Category</p>
-        <div style={{ marginBottom: 14 }}>
-          <CategoryPills value={newItem.category} onChange={cat => setNewItem({ ...newItem, category: cat })} />
-        </div>
-
-        <button type="button" onClick={() => setNewItem(n => ({ ...n, isRecurring: !n.isRecurring, days: !n.isRecurring && n.days.length === 0 ? [1, 2, 3, 4, 5] : n.days }))} style={{ border: "none", background: "none", padding: "0 0 10px", cursor: "pointer", fontSize: 12, fontWeight: 700, color: T.purple, fontFamily: T.fontBody, display: "block" }}>
+        <button type="button" onClick={() => setNewItem(n => ({ ...n, isRecurring: !n.isRecurring, days: !n.isRecurring && n.days.length === 0 ? [1, 2, 3, 4, 5] : n.days }))} style={{ border: "none", background: "none", padding: "10px 0", cursor: "pointer", fontSize: 12, fontWeight: 700, color: T.purple, fontFamily: T.fontBody, display: "block" }}>
           {newItem.isRecurring ? "✕ Remove day pattern" : "+ Repeat on specific days (e.g. school on weekdays)"}
         </button>
         {newItem.isRecurring && <DayChips selected={newItem.days} onSet={d => setNewItem({ ...newItem, days: d })} />}
 
-        <p style={{ margin: "10px 0 8px", fontSize: 12, fontWeight: 700, color: T.inkMuted }}>Notes (optional)</p>
-        <input value={newItem.notes} onChange={e => setNewItem({ ...newItem, notes: e.target.value })} placeholder="e.g. Avoid loud noises" style={{ width: "100%", boxSizing: "border-box", padding: "8px 12px", borderRadius: T.r, border: `1.5px solid ${T.border}`, fontSize: 13, fontFamily: T.fontBody, color: T.ink, outline: "none", background: T.surface, marginBottom: 16 }} />
-
-        <p style={{ margin: "0 0 12px", color: T.inkMuted, fontSize: 11, lineHeight: 1.5 }}>You can edit or remove this anytime — it's yours, not an essential.</p>
+        <p style={{ margin: "10px 0 12px", color: T.inkMuted, fontSize: 11, lineHeight: 1.5 }}>You can edit or remove this anytime — it's yours, not an essential.</p>
 
         <div style={{ display: "flex", gap: 8 }}>
           <Btn onClick={onAdd} disabled={!newItem.label.trim()} style={{ flex: 1 }}>Add ✓</Btn>
@@ -667,7 +567,7 @@ export function ScheduleScreen({ childCtx, push }) {
   const [dragId, setDragId] = useState(null);
   const [dragOverId, setDragOverId] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
-  const [newItem, setNewItem] = useState({ emoji: "⭐", label: "", time: "08:00", endTime: "08:30", category: null, notes: "", days: [], isRecurring: false });
+  const [newItem, setNewItem] = useState({ emoji: "⭐", label: "", time: "08:00", endTime: "08:30", category: null, days: [], isRecurring: false });
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [editData, setEditData] = useState({});
   const [showAlarmSettings, setShowAlarmSettings] = useState(false);
@@ -840,10 +740,9 @@ export function ScheduleScreen({ childCtx, push }) {
     const item = { emoji: newItem.emoji, label: newItem.label, time: newItem.time, id };
     if (newItem.endTime) item.endTime = newItem.endTime;
     if (newItem.category) item.category = newItem.category;
-    if (newItem.notes.trim()) item.notes = newItem.notes.trim();
     if (newItem.isRecurring && newItem.days.length) item.days = newItem.days;
     updateChild(activeChild.id, { scheduleItems: [...items, item] });
-    setNewItem({ emoji: "⭐", label: "", time: "08:00", endTime: "08:30", category: null, notes: "", days: [], isRecurring: false }); setShowAdd(false);
+    setNewItem({ emoji: "⭐", label: "", time: "08:00", endTime: "08:30", category: null, days: [], isRecurring: false }); setShowAdd(false);
   };
 
   const deleteItem = id => updateChild(activeChild.id, { scheduleItems: items.filter(i => i.id !== id) });
@@ -879,7 +778,7 @@ export function ScheduleScreen({ childCtx, push }) {
 
   const startEdit = item => {
     setEditing(item.id);
-    setEditData({ ...item, isRecurring: !!(item.days && item.days.length), days: item.days || [], notes: item.notes || "" });
+    setEditData({ ...item, endTime: item.endTime || addMinutesToTime(item.time, 30), isRecurring: !!(item.days && item.days.length), days: item.days || [] });
     setMenuFor(null);
   };
   const saveEdit = () => {
@@ -887,7 +786,6 @@ export function ScheduleScreen({ childCtx, push }) {
     const item = { ...rest };
     if (!item.endTime) delete item.endTime;
     if (!item.category) delete item.category;
-    if (item.notes && item.notes.trim()) item.notes = item.notes.trim(); else delete item.notes;
     if (!(isRecurring && item.days && item.days.length)) delete item.days;
     updateChild(activeChild.id, { scheduleItems: items.map(i => i.id === editing ? item : i) });
     setEditing(null);
@@ -941,35 +839,18 @@ export function ScheduleScreen({ childCtx, push }) {
             <button onClick={() => setShowEmojiPicker(!showEmojiPicker)} style={{ fontSize: 24, background: T.surface, border: `1.5px solid ${T.border}`, borderRadius: T.r, padding: "6px 10px", cursor: "pointer" }}>{editData.emoji}</button>
             <input value={editData.label} onChange={e => setEditData({ ...editData, label: e.target.value })} style={{ flex: 1, minWidth: 0, boxSizing: "border-box", padding: "8px 12px", borderRadius: T.r, border: `1.5px solid ${T.purple}`, fontSize: 14, fontFamily: T.fontBody, color: T.ink, background: T.surface, outline: "none" }} />
           </div>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-            <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: T.inkMuted }}>Starts</p>
-            {!editData.endTime && (
-              <button type="button" onClick={() => setEditData(d => ({ ...d, endTime: addMinutesToTime(d.time, 30) }))} style={{ border: "none", background: "none", cursor: "pointer", fontSize: 11, fontWeight: 700, color: T.purple, fontFamily: T.fontBody }}>
-                + Set end time
-              </button>
-            )}
-          </div>
+          <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkMuted }}>Starts</p>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-            <TimeSelect value={editData.time} onChange={v => setEditData({ ...editData, time: v })} width={editData.endTime ? 110 : 118} />
-            {editData.endTime && (
-              <>
-                <TimeSelect value={editData.endTime} onChange={v => setEditData({ ...editData, endTime: v })} width={110} />
-                <button type="button" onClick={() => setEditData(d => ({ ...d, endTime: "" }))} aria-label="Remove end time" style={{ border: "none", background: "none", cursor: "pointer", fontSize: 16, color: T.inkMuted, padding: "4px 2px", lineHeight: 1 }}>✕</button>
-              </>
-            )}
+            <TimeSelect value={editData.time} onChange={v => setEditData({ ...editData, time: v })} width={110} />
+            <TimeSelect value={editData.endTime} onChange={v => setEditData({ ...editData, endTime: v })} width={110} />
+            <button type="button" onClick={() => setEditData(d => ({ ...d, endTime: "" }))} aria-label="Remove end time" style={{ border: "none", background: "none", cursor: "pointer", fontSize: 16, color: T.inkMuted, padding: "4px 2px", lineHeight: 1 }}>✕</button>
           </div>
-          <p style={{ margin: "12px 0 8px", fontSize: 12, fontWeight: 700, color: T.inkMuted }}>Category</p>
-          <div style={{ marginBottom: 12 }}>
-            <CategoryPills value={editData.category} onChange={cat => setEditData({ ...editData, category: cat })} />
-          </div>
-          <button onClick={() => setEditData(d => ({ ...d, isRecurring: !d.isRecurring, days: !d.isRecurring && d.days.length === 0 ? [1, 2, 3, 4, 5] : d.days }))} style={{ border: "none", background: "none", padding: "0 0 10px", cursor: "pointer", fontSize: 12, fontWeight: 700, color: T.purple, fontFamily: T.fontBody, display: "block" }}>
+          <button onClick={() => setEditData(d => ({ ...d, isRecurring: !d.isRecurring, days: !d.isRecurring && d.days.length === 0 ? [1, 2, 3, 4, 5] : d.days }))} style={{ border: "none", background: "none", padding: "12px 0 10px", cursor: "pointer", fontSize: 12, fontWeight: 700, color: T.purple, fontFamily: T.fontBody, display: "block" }}>
             {editData.isRecurring ? "✕ Remove day pattern" : "+ Repeat on specific days (e.g. school on weekdays)"}
           </button>
           {editData.isRecurring && <DayChips selected={editData.days} onSet={d => setEditData({ ...editData, days: d })} />}
           {showEmojiPicker && <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: 10, background: T.surface, borderRadius: T.r, marginBottom: 10 }}>{EMOJI_OPTS.map(e => <button key={e} onClick={() => { setEditData({ ...editData, emoji: e }); setShowEmojiPicker(false); }} style={{ fontSize: 20, background: "none", border: "none", cursor: "pointer", borderRadius: 8, padding: 3 }}>{e}</button>)}</div>}
-          <p style={{ margin: "10px 0 8px", fontSize: 12, fontWeight: 700, color: T.inkMuted }}>Notes (optional)</p>
-          <input value={editData.notes || ""} onChange={e => setEditData({ ...editData, notes: e.target.value })} placeholder="e.g. Avoid loud noises" style={{ width: "100%", boxSizing: "border-box", padding: "8px 12px", borderRadius: T.r, border: `1.5px solid ${T.border}`, fontSize: 13, fontFamily: T.fontBody, color: T.ink, outline: "none", background: T.surface, marginBottom: 12 }} />
-          <div style={{ display: "flex", gap: 8 }}>
+          <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
             <Btn onClick={saveEdit} style={{ flex: 1 }}>Save</Btn>
             <Btn onClick={() => setEditing(null)} secondary style={{ flex: 1 }}>Cancel</Btn>
           </div>
