@@ -22,6 +22,28 @@ const CATEGORY_COLORS = {
   rest:     { c: T.slate,  l: T.slateL },
 };
 const categoryColor = category => CATEGORY_COLORS[category] || { c: T.purple, l: T.purpleL };
+const CATEGORY_LABELS = { routine: "Routine", meals: "Meals", therapy: "Therapy", play: "Play", learning: "Learning", rest: "Rest" };
+
+// Tap-to-select colour swatches for a schedule item's category — reused by
+// both the "new activity" and inline-edit forms. Tapping the active swatch
+// again clears it back to the default (uncategorised) colour.
+function CategoryColorPicker({ value, onChange }) {
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkMuted }}>Colour</p>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        {Object.keys(CATEGORY_COLORS).map(key => {
+          const { c } = CATEGORY_COLORS[key];
+          const selected = value === key;
+          return (
+            <button key={key} type="button" onClick={() => onChange(selected ? null : key)} aria-label={CATEGORY_LABELS[key]}
+              style={{ width: 32, height: 32, borderRadius: "50%", background: c, border: selected ? `2.5px solid ${T.ink}` : "2.5px solid transparent", boxShadow: selected ? `0 0 0 2px ${T.surface}, 0 0 0 3.5px ${c}` : "none", cursor: "pointer", padding: 0 }} />
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 export const ALARM_TONES = [
   {
@@ -287,6 +309,8 @@ function AddActivityModal({ newItem, setNewItem, showEmojiPicker, setShowEmojiPi
           {newItem.isRecurring ? "✕ Remove day pattern" : "+ Repeat on specific days (e.g. school on weekdays)"}
         </button>
         {newItem.isRecurring && <DayChips selected={newItem.days} onSet={d => setNewItem({ ...newItem, days: d })} />}
+
+        <CategoryColorPicker value={newItem.category} onChange={c => setNewItem({ ...newItem, category: c })} />
 
         <p style={{ margin: "10px 0 12px", color: T.inkMuted, fontSize: 11, lineHeight: 1.5 }}>You can edit or remove this anytime — it's yours, not an essential.</p>
 
@@ -849,6 +873,7 @@ export function ScheduleScreen({ childCtx, push }) {
             {editData.isRecurring ? "✕ Remove day pattern" : "+ Repeat on specific days (e.g. school on weekdays)"}
           </button>
           {editData.isRecurring && <DayChips selected={editData.days} onSet={d => setEditData({ ...editData, days: d })} />}
+          <CategoryColorPicker value={editData.category} onChange={c => setEditData({ ...editData, category: c })} />
           {showEmojiPicker && <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: 10, background: T.surface, borderRadius: T.r, marginBottom: 10 }}>{EMOJI_OPTS.map(e => <button key={e} onClick={() => { setEditData({ ...editData, emoji: e }); setShowEmojiPicker(false); }} style={{ fontSize: 20, background: "none", border: "none", cursor: "pointer", borderRadius: 8, padding: 3 }}>{e}</button>)}</div>}
           <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
             <Btn onClick={saveEdit} style={{ flex: 1 }}>Save</Btn>
