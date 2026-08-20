@@ -525,6 +525,70 @@ function DayPreviewView({ date, items }) {
   );
 }
 
+const DAY_GRID_HOUR_PX = 56;
+
+function hourLabel(h) {
+  if (h === 0) return "12 AM";
+  if (h === 12) return "12 PM";
+  return h < 12 ? `${h} AM` : `${h - 12} PM`;
+}
+
+// Google Calendar-style hourly grid for a single day — a scrollable 24h
+// column with hour gridlines, items positioned/sized by time & duration
+// (tinted by category, same colours as the list view), and a live red "now"
+// line when the grid is showing today. Tapping an item opens the same edit
+// form as the list view (onItemClick), keeping one source of truth for edits.
+function DayGridView({ items, dow, isToday, nowHHMM, onItemClick }) {
+  const scrollRef = useRef(null);
+  const dayItems = items.filter(i => appliesToday(i, dow));
+  const nowMin = timeToMinutes(nowHHMM);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const anchorMin = isToday ? nowMin : (dayItems.length ? Math.min(...dayItems.map(i => timeToMinutes(i.time))) : 8 * 60);
+    el.scrollTop = Math.max(0, (anchorMin / 60) * DAY_GRID_HOUR_PX - 140);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <div ref={scrollRef} style={{ position: "relative", height: 440, overflowY: "auto", border: `1px solid ${T.border}`, borderRadius: T.r, background: T.surface }}>
+      <div style={{ position: "relative", height: 24 * DAY_GRID_HOUR_PX }}>
+        {Array.from({ length: 24 }, (_, h) => (
+          <div key={h} style={{ position: "absolute", top: h * DAY_GRID_HOUR_PX, left: 0, right: 0, height: DAY_GRID_HOUR_PX, borderTop: `1px solid ${T.border}`, display: "flex" }}>
+            <span style={{ width: 46, flexShrink: 0, textAlign: "right", padding: "0 8px 0 0", fontSize: 10, fontWeight: 700, color: T.inkMuted, transform: "translateY(-6px)" }}>{h === 0 ? "" : hourLabel(h)}</span>
+          </div>
+        ))}
+
+        {dayItems.map(item => {
+          const start = timeToMinutes(item.time);
+          const end = item.endTime ? timeToMinutes(item.endTime) : start + 30;
+          const top = (start / 60) * DAY_GRID_HOUR_PX;
+          const height = Math.max(22, ((Math.max(end, start + 15) - start) / 60) * DAY_GRID_HOUR_PX - 2);
+          const { c, l } = categoryColor(item.category);
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => onItemClick(item)}
+              style={{ position: "absolute", top, left: 50, right: 4, height, background: l, borderLeft: `3px solid ${c}`, borderRadius: 6, padding: "3px 8px", overflow: "hidden", textAlign: "left", cursor: "pointer", border: "none", fontFamily: T.fontBody }}
+            >
+              <span style={{ fontSize: 11.5, fontWeight: 700, color: T.ink, whiteSpace: "nowrap" }}>{item.emoji} {item.label}</span>
+            </button>
+          );
+        })}
+
+        {isToday && (
+          <div style={{ position: "absolute", top: (nowMin / 60) * DAY_GRID_HOUR_PX, left: 46, right: 0, display: "flex", alignItems: "center", zIndex: 5 }}>
+            <span style={{ width: 8, height: 8, borderRadius: "50%", background: T.red, flexShrink: 0, marginLeft: -4 }} />
+            <span style={{ flex: 1, height: 1.5, background: T.red }} />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // Read-only row for a past day's snapshot — no toggle/edit/menu, just what
 // happened (done vs missed), matching the live row's look.
 function HistoryRow({ item }) {
@@ -580,6 +644,7 @@ function DayHistoryView({ entry }) {
 export function ScheduleScreen({ childCtx, push }) {
   const { activeChild, updateChild, children } = childCtx;
   const [scheduleView, setScheduleView] = useState("today"); // "today" | "month" | "day"
+  const [dayLayout, setDayLayout] = useState("list"); // "list" | "grid" — how "today" is displayed
   const [monthCur, setMonthCur] = useState(() => { const t = new Date(); return { y: t.getFullYear(), m: t.getMonth() }; });
   const [selectedEntry, setSelectedEntry] = useState(null);
   const [previewDate, setPreviewDate] = useState(null);
@@ -1044,11 +1109,24 @@ export function ScheduleScreen({ childCtx, push }) {
             <p style={{ margin: "8px 0 0", color: T.inkMuted, fontSize: 12 }}>{completedCount} of {activeItems.length} activities done</p>
           </Card>
 
-          <SectionLabel>Timeline</SectionLabel>
-          <div style={{ display: "flex", flexDirection: "column", marginBottom: 12 }}>
-            {sorted.map((item, i) => renderItem(item, isEssential(item), i > 0 && sorted[i - 1].time === item.time, i < sorted.length - 1 && sorted[i + 1].time === item.time))}
-            {sorted.length === 0 && <p style={{ color: T.inkMuted, fontSize: 12, margin: 0 }}>No activities set up.</p>}
-          </div>
+          <SectionLabel action={
+            <div style={{ display: "flex", background: T.canvas, borderRadius: 999, padding: 2 }}>
+              <button type="button" onClick={() => setDayLayout("list")} style={{ border: "none", borderRadius: 999, padding: "4px 11px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody, background: dayLayout === "list" ? T.surface : "transparent", color: dayLayout === "list" ? T.ink : T.inkMuted, boxShadow: dayLayout === "list" ? T.shadowS : "none" }}>List</button>
+              <button type="button" onClick={() => setDayLayout("grid")} style={{ border: "none", borderRadius: 999, padding: "4px 11px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody, background: dayLayout === "grid" ? T.surface : "transparent", color: dayLayout === "grid" ? T.ink : T.inkMuted, boxShadow: dayLayout === "grid" ? T.shadowS : "none" }}>Day</button>
+            </div>
+          }>Timeline</SectionLabel>
+
+          {dayLayout === "grid" ? (
+            <div style={{ marginBottom: 12 }}>
+              <DayGridView items={sorted} dow={todayDow} isToday nowHHMM={nowHHMM} onItemClick={item => startEdit(item)} />
+              {editing && <div style={{ marginTop: 10 }}>{renderItem(items.find(i => i.id === editing), isEssential(items.find(i => i.id === editing)))}</div>}
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", marginBottom: 12 }}>
+              {sorted.map((item, i) => renderItem(item, isEssential(item), i > 0 && sorted[i - 1].time === item.time, i < sorted.length - 1 && sorted[i + 1].time === item.time))}
+              {sorted.length === 0 && <p style={{ color: T.inkMuted, fontSize: 12, margin: 0 }}>No activities set up.</p>}
+            </div>
+          )}
 
           <button onClick={() => setShowAdd(true)} style={{ width: "100%", margin: "2px 0 16px", border: `1.5px dashed ${T.border}`, background: "none", color: T.ink, borderRadius: T.r, padding: "11px", fontWeight: 700, fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontFamily: T.fontBody }}>+ Add activity</button>
 
