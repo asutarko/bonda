@@ -26,7 +26,7 @@ const TRANSLATE_LANGUAGES = ["English", "Malay", "Mandarin", "Tamil"];
 // row into the same shape, so chat/members/invite code doesn't need to care
 // which kind of group it's dealing with.
 const roomToGroup = r => ({ id: r.id, label: r.label, description: r.description, icon_key: r.icon_key, color_key: r.color_key, topics: r.topics || [], kind: "admin" });
-const groupToGroup = g => ({ id: g.id, label: g.name, description: g.description, icon_key: g.icon_key, color_key: g.color_key, topics: g.topics || [], created_by: g.created_by, kind: "user" });
+const groupToGroup = g => ({ id: g.id, label: g.name, description: g.description, icon_key: g.icon_key, color_key: g.color_key, topics: g.topics || [], created_by: g.created_by, is_private: g.is_private, invite_code: g.invite_code, kind: "user" });
 
 // Admin rooms (community_rooms) and parent-created groups (community_groups)
 // each need their own join. Their membership rows live in different tables —
@@ -188,6 +188,7 @@ function GroupRow({ g, onClick }) {
           <p style={{ margin: "0 0 3px", fontWeight: 800, color: c.color, fontSize: 14 }}>{g.label}</p>
           <p style={{ margin: 0, color: T.inkMuted, fontSize: 12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{g.description || (g.kind === "user" ? "Parent-made group" : "")}</p>
         </div>
+        {g.is_private && <Lock size={14} color={T.inkMuted} style={{ flexShrink: 0 }} />}
         {g.kind === "user" && <Badge color={T.inkMuted} bg={T.canvas}>Parent-made</Badge>}
         <ChevronRight size={20} color={T.inkMuted} />
       </div>
@@ -394,7 +395,7 @@ export function CommunityScreen({ account }) {
     setView(view === "groupchat" ? "home" : "dm_list");
   });
   useBackHandler(view === "createGroup", () => { setEditingGroupId(null); setView(editingGroupId ? "groupInfo" : "home"); });
-  useBackHandler(view === "shareMoment" || view === "allGroups" || view === "allMoments" || view === "dm_list", () => setView("home"));
+  useBackHandler(view === "shareMoment" || view === "allGroups" || view === "allMoments" || view === "dm_list" || view === "joinGroup", () => setView("home"));
   useBackHandler(view === "members", () => setView("groupchat"));
   useBackHandler(view === "groupInfo", () => setView(groupInfoReturnTo));
   useBackHandler(translateSheetOpen, () => setTranslateSheetOpen(false));
@@ -496,6 +497,8 @@ export function CommunityScreen({ account }) {
 
   const [gName, setGName] = useState(""); const [gDescription, setGDescription] = useState("");
   const [gColor, setGColor] = useState("purple"); const [gIcon, setGIcon] = useState("community");
+  const [gPrivate, setGPrivate] = useState(false);
+  const [joinCode, setJoinCode] = useState(""); const [joiningByCode, setJoiningByCode] = useState(false); const [joinCodeError, setJoinCodeError] = useState("");
   const [creatingGroup, setCreatingGroup] = useState(false);
   const [editingGroupId, setEditingGroupId] = useState(null);
 
@@ -503,14 +506,29 @@ export function CommunityScreen({ account }) {
     if (!activeRoom) return;
     setGName(activeRoom.label); setGDescription(activeRoom.description || "");
     setGColor(activeRoom.color_key || "purple"); setGIcon(activeRoom.icon_key || "community");
+    setGPrivate(!!activeRoom.is_private);
     setEditingGroupId(activeRoom.id);
     setView("createGroup");
   };
 
   const openCreateGroup = () => {
-    setGName(""); setGDescription(""); setGColor("purple"); setGIcon("community");
+    setGName(""); setGDescription(""); setGColor("purple"); setGIcon("community"); setGPrivate(false);
     setEditingGroupId(null);
     setView("createGroup");
+  };
+
+  const openJoinByCode = () => { setJoinCode(""); setJoinCodeError(""); setView("joinGroup"); };
+
+  const joinByCode = async () => {
+    const code = joinCode.trim();
+    if (!code) return;
+    setJoiningByCode(true); setJoinCodeError("");
+    const { data, error } = await supabase.rpc("join_private_group", { p_code: code });
+    setJoiningByCode(false);
+    if (error || !data) { setJoinCodeError("That code doesn't match any private group."); return; }
+    setGroups(gs => gs.some(g => g.id === data.id) ? gs : [data, ...gs]);
+    flash("Joined group");
+    openGroup(groupToGroup(data));
   };
 
   const createGroup = async () => {
@@ -519,7 +537,7 @@ export function CommunityScreen({ account }) {
     setCreatingGroup(true);
     if (editingGroupId) {
       const { data, error } = await supabase.from("community_groups")
-        .update({ name, description: gDescription.trim(), icon_key: gIcon, color_key: gColor })
+        .update({ name, description: gDescription.trim(), icon_key: gIcon, color_key: gColor, is_private: gPrivate })
         .eq("id", editingGroupId).select().single();
       setCreatingGroup(false);
       if (error || !data) { flash("Could not save changes. Please try again."); return; }
@@ -531,7 +549,7 @@ export function CommunityScreen({ account }) {
       return;
     }
     const { data, error } = await supabase.from("community_groups")
-      .insert({ name, description: gDescription.trim(), icon_key: gIcon, color_key: gColor, created_by: account.id })
+      .insert({ name, description: gDescription.trim(), icon_key: gIcon, color_key: gColor, is_private: gPrivate, created_by: account.id })
       .select().single();
     if (!error && data) {
       await supabase.from("community_group_members").insert({ group_id: data.id, user_id: account.id });
@@ -668,7 +686,14 @@ export function CommunityScreen({ account }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
   const [qrData, setQrData] = useState({ title: "", code: "", hint: "" });
-  const openGroupInvite = group => { setQrData({ title: `Invite to ${group.label}`, code: `bonda.app/g/${group.id}`, hint: "Share this code or link so other parents can find and join this group." }); setQrOpen(true); };
+  const openGroupInvite = group => {
+    if (group.is_private) {
+      setQrData({ title: `Invite to ${group.label}`, code: group.invite_code, hint: `This group is private. Share this code — they can enter it under "Have an invite code?" to join.` });
+    } else {
+      setQrData({ title: `Invite to ${group.label}`, code: `bonda.app/g/${group.id}`, hint: "Share this code or link so other parents can find and join this group." });
+    }
+    setQrOpen(true);
+  };
   const openProfileInvite = () => { setQrData({ title: "Let people follow you", code: `bonda.app/u/${account.id}`, hint: "Share this code or link. When they open it in the app, they can follow you back — no phone numbers involved." }); setQrOpen(true); };
 
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -790,8 +815,9 @@ export function CommunityScreen({ account }) {
               );
             })}
           </div>
-          <Btn onClick={createGroup} full disabled={creatingGroup || !gName.trim()}>{creatingGroup ? (editingGroupId ? "Saving..." : "Creating...") : (editingGroupId ? "Save changes" : "Create group")}</Btn>
-          {!editingGroupId && <p style={{ margin: "10px 4px 0", fontSize: 12, color: T.inkMuted, textAlign: "center" }}>Anyone in the Bonda community can find and join.</p>}
+          <ToggleRow label="Private group" sub="Hidden from Groups — people can only join with an invite code" on={gPrivate} onToggle={() => setGPrivate(p => !p)} />
+          <Btn onClick={createGroup} full disabled={creatingGroup || !gName.trim()} style={{ marginTop: 18 }}>{creatingGroup ? (editingGroupId ? "Saving..." : "Creating...") : (editingGroupId ? "Save changes" : "Create group")}</Btn>
+          {!editingGroupId && <p style={{ margin: "10px 4px 0", fontSize: 12, color: T.inkMuted, textAlign: "center" }}>{gPrivate ? "Only people you invite can find and join." : "Anyone in the Bonda community can find and join."}</p>}
         </div>
       </Page>
     );
@@ -836,6 +862,16 @@ export function CommunityScreen({ account }) {
         <div style={{ position: "fixed", bottom: 86, left: 0, right: 0, display: "flex", justifyContent: "center", zIndex: 60 }}>
           <button onClick={openCreateGroup} style={{ display: "flex", alignItems: "center", gap: 8, background: T.purple, color: "white", border: "none", borderRadius: 999, padding: "13px 24px", fontSize: 14.5, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody, boxShadow: T.shadowM }}><Plus size={18} /> Create group</button>
         </div>
+      </Page>
+    );
+  } else if (view === "joinGroup") {
+    content = (
+      <Page>
+        <SubHeader title="Join a private group" />
+        <p style={{ margin: "18px 4px 16px", fontSize: 13, color: T.inkSoft, lineHeight: 1.5 }}>Enter the invite code someone shared with you to join their private group.</p>
+        <Input label="Invite code" value={joinCode} onChange={e => { setJoinCode(e.target.value); setJoinCodeError(""); }} placeholder="e.g. a1b2c3d4" />
+        {joinCodeError && <p style={{ margin: "-8px 4px 12px", fontSize: 12.5, color: T.red }}>{joinCodeError}</p>}
+        <Btn onClick={joinByCode} full disabled={joiningByCode || !joinCode.trim()} style={{ marginTop: 8 }}>{joiningByCode ? "Joining..." : "Join group"}</Btn>
       </Page>
     );
   } else if (view === "allMoments") {
@@ -1067,6 +1103,7 @@ export function CommunityScreen({ account }) {
           {rooms.map(r => <GroupRow key={`admin-${r.id}`} g={roomToGroup(r)} onClick={() => openGroup(roomToGroup(r))} />)}
           {groups.slice(0, 3).map(g => <GroupRow key={`user-${g.id}`} g={groupToGroup(g)} onClick={() => openGroup(groupToGroup(g))} />)}
           <button onClick={openCreateGroup} style={{ width: "100%", background: "none", border: `1.5px dashed ${T.border}`, borderRadius: T.r, padding: "14px", color: T.purple, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: T.fontBody, textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}><Plus size={16} /> Create your own group</button>
+          <button onClick={openJoinByCode} style={{ width: "100%", background: "none", border: "none", padding: "10px 4px 0", color: T.inkMuted, fontWeight: 600, fontSize: 12.5, cursor: "pointer", fontFamily: T.fontBody, textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}><Lock size={13} /> Have an invite code?</button>
         </div>
 
         <SectionLabel style={{ marginBottom: 10 }}>Private Messages</SectionLabel>
