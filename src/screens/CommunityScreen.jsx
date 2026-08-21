@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, Fragment } from "react";
 import {
   Plus, Camera, Users, MessageSquare, Settings, Link2, Search, Check, X,
   ChevronRight, QrCode, Copy, UserPlus, MoreVertical, Lock,
-  Unlock, Send, Pin, Heart, Paperclip, FileText, Bell, BellOff, Globe,
+  Unlock, Send, Pin, Heart, Paperclip, FileText, Bell, BellOff, Globe, Pencil,
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { T } from "../theme";
@@ -26,7 +26,7 @@ const TRANSLATE_LANGUAGES = ["English", "Malay", "Mandarin", "Tamil"];
 // row into the same shape, so chat/members/invite code doesn't need to care
 // which kind of group it's dealing with.
 const roomToGroup = r => ({ id: r.id, label: r.label, description: r.description, icon_key: r.icon_key, color_key: r.color_key, topics: r.topics || [], kind: "admin" });
-const groupToGroup = g => ({ id: g.id, label: g.name, description: g.description, icon_key: g.icon_key, color_key: g.color_key, topics: g.topics || [], kind: "user" });
+const groupToGroup = g => ({ id: g.id, label: g.name, description: g.description, icon_key: g.icon_key, color_key: g.color_key, topics: g.topics || [], created_by: g.created_by, kind: "user" });
 
 // Admin rooms (community_rooms) and parent-created groups (community_groups)
 // each need their own join. Their membership rows live in different tables —
@@ -393,7 +393,8 @@ export function CommunityScreen({ account }) {
     leaveRoom();
     setView(view === "groupchat" ? "home" : "dm_list");
   });
-  useBackHandler(view === "createGroup" || view === "shareMoment" || view === "allGroups" || view === "allMoments" || view === "dm_list", () => setView("home"));
+  useBackHandler(view === "createGroup", () => { setEditingGroupId(null); setView(editingGroupId ? "groupInfo" : "home"); });
+  useBackHandler(view === "shareMoment" || view === "allGroups" || view === "allMoments" || view === "dm_list", () => setView("home"));
   useBackHandler(view === "members", () => setView("groupchat"));
   useBackHandler(view === "groupInfo", () => setView(groupInfoReturnTo));
   useBackHandler(translateSheetOpen, () => setTranslateSheetOpen(false));
@@ -416,7 +417,7 @@ export function CommunityScreen({ account }) {
   };
 
   const sendGroup = async () => {
-    const text = groupInput.trim(); const attachment = activeRoom.kind === "user" ? groupAttachment : null;
+    const text = groupInput.trim(); const attachment = null;
     if (!text && !attachment) return;
     setGroupInput(""); setGroupAttachment(null);
     const image_url = attachment ? await uploadCommunityAttachment(attachment.file, account.id, attachment.kind) : null;
@@ -495,16 +496,42 @@ export function CommunityScreen({ account }) {
 
   const [gName, setGName] = useState(""); const [gDescription, setGDescription] = useState("");
   const [gColor, setGColor] = useState("purple"); const [gIcon, setGIcon] = useState("community");
-  const [gTopics, setGTopics] = useState("");
   const [creatingGroup, setCreatingGroup] = useState(false);
+  const [editingGroupId, setEditingGroupId] = useState(null);
+
+  const openEditGroup = () => {
+    if (!activeRoom) return;
+    setGName(activeRoom.label); setGDescription(activeRoom.description || "");
+    setGColor(activeRoom.color_key || "purple"); setGIcon(activeRoom.icon_key || "community");
+    setEditingGroupId(activeRoom.id);
+    setView("createGroup");
+  };
+
+  const openCreateGroup = () => {
+    setGName(""); setGDescription(""); setGColor("purple"); setGIcon("community");
+    setEditingGroupId(null);
+    setView("createGroup");
+  };
 
   const createGroup = async () => {
     const name = gName.trim();
     if (!name) return;
     setCreatingGroup(true);
-    const topics = gTopics.split(",").map(t => t.trim()).filter(Boolean);
+    if (editingGroupId) {
+      const { data, error } = await supabase.from("community_groups")
+        .update({ name, description: gDescription.trim(), icon_key: gIcon, color_key: gColor })
+        .eq("id", editingGroupId).select().single();
+      setCreatingGroup(false);
+      if (error || !data) { flash("Could not save changes. Please try again."); return; }
+      setGroups(gs => gs.map(g => g.id === data.id ? data : g));
+      setActiveRoom(groupToGroup(data));
+      setEditingGroupId(null);
+      flash("Group updated");
+      setView("groupInfo");
+      return;
+    }
     const { data, error } = await supabase.from("community_groups")
-      .insert({ name, description: gDescription.trim(), icon_key: gIcon, color_key: gColor, topics, created_by: account.id })
+      .insert({ name, description: gDescription.trim(), icon_key: gIcon, color_key: gColor, created_by: account.id })
       .select().single();
     if (!error && data) {
       await supabase.from("community_group_members").insert({ group_id: data.id, user_id: account.id });
@@ -512,7 +539,7 @@ export function CommunityScreen({ account }) {
     }
     setCreatingGroup(false);
     if (error || !data) { flash("Could not create the group. Please try again."); return; }
-    setGName(""); setGDescription(""); setGColor("purple"); setGIcon("community"); setGTopics("");
+    setGName(""); setGDescription(""); setGColor("purple"); setGIcon("community");
     flash("Group created");
     openGroup(groupToGroup(data));
   };
@@ -554,6 +581,7 @@ export function CommunityScreen({ account }) {
   const [isGroupMember, setIsGroupMember] = useState(false);
   const [joiningGroup, setJoiningGroup] = useState(false);
   const [leavingGroup, setLeavingGroup] = useState(false);
+  const [deletingGroup, setDeletingGroup] = useState(false);
 
   const toggleNotify = () => {
     if (!activeRoom) return;
@@ -618,6 +646,25 @@ export function CommunityScreen({ account }) {
     flash("Left group");
   };
 
+  const deleteActiveGroup = async () => {
+    if (!activeRoom) return;
+    const { default: Swal } = await import("sweetalert2");
+    const { isConfirmed } = await Swal.fire({
+      icon: "warning", title: `Delete "${activeRoom.label}"?`,
+      text: "This can't be undone. Members will lose access and the group's chat history will be gone.",
+      showCancelButton: true, confirmButtonText: "Delete group", confirmButtonColor: T.red, cancelButtonColor: T.inkMuted,
+    });
+    if (!isConfirmed) return;
+    setDeletingGroup(true);
+    const { error } = await supabase.from("community_groups").delete().eq("id", activeRoom.id);
+    setDeletingGroup(false);
+    if (error) { flash("Could not delete the group. Please try again."); return; }
+    setGroups(gs => gs.filter(g => g.id !== activeRoom.id));
+    leaveRoom();
+    setView("home");
+    flash("Group deleted");
+  };
+
   const [menuOpen, setMenuOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
   const [qrData, setQrData] = useState({ title: "", code: "", hint: "" });
@@ -678,7 +725,7 @@ export function CommunityScreen({ account }) {
     content = (
       <div style={{ position: "relative", display: "flex", flexDirection: "column", flex: "1 1 auto", minHeight: 0 }}>
         {showPaywall && <Paywall />}
-        <ChatUI msgs={groupMsgs} input={groupInput} setInput={setGroupInput} onSend={sendGroup} onDelete={deleteGroup} loading={groupLoading} color={c.color} bg={c.bg} icon={null} label={activeRoom.label} sub={activeRoom.description} isGroup account={account} dmPartner={null} endRef={endRef} attachment={groupAttachment} onPickAttachment={pickAttachment(setGroupAttachment)} onRemoveAttachment={() => clearAttachment(setGroupAttachment, groupAttachment)} attachError={attachError} onTitleClick={() => openGroupInfo(activeRoom)} allowAttachments={activeRoom.kind === "user"} />
+        <ChatUI msgs={groupMsgs} input={groupInput} setInput={setGroupInput} onSend={sendGroup} onDelete={deleteGroup} loading={groupLoading} color={c.color} bg={c.bg} icon={null} label={activeRoom.label} sub={activeRoom.description} isGroup account={account} dmPartner={null} endRef={endRef} attachment={groupAttachment} onPickAttachment={pickAttachment(setGroupAttachment)} onRemoveAttachment={() => clearAttachment(setGroupAttachment, groupAttachment)} attachError={attachError} onTitleClick={() => openGroupInfo(activeRoom)} allowAttachments={false} />
       </div>
     );
   } else if (view === "dm_chat" && dmPartner) {
@@ -720,17 +767,15 @@ export function CommunityScreen({ account }) {
   } else if (view === "createGroup") {
     content = (
       <Page>
-        <SubHeader title="Create a group" />
+        <SubHeader title={editingGroupId ? "Edit group" : "Create a group"} />
         <div style={{ marginTop: 18 }}>
           <Input label="Group name" value={gName} onChange={e => setGName(e.target.value)} placeholder="e.g. Weekend playgroup" />
           <TextArea label="What it's for" value={gDescription} onChange={e => setGDescription(e.target.value)} placeholder="Meetups, tips, and support" rows={2} />
-          <Input label="Topics (optional)" value={gTopics} onChange={e => setGTopics(e.target.value)} placeholder="e.g. HealthHub, CDA, Getting started" />
-          <p style={{ margin: "-10px 0 18px", fontSize: 11.5, color: T.inkMuted }}>Separate topics with commas — shown as tags on the group's info page.</p>
           <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>Colour</p>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 18 }}>
             {Object.keys(ROOM_COLORS).map(key => {
               const c = ROOM_COLORS[key];
-              return <button key={key} onClick={() => setGColor(key)} aria-label={key} style={{ width: 38, height: 38, borderRadius: 12, background: c.bg, border: gColor === key ? `3px solid ${c.color}` : `1px solid ${T.border}`, cursor: "pointer" }} />;
+              return <button key={key} onClick={() => setGColor(key)} aria-label={key} style={{ width: 38, height: 38, borderRadius: 12, background: c.color, border: gColor === key ? `3px solid ${T.ink}` : `1px solid ${T.border}`, boxShadow: gColor === key ? `0 0 0 2px ${T.surface}` : "none", cursor: "pointer" }} />;
             })}
           </div>
           <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>Icon</p>
@@ -745,8 +790,8 @@ export function CommunityScreen({ account }) {
               );
             })}
           </div>
-          <Btn onClick={createGroup} full disabled={creatingGroup || !gName.trim()}>{creatingGroup ? "Creating..." : "Create group"}</Btn>
-          <p style={{ margin: "10px 4px 0", fontSize: 12, color: T.inkMuted, textAlign: "center" }}>Anyone in the Bonda community can find and join.</p>
+          <Btn onClick={createGroup} full disabled={creatingGroup || !gName.trim()}>{creatingGroup ? (editingGroupId ? "Saving..." : "Creating...") : (editingGroupId ? "Save changes" : "Create group")}</Btn>
+          {!editingGroupId && <p style={{ margin: "10px 4px 0", fontSize: 12, color: T.inkMuted, textAlign: "center" }}>Anyone in the Bonda community can find and join.</p>}
         </div>
       </Page>
     );
@@ -789,7 +834,7 @@ export function CommunityScreen({ account }) {
         {filtered.map(g => <GroupRow key={`${g.kind}-${g.id}`} g={g} onClick={() => openGroup(g)} />)}
         {filtered.length === 0 && <p style={{ textAlign: "center", color: T.inkMuted, fontSize: 14, marginTop: 24 }}>No groups match "{groupQuery}".</p>}
         <div style={{ position: "fixed", bottom: 86, left: 0, right: 0, display: "flex", justifyContent: "center", zIndex: 60 }}>
-          <button onClick={() => setView("createGroup")} style={{ display: "flex", alignItems: "center", gap: 8, background: T.purple, color: "white", border: "none", borderRadius: 999, padding: "13px 24px", fontSize: 14.5, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody, boxShadow: T.shadowM }}><Plus size={18} /> Create group</button>
+          <button onClick={openCreateGroup} style={{ display: "flex", alignItems: "center", gap: 8, background: T.purple, color: "white", border: "none", borderRadius: 999, padding: "13px 24px", fontSize: 14.5, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody, boxShadow: T.shadowM }}><Plus size={18} /> Create group</button>
         </div>
       </Page>
     );
@@ -878,12 +923,14 @@ export function CommunityScreen({ account }) {
     const iconFn = ROOM_ICONS[activeRoom.icon_key] || ROOM_ICONS.community;
     const desc = (activeRoom.description || "").trim();
     const canJoin = !isGroupMember;
+    const canEdit = activeRoom.kind === "user" && activeRoom.created_by === account.id;
     const tiles = [
       canJoin
         ? { key: "join", Icon: Plus, label: joiningGroup ? "Joining…" : "Join", onClick: joinActiveGroup, disabled: joiningGroup }
         : { key: "join", Icon: Check, label: "Joined", disabled: true },
       { key: "invite", Icon: UserPlus, label: "Invite", onClick: () => openGroupInvite(activeRoom) },
       { key: "notify", Icon: notifyOn ? Bell : BellOff, label: notifyOn ? "Notify" : "Muted", onClick: toggleNotify },
+      ...(canEdit ? [{ key: "edit", Icon: Pencil, label: "Edit", onClick: openEditGroup }] : []),
     ];
     content = (
       <Page>
@@ -942,7 +989,11 @@ export function CommunityScreen({ account }) {
           </p>
         </Card>
 
-        {isGroupMember && (
+        {canEdit ? (
+          <button onClick={deleteActiveGroup} disabled={deletingGroup} style={{ display: "block", width: "100%", background: "none", border: "none", color: T.red, fontWeight: 700, fontSize: 14, cursor: deletingGroup ? "default" : "pointer", fontFamily: T.fontBody, padding: "8px 0", textAlign: "center", opacity: deletingGroup ? 0.6 : 1 }}>
+            {deletingGroup ? "Deleting…" : "Delete group"}
+          </button>
+        ) : isGroupMember && (
           <button onClick={leaveActiveGroup} disabled={leavingGroup} style={{ display: "block", width: "100%", background: "none", border: "none", color: T.red, fontWeight: 700, fontSize: 14, cursor: leavingGroup ? "default" : "pointer", fontFamily: T.fontBody, padding: "8px 0", textAlign: "center", opacity: leavingGroup ? 0.6 : 1 }}>
             {leavingGroup ? "Leaving…" : "Leave group"}
           </button>
@@ -1015,7 +1066,7 @@ export function CommunityScreen({ account }) {
         <div style={{ marginBottom: 24 }}>
           {rooms.map(r => <GroupRow key={`admin-${r.id}`} g={roomToGroup(r)} onClick={() => openGroup(roomToGroup(r))} />)}
           {groups.slice(0, 3).map(g => <GroupRow key={`user-${g.id}`} g={groupToGroup(g)} onClick={() => openGroup(groupToGroup(g))} />)}
-          <button onClick={() => setView("createGroup")} style={{ width: "100%", background: "none", border: `1.5px dashed ${T.border}`, borderRadius: T.r, padding: "14px", color: T.purple, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: T.fontBody, textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}><Plus size={16} /> Create your own group</button>
+          <button onClick={openCreateGroup} style={{ width: "100%", background: "none", border: `1.5px dashed ${T.border}`, borderRadius: T.r, padding: "14px", color: T.purple, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: T.fontBody, textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}><Plus size={16} /> Create your own group</button>
         </div>
 
         <SectionLabel style={{ marginBottom: 10 }}>Private Messages</SectionLabel>
