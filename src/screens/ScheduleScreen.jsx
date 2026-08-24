@@ -14,12 +14,12 @@ export const EMOJI_OPTS = ["🌅","🍳","🥗","🍎","🦷","🛁","👗","�
 // falls back to the primary teal for items with no category (legacy items,
 // or a custom activity where the caregiver skipped picking one).
 const CATEGORY_COLORS = {
-  routine:  { c: T.teal,   l: T.tealL },
-  meals:    { c: T.amber,  l: T.amberL },
-  therapy:  { c: T.violet, l: T.violetL },
-  play:     { c: T.green,  l: T.greenL },
-  learning: { c: T.indigo, l: T.indigoL },
-  rest:     { c: T.slate,  l: T.slateL },
+  routine:  { c: "#E5484D", l: "#FDE7E7" },
+  meals:    { c: "#F5A623", l: "#FDEEDA" },
+  therapy:  { c: "#E9C716", l: "#FBF6D9" },
+  play:     { c: "#3DA35D", l: "#E3F3E8" },
+  learning: { c: "#3B82C4", l: "#E3EEF8" },
+  rest:     { c: "#8B5CF6", l: "#EFE9FE" },
 };
 const categoryColor = category => CATEGORY_COLORS[category] || { c: T.purple, l: T.purpleL };
 const CATEGORY_LABELS = { routine: "Routine", meals: "Meals", therapy: "Therapy", play: "Play", learning: "Learning", rest: "Rest" };
