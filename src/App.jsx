@@ -55,6 +55,7 @@ export default function Bonda() {
   const [passwordRecovery, setPasswordRecovery] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [pendingPhone, setPendingPhone] = useState(false);
+  const [showScheduleSettings, setShowScheduleSettings] = useState(false);
 
   // Loads the account and, if it just came from a fresh registration, flags
   // the mandatory phone-capture screen so it's shown before the app is usable.
@@ -185,7 +186,7 @@ export default function Bonda() {
     switch (tab) {
       case "home":      return <HomeScreen childCtx={childCtx} setTab={setTab} push={push} account={account} />;
       case "mychild":   return <MyChildScreen childCtx={childCtx} push={push} />;
-      case "schedule":  return <ScheduleScreen childCtx={childCtx} push={push} />;
+      case "schedule":  return <ScheduleScreen childCtx={childCtx} push={push} showAlarmSettings={showScheduleSettings} setShowAlarmSettings={setShowScheduleSettings} />;
       case "community": return <CommunityScreen account={account} />;
       default:          return null;
     }
@@ -240,12 +241,21 @@ export default function Bonda() {
             </div>
             <div style={{ height: 1, background: T.border, margin: "4px 4px" }} />
             {[
+              ...(tab === "schedule" ? [{ key: "schedulerSettings", label: "Scheduler settings", onClick: () => { setShowMenu(false); setShowScheduleSettings(true); }, icon: <>
+                <circle cx="12" cy="12" r="3.6" stroke={T.inkSoft} strokeWidth="1.8" fill="none"/>
+                {[0,45,90,135,180,225,270,315].map(deg => {
+                  const r = deg * Math.PI / 180;
+                  const x1 = 12 + 5.4 * Math.cos(r), y1 = 12 + 5.4 * Math.sin(r);
+                  const x2 = 12 + 7.8 * Math.cos(r), y2 = 12 + 7.8 * Math.sin(r);
+                  return <line key={deg} x1={x1} y1={y1} x2={x2} y2={y2} stroke={T.inkSoft} strokeWidth="1.8" strokeLinecap="round"/>;
+                })}
+              </> }] : []),
               { key: "profile", label: "Profile", onClick: () => { setShowMenu(false); push("editProfile"); }, icon: <><circle cx="12" cy="8" r="4" stroke={T.inkSoft} strokeWidth="1.8" fill="none"/><path d="M5 20c0-4 3.1-6.4 7-6.4s7 2.4 7 6.4" stroke={T.inkSoft} strokeWidth="1.8" strokeLinecap="round" fill="none"/></> },
               { key: "notifications", label: "Notifications", soon: true, icon: <><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" stroke={T.inkSoft} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none"/><path d="M13.7 21a2 2 0 0 1-3.4 0" stroke={T.inkSoft} strokeWidth="1.8" strokeLinecap="round" fill="none"/></> },
               { key: "security", label: "Security", soon: true, icon: <><path d="M12 3l7 3v5c0 4.6-3 7.6-7 9-4-1.4-7-4.4-7-9V6Z" stroke={T.inkSoft} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none"/><path d="m9 12 2 2 4-4" stroke={T.inkSoft} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none"/></> },
               { key: "payment", label: "Payment & plans", soon: true, icon: <><rect x="3" y="6" width="18" height="12" rx="2.6" stroke={T.inkSoft} strokeWidth="1.8" fill="none"/><path d="M3 10h18" stroke={T.inkSoft} strokeWidth="1.8" fill="none"/></> },
               { key: "help", label: "Help", soon: true, icon: <><circle cx="12" cy="12" r="9" stroke={T.inkSoft} strokeWidth="1.8" fill="none"/><path d="M9.6 9.5a2.4 2.4 0 1 1 3.4 2.2c-.9.4-1.5 1-1.5 2M12 17h.01" stroke={T.inkSoft} strokeWidth="1.8" strokeLinecap="round" fill="none"/></> },
-            ].map(m => (
+            ].filter(m => m.key !== "payment" || tab === "community").map(m => (
               <button key={m.key} className="bonda-macct-item" onClick={m.onClick || (() => setShowMenu(false))} style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: 10, borderRadius: 10, background: "none", border: "none", cursor: "pointer", fontFamily: T.fontBody, textAlign: "left" }}>
                 <svg width="19" height="19" viewBox="0 0 24 24">{m.icon}</svg>
                 <span style={{ fontSize: 14, fontWeight: 500, color: T.ink }}>{m.label}</span>

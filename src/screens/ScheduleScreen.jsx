@@ -647,7 +647,7 @@ function DayHistoryView({ entry }) {
   );
 }
 
-export function ScheduleScreen({ childCtx, push }) {
+export function ScheduleScreen({ childCtx, push, showAlarmSettings, setShowAlarmSettings }) {
   const { activeChild, updateChild, children } = childCtx;
   const [scheduleView, setScheduleView] = useState("today"); // "today" | "month" | "day"
   const [dayLayout, setDayLayout] = useState("list"); // "list" | "grid" — how "today" is displayed
@@ -665,7 +665,6 @@ export function ScheduleScreen({ childCtx, push }) {
   const [newItem, setNewItem] = useState({ emoji: "⭐", label: "", time: "08:00", endTime: "08:30", category: null, days: [], isRecurring: false });
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [editData, setEditData] = useState({});
-  const [showAlarmSettings, setShowAlarmSettings] = useState(false);
   const [alarmOn, setAlarmOn] = useState(() => {
     try { return localStorage.getItem("bonda_alarm_on") !== "false"; } catch { return true; }
   });
@@ -1026,19 +1025,6 @@ export function ScheduleScreen({ childCtx, push }) {
         <button onClick={() => setScheduleView(v => v === "month" ? "today" : "month")} style={{ width: 40, height: 40, borderRadius: T.r, background: scheduleView === "month" ? T.purple : T.border, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 18, transition: "background 0.2s" }} title="Calendar view">
           📅
         </button>
-
-        <button onClick={() => setShowAlarmSettings(!showAlarmSettings)} style={{ width: 40, height: 40, borderRadius: T.r, background: alarmOn ? T.purple : T.border, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "background 0.2s" }} title="Alarm Settings">
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-
-            <circle cx="10" cy="10" r="3" stroke="white" strokeWidth="1.4" fill="none"/>
-            {[0,45,90,135,180,225,270,315].map((deg,i) => {
-              const r = deg * Math.PI / 180;
-              const x1 = 10 + 4.5 * Math.cos(r), y1 = 10 + 4.5 * Math.sin(r);
-              const x2 = 10 + 6.5 * Math.cos(r), y2 = 10 + 6.5 * Math.sin(r);
-              return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="white" strokeWidth="1.8" strokeLinecap="round"/>;
-            })}
-          </svg>
-        </button>
       </div>
 
 
@@ -1152,8 +1138,7 @@ export function ScheduleScreen({ childCtx, push }) {
           )}
 
           <Card style={{ marginBottom: 20 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
-              <p style={{ margin: 0, fontWeight: 700, color: T.ink, fontSize: 14 }}>Today's Progress</p>
+            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
               <p style={{ margin: 0, fontWeight: 800, color: T.purple, fontSize: 14 }}>{progress}%</p>
             </div>
             <div style={{ height: 6, background: T.border, borderRadius: 99, overflow: "hidden" }}>
@@ -1194,12 +1179,7 @@ export function ScheduleScreen({ childCtx, push }) {
             />
           )}
 
-          <div style={{ margin: "4px 0 16px", background: T.purpleL, borderRadius: T.r, padding: "12px 14px", display: "flex", gap: 10 }}>
-            <span style={{ fontSize: 18 }}>🌱</span>
-            <p style={{ margin: 0, fontSize: 12, color: T.purple, fontWeight: 600, lineHeight: 1.5 }}>Every day you keep the rhythm, {activeChild.name}'s day feels a little safer and transitions get easier.</p>
-          </div>
-
-          <Btn onClick={saveDay} full style={{ background: T.green }}>💾 Save Day</Btn>
+          <Btn onClick={saveDay} full style={{ background: T.green }}>Save Day</Btn>
           <p style={{ color: T.inkMuted, fontSize: 11, textAlign: "center", marginTop: 10 }}>Tap "Save Day" at end of day to record to the calendar</p>
         </>
       )}
