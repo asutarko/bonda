@@ -32,6 +32,12 @@ function CategoryColorPicker({ value, onChange }) {
     <div style={{ marginBottom: 14 }}>
       <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkMuted }}>Colour</p>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <button type="button" onClick={() => onChange(null)} aria-label="No colour"
+          style={{ width: 32, height: 32, borderRadius: "50%", background: T.surface, border: !value ? `2.5px solid ${T.ink}` : `1.5px solid ${T.border}`, boxShadow: !value ? `0 0 0 2px ${T.surface}, 0 0 0 3.5px ${T.ink}` : "none", cursor: "pointer", padding: 0, position: "relative", flexShrink: 0 }}>
+          <svg width="32" height="32" viewBox="0 0 32 32" style={{ position: "absolute", inset: 0 }}>
+            <line x1="8" y1="24" x2="24" y2="8" stroke={T.inkMuted} strokeWidth="1.6" strokeLinecap="round" />
+          </svg>
+        </button>
         {Object.keys(CATEGORY_COLORS).map(key => {
           const { c } = CATEGORY_COLORS[key];
           const selected = value === key;
@@ -823,8 +829,45 @@ export function ScheduleScreen({ childCtx, push }) {
     setMenuFor(null);
   };
 
-  const addItem = () => {
+  // Two intervals overlap if they share any minute; a missing endTime is
+  // treated as a zero-duration point that still conflicts with anything that
+  // covers it (or exactly matches another point).
+  const timesOverlap = (aStart, aEnd, bStart, bEnd) => {
+    const s1 = timeToMinutes(aStart), e1 = aEnd ? timeToMinutes(aEnd) : s1;
+    const s2 = timeToMinutes(bStart), e2 = bEnd ? timeToMinutes(bEnd) : s2;
+    if (s1 === e1 && s2 === e2) return s1 === s2;
+    if (s1 === e1) return s1 >= s2 && s1 < e2;
+    if (s2 === e2) return s2 >= s1 && s2 < e1;
+    return s1 < e2 && s2 < e1;
+  };
+
+  // Days a candidate (new/edited item) actually recurs on, mirroring the same
+  // isRecurring+days logic addItem/saveEdit use when persisting — no explicit
+  // day pattern means it applies every day.
+  const candidateDays = c => (c.isRecurring && c.days && c.days.length) ? c.days : null;
+  const itemDays = i => (i.days && i.days.length) ? i.days : null;
+  const daysConflict = (daysA, daysB) => !daysA || !daysB || daysA.some(d => daysB.includes(d));
+
+  // Finds an existing item (other than excludeId) that shares a day and
+  // overlaps in time with the candidate being saved, so the caregiver can be
+  // warned before double-booking a time slot.
+  const findConflict = (candidate, excludeId) => {
+    const cDays = candidateDays(candidate);
+    return items.find(i => i.id !== excludeId && daysConflict(cDays, itemDays(i)) && timesOverlap(candidate.time, candidate.endTime, i.time, i.endTime));
+  };
+
+  const addItem = async () => {
     if (!newItem.label.trim()) return;
+    const conflict = findConflict(newItem, null);
+    if (conflict) {
+      const { default: Swal } = await import("sweetalert2");
+      const { isConfirmed } = await Swal.fire({
+        icon: "warning", title: "Scheduling conflict",
+        text: `This overlaps with "${conflict.label}" at ${timeRangeLabel(conflict)}.`,
+        showCancelButton: true, confirmButtonText: "Save anyway", confirmButtonColor: T.amber, cancelButtonColor: T.inkMuted,
+      });
+      if (!isConfirmed) return;
+    }
     const id = Date.now().toString();
     const item = { emoji: newItem.emoji, label: newItem.label, time: newItem.time, id };
     if (newItem.endTime) item.endTime = newItem.endTime;
@@ -870,7 +913,17 @@ export function ScheduleScreen({ childCtx, push }) {
     setEditData({ ...item, endTime: item.endTime || addMinutesToTime(item.time, 30), isRecurring: !!(item.days && item.days.length), days: item.days || [] });
     setMenuFor(null);
   };
-  const saveEdit = () => {
+  const saveEdit = async () => {
+    const conflict = findConflict(editData, editing);
+    if (conflict) {
+      const { default: Swal } = await import("sweetalert2");
+      const { isConfirmed } = await Swal.fire({
+        icon: "warning", title: "Scheduling conflict",
+        text: `This overlaps with "${conflict.label}" at ${timeRangeLabel(conflict)}.`,
+        showCancelButton: true, confirmButtonText: "Save anyway", confirmButtonColor: T.amber, cancelButtonColor: T.inkMuted,
+      });
+      if (!isConfirmed) return;
+    }
     const { isRecurring, ...rest } = editData;
     const item = { ...rest };
     if (!item.endTime) delete item.endTime;
