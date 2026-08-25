@@ -500,7 +500,7 @@ export function CommunityScreen({ account }) {
     const until = Date.now() + 30 * 24 * 60 * 60 * 1000;
     try { localStorage.setItem(premiumStorageKey, String(until)); } catch {}
     setPremiumUntil(until); setShowPaywall(false);
-    if (paywallIntent === "group") { setGPrivate(true); } else { setTimeout(openDMList, 300); }
+    if (paywallIntent === "group") { setTimeout(() => openCreateGroup(true), 300); } else { setTimeout(openDMList, 300); }
     setPaywallIntent(null);
   };
 
@@ -524,10 +524,18 @@ export function CommunityScreen({ account }) {
     setView("createGroup");
   };
 
-  const openCreateGroup = () => {
-    setGName(""); setGDescription(""); setGColor("purple"); setGIcon("community"); setGPrivate(false);
+  const openCreateGroup = (isPrivate = false) => {
+    setGName(""); setGDescription(""); setGColor("purple"); setGIcon("community"); setGPrivate(isPrivate);
     setEditingGroupId(null);
     setView("createGroup");
+  };
+
+  // Separate entry point from "Create your own group" — private groups are
+  // premium, and privacy is fixed at creation (no in-form toggle) so the
+  // choice of which button the user tapped is what decides it.
+  const openCreatePrivateGroup = () => {
+    if (!premium) { setPaywallIntent("group"); setShowPaywall(true); return; }
+    openCreateGroup(true);
   };
 
   const openJoinByCode = () => { setJoinCode(""); setJoinCodeError(""); setView("joinGroup"); };
@@ -806,7 +814,7 @@ export function CommunityScreen({ account }) {
     content = (
       <Page>
         {showPaywall && <Paywall />}
-        <SubHeader title={editingGroupId ? "Edit group" : "Create a group"} />
+        <SubHeader title={editingGroupId ? "Edit group" : (gPrivate ? "Create a private group" : "Create a group")} />
         <div style={{ marginTop: 18 }}>
           <Input label="Group name" value={gName} onChange={e => setGName(e.target.value)} placeholder="e.g. Weekend playgroup" />
           <TextArea label="What it's for" value={gDescription} onChange={e => setGDescription(e.target.value)} placeholder="Meetups, tips, and support" rows={2} />
@@ -829,9 +837,8 @@ export function CommunityScreen({ account }) {
               );
             })}
           </div>
-          <ToggleRow label="Private group" sub="Hidden from Groups — people can only join with an invite code" on={gPrivate} onToggle={() => { if (!gPrivate && !premium) { setPaywallIntent("group"); setShowPaywall(true); return; } setGPrivate(p => !p); }} />
-          <Btn onClick={createGroup} full disabled={creatingGroup || !gName.trim()} style={{ marginTop: 18 }}>{creatingGroup ? (editingGroupId ? "Saving..." : "Creating...") : (editingGroupId ? "Save changes" : "Create group")}</Btn>
-          {!editingGroupId && <p style={{ margin: "10px 4px 0", fontSize: 12, color: T.inkMuted, textAlign: "center" }}>{gPrivate ? "Only people you invite can find and join." : "Anyone in the Bonda community can find and join."}</p>}
+          <Btn onClick={createGroup} full disabled={creatingGroup || !gName.trim()} style={{ marginTop: 4 }}>{creatingGroup ? (editingGroupId ? "Saving..." : "Creating...") : (editingGroupId ? "Save changes" : "Create group")}</Btn>
+          {!editingGroupId && <p style={{ margin: "10px 4px 0", fontSize: 12, color: T.inkMuted, textAlign: "center" }}>{gPrivate ? "Private — hidden from Groups, only people you invite can join." : "Anyone in the Bonda community can find and join."}</p>}
         </div>
       </Page>
     );
@@ -880,8 +887,9 @@ export function CommunityScreen({ account }) {
         <SectionLabel style={{ marginTop: 20, marginBottom: 10 }}>Private Groups</SectionLabel>
         {filteredPrivate.map(g => <GroupRow key={`${g.kind}-${g.id}`} g={g} onClick={() => openGroup(g)} />)}
         {filteredPrivate.length === 0 && <p style={{ textAlign: "center", color: T.inkMuted, fontSize: 14, margin: 0 }}>{q ? `No private groups match "${groupQuery}".` : "You haven't joined any private groups yet."}</p>}
+        <button onClick={openCreatePrivateGroup} style={{ width: "100%", background: "none", border: `1.5px dashed ${T.border}`, borderRadius: T.r, padding: "14px", color: T.purple, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: T.fontBody, textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 14 }}><Plus size={16} /> Create a private group</button>
         <div style={{ position: "fixed", bottom: 86, left: 0, right: 0, display: "flex", justifyContent: "center", zIndex: 60 }}>
-          <button onClick={openCreateGroup} style={{ display: "flex", alignItems: "center", gap: 8, background: T.purple, color: "white", border: "none", borderRadius: 999, padding: "13px 24px", fontSize: 14.5, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody, boxShadow: T.shadowM }}><Plus size={18} /> Create group</button>
+          <button onClick={() => openCreateGroup(false)} style={{ display: "flex", alignItems: "center", gap: 8, background: T.purple, color: "white", border: "none", borderRadius: 999, padding: "13px 24px", fontSize: 14.5, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody, boxShadow: T.shadowM }}><Plus size={18} /> Create group</button>
         </div>
       </Page>
     );
@@ -1125,7 +1133,7 @@ export function CommunityScreen({ account }) {
         <div style={{ marginBottom: 24 }}>
           {rooms.map(r => <GroupRow key={`admin-${r.id}`} g={roomToGroup(r)} onClick={() => openGroup(roomToGroup(r))} />)}
           {publicGroups.slice(0, 3).map(g => <GroupRow key={`user-${g.id}`} g={groupToGroup(g)} onClick={() => openGroup(groupToGroup(g))} />)}
-          <button onClick={openCreateGroup} style={{ width: "100%", background: "none", border: `1.5px dashed ${T.border}`, borderRadius: T.r, padding: "14px", color: T.purple, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: T.fontBody, textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}><Plus size={16} /> Create your own group</button>
+          <button onClick={() => openCreateGroup(false)} style={{ width: "100%", background: "none", border: `1.5px dashed ${T.border}`, borderRadius: T.r, padding: "14px", color: T.purple, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: T.fontBody, textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}><Plus size={16} /> Create your own group</button>
         </div>
 
         <SectionLabel>Private Groups</SectionLabel>
@@ -1133,7 +1141,8 @@ export function CommunityScreen({ account }) {
           {privateGroups.length > 0
             ? privateGroups.slice(0, 3).map(g => <GroupRow key={`private-${g.id}`} g={groupToGroup(g)} onClick={() => openGroup(groupToGroup(g))} />)
             : <p style={{ margin: "0 0 12px", fontSize: 12.5, color: T.inkMuted }}>You haven't joined any private groups yet.</p>}
-          <button onClick={openJoinByCode} style={{ width: "100%", background: "none", border: "none", padding: "10px 4px 0", color: T.inkMuted, fontWeight: 600, fontSize: 12.5, cursor: "pointer", fontFamily: T.fontBody, textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}><Lock size={13} /> Have an invite code?</button>
+          <button onClick={openCreatePrivateGroup} style={{ width: "100%", background: "none", border: `1.5px dashed ${T.border}`, borderRadius: T.r, padding: "14px", color: T.purple, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: T.fontBody, textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginBottom: 8 }}><Plus size={16} /> Create a private group</button>
+          <button onClick={openJoinByCode} style={{ width: "100%", background: "none", border: "none", padding: "2px 4px 0", color: T.inkMuted, fontWeight: 600, fontSize: 12.5, cursor: "pointer", fontFamily: T.fontBody, textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}><Lock size={13} /> Have an invite code?</button>
         </div>
 
         <SectionLabel style={{ marginBottom: 10 }}>Private Messages</SectionLabel>
