@@ -114,7 +114,7 @@ export function ChatUI({ msgs, input, setInput, onSend, onDelete, loading, color
                 </div>
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                   <p style={{ margin: 0, fontSize: 10, color: T.inkMuted }}>{msg.time}</p>
-                  {isMe && <button onClick={() => onDelete(msg.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 10, color: T.red, fontWeight: 700, fontFamily: T.fontBody, padding: 0 }}>Delete</button>}
+                  {isMe && !isGroup && <button onClick={() => onDelete(msg.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 10, color: T.red, fontWeight: 700, fontFamily: T.fontBody, padding: 0 }}>Delete</button>}
                 </div>
               </div>
               </div>
@@ -244,8 +244,15 @@ function QRCode({ seed = "bonda", size = 160 }) {
 
 export function CommunityScreen({ account }) {
   const [view, setView] = useState("home");
-  const [dmPremium, setDmPremium] = useState(() => { try { return localStorage.getItem(`cb_premium_${account.name.toLowerCase()}`) === "true"; } catch { return false; } });
+  // Premium (private groups + private messaging) is a simulated monthly
+  // subscription — the stored value is the expiry timestamp, not a flag, so
+  // access locks itself again 30 days after purchase without a real billing
+  // system behind it.
+  const premiumStorageKey = `cb_premium_${account.name.toLowerCase()}`;
+  const [premiumUntil, setPremiumUntil] = useState(() => { try { return parseInt(localStorage.getItem(premiumStorageKey), 10) || 0; } catch { return 0; } });
+  const premium = premiumUntil > Date.now();
   const [showPaywall, setShowPaywall] = useState(false);
+  const [paywallIntent, setPaywallIntent] = useState(null); // 'dm' | 'group' — which action to resume after purchase
 
   const [activeRoom, setActiveRoom] = useState(null);
   const [groupMsgs, setGroupMsgs] = useState([]); const [groupInput, setGroupInput] = useState(""); const [groupLoading, setGroupLoading] = useState(false); const [groupAttachment, setGroupAttachment] = useState(null);
@@ -442,7 +449,7 @@ export function CommunityScreen({ account }) {
   };
 
   const openDMList = async () => {
-    if (!dmPremium) { setShowPaywall(true); return; }
+    if (!premium) { setPaywallIntent("dm"); setShowPaywall(true); return; }
     setView("dm_list");
     const { data, error } = await supabase.from("profiles").select("id, name, avatar, joined");
     setAllUsers(error ? [] : data);
@@ -463,7 +470,7 @@ export function CommunityScreen({ account }) {
 
   // Gate for message buttons reached from places other than the "Private
   // Messages" card (e.g. the Members screen) — same paywall either way.
-  const messageMember = p => { if (!dmPremium) { setShowPaywall(true); return; } openDMChat(p); };
+  const messageMember = p => { if (!premium) { setPaywallIntent("dm"); setShowPaywall(true); return; } openDMChat(p); };
 
   const sendDM = async () => {
     const text = dmInput.trim(); const attachment = dmAttachment;
@@ -489,7 +496,13 @@ export function CommunityScreen({ account }) {
     }
   };
 
-  const purchase = () => { try { localStorage.setItem(`cb_premium_${account.name.toLowerCase()}`, "true"); } catch {} setDmPremium(true); setShowPaywall(false); setTimeout(openDMList, 300); };
+  const purchase = () => {
+    const until = Date.now() + 30 * 24 * 60 * 60 * 1000;
+    try { localStorage.setItem(premiumStorageKey, String(until)); } catch {}
+    setPremiumUntil(until); setShowPaywall(false);
+    if (paywallIntent === "group") { setGPrivate(true); } else { setTimeout(openDMList, 300); }
+    setPaywallIntent(null);
+  };
 
   // ---- toast / groups / moments / members / invite UI state ---------------
   const [toast, setToast] = useState("");
@@ -540,7 +553,7 @@ export function CommunityScreen({ account }) {
         .update({ name, description: gDescription.trim(), icon_key: gIcon, color_key: gColor, is_private: gPrivate })
         .eq("id", editingGroupId).select().single();
       setCreatingGroup(false);
-      if (error || !data) { flash("Could not save changes. Please try again."); return; }
+      if (error || !data) { console.error(error); flash("Could not save changes. Please try again."); return; }
       setGroups(gs => gs.map(g => g.id === data.id ? data : g));
       setActiveRoom(groupToGroup(data));
       setEditingGroupId(null);
@@ -556,7 +569,7 @@ export function CommunityScreen({ account }) {
       setGroups(gs => [data, ...gs]);
     }
     setCreatingGroup(false);
-    if (error || !data) { flash("Could not create the group. Please try again."); return; }
+    if (error || !data) { console.error(error); flash("Could not create the group. Please try again."); return; }
     setGName(""); setGDescription(""); setGColor("purple"); setGIcon("community");
     flash("Group created");
     openGroup(groupToGroup(data));
@@ -715,18 +728,18 @@ export function CommunityScreen({ account }) {
             <circle cx="14" cy="19.5" r="2.5" fill={T.purple} opacity="0.7"/>
           </svg>
         </div>
-        <p style={{ margin: "0 0 8px", fontWeight: 900, color: T.ink, fontSize: 20, textAlign: "center" }}>Private Messaging</p>
-        <p style={{ margin: "0 0 20px", color: T.inkSoft, fontSize: 13, textAlign: "center", lineHeight: 1.6 }}>Chat one-on-one privately with any parent in the Bonda community.</p>
+        <p style={{ margin: "0 0 8px", fontWeight: 900, color: T.ink, fontSize: 20, textAlign: "center" }}>Premium Access</p>
+        <p style={{ margin: "0 0 20px", color: T.inkSoft, fontSize: 13, textAlign: "center", lineHeight: 1.6 }}>Message any parent privately and create your own invite-only private groups.</p>
         <div style={{ background: T.purpleL, borderRadius: T.r, padding: "16px", marginBottom: 20, textAlign: "center" }}>
-          <p style={{ margin: "0 0 2px", color: T.inkMuted, fontSize: 11, fontWeight: 700, textTransform: "uppercase" }}>One-Time Purchase</p>
-          <p style={{ margin: "0 0 2px", color: T.purple, fontSize: 34, fontWeight: 900 }}>SGD $10</p>
-          <p style={{ margin: 0, color: T.inkMuted, fontSize: 12 }}>Lifetime access · Never expires</p>
+          <p style={{ margin: "0 0 2px", color: T.inkMuted, fontSize: 11, fontWeight: 700, textTransform: "uppercase" }}>Monthly Subscription</p>
+          <p style={{ margin: "0 0 2px", color: T.purple, fontSize: 34, fontWeight: 900 }}>SGD $10<span style={{ fontSize: 15, fontWeight: 700 }}>/mo</span></p>
+          <p style={{ margin: 0, color: T.inkMuted, fontSize: 12 }}>Billed every 30 days · Renew anytime</p>
         </div>
         {[
           { label: "Private one-on-one chat", svg: <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 3 Q2 1.5 3.5 1.5 L10 1.5 Q11.5 1.5 11.5 3 L11.5 7 Q11.5 8.5 10 8.5 L6 8.5 L4 10.5 L4 8.5 Q2 8.5 2 7 Z" stroke={T.purple} strokeWidth="1.2" fill={T.purple} fillOpacity="0.12"/><path d="M5.5 10 Q5.5 9 6.5 9 L13 9 Q14 9 14 10 L14 13 Q14 14 13 14 L11.5 14 L11.5 15.5 L10 14 L6.5 14 Q5.5 14 5.5 13 Z" stroke={T.purple} strokeWidth="1.1" fill={T.purple} fillOpacity="0.18"/></svg> },
-          { label: "Only visible to you and the recipient", svg: <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="3" y="7.5" width="10" height="7" rx="2" stroke={T.purple} strokeWidth="1.2" fill={T.purple} fillOpacity="0.1"/><path d="M5 7.5 L5 5 Q5 2 8 2 Q11 2 11 5 L11 7.5" stroke={T.purple} strokeWidth="1.2" strokeLinecap="round" fill="none"/><circle cx="8" cy="11" r="1.3" fill={T.purple} opacity="0.7"/></svg> },
-          { label: "Unlimited conversations", svg: <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 8 Q4 5.5 8 5.5 Q12 5.5 12 8 Q12 10.5 8 10.5" stroke={T.purple} strokeWidth="1.2" strokeLinecap="round" fill="none"/><path d="M8 10.5 Q4 10.5 4 8" stroke={T.purple} strokeWidth="1.2" strokeLinecap="round" fill="none" opacity="0.45"/><path d="M1.5 8 Q1.5 4.5 4 4" stroke={T.purple} strokeWidth="1" strokeLinecap="round" opacity="0.3"/><path d="M14.5 8 Q14.5 4.5 12 4" stroke={T.purple} strokeWidth="1" strokeLinecap="round" opacity="0.3"/></svg> },
-          { label: "Tied to your account forever", svg: <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5.5" r="3" stroke={T.purple} strokeWidth="1.2" fill={T.purple} fillOpacity="0.12"/><path d="M2.5 14.5 Q2.5 11 8 11 Q13.5 11 13.5 14.5" stroke={T.purple} strokeWidth="1.2" strokeLinecap="round" fill="none"/><path d="M10 4.5 L11.5 6 L14 3.5" stroke={T.purple} strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round" opacity="0.6"/></svg> },
+          { label: "Create invite-only private groups", svg: <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="3" y="7.5" width="10" height="7" rx="2" stroke={T.purple} strokeWidth="1.2" fill={T.purple} fillOpacity="0.1"/><path d="M5 7.5 L5 5 Q5 2 8 2 Q11 2 11 5 L11 7.5" stroke={T.purple} strokeWidth="1.2" strokeLinecap="round" fill="none"/><circle cx="8" cy="11" r="1.3" fill={T.purple} opacity="0.7"/></svg> },
+          { label: "Unlimited conversations & groups", svg: <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 8 Q4 5.5 8 5.5 Q12 5.5 12 8 Q12 10.5 8 10.5" stroke={T.purple} strokeWidth="1.2" strokeLinecap="round" fill="none"/><path d="M8 10.5 Q4 10.5 4 8" stroke={T.purple} strokeWidth="1.2" strokeLinecap="round" fill="none" opacity="0.45"/><path d="M1.5 8 Q1.5 4.5 4 4" stroke={T.purple} strokeWidth="1" strokeLinecap="round" opacity="0.3"/><path d="M14.5 8 Q14.5 4.5 12 4" stroke={T.purple} strokeWidth="1" strokeLinecap="round" opacity="0.3"/></svg> },
+          { label: "Tied to your account · renew anytime", svg: <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5.5" r="3" stroke={T.purple} strokeWidth="1.2" fill={T.purple} fillOpacity="0.12"/><path d="M2.5 14.5 Q2.5 11 8 11 Q13.5 11 13.5 14.5" stroke={T.purple} strokeWidth="1.2" strokeLinecap="round" fill="none"/><path d="M10 4.5 L11.5 6 L14 3.5" stroke={T.purple} strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round" opacity="0.6"/></svg> },
         ].map(({ label, svg }, idx) => (
           <div key={idx} style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
             <div style={{ width: 32, height: 32, borderRadius: 8, background: T.purpleL, display: "flex", alignItems: "center", justifyContent: "center", border: `1px solid ${T.purple}15`, flexShrink: 0 }}>{svg}</div>
@@ -736,7 +749,7 @@ export function CommunityScreen({ account }) {
         <div style={{ background: T.amberL, borderRadius: T.r, padding: "10px 14px", margin: "16px 0" }}>
           <p style={{ margin: 0, color: T.amber, fontSize: 11, fontWeight: 700, lineHeight: 1.6 }}>💡 In the live app this connects to Stripe / PayPal / Apple Pay. Tap below to simulate in this prototype.</p>
         </div>
-        <Btn onClick={purchase} full style={{ marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}><Unlock size={16} /> Unlock for SGD $10</Btn>
+        <Btn onClick={purchase} full style={{ marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}><Unlock size={16} /> Subscribe for SGD $10/mo</Btn>
         <Btn onClick={() => setShowPaywall(false)} full secondary>Maybe later</Btn>
       </div>
     </div>
@@ -792,6 +805,7 @@ export function CommunityScreen({ account }) {
   } else if (view === "createGroup") {
     content = (
       <Page>
+        {showPaywall && <Paywall />}
         <SubHeader title={editingGroupId ? "Edit group" : "Create a group"} />
         <div style={{ marginTop: 18 }}>
           <Input label="Group name" value={gName} onChange={e => setGName(e.target.value)} placeholder="e.g. Weekend playgroup" />
@@ -815,7 +829,7 @@ export function CommunityScreen({ account }) {
               );
             })}
           </div>
-          <ToggleRow label="Private group" sub="Hidden from Groups — people can only join with an invite code" on={gPrivate} onToggle={() => setGPrivate(p => !p)} />
+          <ToggleRow label="Private group" sub="Hidden from Groups — people can only join with an invite code" on={gPrivate} onToggle={() => { if (!gPrivate && !premium) { setPaywallIntent("group"); setShowPaywall(true); return; } setGPrivate(p => !p); }} />
           <Btn onClick={createGroup} full disabled={creatingGroup || !gName.trim()} style={{ marginTop: 18 }}>{creatingGroup ? (editingGroupId ? "Saving..." : "Creating...") : (editingGroupId ? "Save changes" : "Create group")}</Btn>
           {!editingGroupId && <p style={{ margin: "10px 4px 0", fontSize: 12, color: T.inkMuted, textAlign: "center" }}>{gPrivate ? "Only people you invite can find and join." : "Anyone in the Bonda community can find and join."}</p>}
         </div>
@@ -847,9 +861,12 @@ export function CommunityScreen({ account }) {
       </Page>
     );
   } else if (view === "allGroups") {
-    const combined = [...rooms.map(roomToGroup), ...groups.map(groupToGroup)];
+    const publicCombined = [...rooms.map(roomToGroup), ...groups.filter(g => !g.is_private).map(groupToGroup)];
+    const privateCombined = groups.filter(g => g.is_private).map(groupToGroup);
     const q = groupQuery.trim().toLowerCase();
-    const filtered = !q ? combined : combined.filter(g => g.label.toLowerCase().includes(q) || (g.description || "").toLowerCase().includes(q));
+    const matches = g => !q || g.label.toLowerCase().includes(q) || (g.description || "").toLowerCase().includes(q);
+    const filteredPublic = publicCombined.filter(matches);
+    const filteredPrivate = privateCombined.filter(matches);
     content = (
       <Page style={{ paddingBottom: 110 }}>
         <SubHeader title="Groups" />
@@ -857,8 +874,12 @@ export function CommunityScreen({ account }) {
           <Search size={16} color={T.inkMuted} style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
           <input value={groupQuery} onChange={e => setGroupQuery(e.target.value)} placeholder="Search groups" style={searchInputStyle} />
         </div>
-        {filtered.map(g => <GroupRow key={`${g.kind}-${g.id}`} g={g} onClick={() => openGroup(g)} />)}
-        {filtered.length === 0 && <p style={{ textAlign: "center", color: T.inkMuted, fontSize: 14, marginTop: 24 }}>No groups match "{groupQuery}".</p>}
+        <SectionLabel style={{ marginBottom: 10 }}>Public Groups</SectionLabel>
+        {filteredPublic.map(g => <GroupRow key={`${g.kind}-${g.id}`} g={g} onClick={() => openGroup(g)} />)}
+        {filteredPublic.length === 0 && <p style={{ textAlign: "center", color: T.inkMuted, fontSize: 14, margin: "0 0 20px" }}>No public groups match "{groupQuery}".</p>}
+        <SectionLabel style={{ marginTop: 20, marginBottom: 10 }}>Private Groups</SectionLabel>
+        {filteredPrivate.map(g => <GroupRow key={`${g.kind}-${g.id}`} g={g} onClick={() => openGroup(g)} />)}
+        {filteredPrivate.length === 0 && <p style={{ textAlign: "center", color: T.inkMuted, fontSize: 14, margin: 0 }}>{q ? `No private groups match "${groupQuery}".` : "You haven't joined any private groups yet."}</p>}
         <div style={{ position: "fixed", bottom: 86, left: 0, right: 0, display: "flex", justifyContent: "center", zIndex: 60 }}>
           <button onClick={openCreateGroup} style={{ display: "flex", alignItems: "center", gap: 8, background: T.purple, color: "white", border: "none", borderRadius: 999, padding: "13px 24px", fontSize: 14.5, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody, boxShadow: T.shadowM }}><Plus size={18} /> Create group</button>
         </div>
@@ -1062,6 +1083,8 @@ export function CommunityScreen({ account }) {
       </Page>
     );
   } else if (view === "home") {
+    const publicGroups = groups.filter(g => !g.is_private);
+    const privateGroups = groups.filter(g => g.is_private);
     content = (
       <Page>
         {showPaywall && <Paywall />}
@@ -1101,13 +1124,20 @@ export function CommunityScreen({ account }) {
         <SectionLabel action={<button onClick={() => setView("allGroups")} style={{ background: "none", border: "none", color: T.purple, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: T.fontBody }}>See all</button>}>Groups</SectionLabel>
         <div style={{ marginBottom: 24 }}>
           {rooms.map(r => <GroupRow key={`admin-${r.id}`} g={roomToGroup(r)} onClick={() => openGroup(roomToGroup(r))} />)}
-          {groups.slice(0, 3).map(g => <GroupRow key={`user-${g.id}`} g={groupToGroup(g)} onClick={() => openGroup(groupToGroup(g))} />)}
+          {publicGroups.slice(0, 3).map(g => <GroupRow key={`user-${g.id}`} g={groupToGroup(g)} onClick={() => openGroup(groupToGroup(g))} />)}
           <button onClick={openCreateGroup} style={{ width: "100%", background: "none", border: `1.5px dashed ${T.border}`, borderRadius: T.r, padding: "14px", color: T.purple, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: T.fontBody, textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}><Plus size={16} /> Create your own group</button>
+        </div>
+
+        <SectionLabel>Private Groups</SectionLabel>
+        <div style={{ marginBottom: 24 }}>
+          {privateGroups.length > 0
+            ? privateGroups.slice(0, 3).map(g => <GroupRow key={`private-${g.id}`} g={groupToGroup(g)} onClick={() => openGroup(groupToGroup(g))} />)
+            : <p style={{ margin: "0 0 12px", fontSize: 12.5, color: T.inkMuted }}>You haven't joined any private groups yet.</p>}
           <button onClick={openJoinByCode} style={{ width: "100%", background: "none", border: "none", padding: "10px 4px 0", color: T.inkMuted, fontWeight: 600, fontSize: 12.5, cursor: "pointer", fontFamily: T.fontBody, textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}><Lock size={13} /> Have an invite code?</button>
         </div>
 
         <SectionLabel style={{ marginBottom: 10 }}>Private Messages</SectionLabel>
-        {dmPremium ? (
+        {premium ? (
           /* ── UNLOCKED STATE — elegant, professional ── */
           <Card onClick={openDMList} style={{ background: T.surface, border: `1.5px solid ${T.purple}25`, padding: 0, overflow: "hidden" }}>
 
@@ -1123,7 +1153,7 @@ export function CommunityScreen({ account }) {
               </div>
               <div style={{ flex: 1 }}>
                 <p style={{ margin: "0 0 2px", fontWeight: 800, color: T.purple, fontSize: 15 }}>Message a Parent</p>
-                <p style={{ margin: 0, color: T.inkSoft, fontSize: 12 }}>Private · one-on-one · only the two of you can see it</p>
+                <p style={{ margin: 0, color: T.inkSoft, fontSize: 12 }}>Premium active · renews {new Date(premiumUntil).toLocaleDateString("en-SG", { day: "numeric", month: "short" })}</p>
               </div>
               <svg width="8" height="14" viewBox="0 0 8 14" fill="none">
                 <path d="M1.5 1.5 L6.5 7 L1.5 12.5" stroke={T.purple} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
@@ -1175,9 +1205,9 @@ export function CommunityScreen({ account }) {
               <div style={{ flex: 1 }}>
                 <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 3 }}>
                   <p style={{ margin: 0, fontWeight: 800, color: T.ink, fontSize: 14 }}>Message a Parent</p>
-                  <Badge color={T.purple}>SGD $10</Badge>
+                  <Badge color={T.purple}>SGD $10/mo</Badge>
                 </div>
-                <p style={{ margin: 0, color: T.inkMuted, fontSize: 12 }}>Unlock private 1-on-1 chat · one-time · lifetime access</p>
+                <p style={{ margin: 0, color: T.inkMuted, fontSize: 12 }}>Unlock private chat & private groups · billed monthly</p>
               </div>
               <ChevronRight size={20} color={T.inkMuted} />
             </div>
