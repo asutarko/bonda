@@ -22,6 +22,12 @@ const CATEGORY_COLORS = {
   rest:     { c: "#8B5CF6", l: "#EFE9FE" },
 };
 const categoryColor = category => CATEGORY_COLORS[category] || { c: T.purple, l: T.purpleL };
+
+// Distinct pink/magenta used only to flag a timeline row that overlaps
+// another activity's time slot — kept outside the rainbow category palette
+// so it never doubles as a real category colour.
+const CONFLICT_COLOR = "#D6336C";
+const CONFLICT_COLOR_L = "#FCE4EF";
 const CATEGORY_LABELS = { routine: "Routine", meals: "Meals", therapy: "Therapy", play: "Play", learning: "Learning", rest: "Rest" };
 
 // Tap-to-select colour swatches for a schedule item's category — reused by
@@ -363,7 +369,7 @@ function StatusPill({ status }) {
 // (instead of two separate list sections) is purely visual — the "done"
 // semantics per type are unchanged: essentials tick over on the clock,
 // added items need a tap.
-function TimelineRow({ item, essential, status, skipped, notToday, onToggle, menuOpen, onMenuToggle, onEdit, onSkip, onDelete, hideTime, tightBottom, dragging, dragOver, onDragStartRow, onDragOverRow, onDropRow, onDragEndRow }) {
+function TimelineRow({ item, essential, status, skipped, notToday, conflict, onToggle, menuOpen, onMenuToggle, onEdit, onSkip, onDelete, hideTime, tightBottom, dragging, dragOver, onDragStartRow, onDragOverRow, onDropRow, onDragEndRow }) {
   const done = status === "completed";
   const missed = status === "missed";
   const upcoming = status === "upcoming";
@@ -385,7 +391,8 @@ function TimelineRow({ item, essential, status, skipped, notToday, onToggle, men
           onClick={() => clickable && onToggle()}
           role={clickable ? "button" : undefined}
           aria-label={clickable ? (done ? "Mark not done" : "Mark done") : undefined}
-          style={{ padding: "10px 12px", borderRadius: T.r, background: done ? T.greenL : missed ? T.redL : upcoming ? T.amberL : l, borderLeft: `3px solid ${dragOver ? T.purple : done ? T.green : missed ? T.red : upcoming ? T.amber : c}`, boxShadow: dragOver ? `0 0 0 1.5px ${T.purple}` : "none", opacity: inactive ? 0.55 : 1, cursor: clickable ? "pointer" : "default", marginBottom: tightBottom ? 2 : 8 }}
+          title={conflict ? "Overlaps with another activity" : undefined}
+          style={{ padding: "10px 12px", borderRadius: T.r, background: done ? T.greenL : missed ? T.redL : upcoming ? T.amberL : conflict ? CONFLICT_COLOR_L : l, borderLeft: `3px solid ${dragOver ? T.purple : conflict ? CONFLICT_COLOR : done ? T.green : missed ? T.red : upcoming ? T.amber : c}`, boxShadow: dragOver ? `0 0 0 1.5px ${T.purple}` : "none", opacity: inactive ? 0.55 : 1, cursor: clickable ? "pointer" : "default", marginBottom: tightBottom ? 2 : 8 }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <span
@@ -855,6 +862,10 @@ export function ScheduleScreen({ childCtx, push, showAlarmSettings, setShowAlarm
     return items.find(i => i.id !== excludeId && daysConflict(cDays, itemDays(i)) && timesOverlap(candidate.time, candidate.endTime, i.time, i.endTime));
   };
 
+  // Whether an already-saved item overlaps another saved item on a shared
+  // day — drives the conflict colour on timeline rows.
+  const hasConflict = item => items.some(i => i.id !== item.id && daysConflict(itemDays(item), itemDays(i)) && timesOverlap(item.time, item.endTime, i.time, i.endTime));
+
   const addItem = async () => {
     if (!newItem.label.trim()) return;
     const conflict = findConflict(newItem, null);
@@ -1001,6 +1012,7 @@ export function ScheduleScreen({ childCtx, push, showAlarmSettings, setShowAlarm
     }
     return (
       <TimelineRow key={item.id} item={item} essential={essential} status={activityStatus(item)} skipped={skippedToday.includes(item.id)} notToday={!appliesToday(item, todayDow)}
+        conflict={hasConflict(item)}
         hideTime={hideTime} tightBottom={tightBottom} {...drag}
         onToggle={essential ? undefined : () => toggleDone(item.id)}
         menuOpen={menuFor === item.id}
