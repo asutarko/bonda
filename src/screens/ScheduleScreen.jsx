@@ -25,10 +25,12 @@ const categoryColor = category => CATEGORY_COLORS[category] || { c: T.purple, l:
 
 // Slate used only to flag a timeline row that overlaps another activity's
 // time slot — every other hue is already claimed by a category or status
-// (red=missed, amber=upcoming, green=done, violet=rest, etc.), so slate is
-// the one colour a conflict can use without being mistaken for something else.
+// (red=missed, amber=upcoming, green=done, violet=rest, etc.). T.slateL itself
+// is too close to the pale default/greenL tint (#E9EAEC vs #E6EDEC) to read as
+// different at a glance, so the fill here is a noticeably darker/more visible
+// grey than any of the pastel category or status tints.
 const CONFLICT_COLOR = T.slate;
-const CONFLICT_COLOR_L = T.slateL;
+const CONFLICT_COLOR_L = "#D6D8DC";
 const CATEGORY_LABELS = { routine: "Routine", meals: "Meals", therapy: "Therapy", play: "Play", learning: "Learning", rest: "Rest" };
 
 // Tap-to-select colour swatches for a schedule item's category — reused by
@@ -1178,6 +1180,13 @@ export function ScheduleScreen({ childCtx, push, showAlarmSettings, setShowAlarm
               {sorted.length === 0 && <p style={{ color: T.inkMuted, fontSize: 12, margin: 0 }}>No activities set up.</p>}
             </div>
           )}
+
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", padding: "0 0 14px", fontSize: 11, color: T.inkMuted, fontWeight: 700 }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: 99, background: T.green, display: "inline-block" }} /> Done</span>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: 99, background: T.amber, display: "inline-block" }} /> Upcoming</span>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: 99, background: T.red, display: "inline-block" }} /> Missed</span>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: 99, background: T.slate, display: "inline-block" }} /> Conflict</span>
+          </div>
 
           <button onClick={() => setShowAdd(true)} style={{ width: "100%", margin: "2px 0 16px", border: `1.5px dashed ${T.border}`, background: "none", color: T.ink, borderRadius: T.r, padding: "11px", fontWeight: 700, fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontFamily: T.fontBody }}>+ Add activity</button>
 
