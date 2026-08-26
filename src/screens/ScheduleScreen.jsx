@@ -23,11 +23,12 @@ const CATEGORY_COLORS = {
 };
 const categoryColor = category => CATEGORY_COLORS[category] || { c: T.purple, l: T.purpleL };
 
-// Distinct pink/magenta used only to flag a timeline row that overlaps
-// another activity's time slot — kept outside the rainbow category palette
-// so it never doubles as a real category colour.
-const CONFLICT_COLOR = "#D6336C";
-const CONFLICT_COLOR_L = "#FCE4EF";
+// Slate used only to flag a timeline row that overlaps another activity's
+// time slot — every other hue is already claimed by a category or status
+// (red=missed, amber=upcoming, green=done, violet=rest, etc.), so slate is
+// the one colour a conflict can use without being mistaken for something else.
+const CONFLICT_COLOR = T.slate;
+const CONFLICT_COLOR_L = T.slateL;
 const CATEGORY_LABELS = { routine: "Routine", meals: "Meals", therapy: "Therapy", play: "Play", learning: "Learning", rest: "Rest" };
 
 // Tap-to-select colour swatches for a schedule item's category — reused by
@@ -392,7 +393,7 @@ function TimelineRow({ item, essential, status, skipped, notToday, conflict, onT
           role={clickable ? "button" : undefined}
           aria-label={clickable ? (done ? "Mark not done" : "Mark done") : undefined}
           title={conflict ? "Overlaps with another activity" : undefined}
-          style={{ padding: "10px 12px", borderRadius: T.r, background: done ? T.greenL : missed ? T.redL : upcoming ? T.amberL : conflict ? CONFLICT_COLOR_L : l, borderLeft: `3px solid ${dragOver ? T.purple : conflict ? CONFLICT_COLOR : done ? T.green : missed ? T.red : upcoming ? T.amber : c}`, boxShadow: dragOver ? `0 0 0 1.5px ${T.purple}` : "none", opacity: inactive ? 0.55 : 1, cursor: clickable ? "pointer" : "default", marginBottom: tightBottom ? 2 : 8 }}
+          style={{ padding: "10px 12px", borderRadius: T.r, background: conflict ? CONFLICT_COLOR_L : done ? T.greenL : missed ? T.redL : upcoming ? T.amberL : l, borderLeft: `3px solid ${dragOver ? T.purple : conflict ? CONFLICT_COLOR : done ? T.green : missed ? T.red : upcoming ? T.amber : c}`, boxShadow: dragOver ? `0 0 0 1.5px ${T.purple}` : "none", opacity: inactive ? 0.55 : 1, cursor: clickable ? "pointer" : "default", marginBottom: tightBottom ? 2 : 8 }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <span
