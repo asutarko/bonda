@@ -33,13 +33,13 @@ export const db = {
 // their own group (community_groups).
 
 export const ROOM_COLORS = {
-  purple: { color: T.purple, bg: T.purpleL },
-  green:  { color: T.green,  bg: T.greenL },
-  amber:  { color: T.amber,  bg: T.amberL },
-  teal:   { color: T.teal,   bg: T.tealL },
   red:    { color: T.red,    bg: T.redL },
-  violet: { color: T.violet, bg: T.violetL },
+  amber:  { color: T.amber,  bg: T.amberL },
+  green:  { color: T.green,  bg: T.greenL },
+  teal:   { color: T.teal,   bg: T.tealL },
   indigo: { color: T.indigo, bg: T.indigoL },
+  violet: { color: T.violet, bg: T.violetL },
+  purple: { color: T.purple, bg: T.purpleL },
   slate:  { color: T.slate,  bg: T.slateL },
 };
 
