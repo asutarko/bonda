@@ -47,17 +47,34 @@ export function useChildren(userId) {
   useEffect(() => {
     if (!userId) { setChildren([]); setActiveId(null); setLoading(false); return; }
     let cancelled = false;
-    setLoading(true);
-    supabase.from("children").select("*").eq("user_id", userId).order("created_at").then(({ data, error }) => {
+
+    const load = () => supabase.from("children").select("*").eq("user_id", userId).order("created_at").then(({ data, error }) => {
       if (cancelled) return;
-      const kids = (error || !data) ? [] : data.map(childFromRow);
+      // A failed/empty read here can happen if the request goes out before the
+      // Supabase client has re-attached a freshly-refreshed auth token (common
+      // right after a backgrounded PWA is reopened) — silently keeping the old
+      // list on error avoids flashing an empty Home screen; a genuine "no
+      // children" result (no error, empty data) is still applied as-is.
+      if (error) return;
+      const kids = data.map(childFromRow);
       setChildren(kids);
       let saved = null;
       try { saved = localStorage.getItem(`cb_active_child_${userId}`); } catch {}
       setActiveId(kids.some(k => k.id === saved) ? saved : (kids[0]?.id || null));
-      setLoading(false);
     });
-    return () => { cancelled = true; };
+
+    setLoading(true);
+    load().then(() => { if (!cancelled) setLoading(false); });
+
+    // Reopening a backgrounded tab/PWA doesn't remount this hook, so if the
+    // very first load above lost the auth-token race and came back empty,
+    // nothing would ever retry it without this — matches the reported "have
+    // to manually refresh to see my kids" symptom.
+    const onVisible = () => { if (document.visibilityState === "visible") load(); };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+
+    return () => { cancelled = true; document.removeEventListener("visibilitychange", onVisible); window.removeEventListener("focus", onVisible); };
   }, [userId]);
 
   const switchChild = (id) => {
