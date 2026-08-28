@@ -7,12 +7,12 @@ export const DEFAULT_CHILDREN = [];
 // Maps a Supabase "children" row to the shape the rest of the app expects
 
 export const DEFAULT_SCHEDULE = [
-  { id: "s1", emoji: "🌅", label: "Wake Up",      time: "07:00" },
-  { id: "s2", emoji: "🍳", label: "Breakfast",    time: "07:30" },
-  { id: "s3", emoji: "🦷", label: "Brush Teeth",  time: "08:00" },
-  { id: "s4", emoji: "🎨", label: "Activity Time",time: "09:00" },
-  { id: "s5", emoji: "🥗", label: "Lunch",        time: "12:00" },
-  { id: "s6", emoji: "😴", label: "Rest Time",    time: "13:00" },
+  { id: "s1", emoji: "🌅", label: "Wake Up",      time: "07:00", category: "routine" },
+  { id: "s2", emoji: "🍳", label: "Breakfast",    time: "07:30", category: "meals" },
+  { id: "s3", emoji: "🦷", label: "Brush Teeth",  time: "08:00", category: "routine" },
+  { id: "s4", emoji: "🎨", label: "Activity Time",time: "09:00", category: "play" },
+  { id: "s5", emoji: "🥗", label: "Lunch",        time: "12:00", category: "meals" },
+  { id: "s6", emoji: "😴", label: "Rest Time",    time: "13:00", category: "rest" },
 ];
 
 export const db = {

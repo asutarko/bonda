@@ -372,7 +372,7 @@ function StatusPill({ status }) {
 // (instead of two separate list sections) is purely visual — the "done"
 // semantics per type are unchanged: essentials tick over on the clock,
 // added items need a tap.
-function TimelineRow({ item, essential, status, skipped, notToday, conflict, onToggle, menuOpen, onMenuToggle, onEdit, onSkip, onDelete, hideTime, tightBottom, dragging, dragOver, onDragStartRow, onDragOverRow, onDropRow, onDragEndRow }) {
+function TimelineRow({ item, essential, status, skipped, notToday, conflict, onToggle, menuOpen, onMenuToggle, onEdit, onSkip, onDelete, tightBottom, dragging, dragOver, onDragStartRow, onDragOverRow, onDropRow, onDragEndRow }) {
   const done = status === "completed";
   const missed = status === "missed";
   const upcoming = status === "upcoming";
@@ -384,48 +384,53 @@ function TimelineRow({ item, essential, status, skipped, notToday, conflict, onT
     <div
       onDragOver={e => onDragOverRow(e)}
       onDrop={e => { e.preventDefault(); onDropRow(); }}
-      style={{ position: "relative", display: "flex", gap: 10, opacity: dragging ? 0.4 : 1 }}
+      style={{ position: "relative", opacity: dragging ? 0.4 : 1 }}
     >
-      <div style={{ width: 44, flexShrink: 0, textAlign: "right", paddingTop: 12, fontSize: 11, fontWeight: 700, color: T.inkMuted, opacity: inactive ? 0.55 : 1 }}>
-        {hideTime ? "" : formatTimeLabel(item.time).replace(" ", " ")}
-      </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
+      <div>
         <div
           onClick={() => clickable && onToggle()}
           role={clickable ? "button" : undefined}
           aria-label={clickable ? (done ? "Mark not done" : "Mark done") : undefined}
           title={conflict ? "Overlaps with another activity" : undefined}
-          style={{ padding: "10px 12px", borderRadius: T.r, background: conflict ? CONFLICT_COLOR_L : done ? T.greenL : missed ? T.redL : upcoming ? T.amberL : l, borderLeft: `3px solid ${dragOver ? T.purple : conflict ? CONFLICT_COLOR : done ? T.green : missed ? T.red : upcoming ? T.amber : c}`, boxShadow: dragOver ? `0 0 0 1.5px ${T.purple}` : "none", opacity: inactive ? 0.55 : 1, cursor: clickable ? "pointer" : "default", marginBottom: tightBottom ? 2 : 8 }}
+          style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 12px", borderRadius: T.r, background: conflict ? CONFLICT_COLOR_L : done ? T.greenL : missed ? T.redL : upcoming ? T.amberL : l, borderLeft: `3px solid ${dragOver ? T.purple : conflict ? CONFLICT_COLOR : done ? T.green : missed ? T.red : upcoming ? T.amber : c}`, boxShadow: dragOver ? `0 0 0 1.5px ${T.purple}` : "none", opacity: inactive ? 0.55 : 1, cursor: clickable ? "pointer" : "default", marginBottom: tightBottom ? 2 : 8 }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span
-              draggable
-              onDragStart={e => { e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", item.id); onDragStartRow(); }}
-              onDragEnd={onDragEndRow}
-              onClick={e => e.stopPropagation()}
-              aria-label="Drag to reorder"
-              style={{ cursor: "grab", flexShrink: 0, fontSize: 14, color: T.inkMuted, lineHeight: 1, padding: "2px 2px 2px 0", touchAction: "none" }}
-            >⠿</span>
-            <span style={{ fontSize: 20, flexShrink: 0, lineHeight: 1 }}>{item.emoji}</span>
-            <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 700, color: done ? T.inkMuted : T.ink, textDecoration: done ? "line-through" : "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.label}</span>
-            {essential ? (
-              <>
-                <span style={{ fontSize: 13, flexShrink: 0, lineHeight: 1 }}>🔒</span>
-                <button onClick={e => { e.stopPropagation(); onMenuToggle(); }} style={{ border: "none", background: "none", cursor: "pointer", padding: "2px 4px", fontSize: 18, fontWeight: 900, color: T.inkMuted, lineHeight: 1 }} aria-label="Options">⋯</button>
-              </>
-            ) : (
-              <div style={{ display: "flex", gap: 5, flexShrink: 0 }}>
-                <button onClick={e => { e.stopPropagation(); onEdit(); }} style={{ background: T.surface, border: "none", borderRadius: 8, padding: "5px 8px", cursor: "pointer", fontSize: 12 }}>✏️</button>
-                <button onClick={e => { e.stopPropagation(); onDelete(); }} style={{ background: T.redL, border: "none", borderRadius: 8, padding: "5px 8px", cursor: "pointer", fontSize: 12 }}>🗑️</button>
-              </div>
-            )}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span
+                draggable
+                onDragStart={e => { e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", item.id); onDragStartRow(); }}
+                onDragEnd={onDragEndRow}
+                onClick={e => e.stopPropagation()}
+                aria-label="Drag to reorder"
+                style={{ cursor: "grab", flexShrink: 0, fontSize: 14, color: T.inkMuted, lineHeight: 1, padding: "2px 2px 2px 0", touchAction: "none" }}
+              >⠿</span>
+              <span style={{ fontSize: 20, flexShrink: 0, lineHeight: 1 }}>{item.emoji}</span>
+              <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 700, color: done ? T.inkMuted : T.ink, textDecoration: done ? "line-through" : "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.label}</span>
+              {essential ? (
+                <>
+                  <span style={{ fontSize: 13, flexShrink: 0, lineHeight: 1 }}>🔒</span>
+                  <button onClick={e => { e.stopPropagation(); onMenuToggle(); }} style={{ border: "none", background: "none", cursor: "pointer", padding: "2px 4px", fontSize: 18, fontWeight: 900, color: T.inkMuted, lineHeight: 1 }} aria-label="Options">⋯</button>
+                </>
+              ) : (
+                <div style={{ display: "flex", gap: 5, flexShrink: 0 }}>
+                  <button onClick={e => { e.stopPropagation(); onEdit(); }} style={{ background: T.surface, border: "none", borderRadius: 8, padding: "5px 8px", cursor: "pointer", fontSize: 12 }}>✏️</button>
+                  <button onClick={e => { e.stopPropagation(); onDelete(); }} style={{ background: T.redL, border: "none", borderRadius: 8, padding: "5px 8px", cursor: "pointer", fontSize: 12 }}>🗑️</button>
+                </div>
+              )}
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginTop: 3 }}>
+              {notToday ? <Badge color={T.inkMuted}>{pattern} · not today</Badge>
+                : pattern ? <Badge color={c}>{pattern}</Badge> : null}
+              {conflict && <Badge color={T.red} bg={T.redL}>Conflict</Badge>}
+              {!notToday && <StatusPill status={status} />}
+            </div>
+            {item.notes && <p style={{ margin: "5px 0 0 30px", fontSize: 11, color: T.inkMuted, lineHeight: 1.4 }}>📝 {item.notes}</p>}
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginTop: 3 }}>
-            {notToday ? <Badge color={T.inkMuted}>{pattern} · not today</Badge>
-              : pattern ? <Badge color={c}>{pattern}</Badge> : null}
-            {!notToday && <StatusPill status={status} />}
+
+          <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2, paddingTop: 1 }}>
+            <span style={{ fontSize: 12, fontWeight: 800, color: done ? T.inkMuted : T.ink, whiteSpace: "nowrap" }}>{formatTimeLabel(item.time)}</span>
+            {item.endTime && <span style={{ fontSize: 10, fontWeight: 600, color: T.inkMuted, whiteSpace: "nowrap" }}>{formatTimeLabel(item.endTime)}</span>}
           </div>
-          {item.notes && <p style={{ margin: "5px 0 0 30px", fontSize: 11, color: T.inkMuted, lineHeight: 1.4 }}>📝 {item.notes}</p>}
         </div>
 
         {menuOpen && (
@@ -985,7 +990,7 @@ export function ScheduleScreen({ childCtx, push, showAlarmSettings, setShowAlarm
     return entry.completedCount >= entry.total ? "full" : "partial";
   };
 
-  const renderItem = (item, essential, hideTime, tightBottom) => {
+  const renderItem = (item, essential, tightBottom) => {
     const drag = { dragging: dragId === item.id, dragOver: dragOverId === item.id && dragId !== item.id, onDragStartRow: () => handleDragStart(item.id), onDragOverRow: e => handleDragOverRow(e, item.id), onDropRow: () => handleDropRow(item.id), onDragEndRow: handleDragEndRow };
     if (editing === item.id) {
       return (
@@ -994,6 +999,7 @@ export function ScheduleScreen({ childCtx, push, showAlarmSettings, setShowAlarm
             <button onClick={() => setShowEmojiPicker(!showEmojiPicker)} style={{ fontSize: 24, background: T.surface, border: `1.5px solid ${T.border}`, borderRadius: T.r, padding: "6px 10px", cursor: "pointer" }}>{editData.emoji}</button>
             <input value={editData.label} onChange={e => setEditData({ ...editData, label: e.target.value })} style={{ flex: 1, minWidth: 0, boxSizing: "border-box", padding: "8px 12px", borderRadius: T.r, border: `1.5px solid ${T.purple}`, fontSize: 14, fontFamily: T.fontBody, color: T.ink, background: T.surface, outline: "none" }} />
           </div>
+          {showEmojiPicker && <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: 10, background: T.surface, borderRadius: T.r, marginBottom: 10 }}>{EMOJI_OPTS.map(e => <button key={e} onClick={() => { setEditData({ ...editData, emoji: e }); setShowEmojiPicker(false); }} style={{ fontSize: 20, background: "none", border: "none", cursor: "pointer", borderRadius: 8, padding: 3 }}>{e}</button>)}</div>}
           <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkMuted }}>Starts</p>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
             <TimeSelect value={editData.time} onChange={v => setEditData({ ...editData, time: v })} width={110} />
@@ -1005,7 +1011,6 @@ export function ScheduleScreen({ childCtx, push, showAlarmSettings, setShowAlarm
           </button>
           {editData.isRecurring && <DayChips selected={editData.days} onSet={d => setEditData({ ...editData, days: d })} />}
           <CategoryColorPicker value={editData.category} onChange={c => setEditData({ ...editData, category: c })} />
-          {showEmojiPicker && <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: 10, background: T.surface, borderRadius: T.r, marginBottom: 10 }}>{EMOJI_OPTS.map(e => <button key={e} onClick={() => { setEditData({ ...editData, emoji: e }); setShowEmojiPicker(false); }} style={{ fontSize: 20, background: "none", border: "none", cursor: "pointer", borderRadius: 8, padding: 3 }}>{e}</button>)}</div>}
           <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
             <Btn onClick={saveEdit} style={{ flex: 1 }}>Save</Btn>
             <Btn onClick={() => setEditing(null)} secondary style={{ flex: 1 }}>Cancel</Btn>
@@ -1016,7 +1021,7 @@ export function ScheduleScreen({ childCtx, push, showAlarmSettings, setShowAlarm
     return (
       <TimelineRow key={item.id} item={item} essential={essential} status={activityStatus(item)} skipped={skippedToday.includes(item.id)} notToday={!appliesToday(item, todayDow)}
         conflict={hasConflict(item)}
-        hideTime={hideTime} tightBottom={tightBottom} {...drag}
+        tightBottom={tightBottom} {...drag}
         onToggle={essential ? undefined : () => toggleDone(item.id)}
         menuOpen={menuFor === item.id}
         onMenuToggle={() => setMenuFor(menuFor === item.id ? null : item.id)}
@@ -1176,7 +1181,7 @@ export function ScheduleScreen({ childCtx, push, showAlarmSettings, setShowAlarm
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", marginBottom: 12 }}>
-              {sorted.map((item, i) => renderItem(item, isEssential(item), i > 0 && sorted[i - 1].time === item.time, i < sorted.length - 1 && sorted[i + 1].time === item.time))}
+              {sorted.map((item, i) => renderItem(item, isEssential(item), i < sorted.length - 1 && sorted[i + 1].time === item.time))}
               {sorted.length === 0 && <p style={{ color: T.inkMuted, fontSize: 12, margin: 0 }}>No activities set up.</p>}
             </div>
           )}
