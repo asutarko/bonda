@@ -235,7 +235,7 @@ function Chat({ onOpenInfo, tab, setTab }){
           <button className="clip" aria-label="Attach"><I.clip/></button>
           <div className="field">
             <input value={text} onChange={e=>setText(e.target.value)} onKeyDown={onKey}
-              placeholder="Write a message… (Enter to send)" aria-label="Write a message" />
+              placeholder="Write a message…" aria-label="Write a message" />
             <button className={"send " + (text.trim() ? "on":"")} onClick={send} aria-label="Send message"><I.send/></button>
           </div>
         </div>

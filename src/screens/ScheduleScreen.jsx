@@ -392,7 +392,7 @@ function TimelineRow({ item, essential, status, skipped, notToday, conflict, onT
           role={clickable ? "button" : undefined}
           aria-label={clickable ? (done ? "Mark not done" : "Mark done") : undefined}
           title={conflict ? "Overlaps with another activity" : undefined}
-          style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 12px", borderRadius: T.r, background: conflict ? CONFLICT_COLOR_L : done ? T.greenL : missed ? T.redL : upcoming ? T.amberL : l, borderLeft: `3px solid ${dragOver ? T.purple : conflict ? CONFLICT_COLOR : done ? T.green : missed ? T.red : upcoming ? T.amber : c}`, boxShadow: dragOver ? `0 0 0 1.5px ${T.purple}` : "none", opacity: inactive ? 0.55 : 1, cursor: clickable ? "pointer" : "default", marginBottom: tightBottom ? 2 : 8 }}
+          style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 12px", borderRadius: T.r, background: conflict ? CONFLICT_COLOR_L : done ? T.greenL : missed ? T.redL : upcoming ? T.amberL : l, borderLeft: `5px solid ${dragOver ? T.purple : conflict ? CONFLICT_COLOR : done ? T.green : missed ? T.red : upcoming ? T.amber : c}`, boxShadow: dragOver ? `0 0 0 1.5px ${T.purple}` : "none", opacity: inactive ? 0.55 : 1, cursor: clickable ? "pointer" : "default", marginBottom: tightBottom ? 2 : 8 }}
         >
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -531,7 +531,7 @@ function DayPreviewView({ date, items }) {
           return (
             <div key={item.id} style={{ display: "flex", gap: 10 }}>
               <div style={{ width: 44, flexShrink: 0, textAlign: "right", paddingTop: 12, fontSize: 11, fontWeight: 700, color: T.inkMuted }}>{formatTimeLabel(item.time)}</div>
-              <div style={{ flex: 1, minWidth: 0, padding: "10px 12px", borderRadius: T.r, background: l, borderLeft: `3px solid ${c}`, marginBottom: 8, display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ flex: 1, minWidth: 0, padding: "10px 12px", borderRadius: T.r, background: l, borderLeft: `5px solid ${c}`, marginBottom: 8, display: "flex", alignItems: "center", gap: 10 }}>
                 <span style={{ fontSize: 20, flexShrink: 0, lineHeight: 1 }}>{item.emoji}</span>
                 <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 700, color: T.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.label}</span>
                 <Badge color={c}>{timeRangeLabel(item)}</Badge>
@@ -592,7 +592,7 @@ function DayGridView({ items, dow, isToday, nowHHMM, onItemClick }) {
               key={item.id}
               type="button"
               onClick={() => onItemClick(item)}
-              style={{ position: "absolute", top, left: 50, right: 4, height, background: l, borderLeft: `3px solid ${c}`, borderRadius: 6, padding: "3px 8px", overflow: "hidden", textAlign: "left", cursor: "pointer", border: "none", fontFamily: T.fontBody }}
+              style={{ position: "absolute", top, left: 50, right: 4, height, background: l, borderLeft: `5px solid ${c}`, borderRadius: 6, padding: "3px 8px", overflow: "hidden", textAlign: "left", cursor: "pointer", border: "none", fontFamily: T.fontBody }}
             >
               <span style={{ fontSize: 11.5, fontWeight: 700, color: T.ink, whiteSpace: "nowrap" }}>{item.emoji} {item.label}</span>
             </button>

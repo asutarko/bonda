@@ -147,7 +147,7 @@ export function ChatUI({ msgs, input, setInput, onSend, onDelete, loading, color
             </label>
           )}
           <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", background: T.surface, border: `1.5px solid ${T.border}`, borderRadius: 22, padding: "0 5px 0 16px" }}>
-            <textarea value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSend(); } }} placeholder="Write a message… (Enter to send)" rows={1} style={{ flex: 1, minWidth: 0, padding: "11px 6px", border: "none", outline: "none", background: "transparent", fontSize: 14, fontFamily: T.fontBody, color: T.ink, resize: "none", lineHeight: 1.5 }} />
+            <textarea value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSend(); } }} placeholder="Write a message…" rows={1} style={{ flex: 1, minWidth: 0, padding: "11px 6px", border: "none", outline: "none", background: "transparent", fontSize: 14, fontFamily: T.fontBody, color: T.ink, resize: "none", lineHeight: 1.5 }} />
             <button onClick={onSend} disabled={!input.trim() && !attachment} style={{ width: 34, height: 34, borderRadius: "50%", background: (input.trim() || attachment) ? color : T.border, border: "none", cursor: (input.trim() || attachment) ? "pointer" : "default", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "background 0.2s", color: "white" }}><Send size={16} /></button>
           </div>
         </div>
