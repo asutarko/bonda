@@ -676,6 +676,7 @@ export function ScheduleScreen({ childCtx, push, showAlarmSettings, setShowAlarm
   const [editing, setEditing] = useState(null);
   const [dragId, setDragId] = useState(null);
   const [dragOverId, setDragOverId] = useState(null);
+  const [timelineVisible, setTimelineVisible] = useState(5);
   const [showAdd, setShowAdd] = useState(false);
   const [newItem, setNewItem] = useState({ emoji: "⭐", label: "", time: "08:00", endTime: "08:30", category: null, days: [], isRecurring: false });
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -699,6 +700,8 @@ export function ScheduleScreen({ childCtx, push, showAlarmSettings, setShowAlarm
     const iv = setInterval(() => setNowHHMM(hhmmNow()), 30000);
     return () => clearInterval(iv);
   }, []);
+
+  useEffect(() => { setTimelineVisible(5); }, [activeChild?.id]);
 
   useBackHandler(showEmojiPicker, () => setShowEmojiPicker(false));
   useBackHandler(showAlarmSettings, () => setShowAlarmSettings(false));
@@ -1181,8 +1184,13 @@ export function ScheduleScreen({ childCtx, push, showAlarmSettings, setShowAlarm
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", marginBottom: 12 }}>
-              {sorted.map((item, i) => renderItem(item, isEssential(item), i < sorted.length - 1 && sorted[i + 1].time === item.time))}
+              {sorted.slice(0, timelineVisible).map((item, i, visible) => renderItem(item, isEssential(item), i < visible.length - 1 && visible[i + 1].time === item.time))}
               {sorted.length === 0 && <p style={{ color: T.inkMuted, fontSize: 12, margin: 0 }}>No activities set up.</p>}
+              {timelineVisible < sorted.length && (
+                <button onClick={() => setTimelineVisible(v => v + 5)} style={{ width: "100%", marginTop: 4, border: `1.5px solid ${T.border}`, background: "none", color: T.purple, borderRadius: T.r, padding: "10px", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: T.fontBody }}>
+                  Show 5 more ({sorted.length - timelineVisible} left)
+                </button>
+              )}
             </div>
           )}
 
