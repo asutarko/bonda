@@ -378,7 +378,6 @@ function TimelineRow({ item, essential, status, skipped, notToday, conflict, onT
   const upcoming = status === "upcoming";
   const inactive = status === "skipped" || notToday;
   const clickable = !essential && !inactive;
-  const pattern = daysSummary(item.days);
   const { c, l } = categoryColor(item.category);
   return (
     <div
@@ -419,8 +418,7 @@ function TimelineRow({ item, essential, status, skipped, notToday, conflict, onT
               )}
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginTop: 3 }}>
-              {notToday ? <Badge color={T.inkMuted}>{pattern} · not today</Badge>
-                : pattern ? <Badge color={c}>{pattern}</Badge> : null}
+              {notToday && <Badge color={T.inkMuted}>Not today</Badge>}
               {conflict && <Badge color={T.red} bg={T.redL}>Conflict</Badge>}
               {!notToday && <StatusPill status={status} />}
             </div>
@@ -834,7 +832,6 @@ export function ScheduleScreen({ childCtx, push, showAlarmSettings, setShowAlarm
 
   const activeItems = items.filter(i => !skippedToday.includes(i.id) && appliesToday(i, todayDow));
   const completedCount = activeItems.filter(isCompleted).length;
-  const progress = activeItems.length ? Math.round((completedCount / activeItems.length) * 100) : 0;
 
   const toggleDone = id => updateChild(activeChild.id, { todayDone: { ...done, [id]: !done[id] }, todayDoneDate: todayStr });
 
@@ -1160,22 +1157,13 @@ export function ScheduleScreen({ childCtx, push, showAlarmSettings, setShowAlarm
             </Card>
           )}
 
-          <Card style={{ marginBottom: 20 }}>
-            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
-              <p style={{ margin: 0, fontWeight: 800, color: T.purple, fontSize: 14 }}>{progress}%</p>
-            </div>
-            <div style={{ height: 6, background: T.border, borderRadius: 99, overflow: "hidden" }}>
-              <div style={{ height: "100%", width: `${progress}%`, background: T.purple, borderRadius: 99, transition: "width 0.4s ease" }} />
-            </div>
-            <p style={{ margin: "8px 0 0", color: T.inkMuted, fontSize: 12 }}>{completedCount} of {activeItems.length} activities done</p>
-          </Card>
-
           <SectionLabel action={
             <div style={{ display: "flex", background: T.canvas, borderRadius: 999, padding: 2 }}>
               <button type="button" onClick={() => setDayLayout("list")} style={{ border: "none", borderRadius: 999, padding: "4px 11px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody, background: dayLayout === "list" ? T.surface : "transparent", color: dayLayout === "list" ? T.ink : T.inkMuted, boxShadow: dayLayout === "list" ? T.shadowS : "none" }}>List</button>
               <button type="button" onClick={() => setDayLayout("grid")} style={{ border: "none", borderRadius: 999, padding: "4px 11px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody, background: dayLayout === "grid" ? T.surface : "transparent", color: dayLayout === "grid" ? T.ink : T.inkMuted, boxShadow: dayLayout === "grid" ? T.shadowS : "none" }}>Day</button>
             </div>
           }>Timeline</SectionLabel>
+          <p style={{ margin: "-6px 0 12px", color: T.inkMuted, fontSize: 10 }}>{completedCount} of {activeItems.length} activities done</p>
 
           {dayLayout === "grid" ? (
             <div style={{ marginBottom: 12 }}>
