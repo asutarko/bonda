@@ -569,15 +569,55 @@ function hourLabel(h) {
 // (tinted by category, same colours as the list view), and a live red "now"
 // line when the grid is showing today. Tapping an item opens the same edit
 // form as the list view (onItemClick), keeping one source of truth for edits.
+// Assigns each item a column + column-count among items it overlaps with,
+// so conflicting activities sit side-by-side instead of stacking on top of
+// each other at the same absolute position (which hid all but the last one).
+function layoutDayGridColumns(dayItems) {
+  const withRange = dayItems
+    .map(item => {
+      const start = timeToMinutes(item.time);
+      const end = Math.max(item.endTime ? timeToMinutes(item.endTime) : start + 30, start + 15);
+      return { item, start, end };
+    })
+    .sort((a, b) => a.start - b.start || a.end - b.end);
+
+  const results = [];
+  let cluster = [];
+  let clusterEnd = -Infinity;
+
+  const flushCluster = () => {
+    if (!cluster.length) return;
+    const columnEnds = [];
+    const placed = cluster.map(entry => {
+      let col = columnEnds.findIndex(end => end <= entry.start);
+      if (col === -1) { col = columnEnds.length; columnEnds.push(entry.end); }
+      else columnEnds[col] = entry.end;
+      return { ...entry, col };
+    });
+    const cols = columnEnds.length;
+    placed.forEach(p => results.push({ ...p, cols }));
+    cluster = [];
+  };
+
+  for (const entry of withRange) {
+    if (cluster.length && entry.start >= clusterEnd) flushCluster();
+    cluster.push(entry);
+    clusterEnd = Math.max(clusterEnd, entry.end);
+  }
+  flushCluster();
+
+  return results;
+}
+
 function DayGridView({ items, dow, isToday, nowHHMM, onItemClick }) {
   const scrollRef = useRef(null);
-  const dayItems = items.filter(i => appliesToday(i, dow));
+  const dayItems = layoutDayGridColumns(items.filter(i => appliesToday(i, dow)));
   const nowMin = timeToMinutes(nowHHMM);
 
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    const anchorMin = isToday ? nowMin : (dayItems.length ? Math.min(...dayItems.map(i => timeToMinutes(i.time))) : 8 * 60);
+    const anchorMin = isToday ? nowMin : (dayItems.length ? Math.min(...dayItems.map(e => e.start)) : 8 * 60);
     el.scrollTop = Math.max(0, (anchorMin / 60) * DAY_GRID_HOUR_PX - 140);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -591,18 +631,19 @@ function DayGridView({ items, dow, isToday, nowHHMM, onItemClick }) {
           </div>
         ))}
 
-        {dayItems.map(item => {
-          const start = timeToMinutes(item.time);
-          const end = item.endTime ? timeToMinutes(item.endTime) : start + 30;
+        {dayItems.map(({ item, start, end, col, cols }) => {
           const top = (start / 60) * DAY_GRID_HOUR_PX;
           const height = Math.max(22, ((Math.max(end, start + 15) - start) / 60) * DAY_GRID_HOUR_PX - 2);
           const { c, l } = categoryColor(item.category);
+          const gap = 3;
+          const laneLeft = `calc(50px + (100% - 54px) * ${col / cols})`;
+          const laneWidth = `calc((100% - 54px) / ${cols} - ${gap}px)`;
           return (
             <button
               key={item.id}
               type="button"
               onClick={() => onItemClick(item)}
-              style={{ position: "absolute", top, left: 50, right: 4, height, background: l, borderLeft: `5px solid ${c}`, borderRadius: 6, padding: "3px 8px", overflow: "hidden", textAlign: "left", cursor: "pointer", border: "none", fontFamily: T.fontBody }}
+              style={{ position: "absolute", top, left: laneLeft, width: laneWidth, height, background: l, borderLeft: `5px solid ${c}`, borderRadius: 6, padding: "3px 8px", overflow: "hidden", textAlign: "left", cursor: "pointer", border: "none", fontFamily: T.fontBody, zIndex: cols > 1 ? 2 : 1 }}
             >
               <span style={{ fontSize: 11.5, fontWeight: 700, color: T.ink, whiteSpace: "nowrap" }}>{item.emoji} {item.label}</span>
             </button>
