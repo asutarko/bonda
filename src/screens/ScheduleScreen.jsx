@@ -7,6 +7,16 @@ import { CHILD_AVATARS, DEFAULT_CHILDREN, DEFAULT_SCHEDULE, ROOM_COLORS, SOS_COL
 import { useBackHandler } from "../hooks";
 
 export const EMOJI_OPTS = ["🌅","🍳","🥗","🍎","🦷","🛁","👗","🎨","📚","🎮","🏃","🧩","🎵","🌳","😴","🚌","🏠","💊","🧸","🐾","🎭","🖥️","🏊","🛌","⭐","🎯","🏋️","🛝"];
+
+// Dashed-circle placeholder shown wherever an activity has no emoji picked,
+// mirroring CategoryColorPicker's "no colour" swatch so both pickers read consistently.
+function NoEmojiIcon({ size = 20 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" style={{ display: "block" }}>
+      <circle cx="10" cy="10" r="8.5" fill="none" stroke={T.inkMuted} strokeWidth="1.4" strokeDasharray="2.6 2.6" />
+    </svg>
+  );
+}
 //  EMOTION DATA
 
 
@@ -308,10 +318,15 @@ function AddActivityModal({ newItem, setNewItem, showEmojiPicker, setShowEmojiPi
         <p style={{ margin: "0 0 16px", fontWeight: 800, color: T.ink, fontSize: 17, textAlign: "center" }}>New Activity</p>
 
         <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-          <button type="button" onClick={() => setShowEmojiPicker(!showEmojiPicker)} style={{ fontSize: 24, background: T.surface, border: `1.5px solid ${T.border}`, borderRadius: T.r, padding: "6px 10px", cursor: "pointer" }}>{newItem.emoji}</button>
+          <button type="button" onClick={() => setShowEmojiPicker(!showEmojiPicker)} style={{ fontSize: 24, width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", background: T.surface, border: `1.5px solid ${T.border}`, borderRadius: T.r, padding: 0, cursor: "pointer" }}>{newItem.emoji || <NoEmojiIcon size={20} />}</button>
           <input value={newItem.label} onChange={e => setNewItem({ ...newItem, label: e.target.value })} placeholder="Activity name" style={{ flex: 1, minWidth: 0, boxSizing: "border-box", padding: "8px 12px", borderRadius: T.r, border: `1.5px solid ${T.purple}`, fontSize: 14, fontFamily: T.fontBody, color: T.ink, outline: "none", background: T.surface }} />
         </div>
-        {showEmojiPicker && <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: 10, background: T.canvas, borderRadius: T.r, marginBottom: 10 }}>{EMOJI_OPTS.map(e => <button key={e} type="button" onClick={() => { setNewItem({ ...newItem, emoji: e }); setShowEmojiPicker(false); }} style={{ fontSize: 20, background: "none", border: "none", cursor: "pointer", borderRadius: 8, padding: 3 }}>{e}</button>)}</div>}
+        {showEmojiPicker && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: 10, background: T.canvas, borderRadius: T.r, marginBottom: 10 }}>
+            <button type="button" onClick={() => { setNewItem({ ...newItem, emoji: "" }); setShowEmojiPicker(false); }} aria-label="No emoji" style={{ width: 26, height: 26, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", cursor: "pointer", borderRadius: 8, padding: 3 }}><NoEmojiIcon /></button>
+            {EMOJI_OPTS.map(e => <button key={e} type="button" onClick={() => { setNewItem({ ...newItem, emoji: e }); setShowEmojiPicker(false); }} style={{ fontSize: 20, background: "none", border: "none", cursor: "pointer", borderRadius: 8, padding: 3 }}>{e}</button>)}
+          </div>
+        )}
 
         <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkMuted }}>Starts</p>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
@@ -403,19 +418,10 @@ function TimelineRow({ item, essential, status, skipped, notToday, conflict, onT
                 aria-label="Drag to reorder"
                 style={{ cursor: "grab", flexShrink: 0, fontSize: 14, color: T.inkMuted, lineHeight: 1, padding: "2px 2px 2px 0", touchAction: "none" }}
               >⠿</span>
-              <span style={{ fontSize: 20, flexShrink: 0, lineHeight: 1 }}>{item.emoji}</span>
+              <span style={{ fontSize: 20, flexShrink: 0, lineHeight: 1, display: "flex" }}>{item.emoji || <NoEmojiIcon />}</span>
               <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 700, color: done ? T.inkMuted : T.ink, textDecoration: done ? "line-through" : "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.label}</span>
-              {essential ? (
-                <>
-                  <span style={{ fontSize: 13, flexShrink: 0, lineHeight: 1 }}>🔒</span>
-                  <button onClick={e => { e.stopPropagation(); onMenuToggle(); }} style={{ border: "none", background: "none", cursor: "pointer", padding: "2px 4px", fontSize: 18, fontWeight: 900, color: T.inkMuted, lineHeight: 1 }} aria-label="Options">⋯</button>
-                </>
-              ) : (
-                <div style={{ display: "flex", gap: 5, flexShrink: 0 }}>
-                  <button onClick={e => { e.stopPropagation(); onEdit(); }} style={{ background: T.surface, border: "none", borderRadius: 8, padding: "5px 8px", cursor: "pointer", fontSize: 12 }}>✏️</button>
-                  <button onClick={e => { e.stopPropagation(); onDelete(); }} style={{ background: T.redL, border: "none", borderRadius: 8, padding: "5px 8px", cursor: "pointer", fontSize: 12 }}>🗑️</button>
-                </div>
-              )}
+              {essential && <span style={{ fontSize: 13, flexShrink: 0, lineHeight: 1 }}>🔒</span>}
+              <button onClick={e => { e.stopPropagation(); onMenuToggle(); }} style={{ border: "none", background: "none", cursor: "pointer", padding: "2px 4px", fontSize: 18, fontWeight: 900, color: T.inkMuted, lineHeight: 1 }} aria-label="Options">⋯</button>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginTop: 3 }}>
               {notToday && <Badge color={T.inkMuted}>Not today</Badge>}
@@ -435,9 +441,15 @@ function TimelineRow({ item, essential, status, skipped, notToday, conflict, onT
           <div style={{ margin: "-4px 0 8px 0", border: `1px solid ${T.border}`, borderRadius: 12, overflow: "hidden", background: T.surface, boxShadow: T.shadowM }}>
             <button onClick={onEdit} style={{ ...rowMenuBtn, color: T.ink }}>✏️ Edit</button>
             <div style={{ height: 1, background: T.border }} />
-            <button onClick={onSkip} style={{ ...rowMenuBtn, color: T.ink }}>{skipped ? "↩ Un-skip today" : "⏭ Skip for today"}</button>
-            <div style={{ height: 1, background: T.border }} />
-            <div style={{ ...rowMenuBtn, cursor: "default", color: T.inkMuted, fontSize: 12 }}>🔒 Essential · can't remove</div>
+            {essential ? (
+              <>
+                <button onClick={onSkip} style={{ ...rowMenuBtn, color: T.ink }}>{skipped ? "↩ Un-skip today" : "⏭ Skip for today"}</button>
+                <div style={{ height: 1, background: T.border }} />
+                <div style={{ ...rowMenuBtn, cursor: "default", color: T.inkMuted, fontSize: 12 }}>🔒 Essential · can't remove</div>
+              </>
+            ) : (
+              <button onClick={onDelete} style={{ ...rowMenuBtn, color: T.red }}>🗑️ Delete</button>
+            )}
           </div>
         )}
       </div>
@@ -530,7 +542,7 @@ function DayPreviewView({ date, items }) {
             <div key={item.id} style={{ display: "flex", gap: 10 }}>
               <div style={{ width: 44, flexShrink: 0, textAlign: "right", paddingTop: 12, fontSize: 11, fontWeight: 700, color: T.inkMuted }}>{formatTimeLabel(item.time)}</div>
               <div style={{ flex: 1, minWidth: 0, padding: "10px 12px", borderRadius: T.r, background: l, borderLeft: `5px solid ${c}`, marginBottom: 8, display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ fontSize: 20, flexShrink: 0, lineHeight: 1 }}>{item.emoji}</span>
+                <span style={{ fontSize: 20, flexShrink: 0, lineHeight: 1, display: "flex" }}>{item.emoji || <NoEmojiIcon />}</span>
                 <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 700, color: T.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.label}</span>
                 <Badge color={c}>{timeRangeLabel(item)}</Badge>
               </div>
@@ -614,7 +626,7 @@ function HistoryRow({ item }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 2px", opacity: item.done ? 1 : 0.6 }}>
       <DoneDot state={item.done ? "done" : "todo"} />
-      <span style={{ fontSize: 22, flexShrink: 0, lineHeight: 1 }}>{item.emoji}</span>
+      <span style={{ fontSize: 22, flexShrink: 0, lineHeight: 1, display: "flex" }}>{item.emoji || <NoEmojiIcon size={18} />}</span>
       <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 700, color: item.done ? T.ink : T.inkMuted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.label}</span>
       <Badge color={item.done ? T.purple : T.inkMuted}>{timeRangeLabel(item)}</Badge>
     </div>
@@ -996,10 +1008,15 @@ export function ScheduleScreen({ childCtx, push, showAlarmSettings, setShowAlarm
       return (
         <Card key={item.id} style={{ background: T.purpleL }}>
           <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-            <button onClick={() => setShowEmojiPicker(!showEmojiPicker)} style={{ fontSize: 24, background: T.surface, border: `1.5px solid ${T.border}`, borderRadius: T.r, padding: "6px 10px", cursor: "pointer" }}>{editData.emoji}</button>
+            <button onClick={() => setShowEmojiPicker(!showEmojiPicker)} style={{ fontSize: 24, width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", background: T.surface, border: `1.5px solid ${T.border}`, borderRadius: T.r, padding: 0, cursor: "pointer" }}>{editData.emoji || <NoEmojiIcon size={20} />}</button>
             <input value={editData.label} onChange={e => setEditData({ ...editData, label: e.target.value })} style={{ flex: 1, minWidth: 0, boxSizing: "border-box", padding: "8px 12px", borderRadius: T.r, border: `1.5px solid ${T.purple}`, fontSize: 14, fontFamily: T.fontBody, color: T.ink, background: T.surface, outline: "none" }} />
           </div>
-          {showEmojiPicker && <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: 10, background: T.surface, borderRadius: T.r, marginBottom: 10 }}>{EMOJI_OPTS.map(e => <button key={e} onClick={() => { setEditData({ ...editData, emoji: e }); setShowEmojiPicker(false); }} style={{ fontSize: 20, background: "none", border: "none", cursor: "pointer", borderRadius: 8, padding: 3 }}>{e}</button>)}</div>}
+          {showEmojiPicker && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: 10, background: T.surface, borderRadius: T.r, marginBottom: 10 }}>
+              <button onClick={() => { setEditData({ ...editData, emoji: "" }); setShowEmojiPicker(false); }} aria-label="No emoji" style={{ width: 26, height: 26, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", cursor: "pointer", borderRadius: 8, padding: 3 }}><NoEmojiIcon /></button>
+              {EMOJI_OPTS.map(e => <button key={e} onClick={() => { setEditData({ ...editData, emoji: e }); setShowEmojiPicker(false); }} style={{ fontSize: 20, background: "none", border: "none", cursor: "pointer", borderRadius: 8, padding: 3 }}>{e}</button>)}
+            </div>
+          )}
           <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkMuted }}>Starts</p>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
             <TimeSelect value={editData.time} onChange={v => setEditData({ ...editData, time: v })} width={110} />
