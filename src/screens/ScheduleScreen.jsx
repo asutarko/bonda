@@ -1107,7 +1107,9 @@ export function ScheduleScreen({ childCtx, push, showAlarmSettings, setShowAlarm
 
 
       {showAlarmSettings && (
-        <div style={{ background: T.surface, borderRadius: T.rL, padding: 20, marginBottom: 20, boxShadow: T.shadowM, border: `1.5px solid ${T.purple}20` }}>
+        <div onClick={() => setShowAlarmSettings(false)} style={{ position: "fixed", inset: 0, background: "rgba(35,32,28,0.45)", zIndex: 1000, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+        <div onClick={e => e.stopPropagation()} style={{ background: T.surface, borderRadius: "24px 24px 0 0", width: "100%", maxWidth: 420, maxHeight: "88vh", overflowY: "auto", boxSizing: "border-box", padding: 20, boxShadow: T.shadowM, border: `1.5px solid ${T.purple}20`, fontFamily: T.fontBody }}>
+          <div style={{ width: 40, height: 4, background: T.border, borderRadius: 2, margin: "0 auto 16px" }} />
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
             <div>
               <p style={{ margin: 0, fontWeight: 800, color: T.ink, fontSize: 15 }}>Alarm Settings</p>
@@ -1188,6 +1190,7 @@ export function ScheduleScreen({ childCtx, push, showAlarmSettings, setShowAlarm
               <p style={{ margin: "10px 0 0", color: T.inkMuted, fontSize: 11, textAlign: "center", lineHeight: 1.5 }}>Tap ▶ to preview · Alarm plays at each activity time · Repeats 3×</p>
             </div>
           </>)}
+        </div>
         </div>
       )}
 
