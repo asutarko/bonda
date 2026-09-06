@@ -309,45 +309,77 @@ function DayChips({ selected, onSet }) {
 }
 
 // Bottom-sheet for creating an "Added by you" activity — name, time and an
-// optional repeat pattern, fully custom-built by the caregiver.
+// optional repeat pattern, fully custom-built by the caregiver. Time and
+// repeat start collapsed to a one-line summary (tap to expand) so the sheet
+// reads as a short, calm form instead of a wall of controls at once.
 function AddActivityModal({ newItem, setNewItem, showEmojiPicker, setShowEmojiPicker, onAdd, onClose }) {
+  const [editingTime, setEditingTime] = useState(false);
+  const [editingRepeat, setEditingRepeat] = useState(false);
+
+  const timeSummary = newItem.endTime ? `${formatTimeLabel(newItem.time)} – ${formatTimeLabel(newItem.endTime)}` : formatTimeLabel(newItem.time);
+  const repeatDaysSummary = daysSummary(newItem.days);
+
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(35,32,28,0.45)", zIndex: 1000, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
       <div onClick={e => e.stopPropagation()} style={{ background: T.surface, borderRadius: "24px 24px 0 0", width: "100%", maxWidth: 420, maxHeight: "88vh", overflowY: "auto", boxSizing: "border-box", padding: "20px 20px 28px", boxShadow: T.shadowM, fontFamily: T.fontBody }}>
         <div style={{ width: 40, height: 4, background: T.border, borderRadius: 2, margin: "0 auto 16px" }} />
-        <p style={{ margin: "0 0 16px", fontWeight: 800, color: T.ink, fontSize: 17, textAlign: "center" }}>New Activity</p>
+        <p style={{ margin: "0 0 18px", fontWeight: 800, color: T.ink, fontSize: 17, textAlign: "center" }}>New Activity</p>
 
-        <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-          <button type="button" onClick={() => setShowEmojiPicker(!showEmojiPicker)} style={{ fontSize: 24, width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", background: T.surface, border: `1.5px solid ${T.border}`, borderRadius: T.r, padding: 0, cursor: "pointer" }}>{newItem.emoji || <NoEmojiIcon size={20} />}</button>
-          <input value={newItem.label} onChange={e => setNewItem({ ...newItem, label: e.target.value })} placeholder="Activity name" style={{ flex: 1, minWidth: 0, boxSizing: "border-box", padding: "8px 12px", borderRadius: T.r, border: `1.5px solid ${T.purple}`, fontSize: 14, fontFamily: T.fontBody, color: T.ink, outline: "none", background: T.surface }} />
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 14 }}>
+          <button type="button" onClick={() => setShowEmojiPicker(!showEmojiPicker)} aria-label="Choose icon" style={{ fontSize: 28, width: 56, height: 56, display: "flex", alignItems: "center", justifyContent: "center", background: T.canvas, border: `1.5px solid ${T.border}`, borderRadius: "50%", padding: 0, cursor: "pointer" }}>{newItem.emoji || <NoEmojiIcon size={24} />}</button>
         </div>
         {showEmojiPicker && (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: 10, background: T.canvas, borderRadius: T.r, marginBottom: 10 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: 10, background: T.canvas, borderRadius: T.r, marginBottom: 14, justifyContent: "center" }}>
             <button type="button" onClick={() => { setNewItem({ ...newItem, emoji: "" }); setShowEmojiPicker(false); }} aria-label="No emoji" style={{ width: 26, height: 26, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", cursor: "pointer", borderRadius: 8, padding: 3 }}><NoEmojiIcon /></button>
             {EMOJI_OPTS.map(e => <button key={e} type="button" onClick={() => { setNewItem({ ...newItem, emoji: e }); setShowEmojiPicker(false); }} style={{ fontSize: 20, background: "none", border: "none", cursor: "pointer", borderRadius: 8, padding: 3 }}>{e}</button>)}
           </div>
         )}
 
-        <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkMuted }}>Starts</p>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-          <TimeSelect value={newItem.time} onChange={v => setNewItem({ ...newItem, time: v })} width={110} />
-          <TimeSelect value={newItem.endTime} onChange={v => setNewItem({ ...newItem, endTime: v })} width={110} />
-          <button type="button" onClick={() => setNewItem(n => ({ ...n, endTime: "" }))} aria-label="Remove end time" style={{ border: "none", background: "none", cursor: "pointer", fontSize: 16, color: T.inkMuted, padding: "4px 2px", lineHeight: 1 }}>✕</button>
-        </div>
+        <p style={{ margin: "0 0 6px", fontSize: 12, fontWeight: 700, color: T.inkMuted }}>Activity Name</p>
+        <input value={newItem.label} onChange={e => setNewItem({ ...newItem, label: e.target.value })} placeholder="e.g. Reading time" style={{ width: "100%", boxSizing: "border-box", padding: "10px 12px", borderRadius: T.r, border: `1.5px solid ${T.purple}`, fontSize: 15, fontFamily: T.fontBody, color: T.ink, outline: "none", background: T.surface, marginBottom: 16 }} />
 
-        <button type="button" onClick={() => setNewItem(n => ({ ...n, isRecurring: !n.isRecurring, days: !n.isRecurring && n.days.length === 0 ? [1, 2, 3, 4, 5] : n.days }))} style={{ border: "none", background: "none", padding: "10px 0", cursor: "pointer", fontSize: 12, fontWeight: 700, color: T.purple, fontFamily: T.fontBody, display: "block" }}>
-          {newItem.isRecurring ? "✕ Remove day pattern" : "+ Repeat on specific days (e.g. school on weekdays)"}
-        </button>
-        {newItem.isRecurring && <DayChips selected={newItem.days} onSet={d => setNewItem({ ...newItem, days: d })} />}
+        {!editingTime ? (
+          <button type="button" onClick={() => setEditingTime(true)} style={{ width: "100%", textAlign: "center", border: "none", background: "none", padding: "4px 0 16px", cursor: "pointer", fontFamily: T.fontBody, display: "block" }}>
+            <span style={{ display: "block", fontSize: 14, fontStyle: "italic", color: T.ink }}>{timeSummary}</span>
+            <span style={{ fontSize: 11, color: T.inkMuted }}>Tap to change time</span>
+          </button>
+        ) : (
+          <div style={{ marginBottom: 16 }}>
+            <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkMuted }}>Starts</p>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <TimeSelect value={newItem.time} onChange={v => setNewItem({ ...newItem, time: v })} width={110} />
+              <TimeSelect value={newItem.endTime} onChange={v => setNewItem({ ...newItem, endTime: v })} width={110} />
+              <button type="button" onClick={() => setNewItem(n => ({ ...n, endTime: "" }))} aria-label="Remove end time" style={{ border: "none", background: "none", cursor: "pointer", fontSize: 16, color: T.inkMuted, padding: "4px 2px", lineHeight: 1 }}>✕</button>
+            </div>
+          </div>
+        )}
+
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0", borderTop: `1px solid ${T.border}`, borderBottom: newItem.isRecurring && editingRepeat ? "none" : `1px solid ${T.border}`, marginBottom: newItem.isRecurring && editingRepeat ? 8 : 16 }}>
+          {newItem.isRecurring ? (
+            <>
+              <button type="button" onClick={() => setEditingRepeat(e => !e)} style={{ border: "none", background: "none", padding: 0, cursor: "pointer", fontSize: 13, fontWeight: 700, color: T.ink, fontFamily: T.fontBody, display: "flex", alignItems: "center", gap: 6 }}>
+                🔁 Repeating {repeatDaysSummary ? `on ${repeatDaysSummary}` : "daily"}
+              </button>
+              <button type="button" onClick={() => { setNewItem(n => ({ ...n, isRecurring: false, days: [] })); setEditingRepeat(false); }} aria-label="Remove repeat" style={{ border: "none", background: "none", cursor: "pointer", fontSize: 15, color: T.inkMuted, padding: "2px 4px", lineHeight: 1 }}>✕</button>
+            </>
+          ) : (
+            <button type="button" onClick={() => { setNewItem(n => ({ ...n, isRecurring: true, days: n.days.length ? n.days : [1, 2, 3, 4, 5] })); setEditingRepeat(true); }} style={{ border: "none", background: "none", padding: 0, cursor: "pointer", fontSize: 13, fontWeight: 700, color: T.purple, fontFamily: T.fontBody }}>
+              🔁 Repeat on specific days
+            </button>
+          )}
+        </div>
+        {newItem.isRecurring && editingRepeat && (
+          <div style={{ marginBottom: 16 }}>
+            <DayChips selected={newItem.days} onSet={d => setNewItem({ ...newItem, days: d })} />
+          </div>
+        )}
 
         <CategoryColorPicker value={newItem.category} onChange={c => setNewItem({ ...newItem, category: c })} />
 
-        <p style={{ margin: "10px 0 12px", color: T.inkMuted, fontSize: 11, lineHeight: 1.5 }}>You can edit or remove this anytime — it's yours, not an essential.</p>
+        <p style={{ margin: "6px 0 18px", color: T.inkMuted, fontSize: 11, lineHeight: 1.5, textAlign: "center" }}>You can edit or remove this anytime — it's yours, not an essential.</p>
 
-        <div style={{ display: "flex", gap: 8 }}>
-          <Btn onClick={onAdd} disabled={!newItem.label.trim()} style={{ flex: 1 }}>Add ✓</Btn>
-          <Btn onClick={onClose} secondary style={{ flex: 1 }}>Cancel</Btn>
-        </div>
+        <Btn onClick={onAdd} disabled={!newItem.label.trim()} style={{ width: "100%" }}>Done</Btn>
+        <button type="button" onClick={onClose} style={{ display: "block", width: "100%", textAlign: "center", border: "none", background: "none", padding: "12px 0 0", cursor: "pointer", fontSize: 13, fontWeight: 700, color: T.inkMuted, fontFamily: T.fontBody }}>Cancel</button>
       </div>
     </div>
   );
