@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { T } from "../theme";
-import { Page, SectionLabel, Card, Badge, Btn, Input, TextArea, Avatar, Accordion, PageHero, AvatarIllustrations, ChildAvatar, ComAvatar, ROOM_ICONS, ACTIVITY_TEXTAREA_STYLE, ActionIllustration, HeroIllustration } from "../ui";
+import { Page, SectionLabel, Card, Badge, Btn, Input, TextArea, Select, Avatar, Accordion, PageHero, AvatarIllustrations, ChildAvatar, ComAvatar, ROOM_ICONS, ACTIVITY_TEXTAREA_STYLE, ActionIllustration, HeroIllustration } from "../ui";
 import { CHILD_AVATARS, DEFAULT_CHILDREN, DEFAULT_SCHEDULE, ROOM_COLORS, SOS_COLORS, VERBAL_STATUS_OPTIONS } from "../data";
 import { useBackHandler } from "../hooks";
 
@@ -1220,29 +1220,23 @@ export function ScheduleScreen({ childCtx, push, showAlarmSettings, setShowAlarm
 
             <div style={{ padding: "12px 14px", background: T.canvas, borderRadius: T.r }}>
               <p style={{ margin: "0 0 12px", fontWeight: 700, color: T.ink, fontSize: 13 }}>Alarm Tone</p>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {ALARM_TONES.map(tone => (
-                  <div key={tone.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", borderRadius: T.r, background: alarmTone === tone.id ? T.purpleL : T.surface, border: `1.5px solid ${alarmTone === tone.id ? T.purple : T.border}`, cursor: "pointer", transition: "all 0.15s" }}
-                    onClick={() => { setAlarmTone(tone.id); saveAlarm(alarmOn, alarmVolume, tone.id); }}>
-
-                    <div style={{ width: 18, height: 18, borderRadius: "50%", border: `2px solid ${alarmTone === tone.id ? T.purple : T.border}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                      {alarmTone === tone.id && <div style={{ width: 9, height: 9, borderRadius: "50%", background: T.purple }}/>}
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <p style={{ margin: 0, fontWeight: 700, color: T.ink, fontSize: 13 }}>{tone.label}</p>
-                      <p style={{ margin: 0, color: T.inkMuted, fontSize: 11 }}>{tone.desc}</p>
-                    </div>
-
-                    <button onClick={e => { e.stopPropagation(); previewTone(tone.id); }}
-                      style={{ width: 32, height: 32, borderRadius: 8, background: previewPlaying === tone.id ? T.purple : T.purpleL, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "background 0.2s" }}>
-                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                        <polygon points="3,2 11,7 3,12" fill={previewPlaying === tone.id ? "white" : T.purple}/>
-                      </svg>
-                    </button>
-                  </div>
-                ))}
+              {/* Each option carries its own description ("Lullaby — Soft & gentle")
+                  so the dropdown keeps what the old radio list showed per row. */}
+              <Select
+                options={ALARM_TONES.map(tone => ({ value: tone.id, label: `${tone.label} — ${tone.desc}` }))}
+                value={alarmTone}
+                onChange={e => { setAlarmTone(e.target.value); saveAlarm(alarmOn, alarmVolume, e.target.value); }}
+                style={{ background: T.surface }}
+              />
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <button onClick={() => previewTone(alarmTone)}
+                  style={{ width: 32, height: 32, borderRadius: 8, background: previewPlaying === alarmTone ? T.purple : T.purpleL, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "background 0.2s" }}>
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                    <polygon points="3,2 11,7 3,12" fill={previewPlaying === alarmTone ? "white" : T.purple}/>
+                  </svg>
+                </button>
+                <p style={{ margin: 0, color: T.inkMuted, fontSize: 11, lineHeight: 1.5 }}>Tap ▶ to preview · Alarm plays at each activity time · Repeats 3×</p>
               </div>
-              <p style={{ margin: "10px 0 0", color: T.inkMuted, fontSize: 11, textAlign: "center", lineHeight: 1.5 }}>Tap ▶ to preview · Alarm plays at each activity time · Repeats 3×</p>
             </div>
           </>)}
         </div>
@@ -1293,7 +1287,7 @@ export function ScheduleScreen({ childCtx, push, showAlarmSettings, setShowAlarm
               {sorted.length > 0 && visibleTimeline.length === 0 && <p style={{ color: T.inkMuted, fontSize: 12, margin: 0 }}>All done for today 🎉</p>}
               {timelineVisible < visibleTimeline.length && (
                 <button onClick={() => setTimelineVisible(v => v + 5)} style={{ width: "100%", marginTop: 4, border: `1.5px solid ${T.border}`, background: "none", color: T.purple, borderRadius: T.r, padding: "10px", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: T.fontBody }}>
-                  Show 5 more ({visibleTimeline.length - timelineVisible} left)
+                  Show More
                 </button>
               )}
             </div>
