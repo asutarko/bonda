@@ -33,14 +33,15 @@ const CATEGORY_COLORS = {
 };
 const categoryColor = category => CATEGORY_COLORS[category] || { c: T.purple, l: T.purpleL };
 
-// Slate used only to flag a timeline row that overlaps another activity's
-// time slot — every other hue is already claimed by a category or status
-// (red=missed, amber=upcoming, green=done, violet=rest, etc.). T.slateL itself
-// is too close to the pale default/greenL tint (#E9EAEC vs #E6EDEC) to read as
-// different at a glance, so the fill here is a noticeably darker/more visible
-// grey than any of the pastel category or status tints.
-const CONFLICT_COLOR = T.slate;
-const CONFLICT_COLOR_L = "#D6D8DC";
+// The two "needs attention" states share a pink family so they read as a pair
+// against the category hues (amber=upcoming, green=done, violet=rest, etc.).
+// Conflict takes the deeper plum-pink and a noticeably darker fill: the pale
+// tint is too close to the pastel category/status tints to read as different
+// at a glance, and it also keeps the two states apart where they overlap.
+const MISSED_COLOR = "#B0567A";
+const MISSED_COLOR_L = "#F7E4EC";
+const CONFLICT_COLOR = "#8E3D5E";
+const CONFLICT_COLOR_L = "#F0C9D9";
 const CATEGORY_LABELS = { routine: "Routine", meals: "Meals", therapy: "Therapy", play: "Play", learning: "Learning", rest: "Rest" };
 
 // Tap-to-select colour swatches for a schedule item's category — reused by
@@ -271,6 +272,18 @@ function timeToMinutes(time) {
   return h * 60 + m;
 }
 
+// Caregivers fill the two time pickers without re-reading them, so a reversed
+// range is easy to enter by accident. Both forms flag it under the pickers and
+// keep Save disabled until it's fixed — an end before the start would corrupt
+// the duration maths (reorderItems preserves endTime - time) and make
+// timesOverlap read the slot as empty, hiding real conflicts. Equal start/end
+// is fine: that's the zero-duration point conflict detection already handles.
+const hasInvertedTimes = c => !!c.endTime && timeToMinutes(c.time) > timeToMinutes(c.endTime);
+const INVERTED_TIMES_MESSAGE = "End time must be after the start time.";
+const InvertedTimesWarning = () => (
+  <p style={{ margin: "-4px 0 12px", fontSize: 11.5, fontWeight: 700, color: T.red, lineHeight: 1.4 }}>{INVERTED_TIMES_MESSAGE}</p>
+);
+
 // Compact label for a day pattern — recognizes the two common presets so
 // "school every weekday" reads as "Weekdays" instead of "Mon, Tue, Wed, Thu, Fri".
 function daysSummary(days) {
@@ -318,6 +331,7 @@ function AddActivityModal({ newItem, setNewItem, showEmojiPicker, setShowEmojiPi
 
   const timeSummary = newItem.endTime ? `${formatTimeLabel(newItem.time)} – ${formatTimeLabel(newItem.endTime)}` : formatTimeLabel(newItem.time);
   const repeatDaysSummary = daysSummary(newItem.days);
+  const invertedTimes = hasInvertedTimes(newItem);
 
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(35,32,28,0.45)", zIndex: 1000, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
@@ -353,6 +367,7 @@ function AddActivityModal({ newItem, setNewItem, showEmojiPicker, setShowEmojiPi
             </div>
           </div>
         )}
+        {invertedTimes && <InvertedTimesWarning />}
 
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0", borderTop: `1px solid ${T.border}`, borderBottom: newItem.isRecurring && editingRepeat ? "none" : `1px solid ${T.border}`, marginBottom: newItem.isRecurring && editingRepeat ? 8 : 16 }}>
           {newItem.isRecurring ? (
@@ -378,7 +393,7 @@ function AddActivityModal({ newItem, setNewItem, showEmojiPicker, setShowEmojiPi
 
         <p style={{ margin: "6px 0 18px", color: T.inkMuted, fontSize: 11, lineHeight: 1.5, textAlign: "center" }}>You can edit or remove this anytime — it's yours, not an essential.</p>
 
-        <Btn onClick={onAdd} disabled={!newItem.label.trim()} style={{ width: "100%" }}>Done</Btn>
+        <Btn onClick={onAdd} disabled={!newItem.label.trim() || invertedTimes} style={{ width: "100%" }}>Done</Btn>
         <button type="button" onClick={onClose} style={{ display: "block", width: "100%", textAlign: "center", border: "none", background: "none", padding: "12px 0 0", cursor: "pointer", fontSize: 13, fontWeight: 700, color: T.inkMuted, fontFamily: T.fontBody }}>Cancel</button>
       </div>
     </div>
@@ -397,7 +412,7 @@ const STATUS_META = {
   completed:   { label: "Completed",   color: T.green },
   in_progress: { label: "In Progress", color: T.teal },
   upcoming:    { label: "Upcoming",    color: T.amber },
-  missed:      { label: "Missed",      color: T.red },
+  missed:      { label: "Missed",      color: MISSED_COLOR },
   skipped:     { label: "Skipped",     color: T.inkMuted },
 };
 
@@ -438,7 +453,7 @@ function TimelineRow({ item, essential, status, skipped, notToday, conflict, onT
           role={clickable ? "button" : undefined}
           aria-label={clickable ? (done ? "Mark not done" : "Mark done") : undefined}
           title={conflict ? "Overlaps with another activity" : undefined}
-          style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 12px", borderRadius: T.r, background: conflict ? CONFLICT_COLOR_L : done ? T.greenL : missed ? T.redL : upcoming ? T.amberL : l, borderLeft: `5px solid ${dragOver ? T.purple : conflict ? CONFLICT_COLOR : done ? T.green : missed ? T.red : upcoming ? T.amber : c}`, boxShadow: dragOver ? `0 0 0 1.5px ${T.purple}` : "none", opacity: inactive ? 0.55 : 1, cursor: clickable ? "pointer" : "default", marginBottom: tightBottom ? 2 : 8 }}
+          style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 12px", borderRadius: T.r, background: conflict ? CONFLICT_COLOR_L : done ? T.greenL : missed ? MISSED_COLOR_L : upcoming ? T.amberL : l, borderLeft: `5px solid ${dragOver ? T.purple : conflict ? CONFLICT_COLOR : done ? T.green : missed ? MISSED_COLOR : upcoming ? T.amber : c}`, boxShadow: dragOver ? `0 0 0 1.5px ${T.purple}` : "none", opacity: inactive ? 0.55 : 1, cursor: clickable ? "pointer" : "default", marginBottom: tightBottom ? 2 : 8 }}
         >
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -457,7 +472,7 @@ function TimelineRow({ item, essential, status, skipped, notToday, conflict, onT
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginTop: 3 }}>
               {notToday && <Badge color={T.inkMuted}>Not today</Badge>}
-              {conflict && <Badge color={T.red} bg={T.redL}>Conflict</Badge>}
+              {conflict && <Badge color={CONFLICT_COLOR} bg={MISSED_COLOR_L}>Conflict</Badge>}
               {!notToday && <StatusPill status={status} />}
             </div>
             {item.notes && <p style={{ margin: "5px 0 0 30px", fontSize: 11, color: T.inkMuted, lineHeight: 1.4 }}>📝 {item.notes}</p>}
@@ -966,7 +981,7 @@ export function ScheduleScreen({ childCtx, push, showAlarmSettings, setShowAlarm
   const hasConflict = item => items.some(i => i.id !== item.id && daysConflict(itemDays(item), itemDays(i)) && timesOverlap(item.time, item.endTime, i.time, i.endTime));
 
   const addItem = async () => {
-    if (!newItem.label.trim()) return;
+    if (!newItem.label.trim() || hasInvertedTimes(newItem)) return;
     const conflict = findConflict(newItem, null);
     if (conflict) {
       const { default: Swal } = await import("sweetalert2");
@@ -1023,6 +1038,7 @@ export function ScheduleScreen({ childCtx, push, showAlarmSettings, setShowAlarm
     setMenuFor(null);
   };
   const saveEdit = async () => {
+    if (hasInvertedTimes(editData)) return;
     const conflict = findConflict(editData, editing);
     if (conflict) {
       const { default: Swal } = await import("sweetalert2");
@@ -1102,13 +1118,14 @@ export function ScheduleScreen({ childCtx, push, showAlarmSettings, setShowAlarm
             <TimeSelect value={editData.endTime} onChange={v => setEditData({ ...editData, endTime: v })} width={110} />
             <button type="button" onClick={() => setEditData(d => ({ ...d, endTime: "" }))} aria-label="Remove end time" style={{ border: "none", background: "none", cursor: "pointer", fontSize: 16, color: T.inkMuted, padding: "4px 2px", lineHeight: 1 }}>✕</button>
           </div>
+          {hasInvertedTimes(editData) && <InvertedTimesWarning />}
           <button onClick={() => setEditData(d => ({ ...d, isRecurring: !d.isRecurring, days: !d.isRecurring && d.days.length === 0 ? [1, 2, 3, 4, 5] : d.days }))} style={{ border: "none", background: "none", padding: "12px 0 10px", cursor: "pointer", fontSize: 12, fontWeight: 700, color: T.purple, fontFamily: T.fontBody, display: "block" }}>
             {editData.isRecurring ? "✕ Remove day pattern" : "+ Repeat on specific days (e.g. school on weekdays)"}
           </button>
           {editData.isRecurring && <DayChips selected={editData.days} onSet={d => setEditData({ ...editData, days: d })} />}
           <CategoryColorPicker value={editData.category} onChange={c => setEditData({ ...editData, category: c })} />
           <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-            <Btn onClick={saveEdit} style={{ flex: 1 }}>Save</Btn>
+            <Btn onClick={saveEdit} disabled={hasInvertedTimes(editData)} style={{ flex: 1 }}>Save</Btn>
             <Btn onClick={() => setEditing(null)} secondary style={{ flex: 1 }}>Cancel</Btn>
           </div>
         </Card>
@@ -1285,8 +1302,8 @@ export function ScheduleScreen({ childCtx, push, showAlarmSettings, setShowAlarm
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap", padding: "0 0 14px", fontSize: 11, color: T.inkMuted, fontWeight: 700 }}>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: 99, background: T.green, display: "inline-block" }} /> Done</span>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: 99, background: T.amber, display: "inline-block" }} /> Upcoming</span>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: 99, background: T.red, display: "inline-block" }} /> Missed</span>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: 99, background: T.slate, display: "inline-block" }} /> Conflict</span>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: 99, background: MISSED_COLOR, display: "inline-block" }} /> Missed</span>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: 99, background: CONFLICT_COLOR, display: "inline-block" }} /> Conflict</span>
           </div>
 
           <button onClick={() => setShowAdd(true)} style={{ width: "100%", margin: "2px 0 16px", border: `1.5px dashed ${T.border}`, background: "none", color: T.ink, borderRadius: T.r, padding: "11px", fontWeight: 700, fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontFamily: T.fontBody }}>+ Add activity</button>
