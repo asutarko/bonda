@@ -10,7 +10,7 @@ import { Page, SectionLabel, Card, Badge, Btn, Input, TextArea, Avatar, Accordio
 import { CHILD_AVATARS, DEFAULT_CHILDREN, DEFAULT_SCHEDULE, ROOM_COLORS, SOS_COLORS, VERBAL_STATUS_OPTIONS } from "../data";
 import { uploadCommunityAttachment, compressImage, classifyCommunityAttachment, MAX_COMMUNITY_ATTACHMENT_BYTES, useBackHandler } from "../hooks";
 
-const isDocAttachment = url => /\.(docx?|xlsx?|pdf)$/i.test(url || "");
+const isDocAttachment = url => /\.pdf$/i.test(url || "");
 
 // Icon choices offered when creating a group — the same set admins pick
 // from for community_rooms (see ROOM_ICONS in ui.jsx).
@@ -143,7 +143,7 @@ export function ChatUI({ msgs, input, setInput, onSend, onDelete, loading, color
           {allowAttachments && (
             <label style={{ width: 38, height: 38, borderRadius: "50%", background: "transparent", border: `1.5px solid ${T.border}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0, color: T.inkMuted }}>
               <Paperclip size={16} />
-              <input type="file" accept="image/*,.doc,.docx,.xls,.xlsx,.pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/pdf" onChange={onPickAttachment} style={{ display: "none" }} />
+              <input type="file" accept="image/*,.pdf,application/pdf" onChange={onPickAttachment} style={{ display: "none" }} />
             </label>
           )}
           <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", background: T.surface, border: `1.5px solid ${T.border}`, borderRadius: 22, padding: "0 5px 0 16px" }}>
@@ -262,15 +262,15 @@ export function CommunityScreen({ account }) {
   const [attachError, setAttachError] = useState(null);
 
   // Picks a file for the chat's attachment preview; each chat (group/DM) keeps its own.
-  // Only images and Word/Excel documents are allowed — everything else (video, audio, etc.)
-  // is rejected. Images are compressed immediately so the preview and the eventual upload
-  // use the same small file.
+  // Only images and PDFs are allowed — everything else (Office documents, video,
+  // audio, etc.) is rejected. Images are compressed immediately so the preview and
+  // the eventual upload use the same small file.
   const pickAttachment = setter => async e => {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
     const kind = classifyCommunityAttachment(file);
-    if (!kind) { setAttachError("Only images or Word/Excel/PDF documents can be attached."); return; }
+    if (!kind) { setAttachError("Only images or PDF files can be attached."); return; }
     if (file.size > MAX_COMMUNITY_ATTACHMENT_BYTES) { setAttachError("File is too large (max 10MB)."); return; }
     setAttachError(null);
     if (kind === "image") {
@@ -414,6 +414,9 @@ export function CommunityScreen({ account }) {
     const { data: memberRows } = await supabase.from(membershipTable(group.kind)).select("user_id").eq(membershipKey(group.kind), group.id).eq("user_id", account.id).limit(1);
     if (!memberRows?.length) { openGroupInfo(group, "home"); return; }
     leaveRoom();
+    // A file picked but never sent in a private group must not follow the user
+    // into a public one, where attachments aren't allowed.
+    clearAttachment(setGroupAttachment, groupAttachment);
     setActiveRoom(group); setGroupLoading(true); setView("groupchat");
     const { data } = await supabase.from("messages").select("id,author_id,author_name,author_avatar,text,image_url,file_name,created_at").eq("room", `room_${group.id}`).order("created_at", { ascending: true }).limit(120);
     setGroupMsgs((data || []).map(msgFromRow));
@@ -425,7 +428,7 @@ export function CommunityScreen({ account }) {
   };
 
   const sendGroup = async () => {
-    const text = groupInput.trim(); const attachment = null;
+    const text = groupInput.trim(); const attachment = groupAttachment;
     if (!text && !attachment) return;
     setGroupInput(""); setGroupAttachment(null);
     const image_url = attachment ? await uploadCommunityAttachment(attachment.file, account.id, attachment.kind) : null;
@@ -771,7 +774,7 @@ export function CommunityScreen({ account }) {
     content = (
       <div style={{ position: "relative", display: "flex", flexDirection: "column", flex: "1 1 auto", minHeight: 0 }}>
         {showPaywall && <Paywall />}
-        <ChatUI msgs={groupMsgs} input={groupInput} setInput={setGroupInput} onSend={sendGroup} onDelete={deleteGroup} loading={groupLoading} color={c.color} bg={c.bg} icon={null} label={activeRoom.label} sub={activeRoom.description} isGroup account={account} dmPartner={null} endRef={endRef} attachment={groupAttachment} onPickAttachment={pickAttachment(setGroupAttachment)} onRemoveAttachment={() => clearAttachment(setGroupAttachment, groupAttachment)} attachError={attachError} onTitleClick={() => openGroupInfo(activeRoom)} allowAttachments={false} />
+        <ChatUI msgs={groupMsgs} input={groupInput} setInput={setGroupInput} onSend={sendGroup} onDelete={deleteGroup} loading={groupLoading} color={c.color} bg={c.bg} icon={null} label={activeRoom.label} sub={activeRoom.description} isGroup account={account} dmPartner={null} endRef={endRef} attachment={groupAttachment} onPickAttachment={pickAttachment(setGroupAttachment)} onRemoveAttachment={() => clearAttachment(setGroupAttachment, groupAttachment)} attachError={attachError} onTitleClick={() => openGroupInfo(activeRoom)} allowAttachments={!!activeRoom.is_private} />
       </div>
     );
   } else if (view === "dm_chat" && dmPartner) {

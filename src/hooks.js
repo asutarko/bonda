@@ -272,37 +272,27 @@ export const compressImage = (file, maxDim = 800, quality = 0.75) => new Promise
   img.src = objectUrl;
 });
 
-// Community chat attachments are limited to images and Word/Excel/PDF
-// documents — no video, audio, or other file types. Checked by MIME type
-// first, falling back to the extension since some browsers/OSes report
-// generic MIME types (e.g. "application/octet-stream") for .doc/.xls files.
-const COMMUNITY_DOC_MIME_TO_EXT = {
-  "application/msword": "doc",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
-  "application/vnd.ms-excel": "xls",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
-  "application/pdf": "pdf",
-};
-const COMMUNITY_DOC_EXTS = ["doc", "docx", "xls", "xlsx", "pdf"];
 export const MAX_COMMUNITY_ATTACHMENT_BYTES = 10 * 1024 * 1024;
 
-// Returns "image", "document", or null (rejected) for a file picked for a
-// community chat attachment.
+// Community chat attachments are limited to images and PDFs — Office
+// documents, video, audio and everything else are rejected. Returns
+// "image", "document" (a PDF), or null. The extension is checked as well as
+// the MIME type because some browsers/OSes report a generic
+// "application/octet-stream" for a .pdf.
 export const classifyCommunityAttachment = file => {
   if (!file) return null;
   if (file.type.startsWith("image/")) return "image";
-  const ext = file.name.split(".").pop()?.toLowerCase();
-  if (COMMUNITY_DOC_MIME_TO_EXT[file.type] || COMMUNITY_DOC_EXTS.includes(ext)) return "document";
+  if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) return "document";
   return null;
 };
 
-// Uploads a community chat attachment (an image Blob or a Word/Excel File)
-// to assets/community/ and returns its public URL. Every upload gets a
+// Uploads a community chat attachment (an image Blob or a PDF File) to
+// assets/community/ and returns its public URL. Every upload gets a
 // unique name — attachments accumulate rather than replacing each other.
 export const uploadCommunityAttachment = async (file, ownerId, kind) => {
   if (!file) return null;
-  const ext = kind === "image" ? "jpg" : (COMMUNITY_DOC_MIME_TO_EXT[file.type] || file.name.split(".").pop().toLowerCase());
-  const contentType = kind === "image" ? "image/jpeg" : (file.type || "application/octet-stream");
+  const ext = kind === "image" ? "jpg" : "pdf";
+  const contentType = kind === "image" ? "image/jpeg" : "application/pdf";
   const path = `assets/community/${ownerId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
   const { error } = await supabase.storage.from("public").upload(path, file, { contentType });
   if (error) { console.error("Failed to upload community attachment:", error.message); return null; }

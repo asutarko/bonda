@@ -915,6 +915,12 @@ export function ScheduleScreen({ childCtx, push, showAlarmSettings, setShowAlarm
   };
   const isCompleted = item => activityStatus(item) === "completed";
 
+  // Completed activities drop out of the live timeline so it only shows what's
+  // left today — except the one currently being edited, which must stay put
+  // even if it flips to "completed" (an essential can auto-complete on the
+  // clock) while the edit form is open.
+  const visibleTimeline = sorted.filter(item => item.id === editing || !isCompleted(item));
+
   const activeItems = items.filter(i => !skippedToday.includes(i.id) && appliesToday(i, todayDow));
   const completedCount = activeItems.filter(isCompleted).length;
 
@@ -1260,16 +1266,17 @@ export function ScheduleScreen({ childCtx, push, showAlarmSettings, setShowAlarm
 
           {dayLayout === "grid" ? (
             <div style={{ marginBottom: 12 }}>
-              <DayGridView items={sorted} dow={todayDow} isToday nowHHMM={nowHHMM} onItemClick={item => startEdit(item)} />
+              <DayGridView items={visibleTimeline} dow={todayDow} isToday nowHHMM={nowHHMM} onItemClick={item => startEdit(item)} />
               {editing && <div style={{ marginTop: 10 }}>{renderItem(items.find(i => i.id === editing), isEssential(items.find(i => i.id === editing)))}</div>}
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", marginBottom: 12 }}>
-              {sorted.slice(0, timelineVisible).map((item, i, visible) => renderItem(item, isEssential(item), i < visible.length - 1 && visible[i + 1].time === item.time))}
+              {visibleTimeline.slice(0, timelineVisible).map((item, i, visible) => renderItem(item, isEssential(item), i < visible.length - 1 && visible[i + 1].time === item.time))}
               {sorted.length === 0 && <p style={{ color: T.inkMuted, fontSize: 12, margin: 0 }}>No activities set up.</p>}
-              {timelineVisible < sorted.length && (
+              {sorted.length > 0 && visibleTimeline.length === 0 && <p style={{ color: T.inkMuted, fontSize: 12, margin: 0 }}>All done for today 🎉</p>}
+              {timelineVisible < visibleTimeline.length && (
                 <button onClick={() => setTimelineVisible(v => v + 5)} style={{ width: "100%", marginTop: 4, border: `1.5px solid ${T.border}`, background: "none", color: T.purple, borderRadius: T.r, padding: "10px", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: T.fontBody }}>
-                  Show 5 more ({sorted.length - timelineVisible} left)
+                  Show 5 more ({visibleTimeline.length - timelineVisible} left)
                 </button>
               )}
             </div>
