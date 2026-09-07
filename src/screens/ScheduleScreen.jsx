@@ -465,7 +465,7 @@ function TimelineRow({ item, essential, status, skipped, notToday, conflict, onT
                 aria-label="Drag to reorder"
                 style={{ cursor: "grab", flexShrink: 0, fontSize: 14, color: T.inkMuted, lineHeight: 1, padding: "2px 2px 2px 0", touchAction: "none" }}
               >⠿</span>
-              <span style={{ fontSize: 20, flexShrink: 0, lineHeight: 1, display: "flex" }}>{item.emoji || <NoEmojiIcon />}</span>
+              {item.emoji && <span style={{ fontSize: 20, flexShrink: 0, lineHeight: 1, display: "flex" }}>{item.emoji}</span>}
               <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 700, color: done ? T.inkMuted : T.ink, textDecoration: done ? "line-through" : "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.label}</span>
               {essential && <span style={{ fontSize: 13, flexShrink: 0, lineHeight: 1 }}>🔒</span>}
               <button onClick={e => { e.stopPropagation(); onMenuToggle(); }} style={{ border: "none", background: "none", cursor: "pointer", padding: "2px 4px", fontSize: 18, fontWeight: 900, color: T.inkMuted, lineHeight: 1 }} aria-label="Options">⋯</button>
@@ -589,7 +589,7 @@ function DayPreviewView({ date, items }) {
             <div key={item.id} style={{ display: "flex", gap: 10 }}>
               <div style={{ width: 44, flexShrink: 0, textAlign: "right", paddingTop: 12, fontSize: 11, fontWeight: 700, color: T.inkMuted }}>{formatTimeLabel(item.time)}</div>
               <div style={{ flex: 1, minWidth: 0, padding: "10px 12px", borderRadius: T.r, background: l, borderLeft: `5px solid ${c}`, marginBottom: 8, display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ fontSize: 20, flexShrink: 0, lineHeight: 1, display: "flex" }}>{item.emoji || <NoEmojiIcon />}</span>
+                {item.emoji && <span style={{ fontSize: 20, flexShrink: 0, lineHeight: 1, display: "flex" }}>{item.emoji}</span>}
                 <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 700, color: T.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.label}</span>
                 <Badge color={c}>{timeRangeLabel(item)}</Badge>
               </div>
@@ -714,7 +714,7 @@ function HistoryRow({ item }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 2px", opacity: item.done ? 1 : 0.6 }}>
       <DoneDot state={item.done ? "done" : "todo"} />
-      <span style={{ fontSize: 22, flexShrink: 0, lineHeight: 1, display: "flex" }}>{item.emoji || <NoEmojiIcon size={18} />}</span>
+      {item.emoji && <span style={{ fontSize: 22, flexShrink: 0, lineHeight: 1, display: "flex" }}>{item.emoji}</span>}
       <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 700, color: item.done ? T.ink : T.inkMuted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.label}</span>
       <Badge color={item.done ? T.purple : T.inkMuted}>{timeRangeLabel(item)}</Badge>
     </div>
