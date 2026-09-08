@@ -30,17 +30,25 @@ export const db = {
 
 // Colour choices for Community group rooms & groups — admins pick one of
 // these when creating an admin room, and parents pick one when creating
-// their own group (community_groups).
-
+// their own group (community_groups). "purple" stays the original Bonda
+// brand teal: community_groups.color_key defaults to 'purple' in Supabase,
+// and it's the fallback everywhere a group/message has no explicit colour
+// (see the `|| ROOM_COLORS.purple` call sites), so recolouring it would
+// change the default look of existing groups and DM bubbles app-wide. The
+// other 7 match the rainbow swatches used for schedule categories in
+// ScheduleScreen.jsx's CATEGORY_COLORS (red, orange, yellow, green, blue,
+// violet) plus a neutral slate. Key names are legacy (e.g. "teal" holds
+// yellow, "indigo" holds blue) — they're stored as color_key and never shown
+// as text, so keep them stable even though they no longer describe the hue.
 export const ROOM_COLORS = {
-  red:    { color: T.red,    bg: T.redL },
-  amber:  { color: T.amber,  bg: T.amberL },
-  green:  { color: T.green,  bg: T.greenL },
-  teal:   { color: T.teal,   bg: T.tealL },
-  indigo: { color: T.indigo, bg: T.indigoL },
-  violet: { color: T.violet, bg: T.violetL },
-  purple: { color: T.purple, bg: T.purpleL },
-  slate:  { color: T.slate,  bg: T.slateL },
+  red:    { color: "#E5484D", bg: "#FDE7E7" },
+  amber:  { color: "#F5A623", bg: "#FDEEDA" },
+  green:  { color: "#3DA35D", bg: "#E3F3E8" },
+  teal:   { color: "#E9C716", bg: "#FBF6D9" },
+  indigo: { color: "#3B82C4", bg: "#E3EEF8" },
+  violet: { color: "#8B5CF6", bg: "#EFE9FE" },
+  purple: { color: T.purple,  bg: T.purpleL },
+  slate:  { color: "#64748B", bg: "#E9ECF0" },
 };
 
 export const SOS_COLORS = {
