@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef, Fragment } from "react";
 import {
   Plus, Camera, Users, MessageSquare, Settings, Link2, Search, Check, X,
-  ChevronRight, QrCode, Copy, UserPlus, MoreVertical, Lock,
+  ChevronRight, QrCode, Copy, UserPlus, UserMinus, MoreVertical, Lock,
   Unlock, Send, Pin, Heart, Paperclip, FileText, Bell, BellOff, Globe, Pencil,
+  Shield,
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { T } from "../theme";
@@ -26,7 +27,15 @@ const TRANSLATE_LANGUAGES = ["English", "Malay", "Mandarin", "Tamil"];
 // row into the same shape, so chat/members/invite code doesn't need to care
 // which kind of group it's dealing with.
 const roomToGroup = r => ({ id: r.id, label: r.label, description: r.description, icon_key: r.icon_key, color_key: r.color_key, topics: r.topics || [], kind: "admin" });
-const groupToGroup = g => ({ id: g.id, label: g.name, description: g.description, icon_key: g.icon_key, color_key: g.color_key, topics: g.topics || [], created_by: g.created_by, is_private: g.is_private, invite_code: g.invite_code, kind: "user" });
+const groupToGroup = g => ({ id: g.id, label: g.name, description: g.description, icon_key: g.icon_key, color_key: g.color_key, topics: g.topics || [], created_by: g.created_by, is_private: g.is_private, invite_code: g.invite_code, admins: g.admins || [], kind: "user" });
+
+// Owner = whoever created the group (community_groups.created_by); admins
+// are members the owner has separately appointed (community_groups.admins).
+// Only private, parent-created groups have either concept — public groups
+// don't need a "who's admin" layer, and admin-curated community_rooms have
+// no owner at all.
+const isGroupOwner = (room, uid) => room?.kind === "user" && room.is_private && room.created_by === uid;
+const isGroupAdmin = (room, uid) => isGroupOwner(room, uid) || (room?.kind === "user" && room.is_private && (room.admins || []).includes(uid));
 
 // Admin rooms (community_rooms) and parent-created groups (community_groups)
 // each need their own join. Their membership rows live in different tables —
@@ -517,6 +526,11 @@ export function CommunityScreen({ account }) {
   const [joinCode, setJoinCode] = useState(""); const [joiningByCode, setJoiningByCode] = useState(false); const [joinCodeError, setJoinCodeError] = useState("");
   const [creatingGroup, setCreatingGroup] = useState(false);
   const [editingGroupId, setEditingGroupId] = useState(null);
+  // True when whoever opened the edit form is an admin, not the owner —
+  // admins of a private group can rename it and change its description, but
+  // not its colour/icon/privacy (owner-only, also enforced server-side by
+  // the enforce_group_admin_edit_scope trigger in community_groups_admins.sql).
+  const [editingAsAdmin, setEditingAsAdmin] = useState(false);
 
   const openEditGroup = () => {
     if (!activeRoom) return;
@@ -524,12 +538,14 @@ export function CommunityScreen({ account }) {
     setGColor(activeRoom.color_key || "purple"); setGIcon(activeRoom.icon_key || "community");
     setGPrivate(!!activeRoom.is_private);
     setEditingGroupId(activeRoom.id);
+    setEditingAsAdmin(!isGroupOwner(activeRoom, account.id));
     setView("createGroup");
   };
 
   const openCreateGroup = (isPrivate = false) => {
     setGName(""); setGDescription(""); setGColor("purple"); setGIcon("community"); setGPrivate(isPrivate);
     setEditingGroupId(null);
+    setEditingAsAdmin(false);
     setView("createGroup");
   };
 
@@ -560,8 +576,14 @@ export function CommunityScreen({ account }) {
     if (!name) return;
     setCreatingGroup(true);
     if (editingGroupId) {
+      // Admins editing someone else's group may only rename it or change its
+      // description — colour/icon/privacy stay owner-only (also enforced by
+      // the enforce_group_admin_edit_scope trigger, in case of a stale form).
+      const payload = editingAsAdmin
+        ? { name, description: gDescription.trim() }
+        : { name, description: gDescription.trim(), icon_key: gIcon, color_key: gColor, is_private: gPrivate };
       const { data, error } = await supabase.from("community_groups")
-        .update({ name, description: gDescription.trim(), icon_key: gIcon, color_key: gColor, is_private: gPrivate })
+        .update(payload)
         .eq("id", editingGroupId).select().single();
       setCreatingGroup(false);
       if (error || !data) { console.error(error); flash("Could not save changes. Please try again."); return; }
@@ -686,6 +708,43 @@ export function CommunityScreen({ account }) {
     leaveRoom();
     setView("home");
     flash("Left group");
+  };
+
+  // Owner-only: appoint/unappoint a member as admin of the active (parent-
+  // created) group. Just an update to community_groups.admins — RLS already
+  // restricts that column's update to the owner (created_by = auth.uid()).
+  const [savingAdmins, setSavingAdmins] = useState(false);
+  const setGroupAdmins = async nextAdmins => {
+    if (!activeRoom || activeRoom.kind !== "user") return;
+    setSavingAdmins(true);
+    const { data, error } = await supabase.from("community_groups").update({ admins: nextAdmins }).eq("id", activeRoom.id).select().single();
+    setSavingAdmins(false);
+    if (error || !data) { flash("Could not update admins. Please try again."); return; }
+    setGroups(gs => gs.map(g => g.id === data.id ? data : g));
+    setActiveRoom(groupToGroup(data));
+  };
+  const promoteMember = m => setGroupAdmins([...(activeRoom.admins || []), m.id]);
+  const demoteMember = m => setGroupAdmins((activeRoom.admins || []).filter(id => id !== m.id));
+
+  // Owner/admin: remove another member from the group (see the "Owners and
+  // admins can remove members" RLS policy in community_groups_admins.sql —
+  // an admin can't remove the owner or another admin, only the owner can).
+  const [removingMemberId, setRemovingMemberId] = useState(null);
+  const removeMember = async m => {
+    const { default: Swal } = await import("sweetalert2");
+    const { isConfirmed } = await Swal.fire({
+      icon: "warning", title: `Remove ${m.name}?`,
+      text: `${m.name} will lose access to this group's chat and history.`,
+      showCancelButton: true, confirmButtonText: "Remove", confirmButtonColor: T.red, cancelButtonColor: T.inkMuted,
+    });
+    if (!isConfirmed || !activeRoom) return;
+    setRemovingMemberId(m.id);
+    const { error } = await supabase.from(membershipTable(activeRoom.kind)).delete().eq(membershipKey(activeRoom.kind), activeRoom.id).eq("user_id", m.id);
+    setRemovingMemberId(null);
+    if (error) { flash("Could not remove member. Please try again."); return; }
+    setMembers(ms => ms.filter(x => x.id !== m.id));
+    if ((activeRoom.admins || []).includes(m.id)) demoteMember(m);
+    flash(`${m.name} removed from group`);
   };
 
   const deleteActiveGroup = async () => {
@@ -821,28 +880,35 @@ export function CommunityScreen({ account }) {
         <div style={{ marginTop: 18 }}>
           <Input label="Group name" value={gName} onChange={e => setGName(e.target.value)} placeholder="e.g. Weekend playgroup" />
           <TextArea label="What it's for" value={gDescription} onChange={e => setGDescription(e.target.value)} placeholder="Meetups, tips, and support" rows={2} />
-          <div style={{ margin: "4px 0 18px" }}>
-            <ToggleRow label="Make this group private" sub={premium ? "Hidden from Groups — only people you invite can join" : "Hidden from Groups — only people you invite can join · Premium"} on={gPrivate} onToggle={toggleGroupPrivate} />
-          </div>
-          <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>Colour</p>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 18 }}>
-            {Object.keys(ROOM_COLORS).map(key => {
-              const c = ROOM_COLORS[key];
-              return <button key={key} onClick={() => setGColor(key)} aria-label={key} style={{ width: 38, height: 38, borderRadius: 12, background: c.color, border: gColor === key ? `3px solid ${T.ink}` : `1px solid ${T.border}`, boxShadow: gColor === key ? `0 0 0 2px ${T.surface}` : "none", cursor: "pointer" }} />;
-            })}
-          </div>
-          <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>Icon</p>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 22 }}>
-            {GROUP_ICON_KEYS.map(key => {
-              const c = ROOM_COLORS[gColor];
-              const iconFn = ROOM_ICONS[key];
-              return (
-                <button key={key} onClick={() => setGIcon(key)} aria-label={key} style={{ width: 44, height: 44, borderRadius: 12, background: gIcon === key ? c.bg : T.canvas, border: gIcon === key ? `2px solid ${c.color}` : `1px solid ${T.border}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
-                  {iconFn(gIcon === key ? c.color : T.inkMuted)}
-                </button>
-              );
-            })}
-          </div>
+          {editingAsAdmin && (
+            <p style={{ margin: "0 0 18px", fontSize: 12.5, color: T.inkMuted, lineHeight: 1.5 }}>As an admin you can update the name and description. Colour, icon, and privacy can only be changed by the group's owner.</p>
+          )}
+          {!editingAsAdmin && (
+            <>
+              <div style={{ margin: "4px 0 18px" }}>
+                <ToggleRow label="Make this group private" sub={premium ? "Hidden from Groups — only people you invite can join" : "Hidden from Groups — only people you invite can join · Premium"} on={gPrivate} onToggle={toggleGroupPrivate} />
+              </div>
+              <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>Colour</p>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 18 }}>
+                {Object.keys(ROOM_COLORS).map(key => {
+                  const c = ROOM_COLORS[key];
+                  return <button key={key} onClick={() => setGColor(key)} aria-label={key} style={{ width: 38, height: 38, borderRadius: 12, background: c.color, border: gColor === key ? `3px solid ${T.ink}` : `1px solid ${T.border}`, boxShadow: gColor === key ? `0 0 0 2px ${T.surface}` : "none", cursor: "pointer" }} />;
+                })}
+              </div>
+              <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>Icon</p>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 22 }}>
+                {GROUP_ICON_KEYS.map(key => {
+                  const c = ROOM_COLORS[gColor];
+                  const iconFn = ROOM_ICONS[key];
+                  return (
+                    <button key={key} onClick={() => setGIcon(key)} aria-label={key} style={{ width: 44, height: 44, borderRadius: 12, background: gIcon === key ? c.bg : T.canvas, border: gIcon === key ? `2px solid ${c.color}` : `1px solid ${T.border}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+                      {iconFn(gIcon === key ? c.color : T.inkMuted)}
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
           <Btn onClick={createGroup} full disabled={creatingGroup || !gName.trim()} style={{ marginTop: 4 }}>{creatingGroup ? (editingGroupId ? "Saving..." : "Creating...") : (editingGroupId ? "Save changes" : "Create group")}</Btn>
         </div>
       </Page>
@@ -967,11 +1033,22 @@ export function CommunityScreen({ account }) {
         {!membersLoading && shown.map(m => {
           const isMe = m.id === account.id;
           const following = isFollowing(m.id);
+          const memberIsOwner = m.id === activeRoom.created_by;
+          const memberIsAdmin = (activeRoom.admins || []).includes(m.id);
+          // Only the owner can appoint/unappoint admins; the owner can't be
+          // demoted this way (they'd delete the group instead).
+          const canPromote = isGroupOwner(activeRoom, account.id) && !isMe && !memberIsOwner;
+          // Owner can remove anyone; an admin can remove regular members but
+          // not the owner or other admins (enforced again by RLS server-side).
+          const canRemove = !isMe && !memberIsOwner && (isGroupOwner(activeRoom, account.id) || (isGroupAdmin(activeRoom, account.id) && !memberIsAdmin));
           return (
             <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 4px", borderBottom: `1px solid ${T.border}` }}>
               <ComAvatar value={m.avatar} size={44} active={false} borderColor={T.border} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <p style={{ margin: 0, fontWeight: 700, color: T.ink, fontSize: 15 }}>{m.name}{isMe && " (You)"}</p>
+                {activeRoom.is_private && (memberIsOwner || memberIsAdmin) && (
+                  <p style={{ margin: "2px 0 0", fontSize: 11, fontWeight: 700, color: T.purple }}>{memberIsOwner ? "Owner" : "Admin"}</p>
+                )}
               </div>
               {!isMe && (
                 <>
@@ -979,6 +1056,20 @@ export function CommunityScreen({ account }) {
                   <button onClick={() => following ? unfollowUser(m) : followUser(m)} style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 12px", borderRadius: 99, fontSize: 12.5, fontWeight: 700, background: following ? T.canvas : T.purple, color: following ? T.purple : "white", border: following ? `1px solid ${T.border}` : "none", cursor: "pointer", fontFamily: T.fontBody, flexShrink: 0 }}>
                     {following ? <><Check size={14} /> Following</> : <><Plus size={14} /> Follow</>}
                   </button>
+                  {canPromote && (
+                    <button onClick={() => memberIsAdmin ? demoteMember(m) : promoteMember(m)} disabled={savingAdmins}
+                      aria-label={memberIsAdmin ? `Remove admin from ${m.name}` : `Make ${m.name} an admin`}
+                      style={{ background: "none", border: "none", color: memberIsAdmin ? T.inkMuted : T.purple, cursor: savingAdmins ? "default" : "pointer", padding: 6, flexShrink: 0, display: "flex", opacity: savingAdmins ? 0.6 : 1 }}>
+                      <Shield size={18} fill={memberIsAdmin ? "currentColor" : "none"} />
+                    </button>
+                  )}
+                  {canRemove && (
+                    <button onClick={() => removeMember(m)} disabled={removingMemberId === m.id}
+                      aria-label={`Remove ${m.name} from group`}
+                      style={{ background: "none", border: "none", color: T.red, cursor: removingMemberId === m.id ? "default" : "pointer", padding: 6, flexShrink: 0, display: "flex", opacity: removingMemberId === m.id ? 0.6 : 1 }}>
+                      <UserMinus size={18} />
+                    </button>
+                  )}
                 </>
               )}
             </div>
@@ -993,13 +1084,17 @@ export function CommunityScreen({ account }) {
     const desc = (activeRoom.description || "").trim();
     const canJoin = !isGroupMember;
     const canEdit = activeRoom.kind === "user" && activeRoom.created_by === account.id;
+    // Owner can edit everything; a private group's admin can also open the
+    // edit form, but it only lets them touch name/description (see
+    // editingAsAdmin in openEditGroup / the "createGroup" form below).
+    const canEditGroup = canEdit || isGroupAdmin(activeRoom, account.id);
     const tiles = [
       canJoin
         ? { key: "join", Icon: Plus, label: joiningGroup ? "Joining…" : "Join", onClick: joinActiveGroup, disabled: joiningGroup }
         : { key: "join", Icon: Check, label: "Joined", disabled: true },
       { key: "invite", Icon: UserPlus, label: "Invite", onClick: () => openGroupInvite(activeRoom) },
       { key: "notify", Icon: notifyOn ? Bell : BellOff, label: notifyOn ? "Notify" : "Muted", onClick: toggleNotify },
-      ...(canEdit ? [{ key: "edit", Icon: Pencil, label: "Edit", onClick: openEditGroup }] : []),
+      ...(canEditGroup ? [{ key: "edit", Icon: Pencil, label: "Edit", onClick: openEditGroup }] : []),
     ];
     content = (
       <Page>
@@ -1010,9 +1105,9 @@ export function CommunityScreen({ account }) {
             {iconFn(c.color)}
           </div>
           <h2 style={{ margin: 0, fontFamily: T.fontDisplay, fontSize: 22, fontWeight: 700, color: T.ink }}>{activeRoom.label}</h2>
-          <p style={{ margin: "4px 0 0", color: T.inkMuted, fontSize: 13 }}>
+          <button onClick={() => { setMemberQuery(""); setView("members"); }} style={{ background: "none", border: "none", padding: 0, margin: "4px 0 0", color: T.purple, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody }}>
             {activeRoom.kind === "admin" ? "Community group" : "Parent group"} · {membersLoading ? "…" : `${members.length} ${members.length === 1 ? "member" : "members"}`}
-          </p>
+          </button>
         </div>
 
         <div style={{ display: "flex", gap: 10, marginBottom: 24 }}>
