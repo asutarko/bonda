@@ -26,13 +26,38 @@ create policy "Admins can edit their private group"
   using (is_private and auth.uid() = any(admins))
   with check (is_private and auth.uid() = any(admins));
 
+-- Re-declare the owner's own update policy with an explicit (permissive)
+-- with check. Without one, Postgres reuses the using clause as the check —
+-- which would require created_by to still equal auth.uid() on the updated
+-- row, blocking the "transfer ownership" case below where the owner
+-- deliberately changes created_by to someone else. The using clause still
+-- gate-keeps who may update the row at all (only the *current* owner); the
+-- trigger below further restricts what a transfer is allowed to look like.
+drop policy if exists "Creators can update or delete their own groups" on public.community_groups;
+create policy "Creators can update or delete their own groups"
+  on public.community_groups for update
+  to authenticated
+  using (created_by = auth.uid())
+  with check (true);
+
 create or replace function public.enforce_group_admin_edit_scope()
 returns trigger
 language plpgsql
 as $$
 begin
-  -- The owner can change anything about their own group.
+  -- The owner can change anything about their own group...
   if auth.uid() = old.created_by then
+    -- ...including transferring ownership, but only to someone who is
+    -- already a member of the group (see transferOwnership in
+    -- CommunityScreen.jsx, which also drops the new owner from `admins`).
+    if new.created_by is distinct from old.created_by then
+      if not exists (
+        select 1 from public.community_group_members
+        where group_id = old.id and user_id = new.created_by
+      ) then
+        raise exception 'Ownership can only be transferred to an existing member';
+      end if;
+    end if;
     return new;
   end if;
   -- Anyone else updating the row must be a current admin of a (still)

@@ -3,7 +3,7 @@ import {
   Plus, Camera, Users, MessageSquare, Settings, Link2, Search, Check, X,
   ChevronRight, QrCode, Copy, UserPlus, UserMinus, MoreVertical, Lock,
   Unlock, Send, Pin, Heart, Paperclip, FileText, Bell, BellOff, Globe, Pencil,
-  Shield,
+  Shield, Crown,
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { T } from "../theme";
@@ -728,6 +728,33 @@ export function CommunityScreen({ account }) {
   const promoteMember = m => setGroupAdmins([...(activeRoom.admins || []), m.id]);
   const demoteMember = m => setGroupAdmins((activeRoom.admins || []).filter(id => id !== m.id));
 
+  // Owner-only: hand the group over to another member. They become the new
+  // owner (community_groups.created_by); the RLS "using" clause on that
+  // table's update policy only lets the *current* owner make this change,
+  // and the enforce_group_admin_edit_scope trigger requires the new owner
+  // to already be a member. Dropped from admins (if they were one) since
+  // "owner" already implies full admin rights.
+  const [transferringOwnerId, setTransferringOwnerId] = useState(null);
+  const transferOwnership = async m => {
+    if (!activeRoom) return;
+    const { default: Swal } = await import("sweetalert2");
+    const { isConfirmed } = await Swal.fire({
+      icon: "warning", title: `Make ${m.name} the owner?`,
+      text: "You'll lose owner controls — colour, icon, privacy, and deleting the group. Only they'll be able to hand it back.",
+      showCancelButton: true, confirmButtonText: "Transfer ownership", confirmButtonColor: T.red, cancelButtonColor: T.inkMuted,
+    });
+    if (!isConfirmed) return;
+    setTransferringOwnerId(m.id);
+    const { data, error } = await supabase.from("community_groups")
+      .update({ created_by: m.id, admins: (activeRoom.admins || []).filter(id => id !== m.id) })
+      .eq("id", activeRoom.id).select().single();
+    setTransferringOwnerId(null);
+    if (error || !data) { flash("Could not transfer ownership. Please try again."); return; }
+    setGroups(gs => gs.map(g => g.id === data.id ? data : g));
+    setActiveRoom(groupToGroup(data));
+    flash(`${m.name} is now the owner`);
+  };
+
   // Owner/admin: remove another member from the group (see the "Owners and
   // admins can remove members" RLS policy in community_groups_admins.sql —
   // an admin can't remove the owner or another admin, only the owner can).
@@ -1069,10 +1096,16 @@ export function CommunityScreen({ account }) {
                             onClick: () => { setMemberMenuOpenId(null); following ? unfollowUser(m) : followUser(m); },
                           },
                           ...(canPromote ? [{
-                            key: "admin", ic: Shield, danger: memberIsAdmin,
+                            key: "admin", ic: Shield,
                             label: memberIsAdmin ? "Remove admin" : "Make admin",
                             disabled: savingAdmins,
                             onClick: () => { setMemberMenuOpenId(null); memberIsAdmin ? demoteMember(m) : promoteMember(m); },
+                          }] : []),
+                          ...(canPromote ? [{
+                            key: "transfer", ic: Crown, danger: true,
+                            label: "Transfer ownership",
+                            disabled: transferringOwnerId === m.id,
+                            onClick: () => { setMemberMenuOpenId(null); transferOwnership(m); },
                           }] : []),
                           ...(canRemove ? [{
                             key: "remove", ic: UserMinus, danger: true,
@@ -1081,7 +1114,7 @@ export function CommunityScreen({ account }) {
                             onClick: () => { setMemberMenuOpenId(null); removeMember(m); },
                           }] : []),
                         ].map((it, i) => (
-                          <button key={it.key} onClick={it.onClick} disabled={it.disabled} style={{ width: "100%", textAlign: "left", display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", fontSize: 14, fontWeight: 600, color: it.danger ? T.red : T.ink, background: "none", border: "none", borderTop: i ? `1px solid ${T.border}` : "none", cursor: it.disabled ? "default" : "pointer", opacity: it.disabled ? 0.6 : 1, fontFamily: T.fontBody }}>
+                          <button key={it.key} onClick={it.onClick} disabled={it.disabled} style={{ width: "100%", textAlign: "left", display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", fontSize: 14, fontWeight: 600, color: T.ink, background: "none", border: "none", borderTop: i ? `1px solid ${T.border}` : "none", cursor: it.disabled ? "default" : "pointer", opacity: it.disabled ? 0.6 : 1, fontFamily: T.fontBody }}>
                             <it.ic size={17} color={it.danger ? T.red : T.purple} /> {it.label}
                           </button>
                         ))}
