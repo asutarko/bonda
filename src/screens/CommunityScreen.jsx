@@ -641,6 +641,8 @@ export function CommunityScreen({ account }) {
   };
 
   const [members, setMembers] = useState([]); const [membersLoading, setMembersLoading] = useState(false);
+  // Which member row's "…" moderation menu (admin/remove) is open, if any.
+  const [memberMenuOpenId, setMemberMenuOpenId] = useState(null);
   const [memberQuery, setMemberQuery] = useState("");
   const [isGroupMember, setIsGroupMember] = useState(false);
   const [joiningGroup, setJoiningGroup] = useState(false);
@@ -1051,26 +1053,42 @@ export function CommunityScreen({ account }) {
                 )}
               </div>
               {!isMe && (
-                <>
-                  <button onClick={() => messageMember(m)} aria-label={`Message ${m.name}`} style={{ background: "none", border: "none", color: T.purple, cursor: "pointer", padding: 6, flexShrink: 0, display: "flex" }}><MessageSquare size={18} /></button>
-                  <button onClick={() => following ? unfollowUser(m) : followUser(m)} style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 12px", borderRadius: 99, fontSize: 12.5, fontWeight: 700, background: following ? T.canvas : T.purple, color: following ? T.purple : "white", border: following ? `1px solid ${T.border}` : "none", cursor: "pointer", fontFamily: T.fontBody, flexShrink: 0 }}>
-                    {following ? <><Check size={14} /> Following</> : <><Plus size={14} /> Follow</>}
+                <div style={{ position: "relative", flexShrink: 0 }}>
+                  <button onClick={() => setMemberMenuOpenId(id => id === m.id ? null : m.id)} aria-label={`More options for ${m.name}`} style={{ background: "none", border: "none", color: T.inkSoft, cursor: "pointer", padding: 6, display: "flex" }}>
+                    <MoreVertical size={20} />
                   </button>
-                  {canPromote && (
-                    <button onClick={() => memberIsAdmin ? demoteMember(m) : promoteMember(m)} disabled={savingAdmins}
-                      aria-label={memberIsAdmin ? `Remove admin from ${m.name}` : `Make ${m.name} an admin`}
-                      style={{ background: "none", border: "none", color: memberIsAdmin ? T.inkMuted : T.purple, cursor: savingAdmins ? "default" : "pointer", padding: 6, flexShrink: 0, display: "flex", opacity: savingAdmins ? 0.6 : 1 }}>
-                      <Shield size={18} fill={memberIsAdmin ? "currentColor" : "none"} />
-                    </button>
+                  {memberMenuOpenId === m.id && (
+                    <>
+                      <div onClick={() => setMemberMenuOpenId(null)} style={{ position: "fixed", inset: 0, zIndex: 44 }} />
+                      <div style={{ position: "absolute", top: 36, right: 0, width: 200, background: T.surface, border: `1px solid ${T.border}`, borderRadius: 14, overflow: "hidden", boxShadow: T.shadowM, zIndex: 45 }}>
+                        {[
+                          { key: "message", ic: MessageSquare, label: "Message", onClick: () => { setMemberMenuOpenId(null); messageMember(m); } },
+                          {
+                            key: "follow", ic: following ? Check : Plus,
+                            label: following ? "Following" : "Follow",
+                            onClick: () => { setMemberMenuOpenId(null); following ? unfollowUser(m) : followUser(m); },
+                          },
+                          ...(canPromote ? [{
+                            key: "admin", ic: Shield, danger: memberIsAdmin,
+                            label: memberIsAdmin ? "Remove admin" : "Make admin",
+                            disabled: savingAdmins,
+                            onClick: () => { setMemberMenuOpenId(null); memberIsAdmin ? demoteMember(m) : promoteMember(m); },
+                          }] : []),
+                          ...(canRemove ? [{
+                            key: "remove", ic: UserMinus, danger: true,
+                            label: "Remove from group",
+                            disabled: removingMemberId === m.id,
+                            onClick: () => { setMemberMenuOpenId(null); removeMember(m); },
+                          }] : []),
+                        ].map((it, i) => (
+                          <button key={it.key} onClick={it.onClick} disabled={it.disabled} style={{ width: "100%", textAlign: "left", display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", fontSize: 14, fontWeight: 600, color: it.danger ? T.red : T.ink, background: "none", border: "none", borderTop: i ? `1px solid ${T.border}` : "none", cursor: it.disabled ? "default" : "pointer", opacity: it.disabled ? 0.6 : 1, fontFamily: T.fontBody }}>
+                            <it.ic size={17} color={it.danger ? T.red : T.purple} /> {it.label}
+                          </button>
+                        ))}
+                      </div>
+                    </>
                   )}
-                  {canRemove && (
-                    <button onClick={() => removeMember(m)} disabled={removingMemberId === m.id}
-                      aria-label={`Remove ${m.name} from group`}
-                      style={{ background: "none", border: "none", color: T.red, cursor: removingMemberId === m.id ? "default" : "pointer", padding: 6, flexShrink: 0, display: "flex", opacity: removingMemberId === m.id ? 0.6 : 1 }}>
-                      <UserMinus size={18} />
-                    </button>
-                  )}
-                </>
+                </div>
               )}
             </div>
           );
@@ -1105,7 +1123,7 @@ export function CommunityScreen({ account }) {
             {iconFn(c.color)}
           </div>
           <h2 style={{ margin: 0, fontFamily: T.fontDisplay, fontSize: 22, fontWeight: 700, color: T.ink }}>{activeRoom.label}</h2>
-          <button onClick={() => { setMemberQuery(""); setView("members"); }} style={{ background: "none", border: "none", padding: 0, margin: "4px 0 0", color: T.purple, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody }}>
+          <button onClick={() => { setMemberQuery(""); setMemberMenuOpenId(null); setView("members"); }} style={{ background: "none", border: "none", padding: 0, margin: "4px 0 0", color: T.purple, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody }}>
             {activeRoom.kind === "admin" ? "Community group" : "Parent group"} · {membersLoading ? "…" : `${members.length} ${members.length === 1 ? "member" : "members"}`}
           </button>
         </div>
