@@ -26,6 +26,14 @@ const verbalTextFor = (verbalStatus) => {
 
 const pronounFor = (gender) => (gender === "Male" ? "him" : gender === "Female" ? "her" : "them");
 
+// This screen's look is ported from the carer-letter.html mockup, which pairs
+// a serif display face (titles, the letter body itself) with a sans body face
+// (labels, UI chrome) instead of the Literata-everywhere look used by the rest
+// of the app — kept local to this screen (same pattern as AddChildProfile.jsx /
+// CommunityApp.jsx) rather than changed globally in theme.js.
+const FONT_TITLE = "'Fraunces', Georgia, serif";
+const FONT_BODY = "'Plus Jakarta Sans', system-ui, -apple-system, sans-serif";
+
 // The template was written for foster carers specifically ("I am writing to
 // introduce myself as the foster carer for...") but this letter is now offered
 // to every caregiver type, so swap that role label to fit — the rest of the
@@ -204,7 +212,7 @@ const exportLetterToPdf = async (html, fileName) => {
   // is meant for the in-app editor — a printed letter shouldn't have an orange
   // highlight box, just the plain bracketed text, same as the mockup's own
   // `@media print { .bk { background: none } }` rule.
-  container.innerHTML = `<style>.bonda-bk{background:none!important;padding:0!important;color:${T.amber}!important;}</style><div style="font-family:'Literata',Georgia,serif;font-size:12pt;line-height:1.5;color:#000;">${html}</div>`;
+  container.innerHTML = `<style>.bonda-bk{background:none!important;padding:0!important;color:${T.amber}!important;}</style><div style="font-family:${FONT_TITLE};font-size:12pt;line-height:1.5;color:#000;">${html}</div>`;
   hider.appendChild(container);
   document.body.appendChild(hider);
 
@@ -267,6 +275,18 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
   const saveTimer = useRef(null);
 
   useEffect(() => () => clearTimeout(saveTimer.current), []);
+
+  // Load the mockup's font pairing once, same guarded-injection pattern as
+  // AddChildProfile.jsx / CommunityApp.jsx use for their own local fonts.
+  useEffect(() => {
+    const id = "carer-letter-fonts";
+    if (document.getElementById(id)) return;
+    const link = document.createElement("link");
+    link.id = id;
+    link.rel = "stylesheet";
+    link.href = "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap";
+    document.head.appendChild(link);
+  }, []);
 
   useEffect(() => {
     const load = async () => {
@@ -391,10 +411,15 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
 
   return (
     <Page>
-      {/* Light reskin of TinyMCE's default oxide-skin chrome (grey/blue) so the
-          toolbar reads as part of the Bonda system instead of a generic widget.
-          Scoped to this screen — TinyMCE isn't used anywhere else in the app. */}
+      {/* Ports the carer-letter.html mockup's type pairing onto this screen only
+          (Fraunces for titles, Plus Jakarta Sans for everything else) instead of
+          the Literata-everywhere look the rest of the app uses — see FONT_TITLE
+          / FONT_BODY above. Also carries the light reskin of TinyMCE's default
+          oxide-skin chrome (grey/blue) so the toolbar reads as part of the Bonda
+          system instead of a generic widget. Both scoped to this screen. */}
       <style>{`
+        .cl-mock, .cl-mock * { font-family: ${FONT_BODY} !important; }
+        .cl-mock .cl-serif { font-family: ${FONT_TITLE} !important; }
         .tox.tox-tinymce { border: none !important; border-radius: 0 !important; }
         .tox .tox-toolbar__primary, .tox .tox-toolbar-overlord { background: ${T.canvas} !important; }
         .tox .tox-toolbar__group { border: none !important; }
@@ -404,13 +429,17 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
         .tox .tox-edit-area__iframe { background: ${T.surface} !important; }
       `}</style>
 
+      <div className="cl-mock">
       <p style={{ margin: "0 0 18px", color: T.inkSoft, fontSize: 13, lineHeight: 1.6 }}>We'll auto-fill the letter with what we already know about the child and your account — generate it, then edit anything (including the recipient and placement details) freely before exporting as a PDF.</p>
 
       {children.length > 1 && (
         <Select label="Child" value={selectedChildId || selectedChild.id} onChange={e => setSelectedChildId(e.target.value)} options={children.map(c => ({ value: c.id, label: c.name }))} />
       )}
 
-      <Btn full onClick={generateLetter} style={{ marginBottom: 20 }}>Generate Letter</Btn>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 20 }}>
+        <Btn full onClick={generateLetter}>Generate Letter</Btn>
+        <Btn full ghost onClick={() => push("addChild")}>+ Add another child</Btn>
+      </div>
 
       {letterText && (
         <>
@@ -424,7 +453,7 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
               <div style={{ width: 34, height: 34, borderRadius: 10, background: T.purpleL, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={T.purple} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
               </div>
-              <p style={{ flex: 1, margin: 0, fontFamily: T.fontDisplay, fontWeight: 600, fontSize: 15, color: T.ink }}>How to edit this letter</p>
+              <p className="cl-serif" style={{ flex: 1, margin: 0, fontWeight: 600, fontSize: 15, color: T.ink }}>How to edit this letter</p>
               <Badge color={T.amber} bg={T.amberL}>{missingPlaceholders.length}</Badge>
               <span style={{ color: T.inkMuted, fontSize: 11, transform: howtoOpen ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>▾</span>
             </div>
@@ -462,13 +491,23 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
                   statusbar: false,
                   plugins: "lists link table",
                   toolbar: "undo redo | bold italic underline | bullist numlist | link table | removeformat",
+                  // Mirrors the carer-letter.html mockup's ".doc" typography: the
+                  // letter body itself reads as serif (Fraunces) like a formal
+                  // typed letter, while section headers and bolded row labels
+                  // (the admin template bolds every row label — see
+                  // exportLetterToPdf's comment above) switch to the sans body
+                  // face in small uppercase caps, same contrast as the mockup's
+                  // "h3" / "td.k" treatment.
                   content_style: `
-                    body { font-family: ${T.fontDisplay}; font-size: 13px; line-height: 1.65; color: ${T.ink}; }
-                    h1,h2,h3,h4 { font-family: ${T.fontDisplay}; font-weight: 600; letter-spacing: -0.01em; margin: 20px 0 10px; color: ${T.ink}; }
-                    h1 { font-size: 20px; } h2 { font-size: 18px; } h3 { font-size: 15px; } h4 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; }
+                    body { font-family: ${FONT_TITLE}; font-size: 14px; line-height: 1.6; color: ${T.ink}; }
+                    h1,h2,h3,h4 { font-family: ${FONT_TITLE}; font-weight: 600; letter-spacing: -0.01em; margin: 20px 0 10px; color: ${T.ink}; }
+                    h1 { font-size: 21px; } h2 { font-size: 18px; }
+                    h3, h4 { font-family: ${FONT_BODY}; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+                    h3 { font-size: 13px; margin: 24px 0 10px; } h4 { font-size: 12px; }
                     p { margin: 0 0 12px; }
                     table { border-collapse: collapse; width: 100%; margin: 0 0 14px; }
-                    td, th { border: 1px solid ${T.border}; padding: 8px 10px; vertical-align: top; font-size: 13px; text-align: left; }
+                    td, th { border: 1px solid ${T.border}; padding: 9px 11px; vertical-align: top; font-size: 13.5px; text-align: left; }
+                    td strong, th strong { font-family: ${FONT_BODY}; }
                     ul, ol { margin: 0 0 14px; padding-left: 20px; }
                     li { margin: 0 0 6px; }
                     .bonda-bk { color: ${T.amber}; background: ${T.amberL}; border-radius: 5px; padding: 0 4px; font-weight: 600; }
@@ -480,6 +519,7 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
           <Btn full onClick={downloadPdf}>Export to PDF</Btn>
         </>
       )}
+      </div>
     </Page>
   );
 }

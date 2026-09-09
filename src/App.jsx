@@ -10,6 +10,7 @@ import { useChildren, useBackHandler, backHandlerStack, accountFromUser, forceSi
 // see the <Suspense> boundaries around renderMain()/renderStack() and the
 // pre-login screens further down.
 const FosterHubScreen = lazy(() => import("./screens/FosterHubScreen").then(m => ({ default: m.FosterHubScreen })));
+const CarerLetterHubScreen = lazy(() => import("./screens/CarerLetterHubScreen").then(m => ({ default: m.CarerLetterHubScreen })));
 const CarerLetterScreen = lazy(() => import("./screens/CarerLetterScreen").then(m => ({ default: m.CarerLetterScreen })));
 const DocumentsScreen = lazy(() => import("./screens/DocumentsScreen").then(m => ({ default: m.DocumentsScreen })));
 const HomeScreen = lazy(() => import("./screens/HomeScreen").then(m => ({ default: m.HomeScreen })));
@@ -175,6 +176,7 @@ export default function Bonda() {
     editChild: "Edit Profile",
     editProfile: "Edit User Profile",
     emotionsGuide: "Emotions & Behaviour",
+    carerLetterHub: "Carer letter & Documents",
     carerLetter: "Foster Carer Letter",
     documents: "Documents",
     legalHub: "Legal & Privacy",
@@ -204,6 +206,7 @@ export default function Bonda() {
       case "editChild":  return <EditChildScreen childCtx={childCtx} pop={pop} />;
       case "editProfile": return <EditProfileScreen account={account} pop={pop} push={push} />;
       case "fosterHub":   return <FosterHubScreen pop={pop} push={push} />;
+      case "carerLetterHub": return <CarerLetterHubScreen pop={pop} push={push} />;
       case "carerLetter": return <CarerLetterScreen pop={pop} push={push} childCtx={childCtx} account={account} />;
       case "documents":   return <DocumentsScreen pop={pop} push={push} childCtx={childCtx} account={account} />;
       case "emotionsGuide": return <EmotionsBehavioursScreen pop={pop} />;
