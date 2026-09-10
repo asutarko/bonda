@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(lsof -ti:5173 -sTCP:LISTEN)",
-      "Bash(xargs -r kill)"
+      "Bash(xargs -r kill)",
+      "Bash(npm run *)"
     ]
   }
 }

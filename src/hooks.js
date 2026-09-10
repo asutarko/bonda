@@ -33,6 +33,10 @@ export const childFromRow = (row) => ({
   caseWorkerPhone: row.case_worker_phone || "",
   caseWorkerEmail: row.case_worker_email || "",
   clinicName: row.clinic_name || "",
+  doctorName: row.doctor_name || "",
+  clinicAddress: row.clinic_address || "",
+  clinicPhone: row.clinic_phone || "",
+  clinicEmail: row.clinic_email || "",
   location: row.location || "",
   psychologistId: row.psychologist_id || null,
   active: row.active ?? true,
@@ -122,6 +126,10 @@ export function useChildren(userId) {
       case_worker_phone: child.caseWorkerPhone || "",
       case_worker_email: child.caseWorkerEmail || "",
       clinic_name: child.clinicName || "",
+      doctor_name: child.doctorName || "",
+      clinic_address: child.clinicAddress || "",
+      clinic_phone: child.clinicPhone || "",
+      clinic_email: child.clinicEmail || "",
       location: child.location || "",
     }).select().single();
     if (error || !data) { if (error) console.error("Failed to add child profile:", error.message); return null; }
@@ -165,6 +173,10 @@ export function useChildren(userId) {
     if ("caseWorkerPhone" in patch) dbPatch.case_worker_phone = patch.caseWorkerPhone;
     if ("caseWorkerEmail" in patch) dbPatch.case_worker_email = patch.caseWorkerEmail;
     if ("clinicName" in patch) dbPatch.clinic_name = patch.clinicName;
+    if ("doctorName" in patch) dbPatch.doctor_name = patch.doctorName;
+    if ("clinicAddress" in patch) dbPatch.clinic_address = patch.clinicAddress;
+    if ("clinicPhone" in patch) dbPatch.clinic_phone = patch.clinicPhone;
+    if ("clinicEmail" in patch) dbPatch.clinic_email = patch.clinicEmail;
     if ("location" in patch) dbPatch.location = patch.location;
     supabase.from("children").update(dbPatch).eq("id", id).then(({ error }) => { if (error) console.error("Failed to save child profile:", error.message); });
   };
@@ -343,4 +355,11 @@ export const accountFromUser = (u) => u ? {
   occupation: u.user_metadata?.occupation || "",
   nationality: u.user_metadata?.nationality || "",
   maritalStatus: u.user_metadata?.maritalStatus || "",
+  // Carer-letter specific: collected once via the "Set up your first letter"
+  // step on CarerLetterScreen (see carer-letter.html mockup's s-profile "Your
+  // details" card) rather than at signup, since they're only ever needed for
+  // that letter's placeholders.
+  licensedCarer: u.user_metadata?.licensedCarer || "",
+  carerAgency: u.user_metadata?.carerAgency || "",
+  carerLetterSetupDone: u.user_metadata?.carerLetterSetupDone || false,
 } : null;

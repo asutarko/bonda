@@ -3,7 +3,8 @@ import { jsPDF } from "jspdf";
 import html2canvas from "html2canvas";
 import { supabase } from "../lib/supabase";
 import { T } from "../theme";
-import { Page, SectionLabel, Card, Btn, Select, Badge } from "../ui";
+import { Page, SectionLabel, Card, Btn, Badge } from "../ui";
+import { VERBAL_STATUS_OPTIONS, PLACEMENT_TYPE_OPTIONS } from "../data";
 
 // TinyMCE (core + skin CSS + plugins) is only needed once the caregiver
 // actually opens this screen, so it's split into its own chunk instead of
@@ -83,15 +84,19 @@ const fillTemplate = (content, values) => {
     if (has("verbal")) return values.verbalText;
     if (has("diagnosis")) return values.diagnosis;
     if (has("allerg")) return values.allergies;
+    if (has("doctor") || has("physician") || has("psychiatrist")) return values.doctorName;
+    if (has("clinic") && has("address")) return values.clinicAddress;
+    if (has("clinic") && has("phone")) return values.clinicPhone;
+    if (has("clinic") && has("email")) return values.clinicEmail;
     if (has("clinic")) return values.clinic;
     if (key === "pronoun" || key.includes("him") || key.includes("her")) return values.pronoun;
     if (has("location") || has("country")) return values.location;
-    // Not something we hold data for (there's no "are you licensed" field on
-    // the child/account) — left bracketed so the caregiver states it themselves.
+    // Collected once via the "Set up your first letter" step (CarerLetterScreen's
+    // carer-details form) — left bracketed only if the caregiver skipped it.
     // Checked before the generic "carer" catch-all below, since the phrase
     // "licensed foster carer" would otherwise match on "carer" and get
     // wrongly filled with the caregiver's name.
-    if (has("licensed")) return match;
+    if (has("licensed")) return values.licensedCarer || match;
     if (has("carer") || has("your") || has("parent")) {
       if (has("phone")) return values.yourPhone;
       if (has("email")) return values.yourEmail;
@@ -140,6 +145,10 @@ const PLACEHOLDER_HELP = {
   "Diagnosis, if applicable": "Any medical or developmental diagnosis relevant to this letter.",
   "Known allergies / triggers": "Allergies or known triggers the reader should be aware of.",
   "Clinic name": "The clinic or practice handling this child's care.",
+  "Clinic address": "The postal address of that clinic.",
+  "Clinic phone": "A contact phone number for that clinic.",
+  "Clinic email": "A contact email address for that clinic.",
+  "Doctor name": "The name of the doctor/psychiatrist treating this child.",
   "Your name": "Your full name, as the person signing this letter.",
   "Your phone": "Your contact phone number.",
   "Your email": "Your contact email address.",
@@ -261,7 +270,7 @@ const exportLetterToPdf = async (html, fileName) => {
 };
 
 export function CarerLetterScreen({ pop, push, childCtx, account }) {
-  const { children = [], activeChild } = childCtx || {};
+  const { children = [], activeChild, updateChild } = childCtx || {};
   const [selectedChildId, setSelectedChildId] = useState(activeChild?.id || "");
   const selectedChild = children.find(c => c.id === selectedChildId) || activeChild || null;
 
@@ -274,7 +283,122 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
   const [howtoOpen, setHowtoOpen] = useState(true);
   const saveTimer = useRef(null);
 
+  // "Set up your first letter" — the mandatory first step of this screen
+  // (ported from the carer-letter.html mockup's s-profile screen: "Your
+  // details", "Child's details", "Case worker"), shown before a letter can
+  // be generated. The carer fields below ("licensed carer?", fostering
+  // agency) aren't collected anywhere else in the app; the child/case-worker
+  // fields further down do already live on the "children" table (see
+  // updateChild() below) but are surfaced here too since the letter needs
+  // them filled in. It's shown fresh every time this screen is opened
+  // (pre-filled with whatever was saved last, so returning is a single
+  // click) rather than being skipped after the first save, matching the
+  // mockup's own form sitting directly ahead of "Generate letter"/preview.
+  const [showCarerSetup, setShowCarerSetup] = useState(true);
+  const [carerName, setCarerName] = useState(account?.name || "");
+  const [carerPhone, setCarerPhone] = useState(account?.phone || "");
+  const [licensedCarer, setLicensedCarer] = useState(account?.licensedCarer || "");
+  const [carerAgency, setCarerAgency] = useState(account?.carerAgency || "");
+  const [carerErrors, setCarerErrors] = useState({});
+  const [savingCarer, setSavingCarer] = useState(false);
+
+  // Same step also covers the letter-relevant subset of the selected child's
+  // details and their case worker — both already live on the "children" table
+  // (edited in full on the child profile screens), but are surfaced here too
+  // so a caregiver can fill in anything the letter needs without leaving this
+  // flow. Saved back via updateChild(), not new storage.
+  const [childDob, setChildDob] = useState(selectedChild?.dob || "");
+  const [placementStartDate, setPlacementStartDate] = useState(selectedChild?.placementStartDate || "");
+  const [placementType, setPlacementType] = useState(selectedChild?.placementType || "");
+  const [courtOrderRef, setCourtOrderRef] = useState(selectedChild?.courtOrderRef || "");
+  const [verbalStatus, setVerbalStatus] = useState(selectedChild?.verbalStatus || "");
+  const [diagnosis, setDiagnosis] = useState(selectedChild?.diagnosis || "");
+  const [knownTriggers, setKnownTriggers] = useState(selectedChild?.knownTriggers || "");
+  const [clinicName, setClinicName] = useState(selectedChild?.clinicName || "");
+  const [doctorName, setDoctorName] = useState(selectedChild?.doctorName || "");
+  const [clinicAddress, setClinicAddress] = useState(selectedChild?.clinicAddress || "");
+  const [clinicPhone, setClinicPhone] = useState(selectedChild?.clinicPhone || "");
+  const [clinicEmail, setClinicEmail] = useState(selectedChild?.clinicEmail || "");
+  const [caseWorkerName, setCaseWorkerName] = useState(selectedChild?.caseWorkerName || "");
+  const [caseWorkerPhone, setCaseWorkerPhone] = useState(selectedChild?.caseWorkerPhone || "");
+  const [caseWorkerEmail, setCaseWorkerEmail] = useState(selectedChild?.caseWorkerEmail || "");
+
   useEffect(() => () => clearTimeout(saveTimer.current), []);
+
+  // The child-scoped fields above are only seeded from `selectedChild` once,
+  // on mount — so when the caregiver switches child via the picker on the
+  // setup form (added below), re-sync them to whichever child is now
+  // selected instead of leaving the previous child's values showing.
+  useEffect(() => {
+    setChildDob(selectedChild?.dob || "");
+    setPlacementStartDate(selectedChild?.placementStartDate || "");
+    setPlacementType(selectedChild?.placementType || "");
+    setCourtOrderRef(selectedChild?.courtOrderRef || "");
+    setVerbalStatus(selectedChild?.verbalStatus || "");
+    setDiagnosis(selectedChild?.diagnosis || "");
+    setKnownTriggers(selectedChild?.knownTriggers || "");
+    setClinicName(selectedChild?.clinicName || "");
+    setDoctorName(selectedChild?.doctorName || "");
+    setClinicAddress(selectedChild?.clinicAddress || "");
+    setClinicPhone(selectedChild?.clinicPhone || "");
+    setClinicEmail(selectedChild?.clinicEmail || "");
+    setCaseWorkerName(selectedChild?.caseWorkerName || "");
+    setCaseWorkerPhone(selectedChild?.caseWorkerPhone || "");
+    setCaseWorkerEmail(selectedChild?.caseWorkerEmail || "");
+    setCarerErrors({});
+  }, [selectedChild?.id]);
+
+  const saveCarerDetails = async () => {
+    const fe = {};
+    if (!carerName.trim()) fe.name = "Please enter your name.";
+    if (!carerPhone.trim()) fe.phone = "Please enter a phone number.";
+    if (!childDob) fe.childDob = "Please enter the child's date of birth.";
+    setCarerErrors(fe);
+    if (Object.keys(fe).length > 0) return;
+    setSavingCarer(true);
+    const { error } = await supabase.auth.updateUser({
+      data: {
+        name: carerName.trim(),
+        phone: carerPhone.trim(),
+        licensedCarer,
+        carerAgency: carerAgency.trim(),
+        carerLetterSetupDone: true,
+      },
+    });
+    // Keeps the shared "profiles" table's phone column (used elsewhere, e.g.
+    // Community) in sync — best-effort, same as ProfileScreen.jsx's save.
+    if (!error && account?.id) await supabase.from("profiles").update({ phone: carerPhone.trim() }).eq("id", account.id);
+    const childPatch = {
+      dob: childDob,
+      placementStartDate,
+      placementType,
+      courtOrderRef: courtOrderRef.trim(),
+      verbalStatus,
+      diagnosis: diagnosis.trim(),
+      knownTriggers: knownTriggers.trim(),
+      clinicName: clinicName.trim(),
+      doctorName: doctorName.trim(),
+      clinicAddress: clinicAddress.trim(),
+      clinicPhone: clinicPhone.trim(),
+      clinicEmail: clinicEmail.trim(),
+      caseWorkerName: caseWorkerName.trim(),
+      caseWorkerPhone: caseWorkerPhone.trim(),
+      caseWorkerEmail: caseWorkerEmail.trim(),
+    };
+    if (!error && selectedChild && updateChild) updateChild(selectedChild.id, childPatch);
+    setSavingCarer(false);
+    if (!error) {
+      setShowCarerSetup(false);
+      // One combined action — same as the mockup's "Save & preview letter" —
+      // straight to the generated letter instead of a second "Generate
+      // Letter" screen, built from what was just typed above rather than the
+      // (not-yet-refreshed) selectedChild/account props.
+      buildAndSetLetter(
+        { ...selectedChild, ...childPatch },
+        { name: carerName.trim(), phone: carerPhone.trim(), email: account?.email, licensedCarer, carerAgency: carerAgency.trim() }
+      );
+    }
+  };
 
   // Load the mockup's font pairing once, same guarded-injection pattern as
   // AddChildProfile.jsx / CommunityApp.jsx use for their own local fonts.
@@ -342,36 +466,46 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
     saveTimer.current = setTimeout(() => persistLetter(html), 800);
   };
 
-  const generateLetter = () => {
-    if (!template || !selectedChild) return;
+  // Takes plain child/carer data objects (not the childCtx/account props
+  // directly) so it can be called right after saveCarerDetails() below with
+  // the values the caregiver just typed — those haven't round-tripped through
+  // Supabase and back into `selectedChild`/`account` yet, so reading the props
+  // at that point would still show the old (pre-save) data.
+  const buildAndSetLetter = (childData, carerData) => {
+    if (!template || !childData) return;
     // Anything we don't actually have data for is left as a "[Bracketed]"
     // placeholder rather than a vague "to be confirmed" — same convention as
     // the template's own unfilled placeholders, so it's obvious in the TinyMCE
     // preview exactly which bits the caregiver still needs to fill in by hand.
     const values = {
       date: formatDate(new Date()),
-      recipientName: buildRecipientLabel(assignedClinic, assignedPsychologist) || selectedChild.clinicName?.trim() || "[Recipient name / organisation]",
+      recipientName: buildRecipientLabel(assignedClinic, assignedPsychologist) || childData.clinicName?.trim() || "[Recipient name / organisation]",
       recipientAddress: assignedClinic?.address?.trim() || "[Recipient address]",
       recipientPhone: assignedClinic?.phone?.trim() || "[Recipient phone]",
-      location: selectedChild.location?.trim() || "[Location]",
-      childName: selectedChild.name,
-      dob: selectedChild.dob ? formatDate(selectedChild.dob) : "[Date of birth]",
-      placementStartDate: selectedChild.placementStartDate ? formatDate(selectedChild.placementStartDate) : "[Placement start date]",
-      fosteringAgency: selectedChild.fosteringAgency?.trim() || "[Fostering agency / VWO name]",
-      caseWorkerName: selectedChild.caseWorkerName?.trim() || "[Case worker name]",
-      caseWorkerPhone: selectedChild.caseWorkerPhone?.trim() || "[Case worker phone]",
-      caseWorkerEmail: selectedChild.caseWorkerEmail?.trim() || "[Case worker email]",
-      placementType: selectedChild.placementType || "[Placement status]",
-      courtOrderRef: selectedChild.courtOrderRef?.trim() || "[Court order reference, if applicable]",
-      verbalText: verbalTextFor(selectedChild.verbalStatus),
-      diagnosis: selectedChild.diagnosis?.trim() || "[Diagnosis, if applicable]",
-      allergies: selectedChild.knownTriggers?.trim() || "[Known allergies / triggers]",
-      clinic: assignedClinic?.name || "[Clinic name]",
-      pronoun: pronounFor(selectedChild.gender),
-      roleLabel: roleLabelFor(selectedChild.caregiverType, selectedChild.caregiverLabel),
-      yourName: account?.name || "[Your name]",
-      yourPhone: account?.phone || "[Your phone]",
-      yourEmail: account?.email || "[Your email]",
+      location: childData.location?.trim() || "[Location]",
+      childName: childData.name,
+      dob: childData.dob ? formatDate(childData.dob) : "[Date of birth]",
+      placementStartDate: childData.placementStartDate ? formatDate(childData.placementStartDate) : "[Placement start date]",
+      fosteringAgency: childData.fosteringAgency?.trim() || carerData.carerAgency?.trim() || "[Fostering agency / VWO name]",
+      caseWorkerName: childData.caseWorkerName?.trim() || "[Case worker name]",
+      caseWorkerPhone: childData.caseWorkerPhone?.trim() || "[Case worker phone]",
+      caseWorkerEmail: childData.caseWorkerEmail?.trim() || "[Case worker email]",
+      placementType: childData.placementType || "[Placement status]",
+      courtOrderRef: childData.courtOrderRef?.trim() || "[Court order reference, if applicable]",
+      verbalText: verbalTextFor(childData.verbalStatus),
+      diagnosis: childData.diagnosis?.trim() || "[Diagnosis, if applicable]",
+      allergies: childData.knownTriggers?.trim() || "[Known allergies / triggers]",
+      clinic: assignedClinic?.name || childData.clinicName?.trim() || "[Clinic name]",
+      clinicAddress: assignedClinic?.address?.trim() || childData.clinicAddress?.trim() || "[Clinic address]",
+      clinicPhone: assignedClinic?.phone?.trim() || childData.clinicPhone?.trim() || "[Clinic phone]",
+      clinicEmail: childData.clinicEmail?.trim() || "[Clinic email]",
+      doctorName: assignedPsychologist?.name || childData.doctorName?.trim() || "[Doctor name]",
+      pronoun: pronounFor(childData.gender),
+      roleLabel: roleLabelFor(childData.caregiverType, childData.caregiverLabel),
+      yourName: carerData.name || "[Your name]",
+      yourPhone: carerData.phone || "[Your phone]",
+      yourEmail: carerData.email || "[Your email]",
+      licensedCarer: carerData.licensedCarer || "",
     };
     const filled = highlightBrackets(fillTemplate(template.content, values));
     setLetterText(filled);
@@ -409,6 +543,174 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
     return <Page><p style={{ color: T.inkMuted, fontSize: 13, lineHeight: 1.6 }}>Add a child profile on the Home tab first to generate a carer letter.</p></Page>;
   }
 
+  if (showCarerSetup) {
+    // Rebuilt with the mockup's own markup/classes (not the app's generic
+    // Card/Input/Select) so this step actually looks like carer-letter.html:
+    // white 18px-radius groups on the ivory canvas, 14px inputs with the
+    // teal focus ring, and the orange "bracket" tone (T.amber, same colour
+    // this screen already uses for unfilled-placeholder highlights) on
+    // required marks and errors instead of the app's default red.
+    return (
+      <Page>
+        <style>{`
+          .cl-mock, .cl-mock * { font-family: ${FONT_BODY} !important; }
+          .cl-mock .cl-serif { font-family: ${FONT_TITLE} !important; }
+          .cl-setup .grp{background:${T.surface};border:1px solid ${T.border};border-radius:${T.rL};padding:20px 18px 6px;margin-bottom:16px;}
+          .cl-setup .glabel{font-family:${FONT_TITLE};font-weight:600;font-size:18px;margin:0 0 4px;color:${T.ink};}
+          .cl-setup .gsub{font-size:13px;color:${T.inkSoft};margin:0 0 18px;}
+          .cl-setup .fld{margin-bottom:16px;}
+          .cl-setup .fld > label{display:block;font-size:13px;font-weight:700;color:${T.inkSoft};letter-spacing:.02em;margin:0 0 8px;}
+          .cl-setup .req{color:${T.amber};}
+          .cl-setup input, .cl-setup select{
+            width:100%;font-size:15px;color:${T.ink};background:${T.surface};
+            border:1px solid ${T.border};border-radius:${T.r};padding:15px 16px;appearance:none;
+            box-sizing:border-box;transition:border-color .15s,box-shadow .15s;
+          }
+          .cl-setup input:focus, .cl-setup select:focus{outline:none;border-color:${T.purple};box-shadow:0 0 0 4px ${T.purpleL};}
+          .cl-setup input:disabled{background:${T.canvas};color:${T.inkMuted};cursor:not-allowed;}
+          .cl-setup .selwrap{position:relative;}
+          .cl-setup .selwrap select{padding-right:40px;}
+          .cl-setup .selwrap::after{content:"▾";position:absolute;right:16px;top:50%;transform:translateY(-50%);color:${T.purple};pointer-events:none;font-size:13px;}
+          .cl-setup .hint{font-size:12.5px;color:${T.inkMuted};margin:7px 2px 0;}
+          .cl-setup .err{font-size:12.5px;color:${T.amber};font-weight:700;margin:7px 2px 0;}
+          .cl-setup .cta{width:100%;border:0;border-radius:16px;padding:17px 20px;font-size:16px;font-weight:700;cursor:pointer;background:${T.purple};color:#fff;letter-spacing:.01em;transition:background .15s;}
+          .cl-setup .cta:hover{background:${T.purplePress};}
+          .cl-setup .cta:disabled{background:${T.border};cursor:not-allowed;}
+        `}</style>
+        <div className="cl-mock cl-setup">
+          <h2 className="cl-serif" style={{ margin: "0 0 8px", fontSize: 22, fontWeight: 600, color: T.ink }}>Set up your first letter</h2>
+          <p style={{ margin: "0 0 20px", color: T.inkSoft, fontSize: 13.5, lineHeight: 1.65 }}>
+            Before you can make a carer letter, add the child and your own details. We'll reuse these so the letter fills itself in — you won't have to retype anything.
+          </p>
+
+          <div className="grp">
+            <p className="glabel cl-serif">Your details</p>
+            <p className="gsub">These appear as the carer on every letter you create.</p>
+
+            <div className="fld">
+              <label>Your name <span className="req">*</span></label>
+              <input value={carerName} onChange={e => setCarerName(e.target.value)} placeholder="e.g. Jane Tan" />
+              {carerErrors.name && <p className="err">{carerErrors.name}</p>}
+            </div>
+
+            <div className="fld">
+              <label>Your phone <span className="req">*</span></label>
+              <input type="tel" value={carerPhone} onChange={e => setCarerPhone(e.target.value)} placeholder="e.g. 9123 4567" />
+              {carerErrors.phone && <p className="err">{carerErrors.phone}</p>}
+            </div>
+
+            <div className="fld">
+              <label>Are you a licensed / registered foster carer?</label>
+              <div className="selwrap">
+                <select value={licensedCarer} onChange={e => setLicensedCarer(e.target.value)}>
+                  <option value="">Prefer to fill in later</option>
+                  <option value="Licensed foster carer">Yes — licensed / registered</option>
+                  <option value="Foster carer (not licensed)">No</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="fld">
+              <label>Fostering agency / VWO name</label>
+              <input value={carerAgency} onChange={e => setCarerAgency(e.target.value)} placeholder="e.g. MSF, Boys' Town" />
+              <p className="hint">Leave blank if you're not sure — you can type it into the letter later.</p>
+            </div>
+          </div>
+
+          <div className="grp">
+            <p className="glabel cl-serif">Child's details</p>
+            <p className="gsub">Used to fill in the medical and placement sections of the letter.</p>
+
+            {children.length > 1 ? (
+              <div className="fld">
+                <label>Child</label>
+                <div className="selwrap">
+                  <select value={selectedChildId || selectedChild.id} onChange={e => setSelectedChildId(e.target.value)}>
+                    {children.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
+              </div>
+            ) : (
+              <div className="fld">
+                <label>Child</label>
+                <input value={selectedChild.name} disabled />
+              </div>
+            )}
+
+            <div className="fld">
+              <label>Date of birth <span className="req">*</span></label>
+              <input type="date" value={childDob} onChange={e => setChildDob(e.target.value)} />
+              {carerErrors.childDob && <p className="err">{carerErrors.childDob}</p>}
+            </div>
+
+            <div className="fld">
+              <label>In my care since</label>
+              <input type="date" value={placementStartDate} onChange={e => setPlacementStartDate(e.target.value)} />
+              <p className="hint">The date the child came into your care.</p>
+            </div>
+
+            <div className="fld">
+              <label>Placement status</label>
+              <div className="selwrap">
+                <select value={placementType} onChange={e => setPlacementType(e.target.value)}>
+                  <option value="">Select placement status (foster carers only)</option>
+                  {PLACEMENT_TYPE_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div className="fld">
+              <label>Court order reference</label>
+              <input value={courtOrderRef} onChange={e => setCourtOrderRef(e.target.value)} placeholder="If applicable" />
+            </div>
+
+            <div className="fld">
+              <label>How they communicate</label>
+              <div className="selwrap">
+                <select value={verbalStatus} onChange={e => setVerbalStatus(e.target.value)}>
+                  <option value="">Select verbal status</option>
+                  {VERBAL_STATUS_OPTIONS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div className="fld">
+              <label>Diagnosis <span style={{ fontWeight: 400, color: T.inkMuted }}>— if applicable</span></label>
+              <input value={diagnosis} onChange={e => setDiagnosis(e.target.value)} placeholder="e.g. Autism, ADHD" />
+            </div>
+
+            <div className="fld">
+              <label>Known allergies / triggers</label>
+              <input value={knownTriggers} onChange={e => setKnownTriggers(e.target.value)} placeholder="e.g. Peanuts, loud noises" />
+            </div>
+          </div>
+
+          <div className="grp">
+            <p className="glabel cl-serif">Clinic & doctor <span style={{ fontWeight: 400, color: T.inkMuted, fontSize: 13 }}>— optional</span></p>
+            <p className="gsub">Fills in the "Mental health professionals" section of the letter.</p>
+
+            <div className="fld"><label>Clinic name</label><input value={clinicName} onChange={e => setClinicName(e.target.value)} placeholder="e.g. Sunrise Family Clinic" /></div>
+            <div className="fld"><label>Doctor name</label><input value={doctorName} onChange={e => setDoctorName(e.target.value)} placeholder="e.g. Dr Tan" /></div>
+            <div className="fld"><label>Clinic address</label><input value={clinicAddress} onChange={e => setClinicAddress(e.target.value)} placeholder="e.g. 1 Sunrise Ave, #01-01" /></div>
+            <div className="fld"><label>Clinic phone</label><input type="tel" value={clinicPhone} onChange={e => setClinicPhone(e.target.value)} placeholder="e.g. 6123 4567" /></div>
+            <div className="fld"><label>Clinic email</label><input type="email" value={clinicEmail} onChange={e => setClinicEmail(e.target.value)} placeholder="e.g. contact@clinic.com" /></div>
+          </div>
+
+          <div className="grp">
+            <p className="glabel cl-serif">Case worker <span style={{ fontWeight: 400, color: T.inkMuted, fontSize: 13 }}>— optional</span></p>
+            <p className="gsub">The child's assigned case worker / social worker. Services often call to verify.</p>
+
+            <div className="fld"><label>Name</label><input value={caseWorkerName} onChange={e => setCaseWorkerName(e.target.value)} /></div>
+            <div className="fld"><label>Phone</label><input type="tel" value={caseWorkerPhone} onChange={e => setCaseWorkerPhone(e.target.value)} /></div>
+            <div className="fld"><label>Email</label><input type="email" value={caseWorkerEmail} onChange={e => setCaseWorkerEmail(e.target.value)} /></div>
+          </div>
+
+          <button className="cta" onClick={saveCarerDetails} disabled={savingCarer}>{savingCarer ? "Saving..." : "Save & preview letter"}</button>
+        </div>
+      </Page>
+    );
+  }
+
   return (
     <Page>
       {/* Ports the carer-letter.html mockup's type pairing onto this screen only
@@ -430,16 +732,13 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
       `}</style>
 
       <div className="cl-mock">
-      <p style={{ margin: "0 0 18px", color: T.inkSoft, fontSize: 13, lineHeight: 1.6 }}>We'll auto-fill the letter with what we already know about the child and your account — generate it, then edit anything (including the recipient and placement details) freely before exporting as a PDF.</p>
-
-      {children.length > 1 && (
-        <Select label="Child" value={selectedChildId || selectedChild.id} onChange={e => setSelectedChildId(e.target.value)} options={children.map(c => ({ value: c.id, label: c.name }))} />
-      )}
-
-      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 20 }}>
-        <Btn full onClick={generateLetter}>Generate Letter</Btn>
-        <Btn full ghost onClick={() => push("addChild")}>+ Add another child</Btn>
-      </div>
+      <p style={{ margin: "0 0 6px", color: T.inkSoft, fontSize: 13, lineHeight: 1.6 }}>We've auto-filled the letter below with what we already know about the child and your account — edit anything (including the recipient and placement details) freely before exporting as a PDF.</p>
+      <button
+        onClick={() => setShowCarerSetup(true)}
+        style={{ background: "none", border: "none", padding: 0, margin: "0 0 18px", fontFamily: FONT_BODY, fontSize: 12.5, fontWeight: 700, color: T.purple, cursor: "pointer" }}
+      >
+        Edit your details
+      </button>
 
       {letterText && (
         <>
