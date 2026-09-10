@@ -183,7 +183,7 @@ export const Badge = ({ children, color = T.purple, bg }) => (
 
 // Primary button
 
-export const Btn = ({ children, onClick, disabled, full, secondary, danger, style = {} }) => (
+export const Btn = ({ children, onClick, disabled, full, secondary, ghost, danger, style = {} }) => (
   <button
     onClick={onClick}
     disabled={disabled}
@@ -191,15 +191,15 @@ export const Btn = ({ children, onClick, disabled, full, secondary, danger, styl
       width: full ? "100%" : undefined,
       padding: "13px 20px",
       borderRadius: T.r,
-      border: "none",
+      border: ghost ? `1.5px solid ${T.border}` : "none",
       fontFamily: T.fontBody,
       fontWeight: 700,
       fontSize: 14,
       cursor: disabled ? "default" : "pointer",
-      transition: "opacity 0.15s",
+      transition: "opacity 0.15s, background 0.15s",
       opacity: disabled ? 0.45 : 1,
-      background: danger ? T.red : secondary ? T.purpleL : T.purple,
-      color: secondary ? T.purple : "white",
+      background: ghost ? "transparent" : danger ? T.red : secondary ? T.purpleL : T.purple,
+      color: ghost ? T.purple : secondary ? T.purple : "white",
       ...style,
     }}
   >{children}</button>

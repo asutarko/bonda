@@ -2,49 +2,74 @@ import { useState, useEffect, useRef } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { T } from "../theme";
-import { Page, SectionLabel, Card, Badge, Btn, Input, TextArea, Avatar, Accordion, PageHero, AvatarIllustrations, ChildAvatar, ComAvatar, ROOM_ICONS, ACTIVITY_TEXTAREA_STYLE, ActionIllustration, HeroIllustration } from "../ui";
+import { Page, SectionLabel, Card, Badge, Btn, Input, TextArea, Select, Avatar, Accordion, PageHero, AvatarIllustrations, ChildAvatar, ComAvatar, ROOM_ICONS, ACTIVITY_TEXTAREA_STYLE, ActionIllustration, HeroIllustration } from "../ui";
 import { CHILD_AVATARS, DEFAULT_CHILDREN, DEFAULT_SCHEDULE, ROOM_COLORS, SOS_COLORS, VERBAL_STATUS_OPTIONS } from "../data";
 import { useBackHandler } from "../hooks";
 
 export const EMOJI_OPTS = ["🌅","🍳","🥗","🍎","🦷","🛁","👗","🎨","📚","🎮","🏃","🧩","🎵","🌳","😴","🚌","🏠","💊","🧸","🐾","🎭","🖥️","🏊","🛌","⭐","🎯","🏋️","🛝"];
+
+// Dashed-circle placeholder shown wherever an activity has no emoji picked,
+// mirroring CategoryColorPicker's "no colour" swatch so both pickers read consistently.
+function NoEmojiIcon({ size = 20 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" style={{ display: "block" }}>
+      <circle cx="10" cy="10" r="8.5" fill="none" stroke={T.inkMuted} strokeWidth="1.4" strokeDasharray="2.6 2.6" />
+    </svg>
+  );
+}
 //  EMOTION DATA
 
-// Quick-add presets for the "New Activity" modal — one tap fills emoji, label
-// and duration, so a caregiver isn't retyping the same routine every day.
-const ADD_ACTIVITY_TEMPLATES = [
-  { emoji: "🌅", label: "Wake Up",              category: "routine",  duration: 15 },
-  { emoji: "🪥", label: "Brush Teeth",          category: "routine",  duration: 5 },
-  { emoji: "🛁", label: "Bath",                 category: "routine",  duration: 20 },
-  { emoji: "💊", label: "Medication",           category: "routine",  duration: 5 },
-  { emoji: "🍳", label: "Breakfast",            category: "meals",    duration: 30 },
-  { emoji: "🥗", label: "Lunch",                category: "meals",    duration: 30 },
-  { emoji: "🍽️", label: "Dinner",               category: "meals",    duration: 30 },
-  { emoji: "🧩", label: "Occupational Therapy", category: "therapy",  duration: 60 },
-  { emoji: "🗣️", label: "Speech Therapy",       category: "therapy",  duration: 45 },
-  { emoji: "🎨", label: "Art Therapy",          category: "therapy",  duration: 45 },
-  { emoji: "🧸", label: "Free Play",            category: "play",     duration: 30 },
-  { emoji: "🎵", label: "Music Time",           category: "play",     duration: 20 },
-  { emoji: "🏃", label: "Exercise",             category: "play",     duration: 30 },
-  { emoji: "🖥️", label: "Screen Time",          category: "play",     duration: 30 },
-  { emoji: "📚", label: "Study Time",           category: "learning", duration: 30 },
-  { emoji: "😴", label: "Nap",                  category: "rest",     duration: 60 },
-  { emoji: "🤗", label: "Quiet Time",           category: "rest",     duration: 15 },
-  { emoji: "🌙", label: "Bedtime",              category: "rest",     duration: 0 },
-];
-const TEMPLATE_CATEGORIES = { routine: "🔁 Routine", meals: "🍴 Meals", therapy: "💜 Therapy", play: "🎈 Play", learning: "📖 Learning", rest: "😌 Rest" };
 
 // Per-category accent used to color timeline blocks and category pills —
 // falls back to the primary teal for items with no category (legacy items,
 // or a custom activity where the caregiver skipped picking one).
 const CATEGORY_COLORS = {
-  routine:  { c: T.teal,   l: T.tealL },
-  meals:    { c: T.amber,  l: T.amberL },
-  therapy:  { c: T.violet, l: T.violetL },
-  play:     { c: T.green,  l: T.greenL },
-  learning: { c: T.indigo, l: T.indigoL },
-  rest:     { c: T.slate,  l: T.slateL },
+  routine:  { c: "#E5484D", l: "#FDE7E7" },
+  meals:    { c: "#F5A623", l: "#FDEEDA" },
+  therapy:  { c: "#E9C716", l: "#FBF6D9" },
+  play:     { c: "#3DA35D", l: "#E3F3E8" },
+  learning: { c: "#3B82C4", l: "#E3EEF8" },
+  rest:     { c: "#8B5CF6", l: "#EFE9FE" },
 };
 const categoryColor = category => CATEGORY_COLORS[category] || { c: T.purple, l: T.purpleL };
+
+// The two "needs attention" states share a pink family so they read as a pair
+// against the category hues (amber=upcoming, green=done, violet=rest, etc.).
+// Conflict takes the deeper plum-pink and a noticeably darker fill: the pale
+// tint is too close to the pastel category/status tints to read as different
+// at a glance, and it also keeps the two states apart where they overlap.
+const MISSED_COLOR = "#B0567A";
+const MISSED_COLOR_L = "#F7E4EC";
+const CONFLICT_COLOR = "#8E3D5E";
+const CONFLICT_COLOR_L = "#F0C9D9";
+const CATEGORY_LABELS = { routine: "Routine", meals: "Meals", therapy: "Therapy", play: "Play", learning: "Learning", rest: "Rest" };
+
+// Tap-to-select colour swatches for a schedule item's category — reused by
+// both the "new activity" and inline-edit forms. Tapping the active swatch
+// again clears it back to the default (uncategorised) colour.
+function CategoryColorPicker({ value, onChange }) {
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkMuted }}>Colour</p>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <button type="button" onClick={() => onChange(null)} aria-label="No colour"
+          style={{ width: 32, height: 32, borderRadius: "50%", background: T.surface, border: !value ? `2.5px solid ${T.ink}` : `1.5px solid ${T.border}`, boxShadow: !value ? `0 0 0 2px ${T.surface}, 0 0 0 3.5px ${T.ink}` : "none", cursor: "pointer", padding: 0, position: "relative", flexShrink: 0 }}>
+          <svg width="32" height="32" viewBox="0 0 32 32" style={{ position: "absolute", inset: 0 }}>
+            <line x1="8" y1="24" x2="24" y2="8" stroke={T.inkMuted} strokeWidth="1.6" strokeLinecap="round" />
+          </svg>
+        </button>
+        {Object.keys(CATEGORY_COLORS).map(key => {
+          const { c } = CATEGORY_COLORS[key];
+          const selected = value === key;
+          return (
+            <button key={key} type="button" onClick={() => onChange(selected ? null : key)} aria-label={CATEGORY_LABELS[key]}
+              style={{ width: 32, height: 32, borderRadius: "50%", background: c, border: selected ? `2.5px solid ${T.ink}` : "2.5px solid transparent", boxShadow: selected ? `0 0 0 2px ${T.surface}, 0 0 0 3.5px ${c}` : "none", cursor: "pointer", padding: 0 }} />
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 export const ALARM_TONES = [
   {
@@ -162,14 +187,13 @@ const WEEKDAYS = ["M", "T", "W", "T", "F", "S", "S"];
 
 const rowMenuBtn = { width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", border: "none", background: "none", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody, textAlign: "left" };
 
-// 15-minute increments, 12-hour labels — matches Google Calendar's time picker.
+// 15-minute increments, 24-hour labels — matches Google Calendar's time picker.
 const TIME_OPTIONS = (() => {
   const opts = [];
   for (let h = 0; h < 24; h++) {
     for (let m = 0; m < 60; m += 15) {
       const value = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-      const h12 = h % 12 === 0 ? 12 : h % 12;
-      opts.push({ value, label: `${h12}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}` });
+      opts.push({ value, label: value });
     }
   }
   return opts;
@@ -177,10 +201,7 @@ const TIME_OPTIONS = (() => {
 
 function formatTimeLabel(value) {
   if (!value) return "";
-  const [hStr, mStr] = value.split(":");
-  const h = parseInt(hStr, 10);
-  const h12 = h % 12 === 0 ? 12 : h % 12;
-  return `${h12}:${mStr} ${h < 12 ? "AM" : "PM"}`;
+  return value;
 }
 
 // Click-to-open dropdown of 15-min time slots, styled like Google Calendar's
@@ -246,6 +267,23 @@ function addMinutesToTime(time, minutes) {
   return Math.floor(total / 60).toString().padStart(2, "0") + ":" + (total % 60).toString().padStart(2, "0");
 }
 
+function timeToMinutes(time) {
+  const [h, m] = time.split(":").map(Number);
+  return h * 60 + m;
+}
+
+// Caregivers fill the two time pickers without re-reading them, so a reversed
+// range is easy to enter by accident. Both forms flag it under the pickers and
+// keep Save disabled until it's fixed — an end before the start would corrupt
+// the duration maths (reorderItems preserves endTime - time) and make
+// timesOverlap read the slot as empty, hiding real conflicts. Equal start/end
+// is fine: that's the zero-duration point conflict detection already handles.
+const hasInvertedTimes = c => !!c.endTime && timeToMinutes(c.time) > timeToMinutes(c.endTime);
+const INVERTED_TIMES_MESSAGE = "End time must be after the start time.";
+const InvertedTimesWarning = () => (
+  <p style={{ margin: "-4px 0 12px", fontSize: 11.5, fontWeight: 700, color: T.red, lineHeight: 1.4 }}>{INVERTED_TIMES_MESSAGE}</p>
+);
+
 // Compact label for a day pattern — recognizes the two common presets so
 // "school every weekday" reads as "Weekdays" instead of "Mon, Tue, Wed, Thu, Fri".
 function daysSummary(days) {
@@ -283,112 +321,80 @@ function DayChips({ selected, onSet }) {
   );
 }
 
-const modeTabBtn = active => ({ flex: 1, padding: 10, borderRadius: T.r, border: `1.5px solid ${active ? T.purple : T.border}`, background: active ? T.purpleL : T.surface, fontSize: 13, fontWeight: 700, color: active ? T.purple : T.inkMuted, cursor: "pointer", fontFamily: T.fontBody });
-const catChipBtn = active => ({ padding: "6px 12px", borderRadius: 99, border: `1.5px solid ${active ? T.purple : T.border}`, background: active ? T.purpleL : T.surface, fontSize: 12, fontWeight: 700, color: active ? T.purple : T.inkMuted, cursor: "pointer", fontFamily: T.fontBody, whiteSpace: "nowrap" });
-
-// Colored category pills for the add/edit form — same six buckets as the
-// template picker, but selectable on their own for custom activities and
-// re-editable after a template's been picked.
-function CategoryPills({ value, onChange }) {
-  return (
-    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-      {Object.entries(TEMPLATE_CATEGORIES).map(([k, label]) => {
-        const { c, l } = categoryColor(k);
-        const active = value === k;
-        return (
-          <button key={k} type="button" onClick={() => onChange(active ? null : k)} style={{ padding: "6px 12px", borderRadius: 99, border: `1.5px solid ${active ? c : T.border}`, background: active ? l : T.surface, fontSize: 12, fontWeight: 700, color: active ? c : T.inkMuted, cursor: "pointer", fontFamily: T.fontBody, whiteSpace: "nowrap" }}>{label}</button>
-        );
-      })}
-    </div>
-  );
-}
-
-// Bottom-sheet for creating an "Added by you" activity — tap a template
-// (emoji + label + duration filled in one go) or build a custom one, then set
-// the time, an optional repeat pattern and notes.
+// Bottom-sheet for creating an "Added by you" activity — name, time and an
+// optional repeat pattern, fully custom-built by the caregiver. Time and
+// repeat start collapsed to a one-line summary (tap to expand) so the sheet
+// reads as a short, calm form instead of a wall of controls at once.
 function AddActivityModal({ newItem, setNewItem, showEmojiPicker, setShowEmojiPicker, onAdd, onClose }) {
-  const [mode, setMode] = useState("template");
-  const [selectedCat, setSelectedCat] = useState(null);
-  const filtered = selectedCat ? ADD_ACTIVITY_TEMPLATES.filter(t => t.category === selectedCat) : ADD_ACTIVITY_TEMPLATES;
-  const pickTemplate = t => setNewItem(n => ({ ...n, emoji: t.emoji, label: t.label, category: t.category, endTime: t.duration > 0 ? addMinutesToTime(n.time, t.duration) : "" }));
-  const isPicked = t => newItem.emoji === t.emoji && newItem.label === t.label;
+  const [editingTime, setEditingTime] = useState(false);
+  const [editingRepeat, setEditingRepeat] = useState(false);
+
+  const timeSummary = newItem.endTime ? `${formatTimeLabel(newItem.time)} – ${formatTimeLabel(newItem.endTime)}` : formatTimeLabel(newItem.time);
+  const repeatDaysSummary = daysSummary(newItem.days);
+  const invertedTimes = hasInvertedTimes(newItem);
 
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(35,32,28,0.45)", zIndex: 1000, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
       <div onClick={e => e.stopPropagation()} style={{ background: T.surface, borderRadius: "24px 24px 0 0", width: "100%", maxWidth: 420, maxHeight: "88vh", overflowY: "auto", boxSizing: "border-box", padding: "20px 20px 28px", boxShadow: T.shadowM, fontFamily: T.fontBody }}>
         <div style={{ width: 40, height: 4, background: T.border, borderRadius: 2, margin: "0 auto 16px" }} />
-        <p style={{ margin: "0 0 16px", fontWeight: 800, color: T.ink, fontSize: 17, textAlign: "center" }}>New Activity</p>
+        <p style={{ margin: "0 0 18px", fontWeight: 800, color: T.ink, fontSize: 17, textAlign: "center" }}>New Activity</p>
 
-        <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-          <button type="button" onClick={() => setMode("template")} style={modeTabBtn(mode === "template")}>📋 Template</button>
-          <button type="button" onClick={() => setMode("custom")} style={modeTabBtn(mode === "custom")}>✏️ Custom</button>
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 14 }}>
+          <button type="button" onClick={() => setShowEmojiPicker(!showEmojiPicker)} aria-label="Choose icon" style={{ fontSize: 28, width: 56, height: 56, display: "flex", alignItems: "center", justifyContent: "center", background: T.canvas, border: `1.5px solid ${T.border}`, borderRadius: "50%", padding: 0, cursor: "pointer" }}>{newItem.emoji || <NoEmojiIcon size={24} />}</button>
         </div>
-
-        {mode === "template" ? (
-          <>
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
-              <button type="button" onClick={() => setSelectedCat(null)} style={catChipBtn(!selectedCat)}>All</button>
-              {Object.entries(TEMPLATE_CATEGORIES).map(([k, v]) => (
-                <button key={k} type="button" onClick={() => setSelectedCat(k)} style={catChipBtn(selectedCat === k)}>{v}</button>
-              ))}
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 }}>
-              {filtered.map(t => (
-                <button key={t.label} type="button" onClick={() => pickTemplate(t)} style={{ padding: "14px 10px", borderRadius: T.r, border: `2px solid ${isPicked(t) ? T.purple : T.border}`, background: isPicked(t) ? T.purpleL : T.canvas, cursor: "pointer", textAlign: "center", fontFamily: T.fontBody }}>
-                  <div style={{ fontSize: 28, marginBottom: 4 }}>{t.emoji}</div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: T.ink }}>{t.label}</div>
-                  <div style={{ fontSize: 11, color: T.inkMuted, marginTop: 2 }}>{t.duration > 0 ? `${t.duration} min` : "no end time"}</div>
-                </button>
-              ))}
-            </div>
-          </>
-        ) : (
-          <>
-            <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-              <button type="button" onClick={() => setShowEmojiPicker(!showEmojiPicker)} style={{ fontSize: 24, background: T.surface, border: `1.5px solid ${T.border}`, borderRadius: T.r, padding: "6px 10px", cursor: "pointer" }}>{newItem.emoji}</button>
-              <input value={newItem.label} onChange={e => setNewItem({ ...newItem, label: e.target.value })} placeholder="Activity name" style={{ flex: 1, minWidth: 0, boxSizing: "border-box", padding: "8px 12px", borderRadius: T.r, border: `1.5px solid ${T.purple}`, fontSize: 14, fontFamily: T.fontBody, color: T.ink, outline: "none", background: T.surface }} />
-            </div>
-            {showEmojiPicker && <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: 10, background: T.canvas, borderRadius: T.r, marginBottom: 10 }}>{EMOJI_OPTS.map(e => <button key={e} type="button" onClick={() => { setNewItem({ ...newItem, emoji: e }); setShowEmojiPicker(false); }} style={{ fontSize: 20, background: "none", border: "none", cursor: "pointer", borderRadius: 8, padding: 3 }}>{e}</button>)}</div>}
-          </>
+        {showEmojiPicker && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: 10, background: T.canvas, borderRadius: T.r, marginBottom: 14, justifyContent: "center" }}>
+            <button type="button" onClick={() => { setNewItem({ ...newItem, emoji: "" }); setShowEmojiPicker(false); }} aria-label="No emoji" style={{ width: 26, height: 26, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", cursor: "pointer", borderRadius: 8, padding: 3 }}><NoEmojiIcon /></button>
+            {EMOJI_OPTS.map(e => <button key={e} type="button" onClick={() => { setNewItem({ ...newItem, emoji: e }); setShowEmojiPicker(false); }} style={{ fontSize: 20, background: "none", border: "none", cursor: "pointer", borderRadius: 8, padding: 3 }}>{e}</button>)}
+          </div>
         )}
 
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-          <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: T.inkMuted }}>Starts</p>
-          {!newItem.endTime && (
-            <button type="button" onClick={() => setNewItem(n => ({ ...n, endTime: addMinutesToTime(n.time, 30) }))} style={{ border: "none", background: "none", cursor: "pointer", fontSize: 11, fontWeight: 700, color: T.purple, fontFamily: T.fontBody }}>
-              + Set end time
+        <p style={{ margin: "0 0 6px", fontSize: 12, fontWeight: 700, color: T.inkMuted }}>Activity Name</p>
+        <input value={newItem.label} onChange={e => setNewItem({ ...newItem, label: e.target.value })} placeholder="e.g. Reading time" style={{ width: "100%", boxSizing: "border-box", padding: "10px 12px", borderRadius: T.r, border: `1.5px solid ${T.purple}`, fontSize: 15, fontFamily: T.fontBody, color: T.ink, outline: "none", background: T.surface, marginBottom: 16 }} />
+
+        {!editingTime ? (
+          <button type="button" onClick={() => setEditingTime(true)} style={{ width: "100%", textAlign: "center", border: "none", background: "none", padding: "4px 0 16px", cursor: "pointer", fontFamily: T.fontBody, display: "block" }}>
+            <span style={{ display: "block", fontSize: 14, fontStyle: "italic", color: T.ink }}>{timeSummary}</span>
+            <span style={{ fontSize: 11, color: T.inkMuted }}>Tap to change time</span>
+          </button>
+        ) : (
+          <div style={{ marginBottom: 16 }}>
+            <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkMuted }}>Starts</p>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <TimeSelect value={newItem.time} onChange={v => setNewItem({ ...newItem, time: v })} width={110} />
+              <TimeSelect value={newItem.endTime} onChange={v => setNewItem({ ...newItem, endTime: v })} width={110} />
+              <button type="button" onClick={() => setNewItem(n => ({ ...n, endTime: "" }))} aria-label="Remove end time" style={{ border: "none", background: "none", cursor: "pointer", fontSize: 16, color: T.inkMuted, padding: "4px 2px", lineHeight: 1 }}>✕</button>
+            </div>
+          </div>
+        )}
+        {invertedTimes && <InvertedTimesWarning />}
+
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0", borderTop: `1px solid ${T.border}`, borderBottom: newItem.isRecurring && editingRepeat ? "none" : `1px solid ${T.border}`, marginBottom: newItem.isRecurring && editingRepeat ? 8 : 16 }}>
+          {newItem.isRecurring ? (
+            <>
+              <button type="button" onClick={() => setEditingRepeat(e => !e)} style={{ border: "none", background: "none", padding: 0, cursor: "pointer", fontSize: 13, fontWeight: 700, color: T.ink, fontFamily: T.fontBody, display: "flex", alignItems: "center", gap: 6 }}>
+                🔁 Repeating {repeatDaysSummary ? `on ${repeatDaysSummary}` : "daily"}
+              </button>
+              <button type="button" onClick={() => { setNewItem(n => ({ ...n, isRecurring: false, days: [] })); setEditingRepeat(false); }} aria-label="Remove repeat" style={{ border: "none", background: "none", cursor: "pointer", fontSize: 15, color: T.inkMuted, padding: "2px 4px", lineHeight: 1 }}>✕</button>
+            </>
+          ) : (
+            <button type="button" onClick={() => { setNewItem(n => ({ ...n, isRecurring: true, days: n.days.length ? n.days : [1, 2, 3, 4, 5] })); setEditingRepeat(true); }} style={{ border: "none", background: "none", padding: 0, cursor: "pointer", fontSize: 13, fontWeight: 700, color: T.purple, fontFamily: T.fontBody }}>
+              🔁 Repeat on specific days
             </button>
           )}
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-          <TimeSelect value={newItem.time} onChange={v => setNewItem({ ...newItem, time: v })} width={newItem.endTime ? 110 : 140} />
-          {newItem.endTime && (
-            <>
-              <TimeSelect value={newItem.endTime} onChange={v => setNewItem({ ...newItem, endTime: v })} width={110} />
-              <button type="button" onClick={() => setNewItem(n => ({ ...n, endTime: "" }))} aria-label="Remove end time" style={{ border: "none", background: "none", cursor: "pointer", fontSize: 16, color: T.inkMuted, padding: "4px 2px", lineHeight: 1 }}>✕</button>
-            </>
-          )}
-        </div>
+        {newItem.isRecurring && editingRepeat && (
+          <div style={{ marginBottom: 16 }}>
+            <DayChips selected={newItem.days} onSet={d => setNewItem({ ...newItem, days: d })} />
+          </div>
+        )}
 
-        <p style={{ margin: "14px 0 8px", fontSize: 12, fontWeight: 700, color: T.inkMuted }}>Category</p>
-        <div style={{ marginBottom: 14 }}>
-          <CategoryPills value={newItem.category} onChange={cat => setNewItem({ ...newItem, category: cat })} />
-        </div>
+        <CategoryColorPicker value={newItem.category} onChange={c => setNewItem({ ...newItem, category: c })} />
 
-        <button type="button" onClick={() => setNewItem(n => ({ ...n, isRecurring: !n.isRecurring, days: !n.isRecurring && n.days.length === 0 ? [1, 2, 3, 4, 5] : n.days }))} style={{ border: "none", background: "none", padding: "0 0 10px", cursor: "pointer", fontSize: 12, fontWeight: 700, color: T.purple, fontFamily: T.fontBody, display: "block" }}>
-          {newItem.isRecurring ? "✕ Remove day pattern" : "+ Repeat on specific days (e.g. school on weekdays)"}
-        </button>
-        {newItem.isRecurring && <DayChips selected={newItem.days} onSet={d => setNewItem({ ...newItem, days: d })} />}
+        <p style={{ margin: "6px 0 18px", color: T.inkMuted, fontSize: 11, lineHeight: 1.5, textAlign: "center" }}>You can edit or remove this anytime — it's yours, not an essential.</p>
 
-        <p style={{ margin: "10px 0 8px", fontSize: 12, fontWeight: 700, color: T.inkMuted }}>Notes (optional)</p>
-        <input value={newItem.notes} onChange={e => setNewItem({ ...newItem, notes: e.target.value })} placeholder="e.g. Avoid loud noises" style={{ width: "100%", boxSizing: "border-box", padding: "8px 12px", borderRadius: T.r, border: `1.5px solid ${T.border}`, fontSize: 13, fontFamily: T.fontBody, color: T.ink, outline: "none", background: T.surface, marginBottom: 16 }} />
-
-        <p style={{ margin: "0 0 12px", color: T.inkMuted, fontSize: 11, lineHeight: 1.5 }}>You can edit or remove this anytime — it's yours, not an essential.</p>
-
-        <div style={{ display: "flex", gap: 8 }}>
-          <Btn onClick={onAdd} disabled={!newItem.label.trim()} style={{ flex: 1 }}>Add ✓</Btn>
-          <Btn onClick={onClose} secondary style={{ flex: 1 }}>Cancel</Btn>
-        </div>
+        <Btn onClick={onAdd} disabled={!newItem.label.trim() || invertedTimes} style={{ width: "100%" }}>Done</Btn>
+        <button type="button" onClick={onClose} style={{ display: "block", width: "100%", textAlign: "center", border: "none", background: "none", padding: "12px 0 0", cursor: "pointer", fontSize: 13, fontWeight: 700, color: T.inkMuted, fontFamily: T.fontBody }}>Cancel</button>
       </div>
     </div>
   );
@@ -406,7 +412,7 @@ const STATUS_META = {
   completed:   { label: "Completed",   color: T.green },
   in_progress: { label: "In Progress", color: T.teal },
   upcoming:    { label: "Upcoming",    color: T.amber },
-  missed:      { label: "Missed",      color: T.red },
+  missed:      { label: "Missed",      color: MISSED_COLOR },
   skipped:     { label: "Skipped",     color: T.inkMuted },
 };
 
@@ -428,56 +434,69 @@ function StatusPill({ status }) {
 // (instead of two separate list sections) is purely visual — the "done"
 // semantics per type are unchanged: essentials tick over on the clock,
 // added items need a tap.
-function TimelineRow({ item, essential, status, skipped, notToday, onToggle, menuOpen, onMenuToggle, onEdit, onSkip, onDelete, hideTime, tightBottom }) {
+function TimelineRow({ item, essential, status, skipped, notToday, conflict, onToggle, menuOpen, onMenuToggle, onEdit, onSkip, onDelete, tightBottom, dragging, dragOver, onDragStartRow, onDragOverRow, onDropRow, onDragEndRow }) {
   const done = status === "completed";
   const missed = status === "missed";
   const upcoming = status === "upcoming";
   const inactive = status === "skipped" || notToday;
   const clickable = !essential && !inactive;
-  const pattern = daysSummary(item.days);
   const { c, l } = categoryColor(item.category);
   return (
-    <div style={{ position: "relative", display: "flex", gap: 10 }}>
-      <div style={{ width: 44, flexShrink: 0, textAlign: "right", paddingTop: 12, fontSize: 11, fontWeight: 700, color: T.inkMuted, opacity: inactive ? 0.55 : 1 }}>
-        {hideTime ? "" : formatTimeLabel(item.time).replace(" ", " ")}
-      </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
+    <div
+      onDragOver={e => onDragOverRow(e)}
+      onDrop={e => { e.preventDefault(); onDropRow(); }}
+      style={{ position: "relative", opacity: dragging ? 0.4 : 1 }}
+    >
+      <div>
         <div
           onClick={() => clickable && onToggle()}
           role={clickable ? "button" : undefined}
           aria-label={clickable ? (done ? "Mark not done" : "Mark done") : undefined}
-          style={{ padding: "10px 12px", borderRadius: T.r, background: done ? T.greenL : missed ? T.redL : upcoming ? T.amberL : l, borderLeft: `3px solid ${done ? T.green : missed ? T.red : upcoming ? T.amber : c}`, opacity: inactive ? 0.55 : 1, cursor: clickable ? "pointer" : "default", marginBottom: tightBottom ? 2 : 8 }}
+          title={conflict ? "Overlaps with another activity" : undefined}
+          style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 12px", borderRadius: T.r, background: conflict ? CONFLICT_COLOR_L : done ? T.greenL : missed ? MISSED_COLOR_L : upcoming ? T.amberL : l, borderLeft: `5px solid ${dragOver ? T.purple : conflict ? CONFLICT_COLOR : done ? T.green : missed ? MISSED_COLOR : upcoming ? T.amber : c}`, boxShadow: dragOver ? `0 0 0 1.5px ${T.purple}` : "none", opacity: inactive ? 0.55 : 1, cursor: clickable ? "pointer" : "default", marginBottom: tightBottom ? 2 : 8 }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ fontSize: 20, flexShrink: 0, lineHeight: 1 }}>{item.emoji}</span>
-            <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 700, color: done ? T.inkMuted : T.ink, textDecoration: done ? "line-through" : "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.label}</span>
-            {essential ? (
-              <>
-                <span style={{ fontSize: 13, flexShrink: 0, lineHeight: 1 }}>🔒</span>
-                <button onClick={e => { e.stopPropagation(); onMenuToggle(); }} style={{ border: "none", background: "none", cursor: "pointer", padding: "2px 4px", fontSize: 18, fontWeight: 900, color: T.inkMuted, lineHeight: 1 }} aria-label="Options">⋯</button>
-              </>
-            ) : (
-              <div style={{ display: "flex", gap: 5, flexShrink: 0 }}>
-                <button onClick={e => { e.stopPropagation(); onEdit(); }} style={{ background: T.surface, border: "none", borderRadius: 8, padding: "5px 8px", cursor: "pointer", fontSize: 12 }}>✏️</button>
-                <button onClick={e => { e.stopPropagation(); onDelete(); }} style={{ background: T.redL, border: "none", borderRadius: 8, padding: "5px 8px", cursor: "pointer", fontSize: 12 }}>🗑️</button>
-              </div>
-            )}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span
+                draggable
+                onDragStart={e => { e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", item.id); onDragStartRow(); }}
+                onDragEnd={onDragEndRow}
+                onClick={e => e.stopPropagation()}
+                aria-label="Drag to reorder"
+                style={{ cursor: "grab", flexShrink: 0, fontSize: 14, color: T.inkMuted, lineHeight: 1, padding: "2px 2px 2px 0", touchAction: "none" }}
+              >⠿</span>
+              {item.emoji && <span style={{ fontSize: 20, flexShrink: 0, lineHeight: 1, display: "flex" }}>{item.emoji}</span>}
+              <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 700, color: done ? T.inkMuted : T.ink, textDecoration: done ? "line-through" : "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.label}</span>
+              {essential && <span style={{ fontSize: 13, flexShrink: 0, lineHeight: 1 }}>🔒</span>}
+              <button onClick={e => { e.stopPropagation(); onMenuToggle(); }} style={{ border: "none", background: "none", cursor: "pointer", padding: "2px 4px", fontSize: 18, fontWeight: 900, color: T.inkMuted, lineHeight: 1 }} aria-label="Options">⋯</button>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginTop: 3 }}>
+              {notToday && <Badge color={T.inkMuted}>Not today</Badge>}
+              {conflict && <Badge color={CONFLICT_COLOR} bg={MISSED_COLOR_L}>Conflict</Badge>}
+              {!notToday && <StatusPill status={status} />}
+            </div>
+            {item.notes && <p style={{ margin: "5px 0 0 30px", fontSize: 11, color: T.inkMuted, lineHeight: 1.4 }}>📝 {item.notes}</p>}
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginTop: 3 }}>
-            {notToday ? <Badge color={T.inkMuted}>{pattern} · not today</Badge>
-              : pattern ? <Badge color={c}>{pattern}</Badge> : null}
-            {!notToday && <StatusPill status={status} />}
+
+          <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2, paddingTop: 1 }}>
+            <span style={{ fontSize: 12, fontWeight: 800, color: done ? T.inkMuted : T.ink, whiteSpace: "nowrap" }}>{formatTimeLabel(item.time)}</span>
+            {item.endTime && <span style={{ fontSize: 10, fontWeight: 600, color: T.inkMuted, whiteSpace: "nowrap" }}>{formatTimeLabel(item.endTime)}</span>}
           </div>
-          {item.notes && <p style={{ margin: "5px 0 0 30px", fontSize: 11, color: T.inkMuted, lineHeight: 1.4 }}>📝 {item.notes}</p>}
         </div>
 
         {menuOpen && (
           <div style={{ margin: "-4px 0 8px 0", border: `1px solid ${T.border}`, borderRadius: 12, overflow: "hidden", background: T.surface, boxShadow: T.shadowM }}>
             <button onClick={onEdit} style={{ ...rowMenuBtn, color: T.ink }}>✏️ Edit</button>
             <div style={{ height: 1, background: T.border }} />
-            <button onClick={onSkip} style={{ ...rowMenuBtn, color: T.ink }}>{skipped ? "↩ Un-skip today" : "⏭ Skip for today"}</button>
-            <div style={{ height: 1, background: T.border }} />
-            <div style={{ ...rowMenuBtn, cursor: "default", color: T.inkMuted, fontSize: 12 }}>🔒 Essential · can't remove</div>
+            {essential ? (
+              <>
+                <button onClick={onSkip} style={{ ...rowMenuBtn, color: T.ink }}>{skipped ? "↩ Un-skip today" : "⏭ Skip for today"}</button>
+                <div style={{ height: 1, background: T.border }} />
+                <div style={{ ...rowMenuBtn, cursor: "default", color: T.inkMuted, fontSize: 12 }}>🔒 Essential · can't remove</div>
+              </>
+            ) : (
+              <button onClick={onDelete} style={{ ...rowMenuBtn, color: T.red }}>🗑️ Delete</button>
+            )}
           </div>
         )}
       </div>
@@ -569,8 +588,8 @@ function DayPreviewView({ date, items }) {
           return (
             <div key={item.id} style={{ display: "flex", gap: 10 }}>
               <div style={{ width: 44, flexShrink: 0, textAlign: "right", paddingTop: 12, fontSize: 11, fontWeight: 700, color: T.inkMuted }}>{formatTimeLabel(item.time)}</div>
-              <div style={{ flex: 1, minWidth: 0, padding: "10px 12px", borderRadius: T.r, background: l, borderLeft: `3px solid ${c}`, marginBottom: 8, display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ fontSize: 20, flexShrink: 0, lineHeight: 1 }}>{item.emoji}</span>
+              <div style={{ flex: 1, minWidth: 0, padding: "10px 12px", borderRadius: T.r, background: l, borderLeft: `5px solid ${c}`, marginBottom: 8, display: "flex", alignItems: "center", gap: 10 }}>
+                {item.emoji && <span style={{ fontSize: 20, flexShrink: 0, lineHeight: 1, display: "flex" }}>{item.emoji}</span>}
                 <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 700, color: T.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.label}</span>
                 <Badge color={c}>{timeRangeLabel(item)}</Badge>
               </div>
@@ -584,13 +603,118 @@ function DayPreviewView({ date, items }) {
   );
 }
 
+const DAY_GRID_HOUR_PX = 56;
+
+function hourLabel(h) {
+  if (h === 0) return "12 AM";
+  if (h === 12) return "12 PM";
+  return h < 12 ? `${h} AM` : `${h - 12} PM`;
+}
+
+// Google Calendar-style hourly grid for a single day — a scrollable 24h
+// column with hour gridlines, items positioned/sized by time & duration
+// (tinted by category, same colours as the list view), and a live red "now"
+// line when the grid is showing today. Tapping an item opens the same edit
+// form as the list view (onItemClick), keeping one source of truth for edits.
+// Assigns each item a column + column-count among items it overlaps with,
+// so conflicting activities sit side-by-side instead of stacking on top of
+// each other at the same absolute position (which hid all but the last one).
+function layoutDayGridColumns(dayItems) {
+  const withRange = dayItems
+    .map(item => {
+      const start = timeToMinutes(item.time);
+      const end = Math.max(item.endTime ? timeToMinutes(item.endTime) : start + 30, start + 15);
+      return { item, start, end };
+    })
+    .sort((a, b) => a.start - b.start || a.end - b.end);
+
+  const results = [];
+  let cluster = [];
+  let clusterEnd = -Infinity;
+
+  const flushCluster = () => {
+    if (!cluster.length) return;
+    const columnEnds = [];
+    const placed = cluster.map(entry => {
+      let col = columnEnds.findIndex(end => end <= entry.start);
+      if (col === -1) { col = columnEnds.length; columnEnds.push(entry.end); }
+      else columnEnds[col] = entry.end;
+      return { ...entry, col };
+    });
+    const cols = columnEnds.length;
+    placed.forEach(p => results.push({ ...p, cols }));
+    cluster = [];
+  };
+
+  for (const entry of withRange) {
+    if (cluster.length && entry.start >= clusterEnd) flushCluster();
+    cluster.push(entry);
+    clusterEnd = Math.max(clusterEnd, entry.end);
+  }
+  flushCluster();
+
+  return results;
+}
+
+function DayGridView({ items, dow, isToday, nowHHMM, onItemClick }) {
+  const scrollRef = useRef(null);
+  const dayItems = layoutDayGridColumns(items.filter(i => appliesToday(i, dow)));
+  const nowMin = timeToMinutes(nowHHMM);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const anchorMin = isToday ? nowMin : (dayItems.length ? Math.min(...dayItems.map(e => e.start)) : 8 * 60);
+    el.scrollTop = Math.max(0, (anchorMin / 60) * DAY_GRID_HOUR_PX - 140);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <div ref={scrollRef} style={{ position: "relative", height: 440, overflowY: "auto", border: `1px solid ${T.border}`, borderRadius: T.r, background: T.surface }}>
+      <div style={{ position: "relative", height: 24 * DAY_GRID_HOUR_PX }}>
+        {Array.from({ length: 24 }, (_, h) => (
+          <div key={h} style={{ position: "absolute", top: h * DAY_GRID_HOUR_PX, left: 0, right: 0, height: DAY_GRID_HOUR_PX, borderTop: `1px solid ${T.border}`, display: "flex" }}>
+            <span style={{ width: 46, flexShrink: 0, textAlign: "right", padding: "0 8px 0 0", fontSize: 10, fontWeight: 700, color: T.inkMuted, transform: "translateY(-6px)" }}>{h === 0 ? "" : hourLabel(h)}</span>
+          </div>
+        ))}
+
+        {dayItems.map(({ item, start, end, col, cols }) => {
+          const top = (start / 60) * DAY_GRID_HOUR_PX;
+          const height = Math.max(22, ((Math.max(end, start + 15) - start) / 60) * DAY_GRID_HOUR_PX - 2);
+          const { c, l } = categoryColor(item.category);
+          const gap = 3;
+          const laneLeft = `calc(50px + (100% - 54px) * ${col / cols})`;
+          const laneWidth = `calc((100% - 54px) / ${cols} - ${gap}px)`;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => onItemClick(item)}
+              style={{ position: "absolute", top, left: laneLeft, width: laneWidth, height, background: l, borderLeft: `5px solid ${c}`, borderRadius: 6, padding: "3px 8px", overflow: "hidden", textAlign: "left", cursor: "pointer", border: "none", fontFamily: T.fontBody, zIndex: cols > 1 ? 2 : 1 }}
+            >
+              <span style={{ fontSize: 11.5, fontWeight: 700, color: T.ink, whiteSpace: "nowrap" }}>{item.emoji} {item.label}</span>
+            </button>
+          );
+        })}
+
+        {isToday && (
+          <div style={{ position: "absolute", top: (nowMin / 60) * DAY_GRID_HOUR_PX, left: 46, right: 0, display: "flex", alignItems: "center", zIndex: 5 }}>
+            <span style={{ width: 8, height: 8, borderRadius: "50%", background: T.red, flexShrink: 0, marginLeft: -4 }} />
+            <span style={{ flex: 1, height: 1.5, background: T.red }} />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // Read-only row for a past day's snapshot — no toggle/edit/menu, just what
 // happened (done vs missed), matching the live row's look.
 function HistoryRow({ item }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 2px", opacity: item.done ? 1 : 0.6 }}>
       <DoneDot state={item.done ? "done" : "todo"} />
-      <span style={{ fontSize: 22, flexShrink: 0, lineHeight: 1 }}>{item.emoji}</span>
+      {item.emoji && <span style={{ fontSize: 22, flexShrink: 0, lineHeight: 1, display: "flex" }}>{item.emoji}</span>}
       <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 700, color: item.done ? T.ink : T.inkMuted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.label}</span>
       <Badge color={item.done ? T.purple : T.inkMuted}>{timeRangeLabel(item)}</Badge>
     </div>
@@ -636,9 +760,10 @@ function DayHistoryView({ entry }) {
   );
 }
 
-export function ScheduleScreen({ childCtx, push }) {
+export function ScheduleScreen({ childCtx, push, showAlarmSettings, setShowAlarmSettings }) {
   const { activeChild, updateChild, children } = childCtx;
   const [scheduleView, setScheduleView] = useState("today"); // "today" | "month" | "day"
+  const [dayLayout, setDayLayout] = useState("list"); // "list" | "grid" — how "today" is displayed
   const [monthCur, setMonthCur] = useState(() => { const t = new Date(); return { y: t.getFullYear(), m: t.getMonth() }; });
   const [selectedEntry, setSelectedEntry] = useState(null);
   const [previewDate, setPreviewDate] = useState(null);
@@ -647,11 +772,13 @@ export function ScheduleScreen({ childCtx, push }) {
   const [skippedToday, setSkippedToday] = useState([]);
   const [menuFor, setMenuFor] = useState(null);
   const [editing, setEditing] = useState(null);
+  const [dragId, setDragId] = useState(null);
+  const [dragOverId, setDragOverId] = useState(null);
+  const [timelineVisible, setTimelineVisible] = useState(5);
   const [showAdd, setShowAdd] = useState(false);
-  const [newItem, setNewItem] = useState({ emoji: "⭐", label: "", time: "08:00", endTime: "08:30", category: null, notes: "", days: [], isRecurring: false });
+  const [newItem, setNewItem] = useState({ emoji: "⭐", label: "", time: "08:00", endTime: "08:30", category: null, days: [], isRecurring: false });
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [editData, setEditData] = useState({});
-  const [showAlarmSettings, setShowAlarmSettings] = useState(false);
   const [alarmOn, setAlarmOn] = useState(() => {
     try { return localStorage.getItem("bonda_alarm_on") !== "false"; } catch { return true; }
   });
@@ -671,6 +798,8 @@ export function ScheduleScreen({ childCtx, push }) {
     const iv = setInterval(() => setNowHHMM(hhmmNow()), 30000);
     return () => clearInterval(iv);
   }, []);
+
+  useEffect(() => { setTimelineVisible(5); }, [activeChild?.id]);
 
   useBackHandler(showEmojiPicker, () => setShowEmojiPicker(false));
   useBackHandler(showAlarmSettings, () => setShowAlarmSettings(false));
@@ -801,9 +930,14 @@ export function ScheduleScreen({ childCtx, push }) {
   };
   const isCompleted = item => activityStatus(item) === "completed";
 
+  // Completed activities drop out of the live timeline so it only shows what's
+  // left today — except the one currently being edited, which must stay put
+  // even if it flips to "completed" (an essential can auto-complete on the
+  // clock) while the edit form is open.
+  const visibleTimeline = sorted.filter(item => item.id === editing || !isCompleted(item));
+
   const activeItems = items.filter(i => !skippedToday.includes(i.id) && appliesToday(i, todayDow));
   const completedCount = activeItems.filter(isCompleted).length;
-  const progress = activeItems.length ? Math.round((completedCount / activeItems.length) * 100) : 0;
 
   const toggleDone = id => updateChild(activeChild.id, { todayDone: { ...done, [id]: !done[id] }, todayDoneDate: todayStr });
 
@@ -815,31 +949,110 @@ export function ScheduleScreen({ childCtx, push }) {
     setMenuFor(null);
   };
 
-  const addItem = () => {
-    if (!newItem.label.trim()) return;
+  // Two intervals overlap if they share any minute; a missing endTime is
+  // treated as a zero-duration point that still conflicts with anything that
+  // covers it (or exactly matches another point).
+  const timesOverlap = (aStart, aEnd, bStart, bEnd) => {
+    const s1 = timeToMinutes(aStart), e1 = aEnd ? timeToMinutes(aEnd) : s1;
+    const s2 = timeToMinutes(bStart), e2 = bEnd ? timeToMinutes(bEnd) : s2;
+    if (s1 === e1 && s2 === e2) return s1 === s2;
+    if (s1 === e1) return s1 >= s2 && s1 < e2;
+    if (s2 === e2) return s2 >= s1 && s2 < e1;
+    return s1 < e2 && s2 < e1;
+  };
+
+  // Days a candidate (new/edited item) actually recurs on, mirroring the same
+  // isRecurring+days logic addItem/saveEdit use when persisting — no explicit
+  // day pattern means it applies every day.
+  const candidateDays = c => (c.isRecurring && c.days && c.days.length) ? c.days : null;
+  const itemDays = i => (i.days && i.days.length) ? i.days : null;
+  const daysConflict = (daysA, daysB) => !daysA || !daysB || daysA.some(d => daysB.includes(d));
+
+  // Finds an existing item (other than excludeId) that shares a day and
+  // overlaps in time with the candidate being saved, so the caregiver can be
+  // warned before double-booking a time slot.
+  const findConflict = (candidate, excludeId) => {
+    const cDays = candidateDays(candidate);
+    return items.find(i => i.id !== excludeId && daysConflict(cDays, itemDays(i)) && timesOverlap(candidate.time, candidate.endTime, i.time, i.endTime));
+  };
+
+  // Whether an already-saved item overlaps another saved item on a shared
+  // day — drives the conflict colour on timeline rows.
+  const hasConflict = item => items.some(i => i.id !== item.id && daysConflict(itemDays(item), itemDays(i)) && timesOverlap(item.time, item.endTime, i.time, i.endTime));
+
+  const addItem = async () => {
+    if (!newItem.label.trim() || hasInvertedTimes(newItem)) return;
+    const conflict = findConflict(newItem, null);
+    if (conflict) {
+      const { default: Swal } = await import("sweetalert2");
+      const { isConfirmed } = await Swal.fire({
+        icon: "warning", title: "Scheduling conflict",
+        text: `This overlaps with "${conflict.label}" at ${timeRangeLabel(conflict)}.`,
+        showCancelButton: true, confirmButtonText: "Save anyway", confirmButtonColor: T.amber, cancelButtonColor: T.inkMuted,
+      });
+      if (!isConfirmed) return;
+    }
     const id = Date.now().toString();
     const item = { emoji: newItem.emoji, label: newItem.label, time: newItem.time, id };
     if (newItem.endTime) item.endTime = newItem.endTime;
     if (newItem.category) item.category = newItem.category;
-    if (newItem.notes.trim()) item.notes = newItem.notes.trim();
     if (newItem.isRecurring && newItem.days.length) item.days = newItem.days;
     updateChild(activeChild.id, { scheduleItems: [...items, item] });
-    setNewItem({ emoji: "⭐", label: "", time: "08:00", endTime: "08:30", category: null, notes: "", days: [], isRecurring: false }); setShowAdd(false);
+    setNewItem({ emoji: "⭐", label: "", time: "08:00", endTime: "08:30", category: null, days: [], isRecurring: false }); setShowAdd(false);
   };
 
   const deleteItem = id => updateChild(activeChild.id, { scheduleItems: items.filter(i => i.id !== id) });
 
+  // Dragging a row to a new position reassigns start times to match — the
+  // dragged item (and everything between its old and new slot) takes on the
+  // time value that belongs to its new position, so the timeline stays in
+  // chronological order and there's never a manual "sort order" that can
+  // drift out of sync with the displayed times. Duration (endTime - time) is
+  // preserved for items that have an end time.
+  const reorderItems = (draggedId, targetId) => {
+    if (draggedId === targetId) return;
+    const order = [...items].sort((a, b) => a.time.localeCompare(b.time));
+    const originalTimes = order.map(i => i.time);
+    const fromIdx = order.findIndex(i => i.id === draggedId);
+    const toIdx = order.findIndex(i => i.id === targetId);
+    if (fromIdx === -1 || toIdx === -1) return;
+    const [moved] = order.splice(fromIdx, 1);
+    order.splice(toIdx, 0, moved);
+    const reordered = order.map((item, k) => {
+      const time = originalTimes[k];
+      if (!item.endTime) return { ...item, time };
+      const duration = timeToMinutes(item.endTime) - timeToMinutes(item.time);
+      return { ...item, time, endTime: addMinutesToTime(time, duration) };
+    });
+    updateChild(activeChild.id, { scheduleItems: reordered });
+  };
+
+  const handleDragStart = id => setDragId(id);
+  const handleDragOverRow = (e, id) => { e.preventDefault(); if (id !== dragOverId) setDragOverId(id); };
+  const handleDropRow = id => { if (dragId && dragId !== id) reorderItems(dragId, id); setDragId(null); setDragOverId(null); };
+  const handleDragEndRow = () => { setDragId(null); setDragOverId(null); };
+
   const startEdit = item => {
     setEditing(item.id);
-    setEditData({ ...item, isRecurring: !!(item.days && item.days.length), days: item.days || [], notes: item.notes || "" });
+    setEditData({ ...item, endTime: item.endTime || addMinutesToTime(item.time, 30), isRecurring: !!(item.days && item.days.length), days: item.days || [] });
     setMenuFor(null);
   };
-  const saveEdit = () => {
+  const saveEdit = async () => {
+    if (hasInvertedTimes(editData)) return;
+    const conflict = findConflict(editData, editing);
+    if (conflict) {
+      const { default: Swal } = await import("sweetalert2");
+      const { isConfirmed } = await Swal.fire({
+        icon: "warning", title: "Scheduling conflict",
+        text: `This overlaps with "${conflict.label}" at ${timeRangeLabel(conflict)}.`,
+        showCancelButton: true, confirmButtonText: "Save anyway", confirmButtonColor: T.amber, cancelButtonColor: T.inkMuted,
+      });
+      if (!isConfirmed) return;
+    }
     const { isRecurring, ...rest } = editData;
     const item = { ...rest };
     if (!item.endTime) delete item.endTime;
     if (!item.category) delete item.category;
-    if (item.notes && item.notes.trim()) item.notes = item.notes.trim(); else delete item.notes;
     if (!(isRecurring && item.days && item.days.length)) delete item.days;
     updateChild(activeChild.id, { scheduleItems: items.map(i => i.id === editing ? item : i) });
     setEditing(null);
@@ -884,44 +1097,35 @@ export function ScheduleScreen({ childCtx, push }) {
     return entry.completedCount >= entry.total ? "full" : "partial";
   };
 
-  const renderItem = (item, essential, hideTime, tightBottom) => {
+  const renderItem = (item, essential, tightBottom) => {
+    const drag = { dragging: dragId === item.id, dragOver: dragOverId === item.id && dragId !== item.id, onDragStartRow: () => handleDragStart(item.id), onDragOverRow: e => handleDragOverRow(e, item.id), onDropRow: () => handleDropRow(item.id), onDragEndRow: handleDragEndRow };
     if (editing === item.id) {
       return (
         <Card key={item.id} style={{ background: T.purpleL }}>
           <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-            <button onClick={() => setShowEmojiPicker(!showEmojiPicker)} style={{ fontSize: 24, background: T.surface, border: `1.5px solid ${T.border}`, borderRadius: T.r, padding: "6px 10px", cursor: "pointer" }}>{editData.emoji}</button>
+            <button onClick={() => setShowEmojiPicker(!showEmojiPicker)} style={{ fontSize: 24, width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", background: T.surface, border: `1.5px solid ${T.border}`, borderRadius: T.r, padding: 0, cursor: "pointer" }}>{editData.emoji || <NoEmojiIcon size={20} />}</button>
             <input value={editData.label} onChange={e => setEditData({ ...editData, label: e.target.value })} style={{ flex: 1, minWidth: 0, boxSizing: "border-box", padding: "8px 12px", borderRadius: T.r, border: `1.5px solid ${T.purple}`, fontSize: 14, fontFamily: T.fontBody, color: T.ink, background: T.surface, outline: "none" }} />
           </div>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-            <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: T.inkMuted }}>Starts</p>
-            {!editData.endTime && (
-              <button type="button" onClick={() => setEditData(d => ({ ...d, endTime: addMinutesToTime(d.time, 30) }))} style={{ border: "none", background: "none", cursor: "pointer", fontSize: 11, fontWeight: 700, color: T.purple, fontFamily: T.fontBody }}>
-                + Set end time
-              </button>
-            )}
-          </div>
+          {showEmojiPicker && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: 10, background: T.surface, borderRadius: T.r, marginBottom: 10 }}>
+              <button onClick={() => { setEditData({ ...editData, emoji: "" }); setShowEmojiPicker(false); }} aria-label="No emoji" style={{ width: 26, height: 26, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", cursor: "pointer", borderRadius: 8, padding: 3 }}><NoEmojiIcon /></button>
+              {EMOJI_OPTS.map(e => <button key={e} onClick={() => { setEditData({ ...editData, emoji: e }); setShowEmojiPicker(false); }} style={{ fontSize: 20, background: "none", border: "none", cursor: "pointer", borderRadius: 8, padding: 3 }}>{e}</button>)}
+            </div>
+          )}
+          <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkMuted }}>Starts</p>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-            <TimeSelect value={editData.time} onChange={v => setEditData({ ...editData, time: v })} width={editData.endTime ? 110 : 118} />
-            {editData.endTime && (
-              <>
-                <TimeSelect value={editData.endTime} onChange={v => setEditData({ ...editData, endTime: v })} width={110} />
-                <button type="button" onClick={() => setEditData(d => ({ ...d, endTime: "" }))} aria-label="Remove end time" style={{ border: "none", background: "none", cursor: "pointer", fontSize: 16, color: T.inkMuted, padding: "4px 2px", lineHeight: 1 }}>✕</button>
-              </>
-            )}
+            <TimeSelect value={editData.time} onChange={v => setEditData({ ...editData, time: v })} width={110} />
+            <TimeSelect value={editData.endTime} onChange={v => setEditData({ ...editData, endTime: v })} width={110} />
+            <button type="button" onClick={() => setEditData(d => ({ ...d, endTime: "" }))} aria-label="Remove end time" style={{ border: "none", background: "none", cursor: "pointer", fontSize: 16, color: T.inkMuted, padding: "4px 2px", lineHeight: 1 }}>✕</button>
           </div>
-          <p style={{ margin: "12px 0 8px", fontSize: 12, fontWeight: 700, color: T.inkMuted }}>Category</p>
-          <div style={{ marginBottom: 12 }}>
-            <CategoryPills value={editData.category} onChange={cat => setEditData({ ...editData, category: cat })} />
-          </div>
-          <button onClick={() => setEditData(d => ({ ...d, isRecurring: !d.isRecurring, days: !d.isRecurring && d.days.length === 0 ? [1, 2, 3, 4, 5] : d.days }))} style={{ border: "none", background: "none", padding: "0 0 10px", cursor: "pointer", fontSize: 12, fontWeight: 700, color: T.purple, fontFamily: T.fontBody, display: "block" }}>
+          {hasInvertedTimes(editData) && <InvertedTimesWarning />}
+          <button onClick={() => setEditData(d => ({ ...d, isRecurring: !d.isRecurring, days: !d.isRecurring && d.days.length === 0 ? [1, 2, 3, 4, 5] : d.days }))} style={{ border: "none", background: "none", padding: "12px 0 10px", cursor: "pointer", fontSize: 12, fontWeight: 700, color: T.purple, fontFamily: T.fontBody, display: "block" }}>
             {editData.isRecurring ? "✕ Remove day pattern" : "+ Repeat on specific days (e.g. school on weekdays)"}
           </button>
           {editData.isRecurring && <DayChips selected={editData.days} onSet={d => setEditData({ ...editData, days: d })} />}
-          {showEmojiPicker && <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: 10, background: T.surface, borderRadius: T.r, marginBottom: 10 }}>{EMOJI_OPTS.map(e => <button key={e} onClick={() => { setEditData({ ...editData, emoji: e }); setShowEmojiPicker(false); }} style={{ fontSize: 20, background: "none", border: "none", cursor: "pointer", borderRadius: 8, padding: 3 }}>{e}</button>)}</div>}
-          <p style={{ margin: "10px 0 8px", fontSize: 12, fontWeight: 700, color: T.inkMuted }}>Notes (optional)</p>
-          <input value={editData.notes || ""} onChange={e => setEditData({ ...editData, notes: e.target.value })} placeholder="e.g. Avoid loud noises" style={{ width: "100%", boxSizing: "border-box", padding: "8px 12px", borderRadius: T.r, border: `1.5px solid ${T.border}`, fontSize: 13, fontFamily: T.fontBody, color: T.ink, outline: "none", background: T.surface, marginBottom: 12 }} />
-          <div style={{ display: "flex", gap: 8 }}>
-            <Btn onClick={saveEdit} style={{ flex: 1 }}>Save</Btn>
+          <CategoryColorPicker value={editData.category} onChange={c => setEditData({ ...editData, category: c })} />
+          <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+            <Btn onClick={saveEdit} disabled={hasInvertedTimes(editData)} style={{ flex: 1 }}>Save</Btn>
             <Btn onClick={() => setEditing(null)} secondary style={{ flex: 1 }}>Cancel</Btn>
           </div>
         </Card>
@@ -929,7 +1133,8 @@ export function ScheduleScreen({ childCtx, push }) {
     }
     return (
       <TimelineRow key={item.id} item={item} essential={essential} status={activityStatus(item)} skipped={skippedToday.includes(item.id)} notToday={!appliesToday(item, todayDow)}
-        hideTime={hideTime} tightBottom={tightBottom}
+        conflict={hasConflict(item)}
+        tightBottom={tightBottom} {...drag}
         onToggle={essential ? undefined : () => toggleDone(item.id)}
         menuOpen={menuFor === item.id}
         onMenuToggle={() => setMenuFor(menuFor === item.id ? null : item.id)}
@@ -953,24 +1158,13 @@ export function ScheduleScreen({ childCtx, push }) {
         <button onClick={() => setScheduleView(v => v === "month" ? "today" : "month")} style={{ width: 40, height: 40, borderRadius: T.r, background: scheduleView === "month" ? T.purple : T.border, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 18, transition: "background 0.2s" }} title="Calendar view">
           📅
         </button>
-
-        <button onClick={() => setShowAlarmSettings(!showAlarmSettings)} style={{ width: 40, height: 40, borderRadius: T.r, background: alarmOn ? T.purple : T.border, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "background 0.2s" }} title="Alarm Settings">
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-
-            <circle cx="10" cy="10" r="3" stroke="white" strokeWidth="1.4" fill="none"/>
-            {[0,45,90,135,180,225,270,315].map((deg,i) => {
-              const r = deg * Math.PI / 180;
-              const x1 = 10 + 4.5 * Math.cos(r), y1 = 10 + 4.5 * Math.sin(r);
-              const x2 = 10 + 6.5 * Math.cos(r), y2 = 10 + 6.5 * Math.sin(r);
-              return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="white" strokeWidth="1.8" strokeLinecap="round"/>;
-            })}
-          </svg>
-        </button>
       </div>
 
 
       {showAlarmSettings && (
-        <div style={{ background: T.surface, borderRadius: T.rL, padding: 20, marginBottom: 20, boxShadow: T.shadowM, border: `1.5px solid ${T.purple}20` }}>
+        <div onClick={() => setShowAlarmSettings(false)} style={{ position: "fixed", inset: 0, background: "rgba(35,32,28,0.45)", zIndex: 1000, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+        <div onClick={e => e.stopPropagation()} style={{ background: T.surface, borderRadius: "24px 24px 0 0", width: "100%", maxWidth: 420, maxHeight: "88vh", overflowY: "auto", boxSizing: "border-box", padding: 20, boxShadow: T.shadowM, border: `1.5px solid ${T.purple}20`, fontFamily: T.fontBody }}>
+          <div style={{ width: 40, height: 4, background: T.border, borderRadius: 2, margin: "0 auto 16px" }} />
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
             <div>
               <p style={{ margin: 0, fontWeight: 800, color: T.ink, fontSize: 15 }}>Alarm Settings</p>
@@ -1026,31 +1220,26 @@ export function ScheduleScreen({ childCtx, push }) {
 
             <div style={{ padding: "12px 14px", background: T.canvas, borderRadius: T.r }}>
               <p style={{ margin: "0 0 12px", fontWeight: 700, color: T.ink, fontSize: 13 }}>Alarm Tone</p>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {ALARM_TONES.map(tone => (
-                  <div key={tone.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", borderRadius: T.r, background: alarmTone === tone.id ? T.purpleL : T.surface, border: `1.5px solid ${alarmTone === tone.id ? T.purple : T.border}`, cursor: "pointer", transition: "all 0.15s" }}
-                    onClick={() => { setAlarmTone(tone.id); saveAlarm(alarmOn, alarmVolume, tone.id); }}>
-
-                    <div style={{ width: 18, height: 18, borderRadius: "50%", border: `2px solid ${alarmTone === tone.id ? T.purple : T.border}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                      {alarmTone === tone.id && <div style={{ width: 9, height: 9, borderRadius: "50%", background: T.purple }}/>}
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <p style={{ margin: 0, fontWeight: 700, color: T.ink, fontSize: 13 }}>{tone.label}</p>
-                      <p style={{ margin: 0, color: T.inkMuted, fontSize: 11 }}>{tone.desc}</p>
-                    </div>
-
-                    <button onClick={e => { e.stopPropagation(); previewTone(tone.id); }}
-                      style={{ width: 32, height: 32, borderRadius: 8, background: previewPlaying === tone.id ? T.purple : T.purpleL, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "background 0.2s" }}>
-                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                        <polygon points="3,2 11,7 3,12" fill={previewPlaying === tone.id ? "white" : T.purple}/>
-                      </svg>
-                    </button>
-                  </div>
-                ))}
+              {/* Each option carries its own description ("Lullaby — Soft & gentle")
+                  so the dropdown keeps what the old radio list showed per row. */}
+              <Select
+                options={ALARM_TONES.map(tone => ({ value: tone.id, label: `${tone.label} — ${tone.desc}` }))}
+                value={alarmTone}
+                onChange={e => { setAlarmTone(e.target.value); saveAlarm(alarmOn, alarmVolume, e.target.value); }}
+                style={{ background: T.surface }}
+              />
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <button onClick={() => previewTone(alarmTone)}
+                  style={{ width: 32, height: 32, borderRadius: 8, background: previewPlaying === alarmTone ? T.purple : T.purpleL, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "background 0.2s" }}>
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                    <polygon points="3,2 11,7 3,12" fill={previewPlaying === alarmTone ? "white" : T.purple}/>
+                  </svg>
+                </button>
+                <p style={{ margin: 0, color: T.inkMuted, fontSize: 11, lineHeight: 1.5 }}>Tap ▶ to preview · Alarm plays at each activity time · Repeats 3×</p>
               </div>
-              <p style={{ margin: "10px 0 0", color: T.inkMuted, fontSize: 11, textAlign: "center", lineHeight: 1.5 }}>Tap ▶ to preview · Alarm plays at each activity time · Repeats 3×</p>
             </div>
           </>)}
+        </div>
         </div>
       )}
 
@@ -1078,21 +1267,37 @@ export function ScheduleScreen({ childCtx, push }) {
             </Card>
           )}
 
-          <Card style={{ marginBottom: 20 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
-              <p style={{ margin: 0, fontWeight: 700, color: T.ink, fontSize: 14 }}>Today's Progress</p>
-              <p style={{ margin: 0, fontWeight: 800, color: T.purple, fontSize: 14 }}>{progress}%</p>
+          <SectionLabel action={
+            <div style={{ display: "flex", background: T.canvas, borderRadius: 999, padding: 2 }}>
+              <button type="button" onClick={() => setDayLayout("list")} style={{ border: "none", borderRadius: 999, padding: "4px 11px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody, background: dayLayout === "list" ? T.surface : "transparent", color: dayLayout === "list" ? T.ink : T.inkMuted, boxShadow: dayLayout === "list" ? T.shadowS : "none" }}>List</button>
+              <button type="button" onClick={() => setDayLayout("grid")} style={{ border: "none", borderRadius: 999, padding: "4px 11px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody, background: dayLayout === "grid" ? T.surface : "transparent", color: dayLayout === "grid" ? T.ink : T.inkMuted, boxShadow: dayLayout === "grid" ? T.shadowS : "none" }}>Day</button>
             </div>
-            <div style={{ height: 6, background: T.border, borderRadius: 99, overflow: "hidden" }}>
-              <div style={{ height: "100%", width: `${progress}%`, background: T.purple, borderRadius: 99, transition: "width 0.4s ease" }} />
-            </div>
-            <p style={{ margin: "8px 0 0", color: T.inkMuted, fontSize: 12 }}>{completedCount} of {activeItems.length} activities done</p>
-          </Card>
+          }>Timeline</SectionLabel>
+          <p style={{ margin: "-6px 0 12px", color: T.inkMuted, fontSize: 10 }}>{completedCount} of {activeItems.length} activities done</p>
 
-          <SectionLabel>Timeline</SectionLabel>
-          <div style={{ display: "flex", flexDirection: "column", marginBottom: 12 }}>
-            {sorted.map((item, i) => renderItem(item, isEssential(item), i > 0 && sorted[i - 1].time === item.time, i < sorted.length - 1 && sorted[i + 1].time === item.time))}
-            {sorted.length === 0 && <p style={{ color: T.inkMuted, fontSize: 12, margin: 0 }}>No activities set up.</p>}
+          {dayLayout === "grid" ? (
+            <div style={{ marginBottom: 12 }}>
+              <DayGridView items={visibleTimeline} dow={todayDow} isToday nowHHMM={nowHHMM} onItemClick={item => startEdit(item)} />
+              {editing && <div style={{ marginTop: 10 }}>{renderItem(items.find(i => i.id === editing), isEssential(items.find(i => i.id === editing)))}</div>}
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", marginBottom: 12 }}>
+              {visibleTimeline.slice(0, timelineVisible).map((item, i, visible) => renderItem(item, isEssential(item), i < visible.length - 1 && visible[i + 1].time === item.time))}
+              {sorted.length === 0 && <p style={{ color: T.inkMuted, fontSize: 12, margin: 0 }}>No activities set up.</p>}
+              {sorted.length > 0 && visibleTimeline.length === 0 && <p style={{ color: T.inkMuted, fontSize: 12, margin: 0 }}>All done for today 🎉</p>}
+              {timelineVisible < visibleTimeline.length && (
+                <button onClick={() => setTimelineVisible(v => v + 5)} style={{ width: "100%", marginTop: 4, border: `1.5px solid ${T.border}`, background: "none", color: T.purple, borderRadius: T.r, padding: "10px", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: T.fontBody }}>
+                  Show More
+                </button>
+              )}
+            </div>
+          )}
+
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", padding: "0 0 14px", fontSize: 11, color: T.inkMuted, fontWeight: 700 }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: 99, background: T.green, display: "inline-block" }} /> Done</span>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: 99, background: T.amber, display: "inline-block" }} /> Upcoming</span>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: 99, background: MISSED_COLOR, display: "inline-block" }} /> Missed</span>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: 99, background: CONFLICT_COLOR, display: "inline-block" }} /> Conflict</span>
           </div>
 
           <button onClick={() => setShowAdd(true)} style={{ width: "100%", margin: "2px 0 16px", border: `1.5px dashed ${T.border}`, background: "none", color: T.ink, borderRadius: T.r, padding: "11px", fontWeight: 700, fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontFamily: T.fontBody }}>+ Add activity</button>
@@ -1108,12 +1313,7 @@ export function ScheduleScreen({ childCtx, push }) {
             />
           )}
 
-          <div style={{ margin: "4px 0 16px", background: T.purpleL, borderRadius: T.r, padding: "12px 14px", display: "flex", gap: 10 }}>
-            <span style={{ fontSize: 18 }}>🌱</span>
-            <p style={{ margin: 0, fontSize: 12, color: T.purple, fontWeight: 600, lineHeight: 1.5 }}>Every day you keep the rhythm, {activeChild.name}'s day feels a little safer and transitions get easier.</p>
-          </div>
-
-          <Btn onClick={saveDay} full style={{ background: T.green }}>💾 Save Day</Btn>
+          <Btn onClick={saveDay} full style={{ background: T.green }}>Save Day</Btn>
           <p style={{ color: T.inkMuted, fontSize: 11, textAlign: "center", marginTop: 10 }}>Tap "Save Day" at end of day to record to the calendar</p>
         </>
       )}

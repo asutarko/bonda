@@ -33,6 +33,10 @@ export const childFromRow = (row) => ({
   caseWorkerPhone: row.case_worker_phone || "",
   caseWorkerEmail: row.case_worker_email || "",
   clinicName: row.clinic_name || "",
+  doctorName: row.doctor_name || "",
+  clinicAddress: row.clinic_address || "",
+  clinicPhone: row.clinic_phone || "",
+  clinicEmail: row.clinic_email || "",
   location: row.location || "",
   psychologistId: row.psychologist_id || null,
   active: row.active ?? true,
@@ -47,17 +51,34 @@ export function useChildren(userId) {
   useEffect(() => {
     if (!userId) { setChildren([]); setActiveId(null); setLoading(false); return; }
     let cancelled = false;
-    setLoading(true);
-    supabase.from("children").select("*").eq("user_id", userId).order("created_at").then(({ data, error }) => {
+
+    const load = () => supabase.from("children").select("*").eq("user_id", userId).order("created_at").then(({ data, error }) => {
       if (cancelled) return;
-      const kids = (error || !data) ? [] : data.map(childFromRow);
+      // A failed/empty read here can happen if the request goes out before the
+      // Supabase client has re-attached a freshly-refreshed auth token (common
+      // right after a backgrounded PWA is reopened) — silently keeping the old
+      // list on error avoids flashing an empty Home screen; a genuine "no
+      // children" result (no error, empty data) is still applied as-is.
+      if (error) return;
+      const kids = data.map(childFromRow);
       setChildren(kids);
       let saved = null;
       try { saved = localStorage.getItem(`cb_active_child_${userId}`); } catch {}
       setActiveId(kids.some(k => k.id === saved) ? saved : (kids[0]?.id || null));
-      setLoading(false);
     });
-    return () => { cancelled = true; };
+
+    setLoading(true);
+    load().then(() => { if (!cancelled) setLoading(false); });
+
+    // Reopening a backgrounded tab/PWA doesn't remount this hook, so if the
+    // very first load above lost the auth-token race and came back empty,
+    // nothing would ever retry it without this — matches the reported "have
+    // to manually refresh to see my kids" symptom.
+    const onVisible = () => { if (document.visibilityState === "visible") load(); };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+
+    return () => { cancelled = true; document.removeEventListener("visibilitychange", onVisible); window.removeEventListener("focus", onVisible); };
   }, [userId]);
 
   const switchChild = (id) => {
@@ -105,6 +126,10 @@ export function useChildren(userId) {
       case_worker_phone: child.caseWorkerPhone || "",
       case_worker_email: child.caseWorkerEmail || "",
       clinic_name: child.clinicName || "",
+      doctor_name: child.doctorName || "",
+      clinic_address: child.clinicAddress || "",
+      clinic_phone: child.clinicPhone || "",
+      clinic_email: child.clinicEmail || "",
       location: child.location || "",
     }).select().single();
     if (error || !data) { if (error) console.error("Failed to add child profile:", error.message); return null; }
@@ -148,6 +173,10 @@ export function useChildren(userId) {
     if ("caseWorkerPhone" in patch) dbPatch.case_worker_phone = patch.caseWorkerPhone;
     if ("caseWorkerEmail" in patch) dbPatch.case_worker_email = patch.caseWorkerEmail;
     if ("clinicName" in patch) dbPatch.clinic_name = patch.clinicName;
+    if ("doctorName" in patch) dbPatch.doctor_name = patch.doctorName;
+    if ("clinicAddress" in patch) dbPatch.clinic_address = patch.clinicAddress;
+    if ("clinicPhone" in patch) dbPatch.clinic_phone = patch.clinicPhone;
+    if ("clinicEmail" in patch) dbPatch.clinic_email = patch.clinicEmail;
     if ("location" in patch) dbPatch.location = patch.location;
     supabase.from("children").update(dbPatch).eq("id", id).then(({ error }) => { if (error) console.error("Failed to save child profile:", error.message); });
   };
@@ -255,37 +284,27 @@ export const compressImage = (file, maxDim = 800, quality = 0.75) => new Promise
   img.src = objectUrl;
 });
 
-// Community chat attachments are limited to images and Word/Excel/PDF
-// documents — no video, audio, or other file types. Checked by MIME type
-// first, falling back to the extension since some browsers/OSes report
-// generic MIME types (e.g. "application/octet-stream") for .doc/.xls files.
-const COMMUNITY_DOC_MIME_TO_EXT = {
-  "application/msword": "doc",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
-  "application/vnd.ms-excel": "xls",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
-  "application/pdf": "pdf",
-};
-const COMMUNITY_DOC_EXTS = ["doc", "docx", "xls", "xlsx", "pdf"];
 export const MAX_COMMUNITY_ATTACHMENT_BYTES = 10 * 1024 * 1024;
 
-// Returns "image", "document", or null (rejected) for a file picked for a
-// community chat attachment.
+// Community chat attachments are limited to images and PDFs — Office
+// documents, video, audio and everything else are rejected. Returns
+// "image", "document" (a PDF), or null. The extension is checked as well as
+// the MIME type because some browsers/OSes report a generic
+// "application/octet-stream" for a .pdf.
 export const classifyCommunityAttachment = file => {
   if (!file) return null;
   if (file.type.startsWith("image/")) return "image";
-  const ext = file.name.split(".").pop()?.toLowerCase();
-  if (COMMUNITY_DOC_MIME_TO_EXT[file.type] || COMMUNITY_DOC_EXTS.includes(ext)) return "document";
+  if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) return "document";
   return null;
 };
 
-// Uploads a community chat attachment (an image Blob or a Word/Excel File)
-// to assets/community/ and returns its public URL. Every upload gets a
+// Uploads a community chat attachment (an image Blob or a PDF File) to
+// assets/community/ and returns its public URL. Every upload gets a
 // unique name — attachments accumulate rather than replacing each other.
 export const uploadCommunityAttachment = async (file, ownerId, kind) => {
   if (!file) return null;
-  const ext = kind === "image" ? "jpg" : (COMMUNITY_DOC_MIME_TO_EXT[file.type] || file.name.split(".").pop().toLowerCase());
-  const contentType = kind === "image" ? "image/jpeg" : (file.type || "application/octet-stream");
+  const ext = kind === "image" ? "jpg" : "pdf";
+  const contentType = kind === "image" ? "image/jpeg" : "application/pdf";
   const path = `assets/community/${ownerId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
   const { error } = await supabase.storage.from("public").upload(path, file, { contentType });
   if (error) { console.error("Failed to upload community attachment:", error.message); return null; }
@@ -336,4 +355,11 @@ export const accountFromUser = (u) => u ? {
   occupation: u.user_metadata?.occupation || "",
   nationality: u.user_metadata?.nationality || "",
   maritalStatus: u.user_metadata?.maritalStatus || "",
+  // Carer-letter specific: collected once via the "Set up your first letter"
+  // step on CarerLetterScreen (see carer-letter.html mockup's s-profile "Your
+  // details" card) rather than at signup, since they're only ever needed for
+  // that letter's placeholders.
+  licensedCarer: u.user_metadata?.licensedCarer || "",
+  carerAgency: u.user_metadata?.carerAgency || "",
+  carerLetterSetupDone: u.user_metadata?.carerLetterSetupDone || false,
 } : null;

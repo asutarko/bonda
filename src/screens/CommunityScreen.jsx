@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef, Fragment } from "react";
 import {
   Plus, Camera, Users, MessageSquare, Settings, Link2, Search, Check, X,
-  ChevronRight, QrCode, Copy, UserPlus, MoreVertical, Lock,
-  Unlock, Send, Pin, Heart, Paperclip, FileText, Bell, BellOff, Globe,
+  ChevronRight, QrCode, Copy, UserPlus, UserMinus, MoreVertical, Lock,
+  Unlock, Send, Pin, Heart, Paperclip, FileText, Bell, BellOff, Globe, Pencil,
+  Shield, Crown,
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { T } from "../theme";
@@ -10,7 +11,7 @@ import { Page, SectionLabel, Card, Badge, Btn, Input, TextArea, Avatar, Accordio
 import { CHILD_AVATARS, DEFAULT_CHILDREN, DEFAULT_SCHEDULE, ROOM_COLORS, SOS_COLORS, VERBAL_STATUS_OPTIONS } from "../data";
 import { uploadCommunityAttachment, compressImage, classifyCommunityAttachment, MAX_COMMUNITY_ATTACHMENT_BYTES, useBackHandler } from "../hooks";
 
-const isDocAttachment = url => /\.(docx?|xlsx?|pdf)$/i.test(url || "");
+const isDocAttachment = url => /\.pdf$/i.test(url || "");
 
 // Icon choices offered when creating a group — the same set admins pick
 // from for community_rooms (see ROOM_ICONS in ui.jsx).
@@ -26,7 +27,15 @@ const TRANSLATE_LANGUAGES = ["English", "Malay", "Mandarin", "Tamil"];
 // row into the same shape, so chat/members/invite code doesn't need to care
 // which kind of group it's dealing with.
 const roomToGroup = r => ({ id: r.id, label: r.label, description: r.description, icon_key: r.icon_key, color_key: r.color_key, topics: r.topics || [], kind: "admin" });
-const groupToGroup = g => ({ id: g.id, label: g.name, description: g.description, icon_key: g.icon_key, color_key: g.color_key, topics: g.topics || [], kind: "user" });
+const groupToGroup = g => ({ id: g.id, label: g.name, description: g.description, icon_key: g.icon_key, color_key: g.color_key, topics: g.topics || [], created_by: g.created_by, is_private: g.is_private, invite_code: g.invite_code, admins: g.admins || [], kind: "user" });
+
+// Owner = whoever created the group (community_groups.created_by); admins
+// are members the owner has separately appointed (community_groups.admins).
+// Only private, parent-created groups have either concept — public groups
+// don't need a "who's admin" layer, and admin-curated community_rooms have
+// no owner at all.
+const isGroupOwner = (room, uid) => room?.kind === "user" && room.is_private && room.created_by === uid;
+const isGroupAdmin = (room, uid) => isGroupOwner(room, uid) || (room?.kind === "user" && room.is_private && (room.admins || []).includes(uid));
 
 // Admin rooms (community_rooms) and parent-created groups (community_groups)
 // each need their own join. Their membership rows live in different tables —
@@ -114,7 +123,7 @@ export function ChatUI({ msgs, input, setInput, onSend, onDelete, loading, color
                 </div>
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                   <p style={{ margin: 0, fontSize: 10, color: T.inkMuted }}>{msg.time}</p>
-                  {isMe && <button onClick={() => onDelete(msg.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 10, color: T.red, fontWeight: 700, fontFamily: T.fontBody, padding: 0 }}>Delete</button>}
+                  {isMe && !isGroup && <button onClick={() => onDelete(msg.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 10, color: T.red, fontWeight: 700, fontFamily: T.fontBody, padding: 0 }}>Delete</button>}
                 </div>
               </div>
               </div>
@@ -143,11 +152,11 @@ export function ChatUI({ msgs, input, setInput, onSend, onDelete, loading, color
           {allowAttachments && (
             <label style={{ width: 38, height: 38, borderRadius: "50%", background: "transparent", border: `1.5px solid ${T.border}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0, color: T.inkMuted }}>
               <Paperclip size={16} />
-              <input type="file" accept="image/*,.doc,.docx,.xls,.xlsx,.pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/pdf" onChange={onPickAttachment} style={{ display: "none" }} />
+              <input type="file" accept="image/*,.pdf,application/pdf" onChange={onPickAttachment} style={{ display: "none" }} />
             </label>
           )}
           <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", background: T.surface, border: `1.5px solid ${T.border}`, borderRadius: 22, padding: "0 5px 0 16px" }}>
-            <textarea value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSend(); } }} placeholder="Write a message… (Enter to send)" rows={1} style={{ flex: 1, minWidth: 0, padding: "11px 6px", border: "none", outline: "none", background: "transparent", fontSize: 14, fontFamily: T.fontBody, color: T.ink, resize: "none", lineHeight: 1.5 }} />
+            <textarea value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSend(); } }} placeholder="Write a message…" rows={1} style={{ flex: 1, minWidth: 0, padding: "11px 6px", border: "none", outline: "none", background: "transparent", fontSize: 14, fontFamily: T.fontBody, color: T.ink, resize: "none", lineHeight: 1.5 }} />
             <button onClick={onSend} disabled={!input.trim() && !attachment} style={{ width: 34, height: 34, borderRadius: "50%", background: (input.trim() || attachment) ? color : T.border, border: "none", cursor: (input.trim() || attachment) ? "pointer" : "default", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "background 0.2s", color: "white" }}><Send size={16} /></button>
           </div>
         </div>
@@ -188,6 +197,7 @@ function GroupRow({ g, onClick }) {
           <p style={{ margin: "0 0 3px", fontWeight: 800, color: c.color, fontSize: 14 }}>{g.label}</p>
           <p style={{ margin: 0, color: T.inkMuted, fontSize: 12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{g.description || (g.kind === "user" ? "Parent-made group" : "")}</p>
         </div>
+        {g.is_private && <Lock size={14} color={T.inkMuted} style={{ flexShrink: 0 }} />}
         {g.kind === "user" && <Badge color={T.inkMuted} bg={T.canvas}>Parent-made</Badge>}
         <ChevronRight size={20} color={T.inkMuted} />
       </div>
@@ -243,8 +253,15 @@ function QRCode({ seed = "bonda", size = 160 }) {
 
 export function CommunityScreen({ account }) {
   const [view, setView] = useState("home");
-  const [dmPremium, setDmPremium] = useState(() => { try { return localStorage.getItem(`cb_premium_${account.name.toLowerCase()}`) === "true"; } catch { return false; } });
+  // Premium (private groups + private messaging) is a simulated monthly
+  // subscription — the stored value is the expiry timestamp, not a flag, so
+  // access locks itself again 30 days after purchase without a real billing
+  // system behind it.
+  const premiumStorageKey = `cb_premium_${account.name.toLowerCase()}`;
+  const [premiumUntil, setPremiumUntil] = useState(() => { try { return parseInt(localStorage.getItem(premiumStorageKey), 10) || 0; } catch { return 0; } });
+  const premium = premiumUntil > Date.now();
   const [showPaywall, setShowPaywall] = useState(false);
+  const [paywallIntent, setPaywallIntent] = useState(null); // 'dm' | 'group' — which action to resume after purchase
 
   const [activeRoom, setActiveRoom] = useState(null);
   const [groupMsgs, setGroupMsgs] = useState([]); const [groupInput, setGroupInput] = useState(""); const [groupLoading, setGroupLoading] = useState(false); const [groupAttachment, setGroupAttachment] = useState(null);
@@ -254,15 +271,15 @@ export function CommunityScreen({ account }) {
   const [attachError, setAttachError] = useState(null);
 
   // Picks a file for the chat's attachment preview; each chat (group/DM) keeps its own.
-  // Only images and Word/Excel documents are allowed — everything else (video, audio, etc.)
-  // is rejected. Images are compressed immediately so the preview and the eventual upload
-  // use the same small file.
+  // Only images and PDFs are allowed — everything else (Office documents, video,
+  // audio, etc.) is rejected. Images are compressed immediately so the preview and
+  // the eventual upload use the same small file.
   const pickAttachment = setter => async e => {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
     const kind = classifyCommunityAttachment(file);
-    if (!kind) { setAttachError("Only images or Word/Excel/PDF documents can be attached."); return; }
+    if (!kind) { setAttachError("Only images or PDF files can be attached."); return; }
     if (file.size > MAX_COMMUNITY_ATTACHMENT_BYTES) { setAttachError("File is too large (max 10MB)."); return; }
     setAttachError(null);
     if (kind === "image") {
@@ -393,7 +410,8 @@ export function CommunityScreen({ account }) {
     leaveRoom();
     setView(view === "groupchat" ? "home" : "dm_list");
   });
-  useBackHandler(view === "createGroup" || view === "shareMoment" || view === "allGroups" || view === "allMoments" || view === "dm_list", () => setView("home"));
+  useBackHandler(view === "createGroup", () => { setEditingGroupId(null); setView(editingGroupId ? "groupInfo" : "home"); });
+  useBackHandler(view === "shareMoment" || view === "allGroups" || view === "allMoments" || view === "dm_list" || view === "joinGroup", () => setView("home"));
   useBackHandler(view === "members", () => setView("groupchat"));
   useBackHandler(view === "groupInfo", () => setView(groupInfoReturnTo));
   useBackHandler(translateSheetOpen, () => setTranslateSheetOpen(false));
@@ -405,6 +423,9 @@ export function CommunityScreen({ account }) {
     const { data: memberRows } = await supabase.from(membershipTable(group.kind)).select("user_id").eq(membershipKey(group.kind), group.id).eq("user_id", account.id).limit(1);
     if (!memberRows?.length) { openGroupInfo(group, "home"); return; }
     leaveRoom();
+    // A file picked but never sent in a private group must not follow the user
+    // into a public one, where attachments aren't allowed.
+    clearAttachment(setGroupAttachment, groupAttachment);
     setActiveRoom(group); setGroupLoading(true); setView("groupchat");
     const { data } = await supabase.from("messages").select("id,author_id,author_name,author_avatar,text,image_url,file_name,created_at").eq("room", `room_${group.id}`).order("created_at", { ascending: true }).limit(120);
     setGroupMsgs((data || []).map(msgFromRow));
@@ -416,7 +437,7 @@ export function CommunityScreen({ account }) {
   };
 
   const sendGroup = async () => {
-    const text = groupInput.trim(); const attachment = activeRoom.kind === "user" ? groupAttachment : null;
+    const text = groupInput.trim(); const attachment = groupAttachment;
     if (!text && !attachment) return;
     setGroupInput(""); setGroupAttachment(null);
     const image_url = attachment ? await uploadCommunityAttachment(attachment.file, account.id, attachment.kind) : null;
@@ -440,7 +461,7 @@ export function CommunityScreen({ account }) {
   };
 
   const openDMList = async () => {
-    if (!dmPremium) { setShowPaywall(true); return; }
+    if (!premium) { setPaywallIntent("dm"); setShowPaywall(true); return; }
     setView("dm_list");
     const { data, error } = await supabase.from("profiles").select("id, name, avatar, joined");
     setAllUsers(error ? [] : data);
@@ -461,7 +482,7 @@ export function CommunityScreen({ account }) {
 
   // Gate for message buttons reached from places other than the "Private
   // Messages" card (e.g. the Members screen) — same paywall either way.
-  const messageMember = p => { if (!dmPremium) { setShowPaywall(true); return; } openDMChat(p); };
+  const messageMember = p => { if (!premium) { setPaywallIntent("dm"); setShowPaywall(true); return; } openDMChat(p); };
 
   const sendDM = async () => {
     const text = dmInput.trim(); const attachment = dmAttachment;
@@ -487,7 +508,13 @@ export function CommunityScreen({ account }) {
     }
   };
 
-  const purchase = () => { try { localStorage.setItem(`cb_premium_${account.name.toLowerCase()}`, "true"); } catch {} setDmPremium(true); setShowPaywall(false); setTimeout(openDMList, 300); };
+  const purchase = () => {
+    const until = Date.now() + 30 * 24 * 60 * 60 * 1000;
+    try { localStorage.setItem(premiumStorageKey, String(until)); } catch {}
+    setPremiumUntil(until); setShowPaywall(false);
+    if (paywallIntent === "group") { setGPrivate(true); } else { setTimeout(openDMList, 300); }
+    setPaywallIntent(null);
+  };
 
   // ---- toast / groups / moments / members / invite UI state ---------------
   const [toast, setToast] = useState("");
@@ -495,24 +522,88 @@ export function CommunityScreen({ account }) {
 
   const [gName, setGName] = useState(""); const [gDescription, setGDescription] = useState("");
   const [gColor, setGColor] = useState("purple"); const [gIcon, setGIcon] = useState("community");
-  const [gTopics, setGTopics] = useState("");
+  const [gPrivate, setGPrivate] = useState(false);
+  const [joinCode, setJoinCode] = useState(""); const [joiningByCode, setJoiningByCode] = useState(false); const [joinCodeError, setJoinCodeError] = useState("");
   const [creatingGroup, setCreatingGroup] = useState(false);
+  const [editingGroupId, setEditingGroupId] = useState(null);
+  // True when whoever opened the edit form is an admin, not the owner —
+  // admins of a private group can rename it and change its description, but
+  // not its colour/icon/privacy (owner-only, also enforced server-side by
+  // the enforce_group_admin_edit_scope trigger in community_groups_admins.sql).
+  const [editingAsAdmin, setEditingAsAdmin] = useState(false);
+
+  const openEditGroup = () => {
+    if (!activeRoom) return;
+    setGName(activeRoom.label); setGDescription(activeRoom.description || "");
+    setGColor(activeRoom.color_key || "purple"); setGIcon(activeRoom.icon_key || "community");
+    setGPrivate(!!activeRoom.is_private);
+    setEditingGroupId(activeRoom.id);
+    setEditingAsAdmin(!isGroupOwner(activeRoom, account.id));
+    setView("createGroup");
+  };
+
+  const openCreateGroup = (isPrivate = false) => {
+    setGName(""); setGDescription(""); setGColor("purple"); setGIcon("community"); setGPrivate(isPrivate);
+    setEditingGroupId(null);
+    setEditingAsAdmin(false);
+    setView("createGroup");
+  };
+
+  // In-form toggle inside the single "Create your own group" flow — making
+  // a group private is premium-gated, switching back to public never is.
+  const toggleGroupPrivate = () => {
+    if (gPrivate) { setGPrivate(false); return; }
+    if (!premium) { setPaywallIntent("group"); setShowPaywall(true); return; }
+    setGPrivate(true);
+  };
+
+  const openJoinByCode = () => { setJoinCode(""); setJoinCodeError(""); setView("joinGroup"); };
+
+  const joinByCode = async () => {
+    const code = joinCode.trim();
+    if (!code) return;
+    setJoiningByCode(true); setJoinCodeError("");
+    const { data, error } = await supabase.rpc("join_private_group", { p_code: code });
+    setJoiningByCode(false);
+    if (error || !data) { setJoinCodeError("That code doesn't match any private group."); return; }
+    setGroups(gs => gs.some(g => g.id === data.id) ? gs : [data, ...gs]);
+    flash("Joined group");
+    openGroup(groupToGroup(data));
+  };
 
   const createGroup = async () => {
     const name = gName.trim();
     if (!name) return;
     setCreatingGroup(true);
-    const topics = gTopics.split(",").map(t => t.trim()).filter(Boolean);
+    if (editingGroupId) {
+      // Admins editing someone else's group may only rename it or change its
+      // description — colour/icon/privacy stay owner-only (also enforced by
+      // the enforce_group_admin_edit_scope trigger, in case of a stale form).
+      const payload = editingAsAdmin
+        ? { name, description: gDescription.trim() }
+        : { name, description: gDescription.trim(), icon_key: gIcon, color_key: gColor, is_private: gPrivate };
+      const { data, error } = await supabase.from("community_groups")
+        .update(payload)
+        .eq("id", editingGroupId).select().single();
+      setCreatingGroup(false);
+      if (error || !data) { console.error(error); flash("Could not save changes. Please try again."); return; }
+      setGroups(gs => gs.map(g => g.id === data.id ? data : g));
+      setActiveRoom(groupToGroup(data));
+      setEditingGroupId(null);
+      flash("Group updated");
+      setView("groupInfo");
+      return;
+    }
     const { data, error } = await supabase.from("community_groups")
-      .insert({ name, description: gDescription.trim(), icon_key: gIcon, color_key: gColor, topics, created_by: account.id })
+      .insert({ name, description: gDescription.trim(), icon_key: gIcon, color_key: gColor, is_private: gPrivate, created_by: account.id })
       .select().single();
     if (!error && data) {
       await supabase.from("community_group_members").insert({ group_id: data.id, user_id: account.id });
       setGroups(gs => [data, ...gs]);
     }
     setCreatingGroup(false);
-    if (error || !data) { flash("Could not create the group. Please try again."); return; }
-    setGName(""); setGDescription(""); setGColor("purple"); setGIcon("community"); setGTopics("");
+    if (error || !data) { console.error(error); flash("Could not create the group. Please try again."); return; }
+    setGName(""); setGDescription(""); setGColor("purple"); setGIcon("community");
     flash("Group created");
     openGroup(groupToGroup(data));
   };
@@ -550,10 +641,13 @@ export function CommunityScreen({ account }) {
   };
 
   const [members, setMembers] = useState([]); const [membersLoading, setMembersLoading] = useState(false);
+  // Which member row's "…" moderation menu (admin/remove) is open, if any.
+  const [memberMenuOpenId, setMemberMenuOpenId] = useState(null);
   const [memberQuery, setMemberQuery] = useState("");
   const [isGroupMember, setIsGroupMember] = useState(false);
   const [joiningGroup, setJoiningGroup] = useState(false);
   const [leavingGroup, setLeavingGroup] = useState(false);
+  const [deletingGroup, setDeletingGroup] = useState(false);
 
   const toggleNotify = () => {
     if (!activeRoom) return;
@@ -618,10 +712,100 @@ export function CommunityScreen({ account }) {
     flash("Left group");
   };
 
+  // Owner-only: appoint/unappoint a member as admin of the active (parent-
+  // created) group. Just an update to community_groups.admins — RLS already
+  // restricts that column's update to the owner (created_by = auth.uid()).
+  const [savingAdmins, setSavingAdmins] = useState(false);
+  const setGroupAdmins = async nextAdmins => {
+    if (!activeRoom || activeRoom.kind !== "user") return;
+    setSavingAdmins(true);
+    const { data, error } = await supabase.from("community_groups").update({ admins: nextAdmins }).eq("id", activeRoom.id).select().single();
+    setSavingAdmins(false);
+    if (error || !data) { flash("Could not update admins. Please try again."); return; }
+    setGroups(gs => gs.map(g => g.id === data.id ? data : g));
+    setActiveRoom(groupToGroup(data));
+  };
+  const promoteMember = m => setGroupAdmins([...(activeRoom.admins || []), m.id]);
+  const demoteMember = m => setGroupAdmins((activeRoom.admins || []).filter(id => id !== m.id));
+
+  // Owner-only: hand the group over to another member. They become the new
+  // owner (community_groups.created_by); the RLS "using" clause on that
+  // table's update policy only lets the *current* owner make this change,
+  // and the enforce_group_admin_edit_scope trigger requires the new owner
+  // to already be a member. Dropped from admins (if they were one) since
+  // "owner" already implies full admin rights.
+  const [transferringOwnerId, setTransferringOwnerId] = useState(null);
+  const transferOwnership = async m => {
+    if (!activeRoom) return;
+    const { default: Swal } = await import("sweetalert2");
+    const { isConfirmed } = await Swal.fire({
+      icon: "warning", title: `Make ${m.name} the owner?`,
+      text: "You'll lose owner controls — colour, icon, privacy, and deleting the group. Only they'll be able to hand it back.",
+      showCancelButton: true, confirmButtonText: "Transfer ownership", confirmButtonColor: T.red, cancelButtonColor: T.inkMuted,
+    });
+    if (!isConfirmed) return;
+    setTransferringOwnerId(m.id);
+    const { data, error } = await supabase.from("community_groups")
+      .update({ created_by: m.id, admins: (activeRoom.admins || []).filter(id => id !== m.id) })
+      .eq("id", activeRoom.id).select().single();
+    setTransferringOwnerId(null);
+    if (error || !data) { flash("Could not transfer ownership. Please try again."); return; }
+    setGroups(gs => gs.map(g => g.id === data.id ? data : g));
+    setActiveRoom(groupToGroup(data));
+    flash(`${m.name} is now the owner`);
+  };
+
+  // Owner/admin: remove another member from the group (see the "Owners and
+  // admins can remove members" RLS policy in community_groups_admins.sql —
+  // an admin can't remove the owner or another admin, only the owner can).
+  const [removingMemberId, setRemovingMemberId] = useState(null);
+  const removeMember = async m => {
+    const { default: Swal } = await import("sweetalert2");
+    const { isConfirmed } = await Swal.fire({
+      icon: "warning", title: `Remove ${m.name}?`,
+      text: `${m.name} will lose access to this group's chat and history.`,
+      showCancelButton: true, confirmButtonText: "Remove", confirmButtonColor: T.red, cancelButtonColor: T.inkMuted,
+    });
+    if (!isConfirmed || !activeRoom) return;
+    setRemovingMemberId(m.id);
+    const { error } = await supabase.from(membershipTable(activeRoom.kind)).delete().eq(membershipKey(activeRoom.kind), activeRoom.id).eq("user_id", m.id);
+    setRemovingMemberId(null);
+    if (error) { flash("Could not remove member. Please try again."); return; }
+    setMembers(ms => ms.filter(x => x.id !== m.id));
+    if ((activeRoom.admins || []).includes(m.id)) demoteMember(m);
+    flash(`${m.name} removed from group`);
+  };
+
+  const deleteActiveGroup = async () => {
+    if (!activeRoom) return;
+    const { default: Swal } = await import("sweetalert2");
+    const { isConfirmed } = await Swal.fire({
+      icon: "warning", title: `Delete "${activeRoom.label}"?`,
+      text: "This can't be undone. Members will lose access and the group's chat history will be gone.",
+      showCancelButton: true, confirmButtonText: "Delete group", confirmButtonColor: T.red, cancelButtonColor: T.inkMuted,
+    });
+    if (!isConfirmed) return;
+    setDeletingGroup(true);
+    const { error } = await supabase.from("community_groups").delete().eq("id", activeRoom.id);
+    setDeletingGroup(false);
+    if (error) { flash("Could not delete the group. Please try again."); return; }
+    setGroups(gs => gs.filter(g => g.id !== activeRoom.id));
+    leaveRoom();
+    setView("home");
+    flash("Group deleted");
+  };
+
   const [menuOpen, setMenuOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
   const [qrData, setQrData] = useState({ title: "", code: "", hint: "" });
-  const openGroupInvite = group => { setQrData({ title: `Invite to ${group.label}`, code: `bonda.app/g/${group.id}`, hint: "Share this code or link so other parents can find and join this group." }); setQrOpen(true); };
+  const openGroupInvite = group => {
+    if (group.is_private) {
+      setQrData({ title: `Invite to ${group.label}`, code: group.invite_code, hint: `This group is private. Share this code — they can enter it under "Have an invite code?" to join.` });
+    } else {
+      setQrData({ title: `Invite to ${group.label}`, code: `bonda.app/g/${group.id}`, hint: "Share this code or link so other parents can find and join this group." });
+    }
+    setQrOpen(true);
+  };
   const openProfileInvite = () => { setQrData({ title: "Let people follow you", code: `bonda.app/u/${account.id}`, hint: "Share this code or link. When they open it in the app, they can follow you back — no phone numbers involved." }); setQrOpen(true); };
 
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -643,18 +827,18 @@ export function CommunityScreen({ account }) {
             <circle cx="14" cy="19.5" r="2.5" fill={T.purple} opacity="0.7"/>
           </svg>
         </div>
-        <p style={{ margin: "0 0 8px", fontWeight: 900, color: T.ink, fontSize: 20, textAlign: "center" }}>Private Messaging</p>
-        <p style={{ margin: "0 0 20px", color: T.inkSoft, fontSize: 13, textAlign: "center", lineHeight: 1.6 }}>Chat one-on-one privately with any parent in the Bonda community.</p>
+        <p style={{ margin: "0 0 8px", fontWeight: 900, color: T.ink, fontSize: 20, textAlign: "center" }}>Premium Access</p>
+        <p style={{ margin: "0 0 20px", color: T.inkSoft, fontSize: 13, textAlign: "center", lineHeight: 1.6 }}>Message any parent privately and create your own invite-only private groups.</p>
         <div style={{ background: T.purpleL, borderRadius: T.r, padding: "16px", marginBottom: 20, textAlign: "center" }}>
-          <p style={{ margin: "0 0 2px", color: T.inkMuted, fontSize: 11, fontWeight: 700, textTransform: "uppercase" }}>One-Time Purchase</p>
-          <p style={{ margin: "0 0 2px", color: T.purple, fontSize: 34, fontWeight: 900 }}>SGD $10</p>
-          <p style={{ margin: 0, color: T.inkMuted, fontSize: 12 }}>Lifetime access · Never expires</p>
+          <p style={{ margin: "0 0 2px", color: T.inkMuted, fontSize: 11, fontWeight: 700, textTransform: "uppercase" }}>Monthly Subscription</p>
+          <p style={{ margin: "0 0 2px", color: T.purple, fontSize: 34, fontWeight: 900 }}>SGD $10<span style={{ fontSize: 15, fontWeight: 700 }}>/mo</span></p>
+          <p style={{ margin: 0, color: T.inkMuted, fontSize: 12 }}>Billed every 30 days · Renew anytime</p>
         </div>
         {[
           { label: "Private one-on-one chat", svg: <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 3 Q2 1.5 3.5 1.5 L10 1.5 Q11.5 1.5 11.5 3 L11.5 7 Q11.5 8.5 10 8.5 L6 8.5 L4 10.5 L4 8.5 Q2 8.5 2 7 Z" stroke={T.purple} strokeWidth="1.2" fill={T.purple} fillOpacity="0.12"/><path d="M5.5 10 Q5.5 9 6.5 9 L13 9 Q14 9 14 10 L14 13 Q14 14 13 14 L11.5 14 L11.5 15.5 L10 14 L6.5 14 Q5.5 14 5.5 13 Z" stroke={T.purple} strokeWidth="1.1" fill={T.purple} fillOpacity="0.18"/></svg> },
-          { label: "Only visible to you and the recipient", svg: <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="3" y="7.5" width="10" height="7" rx="2" stroke={T.purple} strokeWidth="1.2" fill={T.purple} fillOpacity="0.1"/><path d="M5 7.5 L5 5 Q5 2 8 2 Q11 2 11 5 L11 7.5" stroke={T.purple} strokeWidth="1.2" strokeLinecap="round" fill="none"/><circle cx="8" cy="11" r="1.3" fill={T.purple} opacity="0.7"/></svg> },
-          { label: "Unlimited conversations", svg: <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 8 Q4 5.5 8 5.5 Q12 5.5 12 8 Q12 10.5 8 10.5" stroke={T.purple} strokeWidth="1.2" strokeLinecap="round" fill="none"/><path d="M8 10.5 Q4 10.5 4 8" stroke={T.purple} strokeWidth="1.2" strokeLinecap="round" fill="none" opacity="0.45"/><path d="M1.5 8 Q1.5 4.5 4 4" stroke={T.purple} strokeWidth="1" strokeLinecap="round" opacity="0.3"/><path d="M14.5 8 Q14.5 4.5 12 4" stroke={T.purple} strokeWidth="1" strokeLinecap="round" opacity="0.3"/></svg> },
-          { label: "Tied to your account forever", svg: <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5.5" r="3" stroke={T.purple} strokeWidth="1.2" fill={T.purple} fillOpacity="0.12"/><path d="M2.5 14.5 Q2.5 11 8 11 Q13.5 11 13.5 14.5" stroke={T.purple} strokeWidth="1.2" strokeLinecap="round" fill="none"/><path d="M10 4.5 L11.5 6 L14 3.5" stroke={T.purple} strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round" opacity="0.6"/></svg> },
+          { label: "Create invite-only private groups", svg: <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="3" y="7.5" width="10" height="7" rx="2" stroke={T.purple} strokeWidth="1.2" fill={T.purple} fillOpacity="0.1"/><path d="M5 7.5 L5 5 Q5 2 8 2 Q11 2 11 5 L11 7.5" stroke={T.purple} strokeWidth="1.2" strokeLinecap="round" fill="none"/><circle cx="8" cy="11" r="1.3" fill={T.purple} opacity="0.7"/></svg> },
+          { label: "Unlimited conversations & groups", svg: <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 8 Q4 5.5 8 5.5 Q12 5.5 12 8 Q12 10.5 8 10.5" stroke={T.purple} strokeWidth="1.2" strokeLinecap="round" fill="none"/><path d="M8 10.5 Q4 10.5 4 8" stroke={T.purple} strokeWidth="1.2" strokeLinecap="round" fill="none" opacity="0.45"/><path d="M1.5 8 Q1.5 4.5 4 4" stroke={T.purple} strokeWidth="1" strokeLinecap="round" opacity="0.3"/><path d="M14.5 8 Q14.5 4.5 12 4" stroke={T.purple} strokeWidth="1" strokeLinecap="round" opacity="0.3"/></svg> },
+          { label: "Tied to your account · renew anytime", svg: <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5.5" r="3" stroke={T.purple} strokeWidth="1.2" fill={T.purple} fillOpacity="0.12"/><path d="M2.5 14.5 Q2.5 11 8 11 Q13.5 11 13.5 14.5" stroke={T.purple} strokeWidth="1.2" strokeLinecap="round" fill="none"/><path d="M10 4.5 L11.5 6 L14 3.5" stroke={T.purple} strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round" opacity="0.6"/></svg> },
         ].map(({ label, svg }, idx) => (
           <div key={idx} style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
             <div style={{ width: 32, height: 32, borderRadius: 8, background: T.purpleL, display: "flex", alignItems: "center", justifyContent: "center", border: `1px solid ${T.purple}15`, flexShrink: 0 }}>{svg}</div>
@@ -664,7 +848,7 @@ export function CommunityScreen({ account }) {
         <div style={{ background: T.amberL, borderRadius: T.r, padding: "10px 14px", margin: "16px 0" }}>
           <p style={{ margin: 0, color: T.amber, fontSize: 11, fontWeight: 700, lineHeight: 1.6 }}>💡 In the live app this connects to Stripe / PayPal / Apple Pay. Tap below to simulate in this prototype.</p>
         </div>
-        <Btn onClick={purchase} full style={{ marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}><Unlock size={16} /> Unlock for SGD $10</Btn>
+        <Btn onClick={purchase} full style={{ marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}><Unlock size={16} /> Subscribe for SGD $10/mo</Btn>
         <Btn onClick={() => setShowPaywall(false)} full secondary>Maybe later</Btn>
       </div>
     </div>
@@ -678,7 +862,7 @@ export function CommunityScreen({ account }) {
     content = (
       <div style={{ position: "relative", display: "flex", flexDirection: "column", flex: "1 1 auto", minHeight: 0 }}>
         {showPaywall && <Paywall />}
-        <ChatUI msgs={groupMsgs} input={groupInput} setInput={setGroupInput} onSend={sendGroup} onDelete={deleteGroup} loading={groupLoading} color={c.color} bg={c.bg} icon={null} label={activeRoom.label} sub={activeRoom.description} isGroup account={account} dmPartner={null} endRef={endRef} attachment={groupAttachment} onPickAttachment={pickAttachment(setGroupAttachment)} onRemoveAttachment={() => clearAttachment(setGroupAttachment, groupAttachment)} attachError={attachError} onTitleClick={() => openGroupInfo(activeRoom)} allowAttachments={activeRoom.kind === "user"} />
+        <ChatUI msgs={groupMsgs} input={groupInput} setInput={setGroupInput} onSend={sendGroup} onDelete={deleteGroup} loading={groupLoading} color={c.color} bg={c.bg} icon={null} label={activeRoom.label} sub={activeRoom.description} isGroup account={account} dmPartner={null} endRef={endRef} attachment={groupAttachment} onPickAttachment={pickAttachment(setGroupAttachment)} onRemoveAttachment={() => clearAttachment(setGroupAttachment, groupAttachment)} attachError={attachError} onTitleClick={() => openGroupInfo(activeRoom)} allowAttachments={!!activeRoom.is_private} />
       </div>
     );
   } else if (view === "dm_chat" && dmPartner) {
@@ -720,33 +904,41 @@ export function CommunityScreen({ account }) {
   } else if (view === "createGroup") {
     content = (
       <Page>
-        <SubHeader title="Create a group" />
+        {showPaywall && <Paywall />}
+        <SubHeader title={editingGroupId ? "Edit group" : (gPrivate ? "Create a private group" : "Create a group")} />
         <div style={{ marginTop: 18 }}>
           <Input label="Group name" value={gName} onChange={e => setGName(e.target.value)} placeholder="e.g. Weekend playgroup" />
           <TextArea label="What it's for" value={gDescription} onChange={e => setGDescription(e.target.value)} placeholder="Meetups, tips, and support" rows={2} />
-          <Input label="Topics (optional)" value={gTopics} onChange={e => setGTopics(e.target.value)} placeholder="e.g. HealthHub, CDA, Getting started" />
-          <p style={{ margin: "-10px 0 18px", fontSize: 11.5, color: T.inkMuted }}>Separate topics with commas — shown as tags on the group's info page.</p>
-          <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>Colour</p>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 18 }}>
-            {Object.keys(ROOM_COLORS).map(key => {
-              const c = ROOM_COLORS[key];
-              return <button key={key} onClick={() => setGColor(key)} aria-label={key} style={{ width: 38, height: 38, borderRadius: 12, background: c.bg, border: gColor === key ? `3px solid ${c.color}` : `1px solid ${T.border}`, cursor: "pointer" }} />;
-            })}
-          </div>
-          <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>Icon</p>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 22 }}>
-            {GROUP_ICON_KEYS.map(key => {
-              const c = ROOM_COLORS[gColor];
-              const iconFn = ROOM_ICONS[key];
-              return (
-                <button key={key} onClick={() => setGIcon(key)} aria-label={key} style={{ width: 44, height: 44, borderRadius: 12, background: gIcon === key ? c.bg : T.canvas, border: gIcon === key ? `2px solid ${c.color}` : `1px solid ${T.border}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
-                  {iconFn(gIcon === key ? c.color : T.inkMuted)}
-                </button>
-              );
-            })}
-          </div>
-          <Btn onClick={createGroup} full disabled={creatingGroup || !gName.trim()}>{creatingGroup ? "Creating..." : "Create group"}</Btn>
-          <p style={{ margin: "10px 4px 0", fontSize: 12, color: T.inkMuted, textAlign: "center" }}>Anyone in the Bonda community can find and join.</p>
+          {editingAsAdmin && (
+            <p style={{ margin: "0 0 18px", fontSize: 12.5, color: T.inkMuted, lineHeight: 1.5 }}>As an admin you can update the name and description. Colour, icon, and privacy can only be changed by the group's owner.</p>
+          )}
+          {!editingAsAdmin && (
+            <>
+              <div style={{ margin: "4px 0 18px" }}>
+                <ToggleRow label="Make this group private" sub={premium ? "Hidden from Groups — only people you invite can join" : "Hidden from Groups — only people you invite can join · Premium"} on={gPrivate} onToggle={toggleGroupPrivate} />
+              </div>
+              <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>Colour</p>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 18 }}>
+                {Object.keys(ROOM_COLORS).map(key => {
+                  const c = ROOM_COLORS[key];
+                  return <button key={key} onClick={() => setGColor(key)} aria-label={key} style={{ width: 38, height: 38, borderRadius: 12, background: c.color, border: gColor === key ? `3px solid ${T.ink}` : `1px solid ${T.border}`, boxShadow: gColor === key ? `0 0 0 2px ${T.surface}` : "none", cursor: "pointer" }} />;
+                })}
+              </div>
+              <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>Icon</p>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 22 }}>
+                {GROUP_ICON_KEYS.map(key => {
+                  const c = ROOM_COLORS[gColor];
+                  const iconFn = ROOM_ICONS[key];
+                  return (
+                    <button key={key} onClick={() => setGIcon(key)} aria-label={key} style={{ width: 44, height: 44, borderRadius: 12, background: gIcon === key ? c.bg : T.canvas, border: gIcon === key ? `2px solid ${c.color}` : `1px solid ${T.border}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+                      {iconFn(gIcon === key ? c.color : T.inkMuted)}
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
+          <Btn onClick={createGroup} full disabled={creatingGroup || !gName.trim()} style={{ marginTop: 4 }}>{creatingGroup ? (editingGroupId ? "Saving..." : "Creating...") : (editingGroupId ? "Save changes" : "Create group")}</Btn>
         </div>
       </Page>
     );
@@ -776,9 +968,12 @@ export function CommunityScreen({ account }) {
       </Page>
     );
   } else if (view === "allGroups") {
-    const combined = [...rooms.map(roomToGroup), ...groups.map(groupToGroup)];
+    const publicCombined = [...rooms.map(roomToGroup), ...groups.filter(g => !g.is_private).map(groupToGroup)];
+    const privateCombined = groups.filter(g => g.is_private).map(groupToGroup);
     const q = groupQuery.trim().toLowerCase();
-    const filtered = !q ? combined : combined.filter(g => g.label.toLowerCase().includes(q) || (g.description || "").toLowerCase().includes(q));
+    const matches = g => !q || g.label.toLowerCase().includes(q) || (g.description || "").toLowerCase().includes(q);
+    const filteredPublic = publicCombined.filter(matches);
+    const filteredPrivate = privateCombined.filter(matches);
     content = (
       <Page style={{ paddingBottom: 110 }}>
         <SubHeader title="Groups" />
@@ -786,11 +981,25 @@ export function CommunityScreen({ account }) {
           <Search size={16} color={T.inkMuted} style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
           <input value={groupQuery} onChange={e => setGroupQuery(e.target.value)} placeholder="Search groups" style={searchInputStyle} />
         </div>
-        {filtered.map(g => <GroupRow key={`${g.kind}-${g.id}`} g={g} onClick={() => openGroup(g)} />)}
-        {filtered.length === 0 && <p style={{ textAlign: "center", color: T.inkMuted, fontSize: 14, marginTop: 24 }}>No groups match "{groupQuery}".</p>}
+        <SectionLabel style={{ marginBottom: 10 }}>Public Groups</SectionLabel>
+        {filteredPublic.map(g => <GroupRow key={`${g.kind}-${g.id}`} g={g} onClick={() => openGroup(g)} />)}
+        {filteredPublic.length === 0 && <p style={{ textAlign: "center", color: T.inkMuted, fontSize: 14, margin: "0 0 20px" }}>No public groups match "{groupQuery}".</p>}
+        <SectionLabel style={{ marginTop: 20, marginBottom: 10 }}>Private Groups</SectionLabel>
+        {filteredPrivate.map(g => <GroupRow key={`${g.kind}-${g.id}`} g={g} onClick={() => openGroup(g)} />)}
+        {filteredPrivate.length === 0 && <p style={{ textAlign: "center", color: T.inkMuted, fontSize: 14, margin: 0 }}>{q ? `No private groups match "${groupQuery}".` : "You haven't joined any private groups yet."}</p>}
         <div style={{ position: "fixed", bottom: 86, left: 0, right: 0, display: "flex", justifyContent: "center", zIndex: 60 }}>
-          <button onClick={() => setView("createGroup")} style={{ display: "flex", alignItems: "center", gap: 8, background: T.purple, color: "white", border: "none", borderRadius: 999, padding: "13px 24px", fontSize: 14.5, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody, boxShadow: T.shadowM }}><Plus size={18} /> Create group</button>
+          <button onClick={() => openCreateGroup(false)} style={{ display: "flex", alignItems: "center", gap: 8, background: T.purple, color: "white", border: "none", borderRadius: 999, padding: "13px 24px", fontSize: 14.5, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody, boxShadow: T.shadowM }}><Plus size={18} /> Create group</button>
         </div>
+      </Page>
+    );
+  } else if (view === "joinGroup") {
+    content = (
+      <Page>
+        <SubHeader title="Join a private group" />
+        <p style={{ margin: "18px 4px 16px", fontSize: 13, color: T.inkSoft, lineHeight: 1.5 }}>Enter the invite code someone shared with you to join their private group.</p>
+        <Input label="Invite code" value={joinCode} onChange={e => { setJoinCode(e.target.value); setJoinCodeError(""); }} placeholder="e.g. a1b2c3d4" />
+        {joinCodeError && <p style={{ margin: "-8px 4px 12px", fontSize: 12.5, color: T.red }}>{joinCodeError}</p>}
+        <Btn onClick={joinByCode} full disabled={joiningByCode || !joinCode.trim()} style={{ marginTop: 8 }}>{joiningByCode ? "Joining..." : "Join group"}</Btn>
       </Page>
     );
   } else if (view === "allMoments") {
@@ -853,19 +1062,66 @@ export function CommunityScreen({ account }) {
         {!membersLoading && shown.map(m => {
           const isMe = m.id === account.id;
           const following = isFollowing(m.id);
+          const memberIsOwner = m.id === activeRoom.created_by;
+          const memberIsAdmin = (activeRoom.admins || []).includes(m.id);
+          // Only the owner can appoint/unappoint admins; the owner can't be
+          // demoted this way (they'd delete the group instead).
+          const canPromote = isGroupOwner(activeRoom, account.id) && !isMe && !memberIsOwner;
+          // Owner can remove anyone; an admin can remove regular members but
+          // not the owner or other admins (enforced again by RLS server-side).
+          const canRemove = !isMe && !memberIsOwner && (isGroupOwner(activeRoom, account.id) || (isGroupAdmin(activeRoom, account.id) && !memberIsAdmin));
           return (
             <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 4px", borderBottom: `1px solid ${T.border}` }}>
               <ComAvatar value={m.avatar} size={44} active={false} borderColor={T.border} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <p style={{ margin: 0, fontWeight: 700, color: T.ink, fontSize: 15 }}>{m.name}{isMe && " (You)"}</p>
+                {activeRoom.is_private && (memberIsOwner || memberIsAdmin) && (
+                  <p style={{ margin: "2px 0 0", fontSize: 11, fontWeight: 700, color: T.purple }}>{memberIsOwner ? "Owner" : "Admin"}</p>
+                )}
               </div>
               {!isMe && (
-                <>
-                  <button onClick={() => messageMember(m)} aria-label={`Message ${m.name}`} style={{ background: "none", border: "none", color: T.purple, cursor: "pointer", padding: 6, flexShrink: 0, display: "flex" }}><MessageSquare size={18} /></button>
-                  <button onClick={() => following ? unfollowUser(m) : followUser(m)} style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 12px", borderRadius: 99, fontSize: 12.5, fontWeight: 700, background: following ? T.canvas : T.purple, color: following ? T.purple : "white", border: following ? `1px solid ${T.border}` : "none", cursor: "pointer", fontFamily: T.fontBody, flexShrink: 0 }}>
-                    {following ? <><Check size={14} /> Following</> : <><Plus size={14} /> Follow</>}
+                <div style={{ position: "relative", flexShrink: 0 }}>
+                  <button onClick={() => setMemberMenuOpenId(id => id === m.id ? null : m.id)} aria-label={`More options for ${m.name}`} style={{ background: "none", border: "none", color: T.inkSoft, cursor: "pointer", padding: 6, display: "flex" }}>
+                    <MoreVertical size={20} />
                   </button>
-                </>
+                  {memberMenuOpenId === m.id && (
+                    <>
+                      <div onClick={() => setMemberMenuOpenId(null)} style={{ position: "fixed", inset: 0, zIndex: 44 }} />
+                      <div style={{ position: "absolute", top: 36, right: 0, width: 200, background: T.surface, border: `1px solid ${T.border}`, borderRadius: 14, overflow: "hidden", boxShadow: T.shadowM, zIndex: 45 }}>
+                        {[
+                          { key: "message", ic: MessageSquare, label: "Message", onClick: () => { setMemberMenuOpenId(null); messageMember(m); } },
+                          {
+                            key: "follow", ic: following ? Check : Plus,
+                            label: following ? "Following" : "Follow",
+                            onClick: () => { setMemberMenuOpenId(null); following ? unfollowUser(m) : followUser(m); },
+                          },
+                          ...(canPromote ? [{
+                            key: "admin", ic: Shield,
+                            label: memberIsAdmin ? "Remove admin" : "Make admin",
+                            disabled: savingAdmins,
+                            onClick: () => { setMemberMenuOpenId(null); memberIsAdmin ? demoteMember(m) : promoteMember(m); },
+                          }] : []),
+                          ...(canPromote ? [{
+                            key: "transfer", ic: Crown, danger: true,
+                            label: "Transfer ownership",
+                            disabled: transferringOwnerId === m.id,
+                            onClick: () => { setMemberMenuOpenId(null); transferOwnership(m); },
+                          }] : []),
+                          ...(canRemove ? [{
+                            key: "remove", ic: UserMinus, danger: true,
+                            label: "Remove from group",
+                            disabled: removingMemberId === m.id,
+                            onClick: () => { setMemberMenuOpenId(null); removeMember(m); },
+                          }] : []),
+                        ].map((it, i) => (
+                          <button key={it.key} onClick={it.onClick} disabled={it.disabled} style={{ width: "100%", textAlign: "left", display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", fontSize: 14, fontWeight: 600, color: T.ink, background: "none", border: "none", borderTop: i ? `1px solid ${T.border}` : "none", cursor: it.disabled ? "default" : "pointer", opacity: it.disabled ? 0.6 : 1, fontFamily: T.fontBody }}>
+                            <it.ic size={17} color={it.danger ? T.red : T.purple} /> {it.label}
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
               )}
             </div>
           );
@@ -878,12 +1134,18 @@ export function CommunityScreen({ account }) {
     const iconFn = ROOM_ICONS[activeRoom.icon_key] || ROOM_ICONS.community;
     const desc = (activeRoom.description || "").trim();
     const canJoin = !isGroupMember;
+    const canEdit = activeRoom.kind === "user" && activeRoom.created_by === account.id;
+    // Owner can edit everything; a private group's admin can also open the
+    // edit form, but it only lets them touch name/description (see
+    // editingAsAdmin in openEditGroup / the "createGroup" form below).
+    const canEditGroup = canEdit || isGroupAdmin(activeRoom, account.id);
     const tiles = [
       canJoin
         ? { key: "join", Icon: Plus, label: joiningGroup ? "Joining…" : "Join", onClick: joinActiveGroup, disabled: joiningGroup }
         : { key: "join", Icon: Check, label: "Joined", disabled: true },
       { key: "invite", Icon: UserPlus, label: "Invite", onClick: () => openGroupInvite(activeRoom) },
       { key: "notify", Icon: notifyOn ? Bell : BellOff, label: notifyOn ? "Notify" : "Muted", onClick: toggleNotify },
+      ...(canEditGroup ? [{ key: "edit", Icon: Pencil, label: "Edit", onClick: openEditGroup }] : []),
     ];
     content = (
       <Page>
@@ -894,9 +1156,9 @@ export function CommunityScreen({ account }) {
             {iconFn(c.color)}
           </div>
           <h2 style={{ margin: 0, fontFamily: T.fontDisplay, fontSize: 22, fontWeight: 700, color: T.ink }}>{activeRoom.label}</h2>
-          <p style={{ margin: "4px 0 0", color: T.inkMuted, fontSize: 13 }}>
+          <button onClick={() => { setMemberQuery(""); setMemberMenuOpenId(null); setView("members"); }} style={{ background: "none", border: "none", padding: 0, margin: "4px 0 0", color: T.purple, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody }}>
             {activeRoom.kind === "admin" ? "Community group" : "Parent group"} · {membersLoading ? "…" : `${members.length} ${members.length === 1 ? "member" : "members"}`}
-          </p>
+          </button>
         </div>
 
         <div style={{ display: "flex", gap: 10, marginBottom: 24 }}>
@@ -942,7 +1204,11 @@ export function CommunityScreen({ account }) {
           </p>
         </Card>
 
-        {isGroupMember && (
+        {canEdit ? (
+          <button onClick={deleteActiveGroup} disabled={deletingGroup} style={{ display: "block", width: "100%", background: "none", border: "none", color: T.red, fontWeight: 700, fontSize: 14, cursor: deletingGroup ? "default" : "pointer", fontFamily: T.fontBody, padding: "8px 0", textAlign: "center", opacity: deletingGroup ? 0.6 : 1 }}>
+            {deletingGroup ? "Deleting…" : "Delete group"}
+          </button>
+        ) : isGroupMember && (
           <button onClick={leaveActiveGroup} disabled={leavingGroup} style={{ display: "block", width: "100%", background: "none", border: "none", color: T.red, fontWeight: 700, fontSize: 14, cursor: leavingGroup ? "default" : "pointer", fontFamily: T.fontBody, padding: "8px 0", textAlign: "center", opacity: leavingGroup ? 0.6 : 1 }}>
             {leavingGroup ? "Leaving…" : "Leave group"}
           </button>
@@ -975,6 +1241,8 @@ export function CommunityScreen({ account }) {
       </Page>
     );
   } else if (view === "home") {
+    const publicGroups = groups.filter(g => !g.is_private);
+    const privateGroups = groups.filter(g => g.is_private);
     content = (
       <Page>
         {showPaywall && <Paywall />}
@@ -1014,12 +1282,20 @@ export function CommunityScreen({ account }) {
         <SectionLabel action={<button onClick={() => setView("allGroups")} style={{ background: "none", border: "none", color: T.purple, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: T.fontBody }}>See all</button>}>Groups</SectionLabel>
         <div style={{ marginBottom: 24 }}>
           {rooms.map(r => <GroupRow key={`admin-${r.id}`} g={roomToGroup(r)} onClick={() => openGroup(roomToGroup(r))} />)}
-          {groups.slice(0, 3).map(g => <GroupRow key={`user-${g.id}`} g={groupToGroup(g)} onClick={() => openGroup(groupToGroup(g))} />)}
-          <button onClick={() => setView("createGroup")} style={{ width: "100%", background: "none", border: `1.5px dashed ${T.border}`, borderRadius: T.r, padding: "14px", color: T.purple, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: T.fontBody, textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}><Plus size={16} /> Create your own group</button>
+          {publicGroups.slice(0, 3).map(g => <GroupRow key={`user-${g.id}`} g={groupToGroup(g)} onClick={() => openGroup(groupToGroup(g))} />)}
+          <button onClick={() => openCreateGroup(false)} style={{ width: "100%", background: "none", border: `1.5px dashed ${T.border}`, borderRadius: T.r, padding: "14px", color: T.purple, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: T.fontBody, textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}><Plus size={16} /> Create your own group</button>
+        </div>
+
+        <SectionLabel>Private Groups</SectionLabel>
+        <div style={{ marginBottom: 24 }}>
+          {privateGroups.length > 0
+            ? privateGroups.slice(0, 3).map(g => <GroupRow key={`private-${g.id}`} g={groupToGroup(g)} onClick={() => openGroup(groupToGroup(g))} />)
+            : <p style={{ margin: "0 0 12px", fontSize: 12.5, color: T.inkMuted }}>You haven't joined any private groups yet.</p>}
+          <button onClick={openJoinByCode} style={{ width: "100%", background: "none", border: "none", padding: "2px 4px 0", color: T.inkMuted, fontWeight: 600, fontSize: 12.5, cursor: "pointer", fontFamily: T.fontBody, textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}><Lock size={13} /> Have an invite code?</button>
         </div>
 
         <SectionLabel style={{ marginBottom: 10 }}>Private Messages</SectionLabel>
-        {dmPremium ? (
+        {premium ? (
           /* ── UNLOCKED STATE — elegant, professional ── */
           <Card onClick={openDMList} style={{ background: T.surface, border: `1.5px solid ${T.purple}25`, padding: 0, overflow: "hidden" }}>
 
@@ -1035,7 +1311,7 @@ export function CommunityScreen({ account }) {
               </div>
               <div style={{ flex: 1 }}>
                 <p style={{ margin: "0 0 2px", fontWeight: 800, color: T.purple, fontSize: 15 }}>Message a Parent</p>
-                <p style={{ margin: 0, color: T.inkSoft, fontSize: 12 }}>Private · one-on-one · only the two of you can see it</p>
+                <p style={{ margin: 0, color: T.inkSoft, fontSize: 12 }}>Premium active · renews {new Date(premiumUntil).toLocaleDateString("en-SG", { day: "numeric", month: "short" })}</p>
               </div>
               <svg width="8" height="14" viewBox="0 0 8 14" fill="none">
                 <path d="M1.5 1.5 L6.5 7 L1.5 12.5" stroke={T.purple} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
@@ -1087,9 +1363,9 @@ export function CommunityScreen({ account }) {
               <div style={{ flex: 1 }}>
                 <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 3 }}>
                   <p style={{ margin: 0, fontWeight: 800, color: T.ink, fontSize: 14 }}>Message a Parent</p>
-                  <Badge color={T.purple}>SGD $10</Badge>
+                  <Badge color={T.purple}>SGD $10/mo</Badge>
                 </div>
-                <p style={{ margin: 0, color: T.inkMuted, fontSize: 12 }}>Unlock private 1-on-1 chat · one-time · lifetime access</p>
+                <p style={{ margin: 0, color: T.inkMuted, fontSize: 12 }}>Unlock private chat & private groups · billed monthly</p>
               </div>
               <ChevronRight size={20} color={T.inkMuted} />
             </div>

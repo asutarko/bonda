@@ -7,12 +7,12 @@ export const DEFAULT_CHILDREN = [];
 // Maps a Supabase "children" row to the shape the rest of the app expects
 
 export const DEFAULT_SCHEDULE = [
-  { id: "s1", emoji: "🌅", label: "Wake Up",      time: "07:00" },
-  { id: "s2", emoji: "🍳", label: "Breakfast",    time: "07:30" },
-  { id: "s3", emoji: "🦷", label: "Brush Teeth",  time: "08:00" },
-  { id: "s4", emoji: "🎨", label: "Activity Time",time: "09:00" },
-  { id: "s5", emoji: "🥗", label: "Lunch",        time: "12:00" },
-  { id: "s6", emoji: "😴", label: "Rest Time",    time: "13:00" },
+  { id: "s1", emoji: "🌅", label: "Wake Up",      time: "07:00", category: "routine" },
+  { id: "s2", emoji: "🍳", label: "Breakfast",    time: "07:30", category: "meals" },
+  { id: "s3", emoji: "🦷", label: "Brush Teeth",  time: "08:00", category: "routine" },
+  { id: "s4", emoji: "🎨", label: "Activity Time",time: "09:00", category: "play" },
+  { id: "s5", emoji: "🥗", label: "Lunch",        time: "12:00", category: "meals" },
+  { id: "s6", emoji: "😴", label: "Rest Time",    time: "13:00", category: "rest" },
 ];
 
 export const db = {
@@ -30,17 +30,25 @@ export const db = {
 
 // Colour choices for Community group rooms & groups — admins pick one of
 // these when creating an admin room, and parents pick one when creating
-// their own group (community_groups).
-
+// their own group (community_groups). "purple" stays the original Bonda
+// brand teal: community_groups.color_key defaults to 'purple' in Supabase,
+// and it's the fallback everywhere a group/message has no explicit colour
+// (see the `|| ROOM_COLORS.purple` call sites), so recolouring it would
+// change the default look of existing groups and DM bubbles app-wide. The
+// other 7 match the rainbow swatches used for schedule categories in
+// ScheduleScreen.jsx's CATEGORY_COLORS (red, orange, yellow, green, blue,
+// violet) plus a neutral slate. Key names are legacy (e.g. "teal" holds
+// yellow, "indigo" holds blue) — they're stored as color_key and never shown
+// as text, so keep them stable even though they no longer describe the hue.
 export const ROOM_COLORS = {
-  purple: { color: T.purple, bg: T.purpleL },
-  green:  { color: T.green,  bg: T.greenL },
-  amber:  { color: T.amber,  bg: T.amberL },
-  teal:   { color: T.teal,   bg: T.tealL },
-  red:    { color: T.red,    bg: T.redL },
-  violet: { color: T.violet, bg: T.violetL },
-  indigo: { color: T.indigo, bg: T.indigoL },
-  slate:  { color: T.slate,  bg: T.slateL },
+  red:    { color: "#E5484D", bg: "#FDE7E7" },
+  amber:  { color: "#F5A623", bg: "#FDEEDA" },
+  green:  { color: "#3DA35D", bg: "#E3F3E8" },
+  teal:   { color: "#E9C716", bg: "#FBF6D9" },
+  indigo: { color: "#3B82C4", bg: "#E3EEF8" },
+  violet: { color: "#8B5CF6", bg: "#EFE9FE" },
+  purple: { color: T.purple,  bg: T.purpleL },
+  slate:  { color: "#64748B", bg: "#E9ECF0" },
 };
 
 export const SOS_COLORS = {
