@@ -280,7 +280,7 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
   const [psychologists, setPsychologists] = useState([]);
 
   const [letterText, setLetterText] = useState("");
-  const [howtoOpen, setHowtoOpen] = useState(true);
+  const [howtoOpen, setHowtoOpen] = useState(false);
   const saveTimer = useRef(null);
 
   // "Set up your first letter" — the mandatory first step of this screen
@@ -753,7 +753,6 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={T.purple} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
               </div>
               <p className="cl-serif" style={{ flex: 1, margin: 0, fontWeight: 600, fontSize: 15, color: T.ink }}>How to edit this letter</p>
-              <Badge color={T.amber} bg={T.amberL}>{missingPlaceholders.length}</Badge>
               <span style={{ color: T.inkMuted, fontSize: 11, transform: howtoOpen ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>▾</span>
             </div>
             {howtoOpen && (
