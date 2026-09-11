@@ -219,9 +219,10 @@ function ToggleRow({ label, sub, on, onToggle }) {
   );
 }
 
-// Deterministic pseudo-QR pattern — cosmetic only (there's no real deep-link
-// target yet), just enough to look like a scannable code next to the copyable
-// text link.
+// Deterministic pseudo-QR pattern — purely visual dressing next to the real,
+// copyable invite link/code below (see openGroupInvite); it doesn't actually
+// encode the link, so it's not a scannable QR code, just decoration seeded
+// off it so it at least looks stable per group.
 function qrMatrix(seed, n = 25) {
   let h = 2166136261;
   for (const ch of seed) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619) >>> 0; }
@@ -251,7 +252,7 @@ function QRCode({ seed = "bonda", size = 160 }) {
   );
 }
 
-export function CommunityScreen({ account }) {
+export function CommunityScreen({ account, openGroupId, onConsumedDeepLink }) {
   const [view, setView] = useState("home");
   // Premium (private groups + private messaging) is a simulated monthly
   // subscription — the stored value is the expiry timestamp, not a flag, so
@@ -435,6 +436,27 @@ export function CommunityScreen({ account }) {
       .on("postgres_changes", { event: "DELETE", schema: "public", table: "messages", filter: `room=eq.room_${group.id}` }, p => setGroupMsgs(prev => prev.filter(m => m.id !== p.old.id)))
       .subscribe();
   };
+
+  // Resolves an invite link's group id (App.jsx pulled it out of the URL's
+  // ?g= query param — see openGroupInvite below for how that link is built)
+  // once we land on this screen. Only public groups (admin-curated rooms, or
+  // parent-created groups that aren't private) are reachable this way —
+  // private groups still require typing in their invite code.
+  useEffect(() => {
+    if (!openGroupId) return;
+    let cancelled = false;
+    (async () => {
+      const { data: room } = await supabase.from("community_rooms").select("*").eq("id", openGroupId).maybeSingle();
+      if (cancelled) return;
+      if (room) { openGroup(roomToGroup(room)); onConsumedDeepLink?.(); return; }
+      const { data: group } = await supabase.from("community_groups").select("*").eq("id", openGroupId).eq("is_private", false).maybeSingle();
+      if (cancelled) return;
+      if (group) { openGroup(groupToGroup(group)); onConsumedDeepLink?.(); return; }
+      onConsumedDeepLink?.();
+      flash("That invite link's group isn't available anymore.");
+    })();
+    return () => { cancelled = true; };
+  }, [openGroupId]);
 
   const sendGroup = async () => {
     const text = groupInput.trim(); const attachment = groupAttachment;
@@ -805,7 +827,12 @@ export function CommunityScreen({ account }) {
     if (group.is_private) {
       setQrData({ title: `Invite to ${group.label}`, code: group.invite_code, hint: `This group is private. Share this code — they can enter it under "Have an invite code?" to join.` });
     } else {
-      setQrData({ title: `Invite to ${group.label}`, code: `bonda.app/g/${group.id}`, hint: "Share this code or link so other parents can find and join this group." });
+      // A plain ?g= query string, not a pretty /g/:id path — this always
+      // resolves to index.html on any static host with zero server-side
+      // rewrite rules, since the path stays "/". App.jsx reads it on load,
+      // signs the visitor in if needed, and hands the id to this screen's
+      // deep-link effect above once they land here.
+      setQrData({ title: `Invite to ${group.label}`, code: `${window.location.origin}/?g=${group.id}`, hint: "Share this link — opening it in Bonda takes them straight to this group, ready to join." });
     }
     setQrOpen(true);
   };

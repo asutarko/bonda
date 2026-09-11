@@ -58,6 +58,29 @@ export default function Bonda() {
   const [pendingPhone, setPendingPhone] = useState(false);
   const [showScheduleSettings, setShowScheduleSettings] = useState(false);
 
+  // A group invite link (see openGroupInvite in CommunityScreen.jsx) is just
+  // "<origin>/?g=<id>" — no server-side route needed, since the path stays
+  // "/" and only the query string carries the group id. Read it once on
+  // first load and strip it from the address bar right away so a refresh,
+  // or the popstate guard below, doesn't keep re-triggering it; the id
+  // itself lives on in state until CommunityScreen has actually consumed it.
+  const [pendingGroupId, setPendingGroupId] = useState(() => {
+    try { return new URLSearchParams(window.location.search).get("g") || null; }
+    catch { return null; }
+  });
+  useEffect(() => {
+    if (!pendingGroupId) return;
+    const url = new URL(window.location.href);
+    url.searchParams.delete("g");
+    window.history.replaceState(window.history.state, "", url);
+  }, []);
+  // Once the visitor is actually signed in (and not stuck on the mandatory
+  // phone-capture step), jump them straight to the Community tab so
+  // CommunityScreen's deep-link effect can resolve and open the group.
+  useEffect(() => {
+    if (account && !pendingPhone && pendingGroupId) setTab("community");
+  }, [account, pendingPhone, pendingGroupId]);
+
   // Loads the account and, if it just came from a fresh registration, flags
   // the mandatory phone-capture screen so it's shown before the app is usable.
   const applyAccount = (acc) => {
@@ -189,7 +212,7 @@ export default function Bonda() {
       case "home":      return <HomeScreen childCtx={childCtx} setTab={setTab} push={push} account={account} />;
       case "mychild":   return <MyChildScreen childCtx={childCtx} push={push} />;
       case "schedule":  return <ScheduleScreen childCtx={childCtx} push={push} showAlarmSettings={showScheduleSettings} setShowAlarmSettings={setShowScheduleSettings} />;
-      case "community": return <CommunityScreen account={account} />;
+      case "community": return <CommunityScreen account={account} openGroupId={pendingGroupId} onConsumedDeepLink={() => setPendingGroupId(null)} />;
       default:          return null;
     }
   };
