@@ -712,9 +712,12 @@ export function CommunityScreen({ account }) {
     flash("Left group");
   };
 
-  // Owner-only: appoint/unappoint a member as admin of the active (parent-
-  // created) group. Just an update to community_groups.admins — RLS already
-  // restricts that column's update to the owner (created_by = auth.uid()).
+  // Appoint/unappoint a member as admin of the active (parent-created)
+  // group. Just an update to community_groups.admins. The owner can do
+  // both; a private group's other admins can only appoint (promoteMember),
+  // not unappoint — enforce_group_admin_edit_scope (in
+  // community_groups_admins.sql) rejects an admin's update if it removes
+  // anyone from the admins array, so demoteMember stays owner-only.
   const [savingAdmins, setSavingAdmins] = useState(false);
   const setGroupAdmins = async nextAdmins => {
     if (!activeRoom || activeRoom.kind !== "user") return;
@@ -1064,12 +1067,19 @@ export function CommunityScreen({ account }) {
           const following = isFollowing(m.id);
           const memberIsOwner = m.id === activeRoom.created_by;
           const memberIsAdmin = (activeRoom.admins || []).includes(m.id);
-          // Only the owner can appoint/unappoint admins; the owner can't be
-          // demoted this way (they'd delete the group instead).
-          const canPromote = isGroupOwner(activeRoom, account.id) && !isMe && !memberIsOwner;
+          const actingIsOwner = isGroupOwner(activeRoom, account.id);
+          // Owner or an existing admin can appoint a regular member as
+          // admin. Only the owner can unappoint one, transfer ownership, or
+          // appoint someone who's already an admin (nothing to do there) —
+          // the owner can't be demoted this way, they'd delete the group
+          // instead. Enforced again server-side by
+          // enforce_group_admin_edit_scope in community_groups_admins.sql.
+          const canPromote = isGroupAdmin(activeRoom, account.id) && !isMe && !memberIsOwner && !memberIsAdmin;
+          const canDemote = actingIsOwner && !isMe && !memberIsOwner && memberIsAdmin;
+          const canTransfer = actingIsOwner && !isMe && !memberIsOwner;
           // Owner can remove anyone; an admin can remove regular members but
           // not the owner or other admins (enforced again by RLS server-side).
-          const canRemove = !isMe && !memberIsOwner && (isGroupOwner(activeRoom, account.id) || (isGroupAdmin(activeRoom, account.id) && !memberIsAdmin));
+          const canRemove = !isMe && !memberIsOwner && (actingIsOwner || (isGroupAdmin(activeRoom, account.id) && !memberIsAdmin));
           return (
             <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 4px", borderBottom: `1px solid ${T.border}` }}>
               <ComAvatar value={m.avatar} size={44} active={false} borderColor={T.border} />
@@ -1097,11 +1107,17 @@ export function CommunityScreen({ account }) {
                           },
                           ...(canPromote ? [{
                             key: "admin", ic: Shield,
-                            label: memberIsAdmin ? "Remove admin" : "Make admin",
+                            label: "Make admin",
                             disabled: savingAdmins,
-                            onClick: () => { setMemberMenuOpenId(null); memberIsAdmin ? demoteMember(m) : promoteMember(m); },
+                            onClick: () => { setMemberMenuOpenId(null); promoteMember(m); },
                           }] : []),
-                          ...(canPromote ? [{
+                          ...(canDemote ? [{
+                            key: "demote-admin", ic: Shield,
+                            label: "Remove admin",
+                            disabled: savingAdmins,
+                            onClick: () => { setMemberMenuOpenId(null); demoteMember(m); },
+                          }] : []),
+                          ...(canTransfer ? [{
                             key: "transfer", ic: Crown, danger: true,
                             label: "Transfer ownership",
                             disabled: transferringOwnerId === m.id,

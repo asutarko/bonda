@@ -1,24 +1,29 @@
 -- Run this once in the Supabase Dashboard → SQL Editor for this project.
 -- Adds per-group admins to parent-created PRIVATE groups (community_groups):
--- the owner (created_by) can appoint other members as admins, and
--- owners/admins can then remove other members from the group. Public
--- groups don't get this feature — see the is_private check in both the
--- policy below and CommunityScreen.jsx's isGroupOwner/isGroupAdmin.
+-- the owner (created_by) and any existing admin can appoint other members
+-- as admins, and owners/admins can then remove other members from the
+-- group. Only the owner can unappoint an admin or transfer ownership.
+-- Public groups don't get this feature — see the is_private check in both
+-- the policy below and CommunityScreen.jsx's isGroupOwner/isGroupAdmin.
 
 alter table public.community_groups add column if not exists admins uuid[] not null default '{}';
 
--- Promoting/demoting an admin is just updating this column, which the
--- existing "Creators can update or delete their own groups" policy already
--- covers (owner-only) — no new policy needed for that. The UI only offers
--- this for private groups, but the admins column itself is harmless to
--- carry on public group rows too (just unused).
+-- Promoting/demoting an admin is just updating this column. The owner's own
+-- update policy below covers the owner's case unconditionally; an admin
+-- appointing a fellow member goes through the "Admins can edit their
+-- private group" policy and is then further restricted by the trigger below
+-- to an append-only change to `admins` (no removals, no other columns). The
+-- UI only offers this for private groups, but the admins column itself is
+-- harmless to carry on public group rows too (just unused).
 
--- Admins of a private group can also update the group row — but only to
--- rename it or change its description (CommunityScreen.jsx's "Edit group"
--- form only sends those two fields when editingAsAdmin is true). The trigger
--- below enforces that server-side too, in case a stale client ever sends
--- more: any editor who isn't the owner may only change name/description,
--- everything else on the row must stay exactly as it was.
+-- Admins of a private group can also update the group row — either to
+-- rename it/change its description (CommunityScreen.jsx's "Edit group" form
+-- only sends those two fields when editingAsAdmin is true), or to appoint a
+-- new admin (promoteMember only ever adds to the array). The trigger below
+-- enforces both boundaries server-side too, in case a stale client ever
+-- sends more: any editor who isn't the owner may only change
+-- name/description, or add to `admins` — never remove from it or touch
+-- anything else on the row.
 drop policy if exists "Admins can edit their private group" on public.community_groups;
 create policy "Admins can edit their private group"
   on public.community_groups for update
@@ -61,7 +66,8 @@ begin
     return new;
   end if;
   -- Anyone else updating the row must be a current admin of a (still)
-  -- private group, and may only touch name/description.
+  -- private group, and may only touch name/description, or append to
+  -- `admins` (appointing a new admin) — never both in the same update.
   if not (old.is_private and auth.uid() = any(old.admins)) then
     raise exception 'Only the group owner or an admin can edit this group';
   end if;
@@ -69,10 +75,30 @@ begin
      or new.color_key is distinct from old.color_key
      or new.is_private is distinct from old.is_private
      or new.created_by is distinct from old.created_by
-     or new.admins is distinct from old.admins
      or new.invite_code is distinct from old.invite_code
      or new.topics is distinct from old.topics then
-    raise exception 'Admins can only change the group name and description';
+    raise exception 'Admins can only change the group name, description, or admins';
+  end if;
+  if new.admins is distinct from old.admins then
+    if new.name is distinct from old.name or new.description is distinct from old.description then
+      raise exception 'Appointing an admin cannot be combined with other edits';
+    end if;
+    -- Append-only: every existing admin must still be in the new array —
+    -- unappointing one (or the owner) stays owner-only, handled above.
+    if not (old.admins <@ new.admins) then
+      raise exception 'Admins can only appoint new admins, not remove existing ones';
+    end if;
+    -- Anyone newly added must already be a member of the group.
+    if exists (
+      select 1 from unnest(new.admins) as uid
+      where uid <> all(old.admins)
+        and not exists (
+          select 1 from public.community_group_members
+          where group_id = old.id and user_id = uid
+        )
+    ) then
+      raise exception 'Can only appoint an existing member as admin';
+    end if;
   end if;
   return new;
 end;
