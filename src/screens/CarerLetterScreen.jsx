@@ -60,6 +60,7 @@ const titleCase = (s) => s.replace(/\b\w/g, c => c.toUpperCase());
 const normalizeBracket = (s) => s.toLowerCase().replace(/_/g, " ").replace(/['']/g, "").replace(/\s+/g, " ").trim();
 
 const fillTemplate = (content, values) => {
+  if (!content) return content || "";
   const withBrackets = content.replace(/\[([^\]]+)\]/g, (match, inner) => {
     const key = normalizeBracket(inner);
     const has = (...words) => words.every(w => key.includes(w));
@@ -85,12 +86,25 @@ const fillTemplate = (content, values) => {
     if (has("diagnosis")) return values.diagnosis;
     if (has("allerg")) return values.allergies;
     if (has("card") && has("number")) return values.cardNumber;
-    if (has("doctor") || has("physician") || has("psychiatrist")) return values.doctorName;
+    // Checked before the bare name fallback below, since we only collect one
+    // phone/email for the child's doctor's clinic as a whole (values.clinicPhone/
+    // clinicEmail) — a placeholder asking for the doctor/psychiatrist's own
+    // direct line isn't something we have data for, so it's left bracketed
+    // rather than wrongly filled with their name.
+    if (has("doctor") || has("physician") || has("psychiatrist")) {
+      if (has("phone") || has("email")) return match;
+      return values.doctorName;
+    }
     if (has("clinic") && has("address")) return values.clinicAddress;
     if (has("clinic") && has("phone")) return values.clinicPhone;
     if (has("clinic") && has("email")) return values.clinicEmail;
     if (has("clinic")) return values.clinic;
-    if (key === "pronoun" || key.includes("him") || key.includes("her")) return values.pronoun;
+    // Word-boundary check (not a plain substring test) — "him"/"her" as a
+    // standalone word, not merely present inside another word. A plain
+    // `.includes("her")` would misfire on any placeholder mentioning a
+    // "therapist" (t-HER-apist), wrongly filling it with the pronoun instead
+    // of leaving it bracketed.
+    if (key === "pronoun" || /\b(him|her)\b/.test(key)) return values.pronoun;
     if (has("location") || has("country")) return values.location;
     // Collected once via the "Set up your first letter" step (CarerLetterScreen's
     // carer-details form) — left bracketed only if the caregiver skipped it.
@@ -118,7 +132,7 @@ const fillTemplate = (content, values) => {
 // it so it reads as a highlighted placeholder in the editor and exported PDF
 // instead of plain text that's easy to miss (styled via the "bonda-bk" class
 // added to TinyMCE's content_style below).
-const highlightBrackets = (html) => html.replace(/\[([^\]]+)\]/g, '<span class="bonda-bk">[$1]</span>');
+const highlightBrackets = (html) => (html || "").replace(/\[([^\]]+)\]/g, '<span class="bonda-bk">[$1]</span>');
 
 const buildRecipientLabel = (clinic, psychologist) => {
   if (!clinic) return "";
@@ -282,6 +296,18 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
   const [psychologists, setPsychologists] = useState([]);
 
   const [letterText, setLetterText] = useState("");
+  // TinyMCE is deliberately NOT used as a fully-controlled component (i.e.
+  // fed via a `value` prop kept in sync with `letterText` on every
+  // keystroke) — the @tinymce/tinymce-react docs themselves warn that
+  // reconciling external state with the editor's internal state that way is
+  // unreliable and can wipe out content the caregiver just typed (seen here:
+  // editing the highlighted "[Case worker email]" placeholder text could
+  // blank the entire letter). Instead the editor is given `initialValue`
+  // once and left alone; bumping this counter (used as the Editor's `key`)
+  // is the only way to force it to reload fresh content — done only when the
+  // letter is generated or loaded from storage below, never from the
+  // editor's own onEditorChange.
+  const [editorVersion, setEditorVersion] = useState(0);
   const [howtoOpen, setHowtoOpen] = useState(false);
   const saveTimer = useRef(null);
 
@@ -495,7 +521,7 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
     // "carer_letters" already existed in the schema for exactly this but was
     // never wired up.
     supabase.from("carer_letters").select("content").eq("child_id", selectedChild.id).maybeSingle()
-      .then(({ data }) => { if (!cancelled && data?.content) setLetterText(data.content); });
+      .then(({ data }) => { if (!cancelled && data?.content) { setLetterText(data.content); setEditorVersion(v => v + 1); } });
     return () => { cancelled = true; };
   }, [selectedChild?.id]);
 
@@ -571,8 +597,23 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
       yourEmail: carerData.email || "[Your email]",
       licensedCarer: carerData.licensedCarer || "",
     };
-    const filled = highlightBrackets(fillTemplate(template.content, values));
-    setLetterText(filled);
+    // A caregiver leaving some field blank should only ever leave that one
+    // spot bracketed — never blank the whole letter. fillTemplate() itself
+    // always falls through to the raw match on anything it can't resolve, but
+    // guard the call anyway: if it (or the template's own malformed HTML)
+    // still throws, fall back to the unfilled template rather than leaving
+    // letterText empty, which would hide the entire preview/editor below
+    // (guarded by `{letterText && ...}`) with no way back except re-opening
+    // "Edit your details".
+    let filled;
+    try {
+      filled = highlightBrackets(fillTemplate(template.content, values));
+    } catch (err) {
+      console.error("Failed to fill carer letter template:", err);
+      filled = highlightBrackets(template.content);
+    }
+    setLetterText(filled || highlightBrackets(template.content));
+    setEditorVersion(v => v + 1);
     clearTimeout(saveTimer.current);
     persistLetter(filled);
   };
@@ -912,8 +953,9 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
           <div style={{ marginBottom: 14, borderRadius: T.r, overflow: "hidden", border: `1.5px solid ${T.border}` }}>
             <Suspense fallback={<p style={{ margin: 0, padding: 16, color: T.inkSoft, fontSize: 13 }}>Loading editor...</p>}>
               <TinyMCEEditor
+                key={editorVersion}
                 licenseKey="gpl"
-                value={letterText}
+                initialValue={letterText}
                 onEditorChange={handleEditorChange}
                 init={{
                   height: 520,
