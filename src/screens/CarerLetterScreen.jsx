@@ -377,6 +377,7 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
     const fe = {};
     if (!carerName.trim()) fe.name = "Please enter your name.";
     if (!carerPhone.trim()) fe.phone = "Please enter a phone number.";
+    if (!recipientId) fe.recipient = "Please choose or add a recipient.";
     if (!childDob) fe.childDob = "Please enter the child's date of birth.";
     setCarerErrors(fe);
     if (Object.keys(fe).length > 0) return;
@@ -681,11 +682,11 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
           </div>
 
           <div className="grp">
-            <p className="glabel cl-serif">Recipient <span style={{ fontWeight: 400, color: T.inkMuted, fontSize: 13 }}>— optional</span></p>
+            <p className="glabel cl-serif">Recipient</p>
             <p className="gsub">Who this letter is addressed to — a school, court, agency, or anywhere else. Pick from your saved recipients, or add a new one — you can reuse it for other letters and children later.</p>
 
             <div className="fld">
-              <label>Recipient</label>
+              <label>Recipient <span className="req">*</span></label>
               <div className="selwrap">
                 <select
                   value={addingRecipient ? "__new__" : recipientId}
@@ -695,7 +696,7 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
                     else { setRecipientId(v); setAddingRecipient(false); }
                   }}
                 >
-                  <option value="">Fill in later, directly in the letter</option>
+                  <option value="">Select a recipient</option>
                   {recipients.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
                   <option value="__new__">+ Add new recipient</option>
                 </select>
@@ -705,6 +706,7 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
                 const details = [r?.address, r?.phone].filter(Boolean).join(" · ");
                 return details ? <p className="hint">{details}</p> : null;
               })()}
+              {carerErrors.recipient && <p className="err">{carerErrors.recipient}</p>}
             </div>
 
             {addingRecipient && (
