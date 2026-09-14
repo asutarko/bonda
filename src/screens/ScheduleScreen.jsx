@@ -679,8 +679,8 @@ function DayGridView({ items, dow, isToday, nowHHMM, onItemClick, hasConflict })
 
         {dayItems.map(({ item, start, end, col, cols }) => {
           const top = (start / 60) * DAY_GRID_HOUR_PX;
-          const height = Math.max(22, ((Math.max(end, start + 15) - start) / 60) * DAY_GRID_HOUR_PX - 2);
           const conflict = hasConflict ? hasConflict(item) : false;
+          const height = Math.max(conflict ? 36 : 22, ((Math.max(end, start + 15) - start) / 60) * DAY_GRID_HOUR_PX - 2);
           const { c, l } = conflict ? { c: CONFLICT_COLOR, l: CONFLICT_COLOR_L } : categoryColor(item.category);
           const gap = 3;
           const laneLeft = `calc(50px + (100% - 54px) * ${col / cols})`;
@@ -691,10 +691,10 @@ function DayGridView({ items, dow, isToday, nowHHMM, onItemClick, hasConflict })
               type="button"
               onClick={() => onItemClick(item)}
               title={conflict ? "Overlaps with another activity" : undefined}
-              style={{ position: "absolute", top, left: laneLeft, width: laneWidth, height, background: l, borderLeft: `5px solid ${c}`, borderRadius: 6, padding: "3px 8px", overflow: "hidden", textAlign: "left", cursor: "pointer", border: "none", fontFamily: T.fontBody, zIndex: cols > 1 ? 2 : 1 }}
+              style={{ position: "absolute", top, left: laneLeft, width: laneWidth, height, background: l, borderLeft: `5px solid ${c}`, borderRadius: 6, padding: "3px 8px", overflow: "hidden", textAlign: "left", cursor: "pointer", border: "none", fontFamily: T.fontBody, zIndex: cols > 1 ? 2 : 1, display: "flex", flexDirection: "column", justifyContent: "center", gap: 1 }}
             >
-              <span style={{ fontSize: 11.5, fontWeight: 700, color: T.ink, whiteSpace: "nowrap" }}>{item.emoji} {item.label}</span>
-              {conflict && <span style={{ display: "block", fontSize: 9.5, fontWeight: 800, color: CONFLICT_COLOR, whiteSpace: "nowrap" }}>Conflict</span>}
+              <span style={{ fontSize: 11.5, fontWeight: 700, color: T.ink, whiteSpace: "nowrap", lineHeight: 1.15 }}>{item.emoji} {item.label}</span>
+              {conflict && <span style={{ fontSize: 9.5, fontWeight: 800, color: CONFLICT_COLOR, whiteSpace: "nowrap", lineHeight: 1.15 }}>Conflict</span>}
             </button>
           );
         })}
