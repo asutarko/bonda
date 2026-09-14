@@ -624,7 +624,7 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
           .cl-setup .gsub{font-size:13px;color:${T.inkSoft};margin:0 0 18px;}
           .cl-setup .fld{margin-bottom:16px;}
           .cl-setup .fld > label{display:block;font-size:13px;font-weight:700;color:${T.inkSoft};letter-spacing:.02em;margin:0 0 8px;}
-          .cl-setup .req{color:${T.amber};}
+          .cl-setup .req{color:${T.red};}
           .cl-setup input, .cl-setup select{
             width:100%;font-size:15px;color:${T.ink};background:${T.surface};
             border:1px solid ${T.border};border-radius:${T.r};padding:15px 16px;appearance:none;
