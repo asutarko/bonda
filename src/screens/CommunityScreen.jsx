@@ -26,7 +26,7 @@ const TRANSLATE_LANGUAGES = ["English", "Malay", "Mandarin", "Tamil"];
 // Normalizes an admin community_rooms row or a parent-created community_groups
 // row into the same shape, so chat/members/invite code doesn't need to care
 // which kind of group it's dealing with.
-const roomToGroup = r => ({ id: r.id, label: r.label, description: r.description, icon_key: r.icon_key, color_key: r.color_key, topics: r.topics || [], kind: "admin" });
+const roomToGroup = r => ({ id: r.id, label: r.label, description: r.description, icon_key: r.icon_key, color_key: r.color_key, topics: r.topics || [], invite_code: r.invite_code, kind: "admin" });
 const groupToGroup = g => ({ id: g.id, label: g.name, description: g.description, icon_key: g.icon_key, color_key: g.color_key, topics: g.topics || [], created_by: g.created_by, is_private: g.is_private, invite_code: g.invite_code, admins: g.admins || [], kind: "user" });
 
 // Owner = whoever created the group (community_groups.created_by); admins
@@ -437,19 +437,23 @@ export function CommunityScreen({ account, openGroupId, onConsumedDeepLink }) {
       .subscribe();
   };
 
-  // Resolves an invite link's group id (App.jsx pulled it out of the URL's
-  // ?g= query param — see openGroupInvite below for how that link is built)
-  // once we land on this screen. Only public groups (admin-curated rooms, or
-  // parent-created groups that aren't private) are reachable this way —
-  // private groups still require typing in their invite code.
+  // Resolves an invite link's group (App.jsx pulled the code out of the
+  // URL's ?g= query param — see openGroupInvite below for how that link is
+  // built) once we land on this screen. Only public groups (admin-curated
+  // rooms, or parent-created groups that aren't private) are reachable this
+  // way — private groups still require typing in their invite code. Current
+  // links carry the short invite_code; a uuid means the link predates it, so
+  // match on "id" instead — id is a uuid column and errors given anything
+  // else, so which column to query has to be picked by the value's shape.
   useEffect(() => {
     if (!openGroupId) return;
+    const col = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(openGroupId) ? "id" : "invite_code";
     let cancelled = false;
     (async () => {
-      const { data: room } = await supabase.from("community_rooms").select("*").eq("id", openGroupId).maybeSingle();
+      const { data: room } = await supabase.from("community_rooms").select("*").eq(col, openGroupId).maybeSingle();
       if (cancelled) return;
       if (room) { openGroup(roomToGroup(room)); onConsumedDeepLink?.(); return; }
-      const { data: group } = await supabase.from("community_groups").select("*").eq("id", openGroupId).eq("is_private", false).maybeSingle();
+      const { data: group } = await supabase.from("community_groups").select("*").eq(col, openGroupId).eq("is_private", false).maybeSingle();
       if (cancelled) return;
       if (group) { openGroup(groupToGroup(group)); onConsumedDeepLink?.(); return; }
       onConsumedDeepLink?.();
@@ -830,9 +834,12 @@ export function CommunityScreen({ account, openGroupId, onConsumedDeepLink }) {
       // A plain ?g= query string, not a pretty /g/:id path — this always
       // resolves to index.html on any static host with zero server-side
       // rewrite rules, since the path stays "/". App.jsx reads it on load,
-      // signs the visitor in if needed, and hands the id to this screen's
-      // deep-link effect above once they land here.
-      setQrData({ title: `Invite to ${group.label}`, code: `${window.location.origin}/?g=${group.id}`, hint: "Share this link — opening it in Bonda takes them straight to this group, ready to join." });
+      // signs the visitor in if needed, and hands the code to this screen's
+      // deep-link effect above once they land here. Uses the short
+      // invite_code (not the raw uuid) so the link is short enough to read
+      // and share as plain text; the deep-link effect still falls back to
+      // matching by id for links shared before invite_code existed.
+      setQrData({ title: `Invite to ${group.label}`, code: `${window.location.origin}/?g=${group.invite_code || group.id}`, hint: "Share this link — opening it in Bonda takes them straight to this group, ready to join." });
     }
     setQrOpen(true);
   };

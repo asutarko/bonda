@@ -26,6 +26,7 @@ export const childFromRow = (row) => ({
   medication: row.medication || "",
   diagnosis: row.diagnosis || "",
   placementStartDate: row.placement_start_date || "",
+  recipientId: row.recipient_id || null,
   fosteringAgency: row.fostering_agency || "",
   placementType: row.placement_type || "",
   courtOrderRef: row.court_order_ref || "",
@@ -119,6 +120,7 @@ export function useChildren(userId) {
       medication: child.medication || "",
       diagnosis: child.diagnosis || "",
       placement_start_date: child.placementStartDate || null,
+      recipient_id: child.recipientId || null,
       fostering_agency: child.fosteringAgency || "",
       placement_type: child.placementType || "",
       court_order_ref: child.courtOrderRef || "",
@@ -166,6 +168,7 @@ export function useChildren(userId) {
     if ("medication" in patch) dbPatch.medication = patch.medication;
     if ("diagnosis" in patch) dbPatch.diagnosis = patch.diagnosis;
     if ("placementStartDate" in patch) dbPatch.placement_start_date = patch.placementStartDate || null;
+    if ("recipientId" in patch) dbPatch.recipient_id = patch.recipientId || null;
     if ("fosteringAgency" in patch) dbPatch.fostering_agency = patch.fosteringAgency;
     if ("placementType" in patch) dbPatch.placement_type = patch.placementType;
     if ("courtOrderRef" in patch) dbPatch.court_order_ref = patch.courtOrderRef;

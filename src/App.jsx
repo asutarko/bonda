@@ -59,10 +59,11 @@ export default function Bonda() {
   const [showScheduleSettings, setShowScheduleSettings] = useState(false);
 
   // A group invite link (see openGroupInvite in CommunityScreen.jsx) is just
-  // "<origin>/?g=<id>" — no server-side route needed, since the path stays
-  // "/" and only the query string carries the group id. Read it once on
-  // first load and strip it from the address bar right away so a refresh,
-  // or the popstate guard below, doesn't keep re-triggering it; the id
+  // "<origin>/?g=<code>" — no server-side route needed, since the path stays
+  // "/" and only the query string carries the group's short invite_code (or,
+  // for links shared before invite_code existed, its raw id). Read it once
+  // on first load and strip it from the address bar right away so a refresh,
+  // or the popstate guard below, doesn't keep re-triggering it; the value
   // itself lives on in state until CommunityScreen has actually consumed it.
   const [pendingGroupId, setPendingGroupId] = useState(() => {
     try { return new URLSearchParams(window.location.search).get("g") || null; }

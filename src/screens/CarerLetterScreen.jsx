@@ -302,6 +302,22 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
   const [carerErrors, setCarerErrors] = useState({});
   const [savingCarer, setSavingCarer] = useState(false);
 
+  // Who this particular letter is addressed to — a school, a court, a
+  // fostering agency, anywhere the caregiver needs to send it. Not tied to
+  // the admin-managed clinic/psychologist assignment below, and not a single
+  // field on the child: a caregiver can have several recipients in play (for
+  // one child, or reused across children), so these are the caregiver's own
+  // saved address book (carer_letter_recipients) — picked from a dropdown,
+  // with "+ Add new recipient" to grow the list inline. Only *which* saved
+  // recipient was last used is remembered per child (children.recipient_id).
+  const [recipients, setRecipients] = useState([]);
+  const [recipientId, setRecipientId] = useState(selectedChild?.recipientId || "");
+  const [addingRecipient, setAddingRecipient] = useState(false);
+  const [newRecipientName, setNewRecipientName] = useState("");
+  const [newRecipientAddress, setNewRecipientAddress] = useState("");
+  const [newRecipientPhone, setNewRecipientPhone] = useState("");
+  const [savingRecipient, setSavingRecipient] = useState(false);
+
   // Same step also covers the letter-relevant subset of the selected child's
   // details and their case worker — both already live on the "children" table
   // (edited in full on the child profile screens), but are surfaced here too
@@ -331,6 +347,11 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
   // selected instead of leaving the previous child's values showing.
   useEffect(() => {
     setChildDob(selectedChild?.dob || "");
+    setRecipientId(selectedChild?.recipientId || "");
+    setAddingRecipient(false);
+    setNewRecipientName("");
+    setNewRecipientAddress("");
+    setNewRecipientPhone("");
     setPlacementStartDate(selectedChild?.placementStartDate || "");
     setPlacementType(selectedChild?.placementType || "");
     setCourtOrderRef(selectedChild?.courtOrderRef || "");
@@ -370,6 +391,7 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
     if (!error && account?.id) await supabase.from("profiles").update({ phone: carerPhone.trim() }).eq("id", account.id);
     const childPatch = {
       dob: childDob,
+      recipientId: recipientId || null,
       placementStartDate,
       placementType,
       courtOrderRef: courtOrderRef.trim(),
@@ -428,6 +450,36 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
     load();
   }, []);
 
+  // The caregiver's own saved recipients (see carer_letter_recipients.sql) —
+  // private to this account, unlike the admin-managed clinics/psychologists
+  // above.
+  useEffect(() => {
+    if (!account?.id) { setRecipients([]); return; }
+    let cancelled = false;
+    supabase.from("carer_letter_recipients").select("*").eq("user_id", account.id).order("name")
+      .then(({ data }) => { if (!cancelled) setRecipients(data || []); });
+    return () => { cancelled = true; };
+  }, [account?.id]);
+
+  const saveNewRecipient = async () => {
+    if (!newRecipientName.trim() || !account?.id) return;
+    setSavingRecipient(true);
+    const { data, error } = await supabase.from("carer_letter_recipients").insert({
+      user_id: account.id,
+      name: newRecipientName.trim(),
+      address: newRecipientAddress.trim(),
+      phone: newRecipientPhone.trim(),
+    }).select().single();
+    setSavingRecipient(false);
+    if (error || !data) return;
+    setRecipients(rs => [...rs, data].sort((a, b) => a.name.localeCompare(b.name)));
+    setRecipientId(data.id);
+    setAddingRecipient(false);
+    setNewRecipientName("");
+    setNewRecipientAddress("");
+    setNewRecipientPhone("");
+  };
+
   useEffect(() => {
     setLetterText("");
     if (!selectedChild) return;
@@ -477,11 +529,16 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
     // placeholder rather than a vague "to be confirmed" — same convention as
     // the template's own unfilled placeholders, so it's obvious in the TinyMCE
     // preview exactly which bits the caregiver still needs to fill in by hand.
+    // A recipient the caregiver picked from their own saved address book
+    // (this letter's actual destination — a school, court, agency, anywhere)
+    // always wins over the admin-assigned clinic/psychologist, since picking
+    // one is a deliberate choice of where *this* letter is going.
+    const chosenRecipient = recipients.find(r => r.id === childData.recipientId) || null;
     const values = {
       date: formatDate(new Date()),
-      recipientName: buildRecipientLabel(assignedClinic, assignedPsychologist) || childData.clinicName?.trim() || "[Recipient name / organisation]",
-      recipientAddress: assignedClinic?.address?.trim() || "[Recipient address]",
-      recipientPhone: assignedClinic?.phone?.trim() || "[Recipient phone]",
+      recipientName: chosenRecipient?.name?.trim() || buildRecipientLabel(assignedClinic, assignedPsychologist) || childData.clinicName?.trim() || "[Recipient name / organisation]",
+      recipientAddress: chosenRecipient?.address?.trim() || assignedClinic?.address?.trim() || "[Recipient address]",
+      recipientPhone: chosenRecipient?.phone?.trim() || assignedClinic?.phone?.trim() || "[Recipient phone]",
       location: childData.location?.trim() || "[Location]",
       childName: childData.name,
       dob: childData.dob ? formatDate(childData.dob) : "[Date of birth]",
@@ -615,6 +672,68 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
               <input value={carerAgency} onChange={e => setCarerAgency(e.target.value)} placeholder="e.g. MSF, Boys' Town" />
               <p className="hint">Leave blank if you're not sure — you can type it into the letter later.</p>
             </div>
+          </div>
+
+          <div className="grp">
+            <p className="glabel cl-serif">Recipient <span style={{ fontWeight: 400, color: T.inkMuted, fontSize: 13 }}>— optional</span></p>
+            <p className="gsub">Who this letter is addressed to — a school, court, agency, or anywhere else. Pick from your saved recipients, or add a new one — you can reuse it for other letters and children later.</p>
+
+            <div className="fld">
+              <label>Recipient</label>
+              <div className="selwrap">
+                <select
+                  value={addingRecipient ? "__new__" : recipientId}
+                  onChange={e => {
+                    const v = e.target.value;
+                    if (v === "__new__") { setAddingRecipient(true); }
+                    else { setRecipientId(v); setAddingRecipient(false); }
+                  }}
+                >
+                  <option value="">Fill in later, directly in the letter</option>
+                  {recipients.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                  <option value="__new__">+ Add new recipient</option>
+                </select>
+              </div>
+              {!addingRecipient && recipientId && (() => {
+                const r = recipients.find(x => x.id === recipientId);
+                const details = [r?.address, r?.phone].filter(Boolean).join(" · ");
+                return details ? <p className="hint">{details}</p> : null;
+              })()}
+            </div>
+
+            {addingRecipient && (
+              <div style={{ background: T.canvas, border: `1px solid ${T.border}`, borderRadius: T.r, padding: "16px 14px 2px", marginBottom: 16 }}>
+                <div className="fld">
+                  <label>New recipient name <span className="req">*</span></label>
+                  <input value={newRecipientName} onChange={e => setNewRecipientName(e.target.value)} placeholder="e.g. Sunrise Primary School" />
+                </div>
+                <div className="fld">
+                  <label>Address</label>
+                  <input value={newRecipientAddress} onChange={e => setNewRecipientAddress(e.target.value)} placeholder="e.g. 1 Sunrise Ave, #01-01" />
+                </div>
+                <div className="fld">
+                  <label>Phone</label>
+                  <input type="tel" value={newRecipientPhone} onChange={e => setNewRecipientPhone(e.target.value)} placeholder="e.g. 6123 4567" />
+                </div>
+                <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
+                  <button
+                    type="button"
+                    onClick={saveNewRecipient}
+                    disabled={!newRecipientName.trim() || savingRecipient}
+                    style={{ flex: 1, border: 0, borderRadius: 12, padding: "12px 16px", fontSize: 14, fontWeight: 700, cursor: newRecipientName.trim() ? "pointer" : "not-allowed", background: newRecipientName.trim() ? T.purple : T.border, color: "#fff" }}
+                  >
+                    {savingRecipient ? "Saving..." : "Save recipient"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setAddingRecipient(false); setNewRecipientName(""); setNewRecipientAddress(""); setNewRecipientPhone(""); }}
+                    style={{ border: `1px solid ${T.border}`, borderRadius: 12, padding: "12px 16px", fontSize: 14, fontWeight: 700, cursor: "pointer", background: T.surface, color: T.inkSoft }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="grp">
