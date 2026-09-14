@@ -84,6 +84,7 @@ const fillTemplate = (content, values) => {
     if (has("verbal")) return values.verbalText;
     if (has("diagnosis")) return values.diagnosis;
     if (has("allerg")) return values.allergies;
+    if (has("card") && has("number")) return values.cardNumber;
     if (has("doctor") || has("physician") || has("psychiatrist")) return values.doctorName;
     if (has("clinic") && has("address")) return values.clinicAddress;
     if (has("clinic") && has("phone")) return values.clinicPhone;
@@ -144,6 +145,7 @@ const PLACEHOLDER_HELP = {
   "Verbal status": "Whether the child is verbal, non-verbal, or an emerging communicator.",
   "Diagnosis, if applicable": "Any medical or developmental diagnosis relevant to this letter.",
   "Known allergies / triggers": "Allergies or known triggers the reader should be aware of.",
+  "Medical Fee Exemption Card number, if applicable": "The child's medical fee exemption / subsidy card number, if they have one.",
   "Clinic name": "The clinic or practice handling this child's care.",
   "Clinic address": "The postal address of that clinic.",
   "Clinic phone": "A contact phone number for that clinic.",
@@ -330,6 +332,7 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
   const [verbalStatus, setVerbalStatus] = useState(selectedChild?.verbalStatus || "");
   const [diagnosis, setDiagnosis] = useState(selectedChild?.diagnosis || "");
   const [knownTriggers, setKnownTriggers] = useState(selectedChild?.knownTriggers || "");
+  const [medicalCardNumber, setMedicalCardNumber] = useState(selectedChild?.medicalCardNumber || "");
   const [clinicName, setClinicName] = useState(selectedChild?.clinicName || "");
   const [doctorName, setDoctorName] = useState(selectedChild?.doctorName || "");
   const [clinicAddress, setClinicAddress] = useState(selectedChild?.clinicAddress || "");
@@ -358,6 +361,7 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
     setVerbalStatus(selectedChild?.verbalStatus || "");
     setDiagnosis(selectedChild?.diagnosis || "");
     setKnownTriggers(selectedChild?.knownTriggers || "");
+    setMedicalCardNumber(selectedChild?.medicalCardNumber || "");
     setClinicName(selectedChild?.clinicName || "");
     setDoctorName(selectedChild?.doctorName || "");
     setClinicAddress(selectedChild?.clinicAddress || "");
@@ -398,6 +402,7 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
       verbalStatus,
       diagnosis: diagnosis.trim(),
       knownTriggers: knownTriggers.trim(),
+      medicalCardNumber: medicalCardNumber.trim(),
       clinicName: clinicName.trim(),
       doctorName: doctorName.trim(),
       clinicAddress: clinicAddress.trim(),
@@ -552,6 +557,7 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
       verbalText: verbalTextFor(childData.verbalStatus),
       diagnosis: childData.diagnosis?.trim() || "[Diagnosis, if applicable]",
       allergies: childData.knownTriggers?.trim() || "[Known allergies / triggers]",
+      cardNumber: childData.medicalCardNumber?.trim() || "[Medical Fee Exemption Card number, if applicable]",
       clinic: assignedClinic?.name || childData.clinicName?.trim() || "[Clinic name]",
       clinicAddress: assignedClinic?.address?.trim() || childData.clinicAddress?.trim() || "[Clinic address]",
       clinicPhone: assignedClinic?.phone?.trim() || childData.clinicPhone?.trim() || "[Clinic phone]",
@@ -801,6 +807,11 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
             <div className="fld">
               <label>Known allergies / triggers</label>
               <input value={knownTriggers} onChange={e => setKnownTriggers(e.target.value)} placeholder="e.g. Peanuts, loud noises" />
+            </div>
+
+            <div className="fld">
+              <label>Medical Fee Exemption Card number <span style={{ fontWeight: 400, color: T.inkMuted }}>— optional</span></label>
+              <input value={medicalCardNumber} onChange={e => setMedicalCardNumber(e.target.value)} placeholder="Leave blank if not applicable" />
             </div>
           </div>
 

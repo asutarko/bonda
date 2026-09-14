@@ -20,6 +20,7 @@ export const childFromRow = (row) => ({
   hasSpecialNeeds: row.has_special_needs || false,
   verbalStatus: row.verbal_status || "",
   knownTriggers: row.known_triggers || "",
+  medicalCardNumber: row.medical_card_number || "",
   therapySchedule: row.therapy_schedule || "",
   dietProgram: row.diet_program || "",
   allergies: row.allergies || "",
@@ -119,6 +120,7 @@ export function useChildren(userId) {
       allergies: child.allergies || "",
       medication: child.medication || "",
       diagnosis: child.diagnosis || "",
+      medical_card_number: child.medicalCardNumber || "",
       placement_start_date: child.placementStartDate || null,
       recipient_id: child.recipientId || null,
       fostering_agency: child.fosteringAgency || "",
@@ -167,6 +169,7 @@ export function useChildren(userId) {
     if ("allergies" in patch) dbPatch.allergies = patch.allergies;
     if ("medication" in patch) dbPatch.medication = patch.medication;
     if ("diagnosis" in patch) dbPatch.diagnosis = patch.diagnosis;
+    if ("medicalCardNumber" in patch) dbPatch.medical_card_number = patch.medicalCardNumber;
     if ("placementStartDate" in patch) dbPatch.placement_start_date = patch.placementStartDate || null;
     if ("recipientId" in patch) dbPatch.recipient_id = patch.recipientId || null;
     if ("fosteringAgency" in patch) dbPatch.fostering_agency = patch.fosteringAgency;
