@@ -467,7 +467,6 @@ function TimelineRow({ item, essential, status, skipped, notToday, conflict, onT
               >⠿</span>
               {item.emoji && <span style={{ fontSize: 20, flexShrink: 0, lineHeight: 1, display: "flex" }}>{item.emoji}</span>}
               <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 700, color: done ? T.inkMuted : T.ink, textDecoration: done ? "line-through" : "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.label}</span>
-              {essential && <span style={{ fontSize: 13, flexShrink: 0, lineHeight: 1 }}>🔒</span>}
               <button onClick={e => { e.stopPropagation(); onMenuToggle(); }} style={{ border: "none", background: "none", cursor: "pointer", padding: "2px 4px", fontSize: 18, fontWeight: 900, color: T.inkMuted, lineHeight: 1 }} aria-label="Options">⋯</button>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginTop: 3 }}>
@@ -492,7 +491,7 @@ function TimelineRow({ item, essential, status, skipped, notToday, conflict, onT
               <>
                 <button onClick={onSkip} style={{ ...rowMenuBtn, color: T.ink }}>{skipped ? "↩ Un-skip today" : "⏭ Skip for today"}</button>
                 <div style={{ height: 1, background: T.border }} />
-                <div style={{ ...rowMenuBtn, cursor: "default", color: T.inkMuted, fontSize: 12 }}>🔒 Essential · can't remove</div>
+                <div style={{ ...rowMenuBtn, cursor: "default", color: T.inkMuted, fontSize: 12 }}>Essential · can't remove</div>
               </>
             ) : (
               <button onClick={onDelete} style={{ ...rowMenuBtn, color: T.red }}>🗑️ Delete</button>
