@@ -27,6 +27,36 @@ const verbalTextFor = (verbalStatus) => {
 
 const pronounFor = (gender) => (gender === "Male" ? "him" : gender === "Female" ? "her" : "them");
 
+// Up to 3 repeats each for clinic/doctor and case worker. Kept on the existing
+// single-value "children" columns (clinic_name/doctor_name/clinic_address/
+// clinic_phone/clinic_email, case_worker_name/_phone/_email) rather than new
+// jsonb columns — each holds its entries newline-joined (a plain <input> can
+// never contain a literal newline, unlike a comma, which addresses routinely
+// do), with position i across the columns of one group belonging to the same
+// entry. Index-aligned so leaving e.g. clinic 2's doctor blank doesn't shift
+// clinic 3's fields down.
+const splitLines = (value) => (value || "").split("\n").map(s => s.trim());
+const joinLines = (entries, key) => entries.map(e => e[key].trim()).join("\n");
+// Human-readable form for the letter itself — a comma list reads naturally
+// mid-sentence/table-cell, unlike the newline join used for storage above.
+const joinForLetter = (value) => splitLines(value).filter(Boolean).join(", ");
+const parseEntries = (child, fieldMap, max) => {
+  const keys = Object.keys(fieldMap);
+  const lists = keys.map(k => splitLines(child?.[fieldMap[k]]));
+  const count = Math.min(max, Math.max(1, ...lists.map(l => l.length)));
+  return Array.from({ length: count }, (_, i) => Object.fromEntries(keys.map((k, idx) => [k, lists[idx][i] || ""])));
+};
+
+const MAX_CLINICS = 3;
+const EMPTY_CLINIC = { name: "", doctor: "", address: "", phone: "", email: "" };
+const CLINIC_FIELDS = { name: "clinicName", doctor: "doctorName", address: "clinicAddress", phone: "clinicPhone", email: "clinicEmail" };
+const parseClinics = (child) => parseEntries(child, CLINIC_FIELDS, MAX_CLINICS);
+
+const MAX_CASE_WORKERS = 3;
+const EMPTY_CASE_WORKER = { name: "", phone: "", email: "" };
+const CASE_WORKER_FIELDS = { name: "caseWorkerName", phone: "caseWorkerPhone", email: "caseWorkerEmail" };
+const parseCaseWorkers = (child) => parseEntries(child, CASE_WORKER_FIELDS, MAX_CASE_WORKERS);
+
 // This screen's look is ported from the carer-letter.html mockup, which pairs
 // a serif display face (titles, the letter body itself) with a sans body face
 // (labels, UI chrome) instead of the Literata-everywhere look used by the rest
@@ -356,14 +386,8 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
   const [verbalStatus, setVerbalStatus] = useState(selectedChild?.verbalStatus || "");
   const [diagnosis, setDiagnosis] = useState(selectedChild?.diagnosis || "");
   const [knownTriggers, setKnownTriggers] = useState(selectedChild?.knownTriggers || "");
-  const [clinicName, setClinicName] = useState(selectedChild?.clinicName || "");
-  const [doctorName, setDoctorName] = useState(selectedChild?.doctorName || "");
-  const [clinicAddress, setClinicAddress] = useState(selectedChild?.clinicAddress || "");
-  const [clinicPhone, setClinicPhone] = useState(selectedChild?.clinicPhone || "");
-  const [clinicEmail, setClinicEmail] = useState(selectedChild?.clinicEmail || "");
-  const [caseWorkerName, setCaseWorkerName] = useState(selectedChild?.caseWorkerName || "");
-  const [caseWorkerPhone, setCaseWorkerPhone] = useState(selectedChild?.caseWorkerPhone || "");
-  const [caseWorkerEmail, setCaseWorkerEmail] = useState(selectedChild?.caseWorkerEmail || "");
+  const [clinicEntries, setClinicEntries] = useState(parseClinics(selectedChild));
+  const [caseWorkerEntries, setCaseWorkerEntries] = useState(parseCaseWorkers(selectedChild));
 
   useEffect(() => () => clearTimeout(saveTimer.current), []);
 
@@ -384,14 +408,8 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
     setVerbalStatus(selectedChild?.verbalStatus || "");
     setDiagnosis(selectedChild?.diagnosis || "");
     setKnownTriggers(selectedChild?.knownTriggers || "");
-    setClinicName(selectedChild?.clinicName || "");
-    setDoctorName(selectedChild?.doctorName || "");
-    setClinicAddress(selectedChild?.clinicAddress || "");
-    setClinicPhone(selectedChild?.clinicPhone || "");
-    setClinicEmail(selectedChild?.clinicEmail || "");
-    setCaseWorkerName(selectedChild?.caseWorkerName || "");
-    setCaseWorkerPhone(selectedChild?.caseWorkerPhone || "");
-    setCaseWorkerEmail(selectedChild?.caseWorkerEmail || "");
+    setClinicEntries(parseClinics(selectedChild));
+    setCaseWorkerEntries(parseCaseWorkers(selectedChild));
     setCarerErrors({});
   }, [selectedChild?.id]);
 
@@ -425,14 +443,14 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
       verbalStatus,
       diagnosis: diagnosis.trim(),
       knownTriggers: knownTriggers.trim(),
-      clinicName: clinicName.trim(),
-      doctorName: doctorName.trim(),
-      clinicAddress: clinicAddress.trim(),
-      clinicPhone: clinicPhone.trim(),
-      clinicEmail: clinicEmail.trim(),
-      caseWorkerName: caseWorkerName.trim(),
-      caseWorkerPhone: caseWorkerPhone.trim(),
-      caseWorkerEmail: caseWorkerEmail.trim(),
+      clinicName: joinLines(clinicEntries, "name"),
+      doctorName: joinLines(clinicEntries, "doctor"),
+      clinicAddress: joinLines(clinicEntries, "address"),
+      clinicPhone: joinLines(clinicEntries, "phone"),
+      clinicEmail: joinLines(clinicEntries, "email"),
+      caseWorkerName: joinLines(caseWorkerEntries, "name"),
+      caseWorkerPhone: joinLines(caseWorkerEntries, "phone"),
+      caseWorkerEmail: joinLines(caseWorkerEntries, "email"),
     };
     if (!error && selectedChild && updateChild) updateChild(selectedChild.id, childPatch);
     setSavingCarer(false);
@@ -563,7 +581,7 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
     const chosenRecipient = recipients.find(r => r.id === childData.recipientId) || null;
     const values = {
       date: formatDate(new Date()),
-      recipientName: chosenRecipient?.name?.trim() || buildRecipientLabel(assignedClinic, assignedPsychologist) || childData.clinicName?.trim() || "[Recipient name / organisation]",
+      recipientName: chosenRecipient?.name?.trim() || buildRecipientLabel(assignedClinic, assignedPsychologist) || joinForLetter(childData.clinicName) || "[Recipient name / organisation]",
       recipientAddress: chosenRecipient?.address?.trim() || assignedClinic?.address?.trim() || "[Recipient address]",
       recipientPhone: chosenRecipient?.phone?.trim() || assignedClinic?.phone?.trim() || "[Recipient phone]",
       location: childData.location?.trim() || "[Location]",
@@ -571,19 +589,19 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
       dob: childData.dob ? formatDate(childData.dob) : "[Date of birth]",
       placementStartDate: childData.placementStartDate ? formatDate(childData.placementStartDate) : "[Placement start date]",
       fosteringAgency: childData.fosteringAgency?.trim() || carerData.carerAgency?.trim() || "[Fostering agency / VWO name]",
-      caseWorkerName: childData.caseWorkerName?.trim() || "[Case worker name]",
-      caseWorkerPhone: childData.caseWorkerPhone?.trim() || "[Case worker phone]",
-      caseWorkerEmail: childData.caseWorkerEmail?.trim() || "[Case worker email]",
+      caseWorkerName: joinForLetter(childData.caseWorkerName) || "[Case worker name]",
+      caseWorkerPhone: joinForLetter(childData.caseWorkerPhone) || "[Case worker phone]",
+      caseWorkerEmail: joinForLetter(childData.caseWorkerEmail) || "[Case worker email]",
       placementType: childData.placementType || "[Placement status]",
       courtOrderRef: childData.courtOrderRef?.trim() || "[Court order reference, if applicable]",
       verbalText: verbalTextFor(childData.verbalStatus),
       diagnosis: childData.diagnosis?.trim() || "[Diagnosis, if applicable]",
       allergies: childData.knownTriggers?.trim() || "[Known allergies / triggers]",
-      clinic: assignedClinic?.name || childData.clinicName?.trim() || "[Clinic name]",
-      clinicAddress: assignedClinic?.address?.trim() || childData.clinicAddress?.trim() || "[Clinic address]",
-      clinicPhone: assignedClinic?.phone?.trim() || childData.clinicPhone?.trim() || "[Clinic phone]",
-      clinicEmail: childData.clinicEmail?.trim() || "[Clinic email]",
-      doctorName: assignedPsychologist?.name || childData.doctorName?.trim() || "[Doctor name]",
+      clinic: assignedClinic?.name || joinForLetter(childData.clinicName) || "[Clinic name]",
+      clinicAddress: assignedClinic?.address?.trim() || joinForLetter(childData.clinicAddress) || "[Clinic address]",
+      clinicPhone: assignedClinic?.phone?.trim() || joinForLetter(childData.clinicPhone) || "[Clinic phone]",
+      clinicEmail: joinForLetter(childData.clinicEmail) || "[Clinic email]",
+      doctorName: assignedPsychologist?.name || joinForLetter(childData.doctorName) || "[Doctor name]",
       pronoun: pronounFor(childData.gender),
       roleLabel: roleLabelFor(childData.caregiverType, childData.caregiverLabel),
       yourName: carerData.name || "[Your name]",
@@ -848,23 +866,83 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
           </div>
 
           <div className="grp">
-            <p className="glabel cl-serif">Clinic & doctor <span style={{ fontWeight: 400, color: T.inkMuted, fontSize: 13 }}>— optional</span></p>
-            <p className="gsub">Fills in the "Mental health professionals" section of the letter.</p>
+            <p className="glabel cl-serif">Clinic & doctor <span style={{ fontWeight: 400, color: T.inkMuted, fontSize: 13 }}>— optional, up to {MAX_CLINICS}</span></p>
+            <p className="gsub">Fills in the "Mental health professionals" section of the letter. Add one entry per clinic/doctor the child sees.</p>
 
-            <div className="fld"><label>Clinic name</label><input value={clinicName} onChange={e => setClinicName(e.target.value)} placeholder="e.g. Sunrise Family Clinic" /></div>
-            <div className="fld"><label>Doctor name</label><input value={doctorName} onChange={e => setDoctorName(e.target.value)} placeholder="e.g. Dr Tan" /></div>
-            <div className="fld"><label>Clinic address</label><input value={clinicAddress} onChange={e => setClinicAddress(e.target.value)} placeholder="e.g. 1 Sunrise Ave, #01-01" /></div>
-            <div className="fld"><label>Clinic phone</label><input type="tel" value={clinicPhone} onChange={e => setClinicPhone(e.target.value)} placeholder="e.g. 6123 4567" /></div>
-            <div className="fld"><label>Clinic email</label><input type="email" value={clinicEmail} onChange={e => setClinicEmail(e.target.value)} placeholder="e.g. contact@clinic.com" /></div>
+            {clinicEntries.map((c, i) => {
+              const setField = (key) => (e) =>
+                setClinicEntries(prev => prev.map((v, idx) => (idx === i ? { ...v, [key]: e.target.value } : v)));
+              return (
+                <div key={i} style={{ background: T.canvas, border: `1px solid ${T.border}`, borderRadius: T.r, padding: "16px 14px 2px", marginBottom: 16 }}>
+                  {clinicEntries.length > 1 && (
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                      <p className="gsub" style={{ margin: 0, fontWeight: 700 }}>Clinic {i + 1}</p>
+                      <button
+                        type="button"
+                        onClick={() => setClinicEntries(prev => prev.filter((_, idx) => idx !== i))}
+                        style={{ background: "none", border: "none", padding: 0, fontFamily: FONT_BODY, fontSize: 12.5, fontWeight: 700, color: T.inkMuted, cursor: "pointer" }}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  )}
+                  <div className="fld"><label>Clinic name</label><input value={c.name} onChange={setField("name")} placeholder="e.g. Sunrise Family Clinic" /></div>
+                  <div className="fld"><label>Doctor name</label><input value={c.doctor} onChange={setField("doctor")} placeholder="e.g. Dr Tan" /></div>
+                  <div className="fld"><label>Clinic address</label><input value={c.address} onChange={setField("address")} placeholder="e.g. 1 Sunrise Ave, #01-01" /></div>
+                  <div className="fld"><label>Clinic phone</label><input type="tel" value={c.phone} onChange={setField("phone")} placeholder="e.g. 6123 4567" /></div>
+                  <div className="fld"><label>Clinic email</label><input type="email" value={c.email} onChange={setField("email")} placeholder="e.g. contact@clinic.com" /></div>
+                </div>
+              );
+            })}
+
+            {clinicEntries.length < MAX_CLINICS && (
+              <button
+                type="button"
+                onClick={() => setClinicEntries(prev => [...prev, { ...EMPTY_CLINIC }])}
+                style={{ background: "none", border: "none", padding: 0, marginBottom: 16, fontFamily: FONT_BODY, fontSize: 12.5, fontWeight: 700, color: T.purple, cursor: "pointer" }}
+              >
+                + Add another clinic & doctor
+              </button>
+            )}
           </div>
 
           <div className="grp">
-            <p className="glabel cl-serif">Case worker <span style={{ fontWeight: 400, color: T.inkMuted, fontSize: 13 }}>— optional</span></p>
+            <p className="glabel cl-serif">Case worker <span style={{ fontWeight: 400, color: T.inkMuted, fontSize: 13 }}>— optional, up to {MAX_CASE_WORKERS}</span></p>
             <p className="gsub">The child's assigned case worker / social worker. Services often call to verify.</p>
 
-            <div className="fld"><label>Name</label><input value={caseWorkerName} onChange={e => setCaseWorkerName(e.target.value)} /></div>
-            <div className="fld"><label>Phone</label><input type="tel" value={caseWorkerPhone} onChange={e => setCaseWorkerPhone(e.target.value)} /></div>
-            <div className="fld"><label>Email</label><input type="email" value={caseWorkerEmail} onChange={e => setCaseWorkerEmail(e.target.value)} /></div>
+            {caseWorkerEntries.map((w, i) => {
+              const setField = (key) => (e) =>
+                setCaseWorkerEntries(prev => prev.map((v, idx) => (idx === i ? { ...v, [key]: e.target.value } : v)));
+              return (
+                <div key={i} style={{ background: T.canvas, border: `1px solid ${T.border}`, borderRadius: T.r, padding: "16px 14px 2px", marginBottom: 16 }}>
+                  {caseWorkerEntries.length > 1 && (
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                      <p className="gsub" style={{ margin: 0, fontWeight: 700 }}>Case worker {i + 1}</p>
+                      <button
+                        type="button"
+                        onClick={() => setCaseWorkerEntries(prev => prev.filter((_, idx) => idx !== i))}
+                        style={{ background: "none", border: "none", padding: 0, fontFamily: FONT_BODY, fontSize: 12.5, fontWeight: 700, color: T.inkMuted, cursor: "pointer" }}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  )}
+                  <div className="fld"><label>Name</label><input value={w.name} onChange={setField("name")} /></div>
+                  <div className="fld"><label>Phone</label><input type="tel" value={w.phone} onChange={setField("phone")} /></div>
+                  <div className="fld"><label>Email</label><input type="email" value={w.email} onChange={setField("email")} /></div>
+                </div>
+              );
+            })}
+
+            {caseWorkerEntries.length < MAX_CASE_WORKERS && (
+              <button
+                type="button"
+                onClick={() => setCaseWorkerEntries(prev => [...prev, { ...EMPTY_CASE_WORKER }])}
+                style={{ background: "none", border: "none", padding: 0, marginBottom: 16, fontFamily: FONT_BODY, fontSize: 12.5, fontWeight: 700, color: T.purple, cursor: "pointer" }}
+              >
+                + Add another case worker
+              </button>
+            )}
           </div>
 
           <button className="cta" onClick={saveCarerDetails} disabled={savingCarer}>{savingCarer ? "Saving..." : "Save & preview letter"}</button>
