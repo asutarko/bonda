@@ -177,7 +177,7 @@ export function EditProfileScreen({ account, pop, push }) {
         </div>
 
         <p style={{ margin: "12px 0 0", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>
-          {isPhotoSelected ? "Photo added ✓ — or choose an avatar below" : "Add a real photo (optional) — or pick an avatar below"}
+          {isPhotoSelected ? "Photo added ✓" : "Add a real photo (optional)"}
         </p>
         {photoErr && <p style={{ margin: "6px 0 0", color: T.red, fontSize: 11, fontWeight: 700 }}>{photoErr}</p>}
       </div>
