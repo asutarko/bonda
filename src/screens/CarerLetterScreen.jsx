@@ -27,7 +27,7 @@ const verbalTextFor = (verbalStatus) => {
 
 const pronounFor = (gender) => (gender === "Male" ? "him" : gender === "Female" ? "her" : "them");
 
-// Up to 3 repeats each for clinic/doctor and case worker. Kept on the existing
+// Unlimited repeats for clinic/doctor and case worker. Kept on the existing
 // single-value "children" columns (clinic_name/doctor_name/clinic_address/
 // clinic_phone/clinic_email, case_worker_name/_phone/_email) rather than new
 // jsonb columns — each holds its entries newline-joined (a plain <input> can
@@ -40,22 +40,20 @@ const joinLines = (entries, key) => entries.map(e => e[key].trim()).join("\n");
 // Human-readable form for the letter itself — a comma list reads naturally
 // mid-sentence/table-cell, unlike the newline join used for storage above.
 const joinForLetter = (value) => splitLines(value).filter(Boolean).join(", ");
-const parseEntries = (child, fieldMap, max) => {
+const parseEntries = (child, fieldMap) => {
   const keys = Object.keys(fieldMap);
   const lists = keys.map(k => splitLines(child?.[fieldMap[k]]));
-  const count = Math.min(max, Math.max(1, ...lists.map(l => l.length)));
+  const count = Math.max(1, ...lists.map(l => l.length));
   return Array.from({ length: count }, (_, i) => Object.fromEntries(keys.map((k, idx) => [k, lists[idx][i] || ""])));
 };
 
-const MAX_CLINICS = 3;
 const EMPTY_CLINIC = { name: "", doctor: "", address: "", phone: "", email: "" };
 const CLINIC_FIELDS = { name: "clinicName", doctor: "doctorName", address: "clinicAddress", phone: "clinicPhone", email: "clinicEmail" };
-const parseClinics = (child) => parseEntries(child, CLINIC_FIELDS, MAX_CLINICS);
+const parseClinics = (child) => parseEntries(child, CLINIC_FIELDS);
 
-const MAX_CASE_WORKERS = 3;
 const EMPTY_CASE_WORKER = { name: "", phone: "", email: "" };
 const CASE_WORKER_FIELDS = { name: "caseWorkerName", phone: "caseWorkerPhone", email: "caseWorkerEmail" };
-const parseCaseWorkers = (child) => parseEntries(child, CASE_WORKER_FIELDS, MAX_CASE_WORKERS);
+const parseCaseWorkers = (child) => parseEntries(child, CASE_WORKER_FIELDS);
 
 // This screen's look is ported from the carer-letter.html mockup, which pairs
 // a serif display face (titles, the letter body itself) with a sans body face
@@ -680,6 +678,14 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
     return <Page><p style={{ color: T.inkMuted, fontSize: 13, lineHeight: 1.6 }}>Add a child profile on the Home tab first to generate a carer letter.</p></Page>;
   }
 
+  // Read-only breakdown of the selected child's name, shown below the child
+  // picker. First/middle/last are already stored on the child profile (see
+  // onboarding.jsx); a legacy child saved before those existed falls back to
+  // a best-effort split of its single `name` field.
+  const selectedChildNameParts = (selectedChild.firstName || selectedChild.middleName || selectedChild.lastName)
+    ? { firstName: selectedChild.firstName, middleName: selectedChild.middleName, lastName: selectedChild.lastName }
+    : splitName(selectedChild.name);
+
   if (showCarerSetup) {
     // Rebuilt with the mockup's own markup/classes (not the app's generic
     // Card/Input/Select) so this step actually looks like carer-letter.html:
@@ -849,6 +855,19 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
             )}
 
             <div className="fld">
+              <label>First name</label>
+              <input value={selectedChildNameParts.firstName || "—"} disabled />
+            </div>
+            <div className="fld">
+              <label>Middle name</label>
+              <input value={selectedChildNameParts.middleName || "—"} disabled />
+            </div>
+            <div className="fld">
+              <label>Surname</label>
+              <input value={selectedChildNameParts.lastName || "—"} disabled />
+            </div>
+
+            <div className="fld">
               <label>Date of birth <span className="req">*</span></label>
               <input type="date" value={childDob} onChange={e => setChildDob(e.target.value)} />
               {carerErrors.childDob && <p className="err">{carerErrors.childDob}</p>}
@@ -897,7 +916,7 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
           </div>
 
           <div className="grp">
-            <p className="glabel cl-serif">Clinic & doctor <span style={{ fontWeight: 400, color: T.inkMuted, fontSize: 13 }}>— optional, up to {MAX_CLINICS}</span></p>
+            <p className="glabel cl-serif">Clinic & doctor <span style={{ fontWeight: 400, color: T.inkMuted, fontSize: 13 }}>— optional</span></p>
             <p className="gsub">Fills in the "Mental health professionals" section of the letter. Add one entry per clinic/doctor the child sees.</p>
 
             {clinicEntries.map((c, i) => {
@@ -926,19 +945,17 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
               );
             })}
 
-            {clinicEntries.length < MAX_CLINICS && (
-              <button
-                type="button"
-                onClick={() => setClinicEntries(prev => [...prev, { ...EMPTY_CLINIC }])}
-                style={{ background: "none", border: "none", padding: 0, marginBottom: 16, fontFamily: FONT_BODY, fontSize: 12.5, fontWeight: 700, color: T.purple, cursor: "pointer" }}
-              >
-                + Add another clinic & doctor
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => setClinicEntries(prev => [...prev, { ...EMPTY_CLINIC }])}
+              style={{ background: "none", border: "none", padding: 0, marginBottom: 16, fontFamily: FONT_BODY, fontSize: 12.5, fontWeight: 700, color: T.purple, cursor: "pointer" }}
+            >
+              + Add another clinic & doctor
+            </button>
           </div>
 
           <div className="grp">
-            <p className="glabel cl-serif">Case worker <span style={{ fontWeight: 400, color: T.inkMuted, fontSize: 13 }}>— optional, up to {MAX_CASE_WORKERS}</span></p>
+            <p className="glabel cl-serif">Case worker <span style={{ fontWeight: 400, color: T.inkMuted, fontSize: 13 }}>— optional</span></p>
             <p className="gsub">The child's assigned case worker / social worker. Services often call to verify.</p>
 
             {caseWorkerEntries.map((w, i) => {
@@ -965,15 +982,13 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
               );
             })}
 
-            {caseWorkerEntries.length < MAX_CASE_WORKERS && (
-              <button
-                type="button"
-                onClick={() => setCaseWorkerEntries(prev => [...prev, { ...EMPTY_CASE_WORKER }])}
-                style={{ background: "none", border: "none", padding: 0, marginBottom: 16, fontFamily: FONT_BODY, fontSize: 12.5, fontWeight: 700, color: T.purple, cursor: "pointer" }}
-              >
-                + Add another case worker
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => setCaseWorkerEntries(prev => [...prev, { ...EMPTY_CASE_WORKER }])}
+              style={{ background: "none", border: "none", padding: 0, marginBottom: 16, fontFamily: FONT_BODY, fontSize: 12.5, fontWeight: 700, color: T.purple, cursor: "pointer" }}
+            >
+              + Add another case worker
+            </button>
           </div>
 
           <button className="cta" onClick={saveCarerDetails} disabled={savingCarer}>{savingCarer ? "Saving..." : "Save & preview letter"}</button>
