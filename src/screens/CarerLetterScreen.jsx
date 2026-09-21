@@ -409,13 +409,13 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
   const [clinicEntries, setClinicEntries] = useState(parseClinics(selectedChild));
   const [caseWorkerEntries, setCaseWorkerEntries] = useState(parseCaseWorkers(selectedChild));
 
-  // Each of the four groups below ("Your details", "Child's details",
-  // "Clinic & doctor", "Case worker") can be saved on its own — saving
-  // collapses it to a compact summary so the long setup form doesn't stay
-  // fully expanded; "Edit" re-expands it (the entered values are still in
-  // state, so nothing is lost).
-  const [sectionSaved, setSectionSaved] = useState({ carer: false, child: false, clinic: false, caseWorker: false });
-  const [sectionSaving, setSectionSaving] = useState({ carer: false, child: false, clinic: false, caseWorker: false });
+  // Each of the five groups below ("Your details", "Recipient", "Child's
+  // details", "Clinic & doctor", "Case worker") can be saved on its own —
+  // saving collapses it to a compact summary so the long setup form doesn't
+  // stay fully expanded; "Edit" re-expands it (the entered values are still
+  // in state, so nothing is lost).
+  const [sectionSaved, setSectionSaved] = useState({ carer: false, recipient: false, child: false, clinic: false, caseWorker: false });
+  const [sectionSaving, setSectionSaving] = useState({ carer: false, recipient: false, child: false, clinic: false, caseWorker: false });
   const setSaved = (key, value) => setSectionSaved(s => ({ ...s, [key]: value }));
   const setSectionSavingKey = (key, value) => setSectionSaving(s => ({ ...s, [key]: value }));
 
@@ -441,7 +441,7 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
     setClinicEntries(parseClinics(selectedChild));
     setCaseWorkerEntries(parseCaseWorkers(selectedChild));
     setCarerErrors({});
-    setSectionSaved(s => ({ ...s, child: false, clinic: false, caseWorker: false }));
+    setSectionSaved(s => ({ ...s, recipient: false, child: false, clinic: false, caseWorker: false }));
   }, [selectedChild?.id]);
 
   // The bottom button no longer saves anything itself — each group above has
@@ -505,6 +505,17 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
     if (!error && account?.id) await supabase.from("profiles").update({ name: carerFullName, first_name: carerFirstName.trim(), middle_name: carerMiddleName.trim(), last_name: carerLastName.trim(), phone: carerPhone.trim() }).eq("id", account.id);
     setSectionSavingKey("carer", false);
     if (!error) setSaved("carer", true);
+  };
+
+  const saveRecipientSection = () => {
+    const fe = {};
+    if (!recipientId) fe.recipient = "Please choose or add a recipient.";
+    setCarerErrors(prev => ({ ...prev, recipient: fe.recipient }));
+    if (Object.keys(fe).length > 0) return;
+    setSectionSavingKey("recipient", true);
+    updateChild(selectedChild.id, { recipientId });
+    setSectionSavingKey("recipient", false);
+    setSaved("recipient", true);
   };
 
   const saveChildSection = () => {
@@ -871,62 +882,76 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
             <p className="glabel cl-serif">Recipient</p>
             <p className="gsub">Who this letter is addressed to — a school, court, agency, or anywhere else. Pick from your saved recipients, or add a new one — you can reuse it for other letters and children later.</p>
 
-            <div className="fld">
-              <label>Recipient <span className="req">*</span></label>
-              <div className="selwrap">
-                <select
-                  value={addingRecipient ? "__new__" : recipientId}
-                  onChange={e => {
-                    const v = e.target.value;
-                    if (v === "__new__") { setAddingRecipient(true); }
-                    else { setRecipientId(v); setAddingRecipient(false); }
-                  }}
-                >
-                  <option value="">Select a recipient</option>
-                  {recipients.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-                  <option value="__new__">+ Add new recipient</option>
-                </select>
+            {sectionSaved.recipient ? (
+              <div className="saved-row">
+                <div>
+                  <p className="saved-badge">✓ Saved</p>
+                  <p className="saved-sub">{recipients.find(r => r.id === recipientId)?.name || "—"}</p>
+                </div>
+                <button type="button" className="edit-link" onClick={() => setSaved("recipient", false)}>Edit</button>
               </div>
-              {!addingRecipient && recipientId && (() => {
-                const r = recipients.find(x => x.id === recipientId);
-                const details = [r?.address, r?.phone].filter(Boolean).join(" · ");
-                return details ? <p className="hint">{details}</p> : null;
-              })()}
-              {carerErrors.recipient && <p className="err">{carerErrors.recipient}</p>}
-            </div>
+            ) : (
+              <>
+                <div className="fld">
+                  <label>Recipient <span className="req">*</span></label>
+                  <div className="selwrap">
+                    <select
+                      value={addingRecipient ? "__new__" : recipientId}
+                      onChange={e => {
+                        const v = e.target.value;
+                        if (v === "__new__") { setAddingRecipient(true); }
+                        else { setRecipientId(v); setAddingRecipient(false); }
+                      }}
+                    >
+                      <option value="">Select a recipient</option>
+                      {recipients.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                      <option value="__new__">+ Add new recipient</option>
+                    </select>
+                  </div>
+                  {!addingRecipient && recipientId && (() => {
+                    const r = recipients.find(x => x.id === recipientId);
+                    const details = [r?.address, r?.phone].filter(Boolean).join(" · ");
+                    return details ? <p className="hint">{details}</p> : null;
+                  })()}
+                  {carerErrors.recipient && <p className="err">{carerErrors.recipient}</p>}
+                </div>
 
-            {addingRecipient && (
-              <div style={{ background: T.canvas, border: `1px solid ${T.border}`, borderRadius: T.r, padding: "16px 14px 2px", marginBottom: 16 }}>
-                <div className="fld">
-                  <label>New recipient name <span className="req">*</span></label>
-                  <input value={newRecipientName} onChange={e => setNewRecipientName(e.target.value)} placeholder="e.g. Sunrise Primary School" />
-                </div>
-                <div className="fld">
-                  <label>Address</label>
-                  <input value={newRecipientAddress} onChange={e => setNewRecipientAddress(e.target.value)} placeholder="e.g. 1 Sunrise Ave, #01-01" />
-                </div>
-                <div className="fld">
-                  <label>Phone</label>
-                  <input type="tel" value={newRecipientPhone} onChange={e => setNewRecipientPhone(e.target.value)} placeholder="e.g. 6123 4567" />
-                </div>
-                <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
-                  <button
-                    type="button"
-                    onClick={saveNewRecipient}
-                    disabled={!newRecipientName.trim() || savingRecipient}
-                    style={{ flex: 1, border: 0, borderRadius: 12, padding: "12px 16px", fontSize: 14, fontWeight: 700, cursor: newRecipientName.trim() ? "pointer" : "not-allowed", background: newRecipientName.trim() ? T.purple : T.border, color: "#fff" }}
-                  >
-                    {savingRecipient ? "Saving..." : "Save recipient"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setAddingRecipient(false); setNewRecipientName(""); setNewRecipientAddress(""); setNewRecipientPhone(""); }}
-                    style={{ border: `1px solid ${T.border}`, borderRadius: 12, padding: "12px 16px", fontSize: 14, fontWeight: 700, cursor: "pointer", background: T.surface, color: T.inkSoft }}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
+                {addingRecipient && (
+                  <div style={{ background: T.canvas, border: `1px solid ${T.border}`, borderRadius: T.r, padding: "16px 14px 2px", marginBottom: 16 }}>
+                    <div className="fld">
+                      <label>New recipient name <span className="req">*</span></label>
+                      <input value={newRecipientName} onChange={e => setNewRecipientName(e.target.value)} placeholder="e.g. Sunrise Primary School" />
+                    </div>
+                    <div className="fld">
+                      <label>Address</label>
+                      <input value={newRecipientAddress} onChange={e => setNewRecipientAddress(e.target.value)} placeholder="e.g. 1 Sunrise Ave, #01-01" />
+                    </div>
+                    <div className="fld">
+                      <label>Phone</label>
+                      <input type="tel" value={newRecipientPhone} onChange={e => setNewRecipientPhone(e.target.value)} placeholder="e.g. 6123 4567" />
+                    </div>
+                    <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
+                      <button
+                        type="button"
+                        onClick={saveNewRecipient}
+                        disabled={!newRecipientName.trim() || savingRecipient}
+                        style={{ flex: 1, border: 0, borderRadius: 12, padding: "12px 16px", fontSize: 14, fontWeight: 700, cursor: newRecipientName.trim() ? "pointer" : "not-allowed", background: newRecipientName.trim() ? T.purple : T.border, color: "#fff" }}
+                      >
+                        {savingRecipient ? "Saving..." : "Save recipient"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setAddingRecipient(false); setNewRecipientName(""); setNewRecipientAddress(""); setNewRecipientPhone(""); }}
+                        style={{ border: `1px solid ${T.border}`, borderRadius: 12, padding: "12px 16px", fontSize: 14, fontWeight: 700, cursor: "pointer", background: T.surface, color: T.inkSoft }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <button type="button" className="save-btn" onClick={saveRecipientSection} disabled={sectionSaving.recipient}>{sectionSaving.recipient ? "Saving..." : "Save"}</button>
+              </>
             )}
           </div>
 
