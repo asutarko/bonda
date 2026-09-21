@@ -5,9 +5,24 @@ import { T } from "../theme";
 import { Page, SectionLabel, Input, Select, FieldError, Btn, ComAvatar } from "../ui";
 import { RELATIONSHIP_OPTIONS, OCCUPATION_OPTIONS, MARITAL_STATUS_OPTIONS } from "../data";
 
+// Best-effort split of a legacy single-field name (entered before first/
+// middle/last were separate fields) so this form has something to show —
+// first word is the first name, last word the surname, anything between
+// is the middle name.
+const splitName = full => {
+  const parts = (full || "").trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return { firstName: "", middleName: "", lastName: "" };
+  if (parts.length === 1) return { firstName: parts[0], middleName: "", lastName: "" };
+  return { firstName: parts[0], middleName: parts.slice(1, -1).join(" "), lastName: parts[parts.length - 1] };
+};
+
 export function EditProfileScreen({ account, pop, push }) {
   const isExistingPhoto = !!(account?.avatar && (account.avatar.startsWith("data:") || account.avatar.startsWith("http")));
+  const initialNameParts = splitName(account?.name || "");
 
+  const [firstName, setFirstName] = useState(account?.firstName || initialNameParts.firstName);
+  const [middleName, setMiddleName] = useState(account?.middleName || initialNameParts.middleName);
+  const [lastName, setLastName] = useState(account?.lastName || initialNameParts.lastName);
   const [avatar, setAvatar] = useState(isExistingPhoto ? "none" : (account?.avatar || "none"));
   const [photo, setPhoto] = useState(isExistingPhoto ? account.avatar : null);
   const [phone, setPhone] = useState(account?.phone || "");
@@ -84,6 +99,8 @@ export function EditProfileScreen({ account, pop, push }) {
 
   const save = async () => {
     const fe = {};
+    if (!firstName.trim()) fe.firstName = "Please enter your first name.";
+    if (!lastName.trim()) fe.lastName = "Please enter your surname.";
     if (!phone.trim()) fe.phone = "Please enter your phone number.";
     if (!address.trim()) fe.address = "Please enter your home address.";
     if (!relationship) fe.relationship = "Please select your relationship to the child.";
@@ -94,6 +111,7 @@ export function EditProfileScreen({ account, pop, push }) {
     setErr(""); setSaving(true);
 
     const finalOccupation = occupation === "Other" ? customOccupation.trim() : occupation;
+    const fullName = [firstName, middleName, lastName].map(s => s.trim()).filter(Boolean).join(" ");
 
     let avatarValue = photo || avatar;
     if (avatarValue && avatarValue.startsWith("data:")) {
@@ -101,9 +119,9 @@ export function EditProfileScreen({ account, pop, push }) {
       if (url) avatarValue = url;
     }
 
-    const { error } = await supabase.auth.updateUser({ data: { avatar: avatarValue, phone: phone.trim(), address: address.trim(), relationship, occupation: finalOccupation, nationality: nationality.trim(), maritalStatus } });
+    const { error } = await supabase.auth.updateUser({ data: { name: fullName, firstName: firstName.trim(), middleName: middleName.trim(), lastName: lastName.trim(), avatar: avatarValue, phone: phone.trim(), address: address.trim(), relationship, occupation: finalOccupation, nationality: nationality.trim(), maritalStatus } });
     if (error) { setSaving(false); return setErr(error.message); }
-    await supabase.from("profiles").update({ avatar: avatarValue, phone: phone.trim(), address: address.trim(), relationship, occupation: finalOccupation, nationality: nationality.trim(), marital_status: maritalStatus }).eq("id", account.id);
+    await supabase.from("profiles").update({ name: fullName, first_name: firstName.trim(), middle_name: middleName.trim(), last_name: lastName.trim(), avatar: avatarValue, phone: phone.trim(), address: address.trim(), relationship, occupation: finalOccupation, nationality: nationality.trim(), marital_status: maritalStatus }).eq("id", account.id);
     setSaving(false);
     // Loaded on demand — sweetalert2 is only needed for this one success
     // popup, so it's kept out of the main bundle until a save actually happens.
@@ -173,6 +191,13 @@ export function EditProfileScreen({ account, pop, push }) {
           </div>
         </div>
       )}
+
+      <SectionLabel style={{ marginBottom: 10 }}>Your Name</SectionLabel>
+      <Input label="First name" value={firstName} onChange={e => setFirstName(e.target.value)} placeholder="e.g. Sarah" />
+      <FieldError>{errors.firstName}</FieldError>
+      <Input label="Middle name" value={middleName} onChange={e => setMiddleName(e.target.value)} placeholder="Optional" />
+      <Input label="Surname" value={lastName} onChange={e => setLastName(e.target.value)} placeholder="e.g. Tan" />
+      <FieldError>{errors.lastName}</FieldError>
 
       <SectionLabel style={{ marginBottom: 10 }}>Contact Details</SectionLabel>
       <Input label="Email address" type="email" value={account?.email || ""} disabled style={{ background: T.border, cursor: "not-allowed", color: T.inkSoft }} />

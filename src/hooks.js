@@ -5,6 +5,9 @@ import { DEFAULT_SCHEDULE } from "./data";
 export const childFromRow = (row) => ({
   id: row.id,
   name: row.name,
+  firstName: row.first_name || "",
+  middleName: row.middle_name || "",
+  lastName: row.last_name || "",
   emoji: row.emoji,
   caregiverType: row.caregiver_type,
   caregiverLabel: row.caregiver_label || "",
@@ -101,6 +104,9 @@ export function useChildren(userId) {
     const { data, error } = await supabase.from("children").insert({
       user_id: userId,
       name: child.name,
+      first_name: child.firstName || "",
+      middle_name: child.middleName || "",
+      last_name: child.lastName || "",
       emoji,
       caregiver_type: child.caregiverType,
       caregiver_label: child.caregiverLabel || "",
@@ -147,6 +153,9 @@ export function useChildren(userId) {
     setChildren(cs => cs.map(c => c.id === id ? { ...c, ...patch } : c));
     const dbPatch = {};
     if ("name" in patch) dbPatch.name = patch.name;
+    if ("firstName" in patch) dbPatch.first_name = patch.firstName;
+    if ("middleName" in patch) dbPatch.middle_name = patch.middleName;
+    if ("lastName" in patch) dbPatch.last_name = patch.lastName;
     if ("emoji" in patch) dbPatch.emoji = patch.emoji;
     if ("caregiverType" in patch) dbPatch.caregiver_type = patch.caregiverType;
     if ("caregiverLabel" in patch) dbPatch.caregiver_label = patch.caregiverLabel;
@@ -348,6 +357,9 @@ export const consumeNewSignupFlag = () => {
 export const accountFromUser = (u) => u ? {
   id: u.id,
   name: u.user_metadata?.name || u.email,
+  firstName: u.user_metadata?.firstName || "",
+  middleName: u.user_metadata?.middleName || "",
+  lastName: u.user_metadata?.lastName || "",
   avatar: u.user_metadata?.avatar || "none",
   email: u.email,
   joined: u.user_metadata?.joined || new Date(u.created_at).toLocaleDateString("en-SG", { month: "short", year: "numeric" }),

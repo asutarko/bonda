@@ -192,7 +192,7 @@ export function HomeScreen({ childCtx, setTab, push, account }) {
   };
   const goToNews = (i) => newsTrack.current && newsTrack.current.scrollTo({ left: i * newsStep(), behavior: "smooth" });
 
-  const firstName = account?.name?.split(" ")[0];
+  const firstName = account?.firstName || account?.name?.split(" ")[0];
 
   return (
     <Page>

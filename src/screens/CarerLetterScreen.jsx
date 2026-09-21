@@ -80,6 +80,18 @@ const roleLabelFor = (caregiverType, caregiverLabel) => {
 
 const titleCase = (s) => s.replace(/\b\w/g, c => c.toUpperCase());
 
+// Best-effort split of a legacy single-field name (entered before first/
+// middle/last were separate fields) so this form has something to show —
+// first word is the first name, last word the surname, anything between
+// is the middle name.
+const splitName = full => {
+  const parts = (full || "").trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return { firstName: "", middleName: "", lastName: "" };
+  if (parts.length === 1) return { firstName: parts[0], middleName: "", lastName: "" };
+  return { firstName: parts[0], middleName: parts.slice(1, -1).join(" "), lastName: parts[parts.length - 1] };
+};
+const joinName = (first, middle, last) => [first, middle, last].map(s => s.trim()).filter(Boolean).join(" ");
+
 // Best-effort fill of the bracketed placeholders in the admin-managed template.
 // The admin app's editor lets whoever manages the template rename placeholders
 // freely (e.g. "[recipient name]" one week, "[Receiver_Name]" the next), so
@@ -351,7 +363,10 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
   // click) rather than being skipped after the first save, matching the
   // mockup's own form sitting directly ahead of "Generate letter"/preview.
   const [showCarerSetup, setShowCarerSetup] = useState(true);
-  const [carerName, setCarerName] = useState(account?.name || "");
+  const initialCarerNameParts = splitName(account?.name || "");
+  const [carerFirstName, setCarerFirstName] = useState(account?.firstName || initialCarerNameParts.firstName);
+  const [carerMiddleName, setCarerMiddleName] = useState(account?.middleName || initialCarerNameParts.middleName);
+  const [carerLastName, setCarerLastName] = useState(account?.lastName || initialCarerNameParts.lastName);
   const [carerPhone, setCarerPhone] = useState(account?.phone || "");
   const [licensedCarer, setLicensedCarer] = useState(account?.licensedCarer || "");
   const [carerAgency, setCarerAgency] = useState(account?.carerAgency || "");
@@ -415,25 +430,30 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
 
   const saveCarerDetails = async () => {
     const fe = {};
-    if (!carerName.trim()) fe.name = "Please enter your name.";
+    if (!carerFirstName.trim()) fe.firstName = "Please enter your first name.";
+    if (!carerLastName.trim()) fe.lastName = "Please enter your surname.";
     if (!carerPhone.trim()) fe.phone = "Please enter a phone number.";
     if (!recipientId) fe.recipient = "Please choose or add a recipient.";
     if (!childDob) fe.childDob = "Please enter the child's date of birth.";
     setCarerErrors(fe);
     if (Object.keys(fe).length > 0) return;
     setSavingCarer(true);
+    const carerFullName = joinName(carerFirstName, carerMiddleName, carerLastName);
     const { error } = await supabase.auth.updateUser({
       data: {
-        name: carerName.trim(),
+        name: carerFullName,
+        firstName: carerFirstName.trim(),
+        middleName: carerMiddleName.trim(),
+        lastName: carerLastName.trim(),
         phone: carerPhone.trim(),
         licensedCarer,
         carerAgency: carerAgency.trim(),
         carerLetterSetupDone: true,
       },
     });
-    // Keeps the shared "profiles" table's phone column (used elsewhere, e.g.
-    // Community) in sync — best-effort, same as ProfileScreen.jsx's save.
-    if (!error && account?.id) await supabase.from("profiles").update({ phone: carerPhone.trim() }).eq("id", account.id);
+    // Keeps the shared "profiles" table (used elsewhere, e.g. Community) in
+    // sync — best-effort, same as ProfileScreen.jsx's save.
+    if (!error && account?.id) await supabase.from("profiles").update({ name: carerFullName, first_name: carerFirstName.trim(), middle_name: carerMiddleName.trim(), last_name: carerLastName.trim(), phone: carerPhone.trim() }).eq("id", account.id);
     const childPatch = {
       dob: childDob,
       recipientId: recipientId || null,
@@ -462,7 +482,7 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
       // (not-yet-refreshed) selectedChild/account props.
       buildAndSetLetter(
         { ...selectedChild, ...childPatch },
-        { name: carerName.trim(), phone: carerPhone.trim(), email: account?.email, licensedCarer, carerAgency: carerAgency.trim() }
+        { name: carerFullName, phone: carerPhone.trim(), email: account?.email, licensedCarer, carerAgency: carerAgency.trim() }
       );
     }
   };
@@ -705,9 +725,20 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
             <p className="gsub">These appear as the carer on every letter you create.</p>
 
             <div className="fld">
-              <label>Your name <span className="req">*</span></label>
-              <input value={carerName} onChange={e => setCarerName(e.target.value)} placeholder="e.g. Jane Tan" />
-              {carerErrors.name && <p className="err">{carerErrors.name}</p>}
+              <label>First name <span className="req">*</span></label>
+              <input value={carerFirstName} onChange={e => setCarerFirstName(e.target.value)} placeholder="e.g. Jane" />
+              {carerErrors.firstName && <p className="err">{carerErrors.firstName}</p>}
+            </div>
+
+            <div className="fld">
+              <label>Middle name</label>
+              <input value={carerMiddleName} onChange={e => setCarerMiddleName(e.target.value)} placeholder="Optional" />
+            </div>
+
+            <div className="fld">
+              <label>Surname <span className="req">*</span></label>
+              <input value={carerLastName} onChange={e => setCarerLastName(e.target.value)} placeholder="e.g. Tan" />
+              {carerErrors.lastName && <p className="err">{carerErrors.lastName}</p>}
             </div>
 
             <div className="fld">

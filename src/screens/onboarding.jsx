@@ -25,6 +25,22 @@ const defaultChildDob = () => {
 // word (so it doesn't fight names with intentional internal capitals).
 const autoCapName = text => text.replace(/(^|\s)([a-z])/g, (_, boundary, letter) => boundary + letter.toUpperCase());
 
+// The child's full name is still what every other screen (schedule, growth
+// tracker, carer letters, etc.) reads, so it's composed from the three
+// entry fields rather than replaced by them.
+const joinName = (first, middle, last) => [first, middle, last].map(s => s.trim()).filter(Boolean).join(" ");
+
+// Best-effort split of a legacy single-field name (entered before first/
+// middle/last were separate columns) so the edit form has something to
+// show — first word is the first name, last word the surname, anything
+// between is the middle name.
+const splitName = full => {
+  const parts = (full || "").trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return { firstName: "", middleName: "", lastName: "" };
+  if (parts.length === 1) return { firstName: parts[0], middleName: "", lastName: "" };
+  return { firstName: parts[0], middleName: parts.slice(1, -1).join(" "), lastName: parts[parts.length - 1] };
+};
+
 const splitJoined = text => text ? text.split(/,\s*/).map(s => s.trim()).filter(Boolean) : [];
 
 const joinMultiField = (selected, other) =>
@@ -351,7 +367,9 @@ export function PlacementDetailsSection({
 }
 
 export function AddChildScreen({ childCtx, pop }) {
-  const [name, setName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [middleName, setMiddleName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [photo, setPhoto] = useState(null);
   const [photoErr, setPhotoErr] = useState("");
   const camera = useChildCamera(setPhoto);
@@ -406,7 +424,8 @@ export function AddChildScreen({ childCtx, pop }) {
     const therapySchedule = joinSessions(therapySessions);
 
     const fe = {};
-    if (!name.trim()) fe.name = "Please enter your child's name.";
+    if (!firstName.trim()) fe.firstName = "Please enter your child's first name.";
+    if (!lastName.trim()) fe.lastName = "Please enter your child's surname.";
     if (!dob) fe.dob = "Please enter your child's date of birth.";
     if (!gender) fe.gender = "Please select your child's gender.";
     if (caregiverType === "other" && !caregiverLabel.trim()) fe.relationshipDetail = "Please tell us your relationship to this child.";
@@ -422,7 +441,8 @@ export function AddChildScreen({ childCtx, pop }) {
     setErr(""); setSaving(true);
     const finalCaregiverLabel = caregiverType === "other" ? (caregiverLabel === "Others" ? customRelative.trim() : caregiverLabel.trim()) : "";
     const id = await addChild({
-      name: name.trim(), emoji: photo || "none", dob, gender, caregiverType, caregiverLabel: finalCaregiverLabel,
+      name: joinName(firstName, middleName, lastName), firstName: firstName.trim(), middleName: middleName.trim(), lastName: lastName.trim(),
+      emoji: photo || "none", dob, gender, caregiverType, caregiverLabel: finalCaregiverLabel,
       hasSpecialNeeds: true, verbalStatus,
       knownTriggers: hasTriggers === "Yes" ? knownTriggers : "",
       therapySchedule: hasTherapy === "Yes" ? therapySchedule : "",
@@ -454,8 +474,11 @@ export function AddChildScreen({ childCtx, pop }) {
       <CameraPanel show={camera.showCamera} videoRef={camera.videoRef} cameraReady={camera.cameraReady} takePhoto={camera.takePhoto} stopCamera={camera.stopCamera} />
 
       <FormSection title="General information">
-        <Input label={<>Child's name <span style={{ color: T.red }}>*</span></>} value={name} onChange={e => setName(autoCapName(e.target.value))} placeholder="e.g. Aiden" />
-        <FieldError>{errors.name}</FieldError>
+        <Input label={<>First name <span style={{ color: T.red }}>*</span></>} value={firstName} onChange={e => setFirstName(autoCapName(e.target.value))} placeholder="e.g. Aiden" />
+        <FieldError>{errors.firstName}</FieldError>
+        <Input label="Middle name" value={middleName} onChange={e => setMiddleName(autoCapName(e.target.value))} placeholder="e.g. Rafael" />
+        <Input label={<>Surname <span style={{ color: T.red }}>*</span></>} value={lastName} onChange={e => setLastName(autoCapName(e.target.value))} placeholder="e.g. Smith" />
+        <FieldError>{errors.lastName}</FieldError>
         <Input label={<>Date of birth <span style={{ color: T.red }}>*</span></>} value={dob} onChange={e => setDob(e.target.value)} type="date" />
         <FieldError>{errors.dob}</FieldError>
         <Select label={<>Gender <span style={{ color: T.red }}>*</span></>} value={gender} onChange={e => setGender(e.target.value)} placeholder="Select gender" options={["Male", "Female", "Prefer not to say"]} />
@@ -532,7 +555,10 @@ export function ChildProfileForm({ childCtx, onSaved, onCancel, onDeleted, showH
   const initialDiet = parseMultiField(activeChild?.dietProgram || "", DIET_OPTIONS);
   const initialAllergies = parseMultiField(activeChild?.allergies || "", ALLERGY_OPTIONS);
 
-  const [name, setName] = useState(activeChild?.name || "");
+  const initialNameParts = splitName(activeChild?.name || "");
+  const [firstName, setFirstName] = useState(activeChild?.firstName || initialNameParts.firstName);
+  const [middleName, setMiddleName] = useState(activeChild?.middleName || initialNameParts.middleName);
+  const [lastName, setLastName] = useState(activeChild?.lastName || initialNameParts.lastName);
   const [photo, setPhoto] = useState(isExistingPhoto ? activeChild.emoji : null);
   const [photoErr, setPhotoErr] = useState("");
   const camera = useChildCamera(setPhoto);
@@ -589,7 +615,8 @@ export function ChildProfileForm({ childCtx, onSaved, onCancel, onDeleted, showH
     const therapySchedule = joinSessions(therapySessions);
 
     const fe = {};
-    if (!name.trim()) fe.name = "Please enter your child's name.";
+    if (!firstName.trim()) fe.firstName = "Please enter your child's first name.";
+    if (!lastName.trim()) fe.lastName = "Please enter your child's surname.";
     if (!dob) fe.dob = "Please enter your child's date of birth.";
     if (!gender) fe.gender = "Please select your child's gender.";
     if (caregiverType === "other" && !caregiverLabel.trim()) fe.relationshipDetail = "Please tell us your relationship to this child.";
@@ -605,7 +632,8 @@ export function ChildProfileForm({ childCtx, onSaved, onCancel, onDeleted, showH
     setErr(""); setSaving(true);
     const finalCaregiverLabel = caregiverType === "other" ? (caregiverLabel === "Others" ? customRelative.trim() : caregiverLabel.trim()) : "";
     const patch = {
-      name: name.trim(), dob, gender, caregiverType, caregiverLabel: finalCaregiverLabel,
+      name: joinName(firstName, middleName, lastName), firstName: firstName.trim(), middleName: middleName.trim(), lastName: lastName.trim(),
+      dob, gender, caregiverType, caregiverLabel: finalCaregiverLabel,
       hasSpecialNeeds: true, verbalStatus,
       knownTriggers: hasTriggers === "Yes" ? knownTriggers : "",
       therapySchedule: hasTherapy === "Yes" ? therapySchedule : "",
@@ -658,8 +686,11 @@ export function ChildProfileForm({ childCtx, onSaved, onCancel, onDeleted, showH
       <CameraPanel show={camera.showCamera} videoRef={camera.videoRef} cameraReady={camera.cameraReady} takePhoto={camera.takePhoto} stopCamera={camera.stopCamera} />
 
       <FormSection title="General information">
-        <Input label={<>Child's name <span style={{ color: T.red }}>*</span></>} value={name} onChange={e => setName(autoCapName(e.target.value))} placeholder="e.g. Aiden" />
-        <FieldError>{errors.name}</FieldError>
+        <Input label={<>First name <span style={{ color: T.red }}>*</span></>} value={firstName} onChange={e => setFirstName(autoCapName(e.target.value))} placeholder="e.g. Aiden" />
+        <FieldError>{errors.firstName}</FieldError>
+        <Input label="Middle name" value={middleName} onChange={e => setMiddleName(autoCapName(e.target.value))} placeholder="e.g. Rafael" />
+        <Input label={<>Surname <span style={{ color: T.red }}>*</span></>} value={lastName} onChange={e => setLastName(autoCapName(e.target.value))} placeholder="e.g. Smith" />
+        <FieldError>{errors.lastName}</FieldError>
         <Input label={<>Date of birth <span style={{ color: T.red }}>*</span></>} value={dob} onChange={e => setDob(e.target.value)} type="date" />
         <FieldError>{errors.dob}</FieldError>
         <Select label={<>Gender <span style={{ color: T.red }}>*</span></>} value={gender} onChange={e => setGender(e.target.value)} placeholder="Select gender" options={["Male", "Female", "Prefer not to say"]} />
