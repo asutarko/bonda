@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import { T } from "../theme";
 import { Page, Card, Btn, Input, Select, Badge } from "../ui";
+import { requestCarerLetterPreview } from "../hooks";
 
 const DOC_CATEGORIES = ["Medical", "Placement", "School", "Identity", "Other"];
 
@@ -53,6 +54,7 @@ export function DocumentsScreen({ push, childCtx, account }) {
 
   const openLetter = (childId) => {
     switchChild?.(childId);
+    requestCarerLetterPreview();
     push("carerLetter");
   };
 

@@ -5,6 +5,7 @@ import { supabase } from "../lib/supabase";
 import { T } from "../theme";
 import { Page, SectionLabel, Card, Btn, Badge } from "../ui";
 import { VERBAL_STATUS_OPTIONS, PLACEMENT_TYPE_OPTIONS } from "../data";
+import { peekCarerLetterPreviewFlag, clearCarerLetterPreviewFlag } from "../hooks";
 
 // TinyMCE (core + skin CSS + plugins) is only needed once the caregiver
 // actually opens this screen, so it's split into its own chunk instead of
@@ -334,6 +335,7 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
   const [psychologists, setPsychologists] = useState([]);
 
   const [letterText, setLetterText] = useState("");
+  const [loadingLetter, setLoadingLetter] = useState(false);
   // TinyMCE is deliberately NOT used as a fully-controlled component (i.e.
   // fed via a `value` prop kept in sync with `letterText` on every
   // keystroke) — the @tinymce/tinymce-react docs themselves warn that
@@ -359,8 +361,14 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
   // them filled in. It's shown fresh every time this screen is opened
   // (pre-filled with whatever was saved last, so returning is a single
   // click) rather than being skipped after the first save, matching the
-  // mockup's own form sitting directly ahead of "Generate letter"/preview.
-  const [showCarerSetup, setShowCarerSetup] = useState(true);
+  // mockup's own form sitting directly ahead of "Generate letter"/preview —
+  // except when arriving via an existing saved letter (e.g. Documents
+  // screen's "Open ›"), where requestCarerLetterPreview() was called first
+  // and jumps straight to the preview instead. The flag is only peeked here
+  // (see peekCarerLetterPreviewFlag's comment for why) — it's cleared by the
+  // effect right below instead of inline in this initializer.
+  const [showCarerSetup, setShowCarerSetup] = useState(() => !peekCarerLetterPreviewFlag());
+  useEffect(() => { clearCarerLetterPreviewFlag(); }, []);
   const initialCarerNameParts = splitName(account?.name || "");
   const [carerFirstName, setCarerFirstName] = useState(account?.firstName || initialCarerNameParts.firstName);
   const [carerMiddleName, setCarerMiddleName] = useState(account?.middleName || initialCarerNameParts.middleName);
@@ -369,7 +377,6 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
   const [licensedCarer, setLicensedCarer] = useState(account?.licensedCarer || "");
   const [carerAgency, setCarerAgency] = useState(account?.carerAgency || "");
   const [carerErrors, setCarerErrors] = useState({});
-  const [savingCarer, setSavingCarer] = useState(false);
 
   // Who this particular letter is addressed to — a school, a court, a
   // fostering agency, anywhere the caregiver needs to send it. Not tied to
@@ -402,6 +409,16 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
   const [clinicEntries, setClinicEntries] = useState(parseClinics(selectedChild));
   const [caseWorkerEntries, setCaseWorkerEntries] = useState(parseCaseWorkers(selectedChild));
 
+  // Each of the four groups below ("Your details", "Child's details",
+  // "Clinic & doctor", "Case worker") can be saved on its own — saving
+  // collapses it to a compact summary so the long setup form doesn't stay
+  // fully expanded; "Edit" re-expands it (the entered values are still in
+  // state, so nothing is lost).
+  const [sectionSaved, setSectionSaved] = useState({ carer: false, child: false, clinic: false, caseWorker: false });
+  const [sectionSaving, setSectionSaving] = useState({ carer: false, child: false, clinic: false, caseWorker: false });
+  const setSaved = (key, value) => setSectionSaved(s => ({ ...s, [key]: value }));
+  const setSectionSavingKey = (key, value) => setSectionSaving(s => ({ ...s, [key]: value }));
+
   useEffect(() => () => clearTimeout(saveTimer.current), []);
 
   // The child-scoped fields above are only seeded from `selectedChild` once,
@@ -424,35 +441,22 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
     setClinicEntries(parseClinics(selectedChild));
     setCaseWorkerEntries(parseCaseWorkers(selectedChild));
     setCarerErrors({});
+    setSectionSaved(s => ({ ...s, child: false, clinic: false, caseWorker: false }));
   }, [selectedChild?.id]);
 
-  const saveCarerDetails = async () => {
-    const fe = {};
-    if (!carerFirstName.trim()) fe.firstName = "Please enter your first name.";
-    if (!carerLastName.trim()) fe.lastName = "Please enter your surname.";
-    if (!carerPhone.trim()) fe.phone = "Please enter a phone number.";
-    if (!recipientId) fe.recipient = "Please choose or add a recipient.";
-    if (!childDob) fe.childDob = "Please enter the child's date of birth.";
-    setCarerErrors(fe);
-    if (Object.keys(fe).length > 0) return;
-    setSavingCarer(true);
+  // The bottom button no longer saves anything itself — each group above has
+  // its own Save button for that (see the section handlers below). It also
+  // doesn't gate on required fields anymore: this is a preview, not a save,
+  // and the letter template already shows a "[Bracketed]" placeholder for
+  // anything left blank (see buildAndSetLetter/missingPlaceholders below), so
+  // blocking the preview behind validation just hid the letter entirely
+  // behind an easy-to-miss inline error instead of letting the caregiver see
+  // exactly what's still missing.
+  const previewLetter = () => {
+    setCarerErrors({});
     const carerFullName = joinName(carerFirstName, carerMiddleName, carerLastName);
-    const { error } = await supabase.auth.updateUser({
-      data: {
-        name: carerFullName,
-        firstName: carerFirstName.trim(),
-        middleName: carerMiddleName.trim(),
-        lastName: carerLastName.trim(),
-        phone: carerPhone.trim(),
-        licensedCarer,
-        carerAgency: carerAgency.trim(),
-        carerLetterSetupDone: true,
-      },
-    });
-    // Keeps the shared "profiles" table (used elsewhere, e.g. Community) in
-    // sync — best-effort, same as ProfileScreen.jsx's save.
-    if (!error && account?.id) await supabase.from("profiles").update({ name: carerFullName, first_name: carerFirstName.trim(), middle_name: carerMiddleName.trim(), last_name: carerLastName.trim(), phone: carerPhone.trim() }).eq("id", account.id);
-    const childPatch = {
+    const childData = {
+      ...selectedChild,
       dob: childDob,
       recipientId: recipientId || null,
       placementStartDate,
@@ -470,19 +474,80 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
       caseWorkerPhone: joinLines(caseWorkerEntries, "phone"),
       caseWorkerEmail: joinLines(caseWorkerEntries, "email"),
     };
-    if (!error && selectedChild && updateChild) updateChild(selectedChild.id, childPatch);
-    setSavingCarer(false);
-    if (!error) {
-      setShowCarerSetup(false);
-      // One combined action — same as the mockup's "Save & preview letter" —
-      // straight to the generated letter instead of a second "Generate
-      // Letter" screen, built from what was just typed above rather than the
-      // (not-yet-refreshed) selectedChild/account props.
-      buildAndSetLetter(
-        { ...selectedChild, ...childPatch },
-        { name: carerFullName, phone: carerPhone.trim(), email: account?.email, licensedCarer, carerAgency: carerAgency.trim() }
-      );
-    }
+    setShowCarerSetup(false);
+    buildAndSetLetter(childData, { name: carerFullName, phone: carerPhone.trim(), email: account?.email, licensedCarer, carerAgency: carerAgency.trim() });
+  };
+
+  // Per-section saves below let each group be filled and saved on its own,
+  // collapsing that group on success — this is now the only thing that
+  // actually persists these fields, since the bottom button (previewLetter)
+  // no longer writes to Supabase itself.
+  const saveCarerSection = async () => {
+    const fe = {};
+    if (!carerFirstName.trim()) fe.firstName = "Please enter your first name.";
+    if (!carerLastName.trim()) fe.lastName = "Please enter your surname.";
+    if (!carerPhone.trim()) fe.phone = "Please enter a phone number.";
+    setCarerErrors(prev => ({ ...prev, firstName: fe.firstName, lastName: fe.lastName, phone: fe.phone }));
+    if (Object.keys(fe).length > 0) return;
+    setSectionSavingKey("carer", true);
+    const carerFullName = joinName(carerFirstName, carerMiddleName, carerLastName);
+    const { error } = await supabase.auth.updateUser({
+      data: {
+        name: carerFullName,
+        firstName: carerFirstName.trim(),
+        middleName: carerMiddleName.trim(),
+        lastName: carerLastName.trim(),
+        phone: carerPhone.trim(),
+        licensedCarer,
+        carerAgency: carerAgency.trim(),
+      },
+    });
+    if (!error && account?.id) await supabase.from("profiles").update({ name: carerFullName, first_name: carerFirstName.trim(), middle_name: carerMiddleName.trim(), last_name: carerLastName.trim(), phone: carerPhone.trim() }).eq("id", account.id);
+    setSectionSavingKey("carer", false);
+    if (!error) setSaved("carer", true);
+  };
+
+  const saveChildSection = () => {
+    const fe = {};
+    if (!childDob) fe.childDob = "Please enter the child's date of birth.";
+    setCarerErrors(prev => ({ ...prev, childDob: fe.childDob }));
+    if (Object.keys(fe).length > 0) return;
+    setSectionSavingKey("child", true);
+    updateChild(selectedChild.id, {
+      dob: childDob,
+      placementStartDate,
+      placementType,
+      courtOrderRef: courtOrderRef.trim(),
+      verbalStatus,
+      diagnosis: diagnosis.trim(),
+      knownTriggers: knownTriggers.trim(),
+    });
+    setSectionSavingKey("child", false);
+    setSaved("child", true);
+  };
+
+  const saveClinicSection = () => {
+    setSectionSavingKey("clinic", true);
+    updateChild(selectedChild.id, {
+      clinicName: joinLines(clinicEntries, "name"),
+      doctorName: joinLines(clinicEntries, "doctor"),
+      clinicAddress: joinLines(clinicEntries, "address"),
+      clinicPhone: joinLines(clinicEntries, "phone"),
+      clinicEmail: joinLines(clinicEntries, "email"),
+    });
+    setSectionSavingKey("clinic", false);
+    setSaved("clinic", true);
+  };
+
+  const saveCaseWorkerSection = () => {
+    setSectionSavingKey("caseWorker", true);
+    updateChild(selectedChild.id, {
+      caseWorkerName: joinLines(caseWorkerEntries, "name"),
+      caseWorkerPhone: joinLines(caseWorkerEntries, "phone"),
+      caseWorkerEmail: joinLines(caseWorkerEntries, "email"),
+    });
+    setSectionSavingKey("caseWorker", false);
+    setSaved("caseWorker", true);
   };
 
   // Load the mockup's font pairing once, same guarded-injection pattern as
@@ -550,9 +615,18 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
     // Reload whatever was last saved for this child (see persistLetter below) so
     // the letter survives a refresh/relogin instead of resetting to blank —
     // "carer_letters" already existed in the schema for exactly this but was
-    // never wired up.
+    // never wired up. Tracked with a loading flag so arriving straight on the
+    // preview (see showCarerSetup's initial state above) shows "Loading your
+    // letter..." during this fetch instead of a blank gap where the editor
+    // would otherwise be, since {letterText && ...} hides that block until
+    // this resolves.
+    setLoadingLetter(true);
     supabase.from("carer_letters").select("content").eq("child_id", selectedChild.id).maybeSingle()
-      .then(({ data }) => { if (!cancelled && data?.content) { setLetterText(data.content); setEditorVersion(v => v + 1); } });
+      .then(({ data }) => {
+        if (cancelled) return;
+        if (data?.content) { setLetterText(data.content); setEditorVersion(v => v + 1); }
+        setLoadingLetter(false);
+      });
     return () => { cancelled = true; };
   }, [selectedChild?.id]);
 
@@ -582,10 +656,11 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
   };
 
   // Takes plain child/carer data objects (not the childCtx/account props
-  // directly) so it can be called right after saveCarerDetails() below with
-  // the values the caregiver just typed — those haven't round-tripped through
-  // Supabase and back into `selectedChild`/`account` yet, so reading the props
-  // at that point would still show the old (pre-save) data.
+  // directly) so it can be called right after previewLetter() above with the
+  // values the caregiver just typed — those may not have round-tripped
+  // through Supabase and back into `selectedChild`/`account` yet (individual
+  // sections save on their own; this button no longer does), so reading the
+  // props at that point could still show stale data.
   const buildAndSetLetter = (childData, carerData) => {
     if (!template || !childData) return;
     // Anything we don't actually have data for is left as a "[Bracketed]"
@@ -719,6 +794,13 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
           .cl-setup .cta{width:100%;border:0;border-radius:16px;padding:17px 20px;font-size:16px;font-weight:700;cursor:pointer;background:${T.purple};color:#fff;letter-spacing:.01em;transition:background .15s;}
           .cl-setup .cta:hover{background:${T.purplePress};}
           .cl-setup .cta:disabled{background:${T.border};cursor:not-allowed;}
+          .cl-setup .save-btn{width:100%;border:1.5px solid ${T.purple};border-radius:14px;padding:13px 16px;font-size:14px;font-weight:700;cursor:pointer;background:transparent;color:${T.purple};margin-top:2px;transition:background .15s;}
+          .cl-setup .save-btn:hover{background:${T.purpleL};}
+          .cl-setup .save-btn:disabled{border-color:${T.border};color:${T.inkMuted};cursor:not-allowed;}
+          .cl-setup .saved-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:2px 0 16px;}
+          .cl-setup .saved-badge{display:inline-flex;align-items:center;gap:6px;font-size:13.5px;font-weight:700;color:${T.green};margin:0 0 4px;}
+          .cl-setup .saved-sub{font-size:13px;color:${T.inkSoft};margin:0;}
+          .cl-setup .edit-link{background:none;border:none;padding:0;font-size:13px;font-weight:700;color:${T.purple};cursor:pointer;flex-shrink:0;}
         `}</style>
         <div className="cl-mock cl-setup">
           <h2 className="cl-serif" style={{ margin: "0 0 8px", fontSize: 22, fontWeight: 600, color: T.ink }}>Set up your first letter</h2>
@@ -730,45 +812,59 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
             <p className="glabel cl-serif">Your details</p>
             <p className="gsub">These appear as the carer on every letter you create.</p>
 
-            <div className="fld">
-              <label>First name <span className="req">*</span></label>
-              <input value={carerFirstName} onChange={e => setCarerFirstName(e.target.value)} placeholder="e.g. Jane" />
-              {carerErrors.firstName && <p className="err">{carerErrors.firstName}</p>}
-            </div>
-
-            <div className="fld">
-              <label>Middle name</label>
-              <input value={carerMiddleName} onChange={e => setCarerMiddleName(e.target.value)} placeholder="Optional" />
-            </div>
-
-            <div className="fld">
-              <label>Surname <span className="req">*</span></label>
-              <input value={carerLastName} onChange={e => setCarerLastName(e.target.value)} placeholder="e.g. Tan" />
-              {carerErrors.lastName && <p className="err">{carerErrors.lastName}</p>}
-            </div>
-
-            <div className="fld">
-              <label>Your phone <span className="req">*</span></label>
-              <input type="tel" value={carerPhone} onChange={e => setCarerPhone(e.target.value)} placeholder="e.g. 9123 4567" />
-              {carerErrors.phone && <p className="err">{carerErrors.phone}</p>}
-            </div>
-
-            <div className="fld">
-              <label>Are you a licensed / registered foster carer?</label>
-              <div className="selwrap">
-                <select value={licensedCarer} onChange={e => setLicensedCarer(e.target.value)}>
-                  <option value="">Prefer to fill in later</option>
-                  <option value="Licensed foster carer">Yes — licensed / registered</option>
-                  <option value="Foster carer (not licensed)">No</option>
-                </select>
+            {sectionSaved.carer ? (
+              <div className="saved-row">
+                <div>
+                  <p className="saved-badge">✓ Saved</p>
+                  <p className="saved-sub">{joinName(carerFirstName, carerMiddleName, carerLastName)} · {carerPhone}</p>
+                </div>
+                <button type="button" className="edit-link" onClick={() => setSaved("carer", false)}>Edit</button>
               </div>
-            </div>
+            ) : (
+              <>
+                <div className="fld">
+                  <label>First name <span className="req">*</span></label>
+                  <input value={carerFirstName} onChange={e => setCarerFirstName(e.target.value)} placeholder="e.g. Jane" />
+                  {carerErrors.firstName && <p className="err">{carerErrors.firstName}</p>}
+                </div>
 
-            <div className="fld">
-              <label>Fostering agency / VWO name</label>
-              <input value={carerAgency} onChange={e => setCarerAgency(e.target.value)} placeholder="e.g. MSF, Boys' Town" />
-              <p className="hint">Leave blank if you're not sure — you can type it into the letter later.</p>
-            </div>
+                <div className="fld">
+                  <label>Middle name</label>
+                  <input value={carerMiddleName} onChange={e => setCarerMiddleName(e.target.value)} placeholder="Optional" />
+                </div>
+
+                <div className="fld">
+                  <label>Surname <span className="req">*</span></label>
+                  <input value={carerLastName} onChange={e => setCarerLastName(e.target.value)} placeholder="e.g. Tan" />
+                  {carerErrors.lastName && <p className="err">{carerErrors.lastName}</p>}
+                </div>
+
+                <div className="fld">
+                  <label>Your phone <span className="req">*</span></label>
+                  <input type="tel" value={carerPhone} onChange={e => setCarerPhone(e.target.value)} placeholder="e.g. 9123 4567" />
+                  {carerErrors.phone && <p className="err">{carerErrors.phone}</p>}
+                </div>
+
+                <div className="fld">
+                  <label>Are you a licensed / registered foster carer?</label>
+                  <div className="selwrap">
+                    <select value={licensedCarer} onChange={e => setLicensedCarer(e.target.value)}>
+                      <option value="">Prefer to fill in later</option>
+                      <option value="Licensed foster carer">Yes — licensed / registered</option>
+                      <option value="Foster carer (not licensed)">No</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="fld">
+                  <label>Fostering agency / VWO name</label>
+                  <input value={carerAgency} onChange={e => setCarerAgency(e.target.value)} placeholder="e.g. MSF, Boys' Town" />
+                  <p className="hint">Leave blank if you're not sure — you can type it into the letter later.</p>
+                </div>
+
+                <button type="button" className="save-btn" onClick={saveCarerSection} disabled={sectionSaving.carer}>{sectionSaving.carer ? "Saving..." : "Save"}</button>
+              </>
+            )}
           </div>
 
           <div className="grp">
@@ -867,131 +963,173 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
               <input value={selectedChildNameParts.lastName || "—"} disabled />
             </div>
 
-            <div className="fld">
-              <label>Date of birth <span className="req">*</span></label>
-              <input type="date" value={childDob} onChange={e => setChildDob(e.target.value)} />
-              {carerErrors.childDob && <p className="err">{carerErrors.childDob}</p>}
-            </div>
-
-            <div className="fld">
-              <label>In my care since</label>
-              <input type="date" value={placementStartDate} onChange={e => setPlacementStartDate(e.target.value)} />
-              <p className="hint">The date the child came into your care.</p>
-            </div>
-
-            <div className="fld">
-              <label>Placement status</label>
-              <div className="selwrap">
-                <select value={placementType} onChange={e => setPlacementType(e.target.value)}>
-                  <option value="">Select placement status (foster carers only)</option>
-                  {PLACEMENT_TYPE_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-                </select>
+            {sectionSaved.child ? (
+              <div className="saved-row">
+                <div>
+                  <p className="saved-badge">✓ Saved</p>
+                  <p className="saved-sub">DOB {formatDate(childDob) || "—"}{placementType ? ` · ${placementType}` : ""}</p>
+                </div>
+                <button type="button" className="edit-link" onClick={() => setSaved("child", false)}>Edit</button>
               </div>
-            </div>
+            ) : (
+              <>
+                <div className="fld">
+                  <label>Date of birth <span className="req">*</span></label>
+                  <input type="date" value={childDob} onChange={e => setChildDob(e.target.value)} />
+                  {carerErrors.childDob && <p className="err">{carerErrors.childDob}</p>}
+                </div>
 
-            <div className="fld">
-              <label>Court order reference</label>
-              <input value={courtOrderRef} onChange={e => setCourtOrderRef(e.target.value)} placeholder="If applicable" />
-            </div>
+                <div className="fld">
+                  <label>In my care since</label>
+                  <input type="date" value={placementStartDate} onChange={e => setPlacementStartDate(e.target.value)} />
+                  <p className="hint">The date the child came into your care.</p>
+                </div>
 
-            <div className="fld">
-              <label>How they communicate</label>
-              <div className="selwrap">
-                <select value={verbalStatus} onChange={e => setVerbalStatus(e.target.value)}>
-                  <option value="">Select verbal status</option>
-                  {VERBAL_STATUS_OPTIONS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
-                </select>
-              </div>
-            </div>
+                <div className="fld">
+                  <label>Placement status</label>
+                  <div className="selwrap">
+                    <select value={placementType} onChange={e => setPlacementType(e.target.value)}>
+                      <option value="">Select placement status (foster carers only)</option>
+                      {PLACEMENT_TYPE_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                    </select>
+                  </div>
+                </div>
 
-            <div className="fld">
-              <label>Diagnosis <span style={{ fontWeight: 400, color: T.inkMuted }}>— if applicable</span></label>
-              <input value={diagnosis} onChange={e => setDiagnosis(e.target.value)} placeholder="e.g. Autism, ADHD" />
-            </div>
+                <div className="fld">
+                  <label>Court order reference</label>
+                  <input value={courtOrderRef} onChange={e => setCourtOrderRef(e.target.value)} placeholder="If applicable" />
+                </div>
 
-            <div className="fld">
-              <label>Known allergies / triggers</label>
-              <input value={knownTriggers} onChange={e => setKnownTriggers(e.target.value)} placeholder="e.g. Peanuts, loud noises" />
-            </div>
+                <div className="fld">
+                  <label>How they communicate</label>
+                  <div className="selwrap">
+                    <select value={verbalStatus} onChange={e => setVerbalStatus(e.target.value)}>
+                      <option value="">Select verbal status</option>
+                      {VERBAL_STATUS_OPTIONS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="fld">
+                  <label>Diagnosis <span style={{ fontWeight: 400, color: T.inkMuted }}>— if applicable</span></label>
+                  <input value={diagnosis} onChange={e => setDiagnosis(e.target.value)} placeholder="e.g. Autism, ADHD" />
+                </div>
+
+                <div className="fld">
+                  <label>Known allergies / triggers</label>
+                  <input value={knownTriggers} onChange={e => setKnownTriggers(e.target.value)} placeholder="e.g. Peanuts, loud noises" />
+                </div>
+
+                <button type="button" className="save-btn" onClick={saveChildSection} disabled={sectionSaving.child}>{sectionSaving.child ? "Saving..." : "Save"}</button>
+              </>
+            )}
           </div>
 
           <div className="grp">
             <p className="glabel cl-serif">Clinic & doctor <span style={{ fontWeight: 400, color: T.inkMuted, fontSize: 13 }}>— optional</span></p>
             <p className="gsub">Fills in the "Mental health professionals" section of the letter. Add one entry per clinic/doctor the child sees.</p>
 
-            {clinicEntries.map((c, i) => {
-              const setField = (key) => (e) =>
-                setClinicEntries(prev => prev.map((v, idx) => (idx === i ? { ...v, [key]: e.target.value } : v)));
-              return (
-                <div key={i} style={{ background: T.canvas, border: `1px solid ${T.border}`, borderRadius: T.r, padding: "16px 14px 2px", marginBottom: 16 }}>
-                  {clinicEntries.length > 1 && (
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                      <p className="gsub" style={{ margin: 0, fontWeight: 700 }}>Clinic {i + 1}</p>
-                      <button
-                        type="button"
-                        onClick={() => setClinicEntries(prev => prev.filter((_, idx) => idx !== i))}
-                        style={{ background: "none", border: "none", padding: 0, fontFamily: FONT_BODY, fontSize: 12.5, fontWeight: 700, color: T.inkMuted, cursor: "pointer" }}
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  )}
-                  <div className="fld"><label>Clinic name</label><input value={c.name} onChange={setField("name")} placeholder="e.g. Sunrise Family Clinic" /></div>
-                  <div className="fld"><label>Doctor name</label><input value={c.doctor} onChange={setField("doctor")} placeholder="e.g. Dr Tan" /></div>
-                  <div className="fld"><label>Clinic address</label><input value={c.address} onChange={setField("address")} placeholder="e.g. 1 Sunrise Ave, #01-01" /></div>
-                  <div className="fld"><label>Clinic phone</label><input type="tel" value={c.phone} onChange={setField("phone")} placeholder="e.g. 6123 4567" /></div>
-                  <div className="fld"><label>Clinic email</label><input type="email" value={c.email} onChange={setField("email")} placeholder="e.g. contact@clinic.com" /></div>
+            {sectionSaved.clinic ? (
+              <div className="saved-row">
+                <div>
+                  <p className="saved-badge">✓ Saved</p>
+                  <p className="saved-sub">{clinicEntries.filter(c => c.name.trim()).map(c => c.name.trim()).join(", ") || "No clinic added"}</p>
                 </div>
-              );
-            })}
+                <button type="button" className="edit-link" onClick={() => setSaved("clinic", false)}>Edit</button>
+              </div>
+            ) : (
+              <>
+                {clinicEntries.map((c, i) => {
+                  const setField = (key) => (e) =>
+                    setClinicEntries(prev => prev.map((v, idx) => (idx === i ? { ...v, [key]: e.target.value } : v)));
+                  return (
+                    <div key={i} style={{ background: T.canvas, border: `1px solid ${T.border}`, borderRadius: T.r, padding: "16px 14px 2px", marginBottom: 16 }}>
+                      {clinicEntries.length > 1 && (
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                          <p className="gsub" style={{ margin: 0, fontWeight: 700 }}>Clinic {i + 1}</p>
+                          <button
+                            type="button"
+                            onClick={() => setClinicEntries(prev => prev.filter((_, idx) => idx !== i))}
+                            style={{ background: "none", border: "none", padding: 0, fontFamily: FONT_BODY, fontSize: 12.5, fontWeight: 700, color: T.inkMuted, cursor: "pointer" }}
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      )}
+                      <div className="fld"><label>Clinic name</label><input value={c.name} onChange={setField("name")} placeholder="e.g. Sunrise Family Clinic" /></div>
+                      <div className="fld"><label>Doctor name</label><input value={c.doctor} onChange={setField("doctor")} placeholder="e.g. Dr Tan" /></div>
+                      <div className="fld"><label>Clinic address</label><input value={c.address} onChange={setField("address")} placeholder="e.g. 1 Sunrise Ave, #01-01" /></div>
+                      <div className="fld"><label>Clinic phone</label><input type="tel" value={c.phone} onChange={setField("phone")} placeholder="e.g. 6123 4567" /></div>
+                      <div className="fld"><label>Clinic email</label><input type="email" value={c.email} onChange={setField("email")} placeholder="e.g. contact@clinic.com" /></div>
+                    </div>
+                  );
+                })}
 
-            <button
-              type="button"
-              onClick={() => setClinicEntries(prev => [...prev, { ...EMPTY_CLINIC }])}
-              style={{ background: "none", border: "none", padding: 0, marginBottom: 16, fontFamily: FONT_BODY, fontSize: 12.5, fontWeight: 700, color: T.purple, cursor: "pointer" }}
-            >
-              + Add another clinic & doctor
-            </button>
+                <button
+                  type="button"
+                  onClick={() => setClinicEntries(prev => [...prev, { ...EMPTY_CLINIC }])}
+                  style={{ background: "none", border: "none", padding: 0, marginBottom: 16, fontFamily: FONT_BODY, fontSize: 12.5, fontWeight: 700, color: T.purple, cursor: "pointer" }}
+                >
+                  + Add another clinic & doctor
+                </button>
+
+                <button type="button" className="save-btn" onClick={saveClinicSection} disabled={sectionSaving.clinic}>{sectionSaving.clinic ? "Saving..." : "Save"}</button>
+              </>
+            )}
           </div>
 
           <div className="grp">
             <p className="glabel cl-serif">Case worker <span style={{ fontWeight: 400, color: T.inkMuted, fontSize: 13 }}>— optional</span></p>
             <p className="gsub">The child's assigned case worker / social worker. Services often call to verify.</p>
 
-            {caseWorkerEntries.map((w, i) => {
-              const setField = (key) => (e) =>
-                setCaseWorkerEntries(prev => prev.map((v, idx) => (idx === i ? { ...v, [key]: e.target.value } : v)));
-              return (
-                <div key={i} style={{ background: T.canvas, border: `1px solid ${T.border}`, borderRadius: T.r, padding: "16px 14px 2px", marginBottom: 16 }}>
-                  {caseWorkerEntries.length > 1 && (
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                      <p className="gsub" style={{ margin: 0, fontWeight: 700 }}>Case worker {i + 1}</p>
-                      <button
-                        type="button"
-                        onClick={() => setCaseWorkerEntries(prev => prev.filter((_, idx) => idx !== i))}
-                        style={{ background: "none", border: "none", padding: 0, fontFamily: FONT_BODY, fontSize: 12.5, fontWeight: 700, color: T.inkMuted, cursor: "pointer" }}
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  )}
-                  <div className="fld"><label>Name</label><input value={w.name} onChange={setField("name")} /></div>
-                  <div className="fld"><label>Phone</label><input type="tel" value={w.phone} onChange={setField("phone")} /></div>
-                  <div className="fld"><label>Email</label><input type="email" value={w.email} onChange={setField("email")} /></div>
+            {sectionSaved.caseWorker ? (
+              <div className="saved-row">
+                <div>
+                  <p className="saved-badge">✓ Saved</p>
+                  <p className="saved-sub">{caseWorkerEntries.filter(w => w.name.trim()).map(w => w.name.trim()).join(", ") || "No case worker added"}</p>
                 </div>
-              );
-            })}
+                <button type="button" className="edit-link" onClick={() => setSaved("caseWorker", false)}>Edit</button>
+              </div>
+            ) : (
+              <>
+                {caseWorkerEntries.map((w, i) => {
+                  const setField = (key) => (e) =>
+                    setCaseWorkerEntries(prev => prev.map((v, idx) => (idx === i ? { ...v, [key]: e.target.value } : v)));
+                  return (
+                    <div key={i} style={{ background: T.canvas, border: `1px solid ${T.border}`, borderRadius: T.r, padding: "16px 14px 2px", marginBottom: 16 }}>
+                      {caseWorkerEntries.length > 1 && (
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                          <p className="gsub" style={{ margin: 0, fontWeight: 700 }}>Case worker {i + 1}</p>
+                          <button
+                            type="button"
+                            onClick={() => setCaseWorkerEntries(prev => prev.filter((_, idx) => idx !== i))}
+                            style={{ background: "none", border: "none", padding: 0, fontFamily: FONT_BODY, fontSize: 12.5, fontWeight: 700, color: T.inkMuted, cursor: "pointer" }}
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      )}
+                      <div className="fld"><label>Name</label><input value={w.name} onChange={setField("name")} /></div>
+                      <div className="fld"><label>Phone</label><input type="tel" value={w.phone} onChange={setField("phone")} /></div>
+                      <div className="fld"><label>Email</label><input type="email" value={w.email} onChange={setField("email")} /></div>
+                    </div>
+                  );
+                })}
 
-            <button
-              type="button"
-              onClick={() => setCaseWorkerEntries(prev => [...prev, { ...EMPTY_CASE_WORKER }])}
-              style={{ background: "none", border: "none", padding: 0, marginBottom: 16, fontFamily: FONT_BODY, fontSize: 12.5, fontWeight: 700, color: T.purple, cursor: "pointer" }}
-            >
-              + Add another case worker
-            </button>
+                <button
+                  type="button"
+                  onClick={() => setCaseWorkerEntries(prev => [...prev, { ...EMPTY_CASE_WORKER }])}
+                  style={{ background: "none", border: "none", padding: 0, marginBottom: 16, fontFamily: FONT_BODY, fontSize: 12.5, fontWeight: 700, color: T.purple, cursor: "pointer" }}
+                >
+                  + Add another case worker
+                </button>
+
+                <button type="button" className="save-btn" onClick={saveCaseWorkerSection} disabled={sectionSaving.caseWorker}>{sectionSaving.caseWorker ? "Saving..." : "Save"}</button>
+              </>
+            )}
           </div>
 
-          <button className="cta" onClick={saveCarerDetails} disabled={savingCarer}>{savingCarer ? "Saving..." : "Save & preview letter"}</button>
+          <button className="cta" onClick={previewLetter}>Preview letter</button>
         </div>
       </Page>
     );
@@ -1025,6 +1163,10 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
       >
         Edit your details
       </button>
+
+      {!letterText && loadingLetter && (
+        <p style={{ color: T.inkSoft, fontSize: 13 }}>Loading your letter...</p>
+      )}
 
       {letterText && (
         <>

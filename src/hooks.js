@@ -354,6 +354,24 @@ export const consumeNewSignupFlag = () => {
   } catch { return false; }
 };
 
+// Set right before navigating to the carer letter screen from an existing
+// saved letter (e.g. Documents screen's "Open ›" row), so that screen opens
+// straight to the letter preview instead of its "Set up your first letter"
+// form — which otherwise shows first on every visit, saved letter or not.
+// In-memory only: it's read once (peekCarerLetterPreviewFlag, in a useState
+// initializer) and cleared once (clearCarerLetterPreviewFlag, in a useEffect)
+// by the very next CarerLetterScreen mount, kept as two separate pure/impure
+// halves specifically because React.StrictMode calls a useState initializer
+// twice in development — a single read-and-clear function would consume the
+// flag on the first call and see it already gone on the second, so whichever
+// of those two calls' result React kept would be inconsistent between dev
+// and prod. Splitting them avoids that: the read is side-effect-free (safe
+// to call twice), and the effect's clear runs once after both calls settle.
+let pendingCarerLetterPreview = false;
+export const requestCarerLetterPreview = () => { pendingCarerLetterPreview = true; };
+export const peekCarerLetterPreviewFlag = () => pendingCarerLetterPreview;
+export const clearCarerLetterPreviewFlag = () => { pendingCarerLetterPreview = false; };
+
 export const accountFromUser = (u) => u ? {
   id: u.id,
   name: u.user_metadata?.name || u.email,
