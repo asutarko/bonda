@@ -812,6 +812,8 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
           .cl-setup .saved-badge{display:inline-flex;align-items:center;gap:6px;font-size:13.5px;font-weight:700;color:${T.green};margin:0 0 4px;}
           .cl-setup .saved-sub{font-size:13px;color:${T.inkSoft};margin:0;}
           .cl-setup .edit-link{background:none;border:none;padding:0;font-size:13px;font-weight:700;color:${T.purple};cursor:pointer;flex-shrink:0;}
+          .cl-setup .grp-head-collapsed{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:2px 0 16px;}
+          .cl-setup .grp-head-collapsed .glabel{margin:0;}
         `}</style>
         <div className="cl-mock cl-setup">
           <h2 className="cl-serif" style={{ margin: "0 0 8px", fontSize: 22, fontWeight: 600, color: T.ink }}>Set up your first letter</h2>
@@ -820,19 +822,14 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
           </p>
 
           <div className="grp">
-            <p className="glabel cl-serif">Your details</p>
-            <p className="gsub">These appear as the carer on every letter you create.</p>
-
             {sectionSaved.carer ? (
-              <div className="saved-row">
-                <div>
-                  <p className="saved-badge">✓ Saved</p>
-                  <p className="saved-sub">{joinName(carerFirstName, carerMiddleName, carerLastName)} · {carerPhone}</p>
-                </div>
+              <div className="grp-head-collapsed">
+                <p className="glabel cl-serif">Your details</p>
                 <button type="button" className="edit-link" onClick={() => setSaved("carer", false)}>Edit</button>
               </div>
             ) : (
               <>
+                <p className="glabel cl-serif">Your details</p>
                 <div className="fld">
                   <label>First name <span className="req">*</span></label>
                   <input value={carerFirstName} onChange={e => setCarerFirstName(e.target.value)} placeholder="e.g. Jane" />
@@ -879,19 +876,14 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
           </div>
 
           <div className="grp">
-            <p className="glabel cl-serif">Recipient</p>
-            <p className="gsub">Who this letter is addressed to — a school, court, agency, or anywhere else. Pick from your saved recipients, or add a new one — you can reuse it for other letters and children later.</p>
-
             {sectionSaved.recipient ? (
-              <div className="saved-row">
-                <div>
-                  <p className="saved-badge">✓ Saved</p>
-                  <p className="saved-sub">{recipients.find(r => r.id === recipientId)?.name || "—"}</p>
-                </div>
+              <div className="grp-head-collapsed">
+                <p className="glabel cl-serif">Recipient</p>
                 <button type="button" className="edit-link" onClick={() => setSaved("recipient", false)}>Edit</button>
               </div>
             ) : (
               <>
+                <p className="glabel cl-serif">Recipient</p>
                 <div className="fld">
                   <label>Recipient <span className="req">*</span></label>
                   <div className="selwrap">
@@ -956,48 +948,44 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
           </div>
 
           <div className="grp">
-            <p className="glabel cl-serif">Child's details</p>
-            <p className="gsub">Used to fill in the medical and placement sections of the letter.</p>
-
-            {children.length > 1 ? (
-              <div className="fld">
-                <label>Child</label>
-                <div className="selwrap">
-                  <select value={selectedChildId || selectedChild.id} onChange={e => setSelectedChildId(e.target.value)}>
-                    {children.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
-                </div>
-              </div>
-            ) : (
-              <div className="fld">
-                <label>Child</label>
-                <input value={selectedChild.name} disabled />
-              </div>
-            )}
-
-            <div className="fld">
-              <label>First name</label>
-              <input value={selectedChildNameParts.firstName || "—"} disabled />
-            </div>
-            <div className="fld">
-              <label>Middle name</label>
-              <input value={selectedChildNameParts.middleName || "—"} disabled />
-            </div>
-            <div className="fld">
-              <label>Surname</label>
-              <input value={selectedChildNameParts.lastName || "—"} disabled />
-            </div>
-
             {sectionSaved.child ? (
-              <div className="saved-row">
-                <div>
-                  <p className="saved-badge">✓ Saved</p>
-                  <p className="saved-sub">DOB {formatDate(childDob) || "—"}{placementType ? ` · ${placementType}` : ""}</p>
-                </div>
+              <div className="grp-head-collapsed">
+                <p className="glabel cl-serif">Child's details</p>
                 <button type="button" className="edit-link" onClick={() => setSaved("child", false)}>Edit</button>
               </div>
             ) : (
               <>
+                <p className="glabel cl-serif">Child's details</p>
+
+                {children.length > 1 ? (
+                  <div className="fld">
+                    <label>Child</label>
+                    <div className="selwrap">
+                      <select value={selectedChildId || selectedChild.id} onChange={e => setSelectedChildId(e.target.value)}>
+                        {children.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="fld">
+                    <label>Child</label>
+                    <input value={selectedChild.name} disabled />
+                  </div>
+                )}
+
+                <div className="fld">
+                  <label>First name</label>
+                  <input value={selectedChildNameParts.firstName || "—"} disabled />
+                </div>
+                <div className="fld">
+                  <label>Middle name</label>
+                  <input value={selectedChildNameParts.middleName || "—"} disabled />
+                </div>
+                <div className="fld">
+                  <label>Surname</label>
+                  <input value={selectedChildNameParts.lastName || "—"} disabled />
+                </div>
+
                 <div className="fld">
                   <label>Date of birth <span className="req">*</span></label>
                   <input type="date" value={childDob} onChange={e => setChildDob(e.target.value)} />
@@ -1051,19 +1039,14 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
           </div>
 
           <div className="grp">
-            <p className="glabel cl-serif">Clinic & doctor <span style={{ fontWeight: 400, color: T.inkMuted, fontSize: 13 }}>— optional</span></p>
-            <p className="gsub">Fills in the "Mental health professionals" section of the letter. Add one entry per clinic/doctor the child sees.</p>
-
             {sectionSaved.clinic ? (
-              <div className="saved-row">
-                <div>
-                  <p className="saved-badge">✓ Saved</p>
-                  <p className="saved-sub">{clinicEntries.filter(c => c.name.trim()).map(c => c.name.trim()).join(", ") || "No clinic added"}</p>
-                </div>
+              <div className="grp-head-collapsed">
+                <p className="glabel cl-serif">Clinic & doctor <span style={{ fontWeight: 400, color: T.inkMuted, fontSize: 13 }}>— optional</span></p>
                 <button type="button" className="edit-link" onClick={() => setSaved("clinic", false)}>Edit</button>
               </div>
             ) : (
               <>
+                <p className="glabel cl-serif">Clinic & doctor <span style={{ fontWeight: 400, color: T.inkMuted, fontSize: 13 }}>— optional</span></p>
                 {clinicEntries.map((c, i) => {
                   const setField = (key) => (e) =>
                     setClinicEntries(prev => prev.map((v, idx) => (idx === i ? { ...v, [key]: e.target.value } : v)));
@@ -1104,19 +1087,14 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
           </div>
 
           <div className="grp">
-            <p className="glabel cl-serif">Case worker <span style={{ fontWeight: 400, color: T.inkMuted, fontSize: 13 }}>— optional</span></p>
-            <p className="gsub">The child's assigned case worker / social worker. Services often call to verify.</p>
-
             {sectionSaved.caseWorker ? (
-              <div className="saved-row">
-                <div>
-                  <p className="saved-badge">✓ Saved</p>
-                  <p className="saved-sub">{caseWorkerEntries.filter(w => w.name.trim()).map(w => w.name.trim()).join(", ") || "No case worker added"}</p>
-                </div>
+              <div className="grp-head-collapsed">
+                <p className="glabel cl-serif">Case worker <span style={{ fontWeight: 400, color: T.inkMuted, fontSize: 13 }}>— optional</span></p>
                 <button type="button" className="edit-link" onClick={() => setSaved("caseWorker", false)}>Edit</button>
               </div>
             ) : (
               <>
+                <p className="glabel cl-serif">Case worker <span style={{ fontWeight: 400, color: T.inkMuted, fontSize: 13 }}>— optional</span></p>
                 {caseWorkerEntries.map((w, i) => {
                   const setField = (key) => (e) =>
                     setCaseWorkerEntries(prev => prev.map((v, idx) => (idx === i ? { ...v, [key]: e.target.value } : v)));
