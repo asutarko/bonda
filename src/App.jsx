@@ -191,7 +191,7 @@ export default function Bonda() {
     mychild: "My Child",
     schedule: "Schedule",
     community: "Community",
-    subsidies: "Support Directory",
+    subsidies: "Support Hotlines",
     subsidiesGrants: "Subsidies & Grants",
     sos: "Emergency Contacts",
     devGuide: "Development & Behaviour Guide",
