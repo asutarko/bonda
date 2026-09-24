@@ -85,6 +85,24 @@ const parseSessions = text => {
   return sessions.length ? sessions : [{ type: "", note: "" }];
 };
 
+// Clinics share CarerLetterScreen's storage: each clinic_*/doctor_name column
+// holds its entries newline-joined, index-aligned across columns. Address and
+// email aren't edited here but ride along in each entry so removing a clinic
+// doesn't shift the next clinic's address/email onto the wrong row.
+const EMPTY_CLINIC = { name: "", doctor: "", address: "", phone: "", email: "" };
+const CLINIC_FIELDS = { name: "clinicName", doctor: "doctorName", address: "clinicAddress", phone: "clinicPhone", email: "clinicEmail" };
+const parseClinics = child => {
+  const keys = Object.keys(CLINIC_FIELDS);
+  const lists = keys.map(k => (child?.[CLINIC_FIELDS[k]] || "").split("\n").map(s => s.trim()));
+  const count = Math.max(1, ...lists.map(l => l.length));
+  return Array.from({ length: count }, (_, i) => Object.fromEntries(keys.map((k, idx) => [k, lists[idx][i] || ""])));
+};
+const hasAnyClinic = child => Object.values(CLINIC_FIELDS).some(f => child?.[f]);
+const clinicsPatch = (clinics, on) => {
+  const kept = on ? clinics.filter(c => Object.values(c).some(v => v.trim())) : [];
+  return Object.fromEntries(Object.entries(CLINIC_FIELDS).map(([k, field]) => [field, kept.map(c => c[k].trim()).join("\n")]));
+};
+
 const toggleOption = (selected, setSelected, setOther, option) => {
   setSelected(sel => {
     const has = sel.includes(option);
@@ -323,17 +341,38 @@ export function MedicalInfoSection({
   );
 }
 
-export function CareClinicSection({ hasClinic, setHasClinic, location, setLocation, clinicName, setClinicName, countryOptions }) {
+export function CareClinicSection({ hasClinic, setHasClinic, location, setLocation, clinics, setClinics, countryOptions }) {
+  const updateClinic = (i, key, value) => setClinics(cs => cs.map((c, idx) => idx === i ? { ...c, [key]: value } : c));
+  const addClinic = () => setClinics(cs => [...cs, { ...EMPTY_CLINIC }]);
+  const removeClinic = i => setClinics(cs => cs.filter((_, idx) => idx !== i));
+
   return (
     <>
       <ToggleField label="Seeing a clinic or specialist?" on={hasClinic === "Yes"} onChange={v => {
         setHasClinic(v ? "Yes" : "No");
-        if (!v) { setLocation(""); setClinicName(""); }
+        if (!v) { setLocation(""); setClinics([{ ...EMPTY_CLINIC }]); }
       }} />
       {hasClinic === "Yes" && (
         <>
           <Select label="Location (country)" placeholder="Select country" value={location} onChange={e => setLocation(e.target.value)} options={countryOptions} />
-          <Input label="Clinic, psychologist or psychiatrist" placeholder="e.g. Dr Tan — Sunrise Family Clinic" value={clinicName} onChange={e => setClinicName(e.target.value)} />
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 10 }}>
+              {clinics.map((c, i) => (
+                <div key={i} style={{ border: `1.5px solid ${T.border}`, borderRadius: T.r, padding: "12px 12px 0", position: "relative" }}>
+                  {clinics.length > 1 && (
+                    <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>Clinic {i + 1}</p>
+                  )}
+                  <Input label="Clinic, psychologist or psychiatrist" placeholder="e.g. Sunrise Family Clinic" value={c.name} onChange={e => updateClinic(i, "name", e.target.value)} />
+                  <Input label="Doctor's name" placeholder="e.g. Dr Tan" value={c.doctor} onChange={e => updateClinic(i, "doctor", e.target.value)} />
+                  <Input label="Phone number" type="tel" placeholder="e.g. 6123 4567" value={c.phone} onChange={e => updateClinic(i, "phone", e.target.value)} />
+                  {clinics.length > 1 && (
+                    <button type="button" onClick={() => removeClinic(i)} aria-label="Remove clinic" style={{ position: "absolute", top: 8, right: 10, background: "none", border: "none", color: T.inkMuted, fontSize: 18, cursor: "pointer", lineHeight: 1, fontFamily: T.fontBody }}>×</button>
+                  )}
+                </div>
+              ))}
+            </div>
+            <button type="button" onClick={addClinic} style={{ background: T.purpleL, color: T.purple, fontWeight: 700, fontSize: 13, padding: "9px 14px", borderRadius: 99, border: "none", cursor: "pointer", fontFamily: T.fontBody }}>+ Add another clinic</button>
+          </div>
         </>
       )}
     </>
@@ -402,7 +441,7 @@ export function AddChildScreen({ childCtx, pop }) {
   const [caseWorkerName, setCaseWorkerName] = useState("");
   const [caseWorkerPhone, setCaseWorkerPhone] = useState("");
   const [caseWorkerEmail, setCaseWorkerEmail] = useState("");
-  const [clinicName, setClinicName] = useState("");
+  const [clinics, setClinics] = useState([{ ...EMPTY_CLINIC }]);
   const [location, setLocation] = useState("");
   const [countryOptions, setCountryOptions] = useState([]);
   const [err, setErr] = useState("");
@@ -452,7 +491,7 @@ export function AddChildScreen({ childCtx, pop }) {
       diagnosis: joinMultiField(diagnosisSelected, diagnosisOther),
       placementStartDate, fosteringAgency: fosteringAgency.trim(), placementType, courtOrderRef: courtOrderRef.trim(),
       caseWorkerName: caseWorkerName.trim(), caseWorkerPhone: caseWorkerPhone.trim(), caseWorkerEmail: caseWorkerEmail.trim(),
-      clinicName: hasClinic === "Yes" ? clinicName.trim() : "", location: hasClinic === "Yes" ? location : "",
+      ...clinicsPatch(clinics, hasClinic === "Yes"), location: hasClinic === "Yes" ? location : "",
     });
     setSaving(false);
     if (!id) return setErr("Could not save the profile. Please try again.");
@@ -520,7 +559,7 @@ export function AddChildScreen({ childCtx, pop }) {
       </FormSection>
 
       <FormSection title="Care & clinic" defaultOpen={false}>
-        <CareClinicSection hasClinic={hasClinic} setHasClinic={setHasClinic} location={location} setLocation={setLocation} clinicName={clinicName} setClinicName={setClinicName} countryOptions={countryOptions} />
+        <CareClinicSection hasClinic={hasClinic} setHasClinic={setHasClinic} location={location} setLocation={setLocation} clinics={clinics} setClinics={setClinics} countryOptions={countryOptions} />
       </FormSection>
 
       <FormSection title="Foster & placement details" defaultOpen={false}>
@@ -583,7 +622,7 @@ export function ChildProfileForm({ childCtx, onSaved, onCancel, onDeleted, showH
   const [allergiesOther, setAllergiesOther] = useState(initialAllergies.other);
   const [hasMedication, setHasMedication] = useState(activeChild?.medication ? "Yes" : "No");
   const [medicationDetail, setMedicationDetail] = useState(activeChild?.medication || "");
-  const [hasClinic, setHasClinic] = useState((activeChild?.clinicName || activeChild?.location) ? "Yes" : "No");
+  const [hasClinic, setHasClinic] = useState((hasAnyClinic(activeChild) || activeChild?.location) ? "Yes" : "No");
   const [placementStartDate, setPlacementStartDate] = useState(activeChild?.placementStartDate || "");
   const [fosteringAgency, setFosteringAgency] = useState(activeChild?.fosteringAgency || "");
   const [placementType, setPlacementType] = useState(activeChild?.placementType || "");
@@ -591,7 +630,7 @@ export function ChildProfileForm({ childCtx, onSaved, onCancel, onDeleted, showH
   const [caseWorkerName, setCaseWorkerName] = useState(activeChild?.caseWorkerName || "");
   const [caseWorkerPhone, setCaseWorkerPhone] = useState(activeChild?.caseWorkerPhone || "");
   const [caseWorkerEmail, setCaseWorkerEmail] = useState(activeChild?.caseWorkerEmail || "");
-  const [clinicName, setClinicName] = useState(activeChild?.clinicName || "");
+  const [clinics, setClinics] = useState(parseClinics(activeChild));
   const [location, setLocation] = useState(activeChild?.location || "");
   const [countryOptions, setCountryOptions] = useState([]);
   const [err, setErr] = useState("");
@@ -643,7 +682,7 @@ export function ChildProfileForm({ childCtx, onSaved, onCancel, onDeleted, showH
       diagnosis: joinMultiField(diagnosisSelected, diagnosisOther),
       placementStartDate, fosteringAgency: fosteringAgency.trim(), placementType, courtOrderRef: courtOrderRef.trim(),
       caseWorkerName: caseWorkerName.trim(), caseWorkerPhone: caseWorkerPhone.trim(), caseWorkerEmail: caseWorkerEmail.trim(),
-      clinicName: hasClinic === "Yes" ? clinicName.trim() : "", location: hasClinic === "Yes" ? location : "",
+      ...clinicsPatch(clinics, hasClinic === "Yes"), location: hasClinic === "Yes" ? location : "",
     };
     if (photo) {
       let emojiValue = photo;
@@ -732,7 +771,7 @@ export function ChildProfileForm({ childCtx, onSaved, onCancel, onDeleted, showH
       </FormSection>
 
       <FormSection title="Care & clinic" defaultOpen={false}>
-        <CareClinicSection hasClinic={hasClinic} setHasClinic={setHasClinic} location={location} setLocation={setLocation} clinicName={clinicName} setClinicName={setClinicName} countryOptions={countryOptions} />
+        <CareClinicSection hasClinic={hasClinic} setHasClinic={setHasClinic} location={location} setLocation={setLocation} clinics={clinics} setClinics={setClinics} countryOptions={countryOptions} />
       </FormSection>
 
       <FormSection title="Foster & placement details" defaultOpen={false}>
