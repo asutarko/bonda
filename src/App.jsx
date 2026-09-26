@@ -221,7 +221,7 @@ export default function Bonda() {
   const renderStack = () => {
     if (!current) return null;
     switch (current) {
-      case "subsidies":  return <SupportDirectory />;
+      case "subsidies":  return <SupportDirectory account={account} />;
       case "subsidiesGrants": return <SubsidiesScreen pop={pop} account={account} />;
       case "sos":        return <SOSScreen pop={pop} account={account} />;
       case "devGuide":   return <DevelopmentGuideScreen />;

@@ -1,88 +1,57 @@
-import React, { useState, useMemo, useRef, useEffect } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { supabase } from "../lib/supabase";
+import { useBackHandler } from "../hooks";
 
 /**
- * Bonda — Support Directory
- * Singapore government & specialist contacts for autism and caregiver support.
+ * Bonda — Contacts
+ * The caregiver's own address book for the people around their child:
+ * school, doctor / clinic and therapist.
  *
- * Layout mirrors the Bonda "Subsidies & grants" screen:
+ * Layout keeps the old Support Directory look (see SupportDirectory.backup.jsx):
  *   • white header zone over a soft grey body
- *   • search field + a separate Filters button (filters stay hidden until tapped)
- *   • a "Start here" quick-access carousel with dots
+ *   • search field + category chips
  *   • a results count
- *   • rich cards: category pill (coloured dot) + context label, title,
- *     description, a tinted "Good to know" inset, attribute chips, then
- *     tap-to-contact actions.
+ *   • cards: category pill, name, organisation, address / note inset, then
+ *     tap-to-contact actions (tel / WhatsApp / mailto)
+ *   • an add / edit bottom sheet
  *
- * Palette: calm editorial. Soft grey canvas, white cards, dark ink text, one
- * muted teal accent (links, active filters, dots). Category tags in muted
- * tones only — teal, blue, rose, violet, indigo, slate. No yellow.
- *
- * Mobile & app first: single column, ≥44px targets, native tel/mailto/wa.me
- * links, momentum scrolling, iOS safe-area padding, reduced-motion respected.
- *
- * Logos: real org logos are trademarked and can't be reproduced faithfully in
- * code, so each card uses a monogram tinted with its category tone.
- *
- * Data lives in public.support_directory (supabase/support_directory.sql) and
- * website links are checked daily by supabase/functions/check-support-directory —
- * details can still change; confirm before relying on them.
+ * Data lives in public.user_contacts (supabase/user_contacts.sql), one row per
+ * contact, private to its owner via RLS.
  */
 
 /* ---------- muted category tones (no yellow) ---------- */
 const TONES = {
   teal:   { bg: "#E4F0EC", fg: "#2E7B6A", dot: "#2E7B6A" },
   blue:   { bg: "#E6ECF3", fg: "#3C6088", dot: "#4A79A6" },
-  rose:   { bg: "#F4E8EA", fg: "#9A5A66", dot: "#B06E7A" },
   violet: { bg: "#ECE8F3", fg: "#63578A", dot: "#7E6FAC" },
-  indigo: { bg: "#E7E9F4", fg: "#464D84", dot: "#5D66A6" },
-  slate:  { bg: "#EAECEE", fg: "#4E5964", dot: "#67737C" },
 };
 
 const CATEGORIES = [
-  { id: "gov",       label: "Government & first stop", short: "Government",  tone: "teal" },
-  { id: "diagnosis", label: "Diagnosis & assessment",  short: "Diagnosis",   tone: "blue" },
-  { id: "autism",    label: "Autism organisations",    short: "Autism orgs", tone: "indigo" },
-  { id: "therapy",   label: "Therapy & early years",   short: "Therapy",     tone: "violet" },
-  { id: "caregiver", label: "Caregiver support",       short: "Caregiver",   tone: "rose" },
-  { id: "crisis",    label: "Crisis & helplines",      short: "Crisis",      tone: "slate" },
+  { id: "school",    label: "School",         orgLabel: "School name",        namePh: "e.g. Ms Tan (form teacher)", orgPh: "e.g. Rainbow Centre", tone: "blue" },
+  { id: "doctor",    label: "Doctor / Clinic", orgLabel: "Clinic / hospital", namePh: "e.g. Dr Lim",               orgPh: "e.g. KKH Child Development Unit", tone: "teal" },
+  { id: "therapist", label: "Therapist",      orgLabel: "Centre / practice",  namePh: "e.g. Sarah (speech therapist)", orgPh: "e.g. Thye Hua Kwan EIPIC", tone: "violet" },
 ];
 const CAT = Object.fromEntries(CATEGORIES.map((c) => [c.id, c]));
 
-// Loaded from public.support_directory (see supabase/support_directory.sql),
-// kept live by the automated checker (supabase/functions/check-support-directory)
-// instead of being hardcoded here.
-const mapRow = (row) => ({
-  id: row.id, name: row.name, initials: row.initials, category: row.category,
-  context: row.context, desc: row.description, note: row.note, tags: row.tags || [],
-  phone: row.phone, tel: row.tel, email: row.email, whatsapp: row.whatsapp, wa: row.wa,
-  web: row.web, webLabel: row.web_label,
-});
+const EMPTY = { category: "school", name: "", organisation: "", phone: "", email: "", address: "", note: "" };
 
-/* ---------- quick-access carousel content ---------- */
-const FEATURED = [
-  { id: "f-start", eyebrow: "New here?", title: "Not sure where to begin", sub: "Start with SG Enable's Enabling Guide",
-    icon: "compass", cta: "See SG Enable", action: { type: "filter", value: "gov" } },
-  { id: "f-crisis", eyebrow: "Right now", title: "Need to talk to someone", sub: "SOS is free and confidential, 24 hours",
-    icon: "lifebuoy", cta: "See ways to reach SOS", action: { type: "filter", value: "crisis" } },
-  { id: "f-dx", eyebrow: "First steps", title: "Getting an assessment", sub: "See the public diagnosis pathways",
-    icon: "clipboard", cta: "See diagnosis contacts", action: { type: "filter", value: "diagnosis" } },
-];
+// Singapore numbers are usually typed as 8 digits; wa.me needs the country code.
+const telHref = (phone) => "tel:" + phone.replace(/[^\d+]/g, "");
+const waHref = (phone) => {
+  let d = phone.replace(/\D/g, "");
+  if (d.length === 8) d = "65" + d;
+  return "https://wa.me/" + d;
+};
 
 /* ---------- icons ---------- */
 const I = {
   search: <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>,
-  filter: <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M4 7h11M19 7h1M4 12h5M13 12h7M4 17h9M17 17h3"/><circle cx="17" cy="7" r="2"/><circle cx="11" cy="12" r="2"/><circle cx="15" cy="17" r="2"/></svg>,
   phone: <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2Z"/></svg>,
   chat: <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9 9 0 0 1-3.9-.9L3 20l1.1-4.1A8.4 8.4 0 0 1 3 11.5a8.4 8.4 0 0 1 9-8.4 8.4 8.4 0 0 1 9 8.4Z"/></svg>,
   mail: <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>,
-  globe: <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18 15 15 0 0 1 0-18Z"/></svg>,
-  arrow: <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M7 17 17 7M8 7h9v9"/></svg>,
-  right: <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h13M12 6l6 6-6 6"/></svg>,
-  check: <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>,
-  compass: <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5 5-2Z"/></svg>,
-  lifebuoy: <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.6"/><path d="m5.6 5.6 3.2 3.2M15.2 15.2l3.2 3.2M18.4 5.6l-3.2 3.2M8.8 15.2l-3.2 3.2"/></svg>,
-  clipboard: <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4h6v3H9zM8.5 11h7M8.5 15h5"/></svg>,
+  pin: <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21Z"/><circle cx="12" cy="9.5" r="2.5"/></svg>,
+  edit: <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 20h4L19 9l-4-4L4 16v4Z"/><path d="m13.5 6.5 4 4"/></svg>,
+  plus: <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>,
 };
 
 /* ---------- action link ---------- */
@@ -97,141 +66,174 @@ function Action({ href, icon, label, primary, external }) {
 }
 
 /* ---------- contact card ---------- */
-function Card({ org, flash }) {
-  const cat = CAT[org.category];
+function Card({ c, onEdit }) {
+  const cat = CAT[c.category] || CATEGORIES[0];
   const t = TONES[cat.tone];
   return (
-    <article id={"bd-card-" + org.id} data-cat={org.category} className={"bd-card" + (flash ? " is-flash" : "")}>
+    <article className="bd-card">
       <div className="bd-card__row">
         <span className="bd-pill" style={{ background: t.bg, color: t.fg }}>
           <span className="bd-pill__dot" style={{ background: t.dot }} />
           {cat.label}
         </span>
-        {org.context && <span className="bd-context">{org.context}</span>}
+        <button className="bd-edit" onClick={() => onEdit(c)} aria-label={"Edit " + c.name}>{I.edit}</button>
       </div>
 
-      <h3 className="bd-card__name">{org.name}</h3>
+      <h3 className="bd-card__name">{c.name}</h3>
+      {c.organisation && <p className="bd-card__org">{c.organisation}</p>}
 
-      <p className="bd-card__desc">{org.desc}</p>
-
-      {org.note && (
+      {(c.address || c.note) && (
         <div className="bd-inset">
-          <span className="bd-inset__label">Good to know</span>
-          <p className="bd-inset__val">{org.note}</p>
+          {c.address && (
+            <a className="bd-inset__addr" href={"https://maps.google.com/?q=" + encodeURIComponent(c.address)} target="_blank" rel="noopener noreferrer">
+              <span className="bd-act__i">{I.pin}</span>{c.address}
+            </a>
+          )}
+          {c.note && <p className="bd-inset__val">{c.note}</p>}
         </div>
       )}
 
-      {org.tags && (
-        <div className="bd-tags">
-          {org.tags.map((tag) => <span key={tag} className="bd-tag">{tag}</span>)}
+      {(c.phone || c.email) && (
+        <div className="bd-actions">
+          {c.phone && <Action href={telHref(c.phone)} icon={I.phone} label={c.phone} primary />}
+          {c.phone && <Action href={waHref(c.phone)} icon={I.chat} label="WhatsApp" external />}
+          {c.email && <Action href={`mailto:${c.email}`} icon={I.mail} label="Email" />}
         </div>
       )}
-
-      <div className="bd-actions">
-        {org.tel && <Action href={`tel:${org.tel}`} icon={I.phone} label={org.phone} primary />}
-        {org.wa && <Action href={org.wa} icon={I.chat} label="WhatsApp" external />}
-        {org.email && <Action href={`mailto:${org.email}`} icon={I.mail} label="Email" />}
-        {org.web && <Action href={org.web} icon={I.globe} label={org.webLabel || "Website"} external />}
-      </div>
     </article>
   );
 }
 
-/* ---------- quick-access card ---------- */
-function Featured({ item, onGo }) {
+/* ---------- add / edit sheet ---------- */
+function Sheet({ initial, onClose, onSave, onDelete }) {
+  const [f, setF] = useState(initial);
+  const [saving, setSaving] = useState(false);
+  const [confirmDel, setConfirmDel] = useState(false);
+  const [err, setErr] = useState("");
+  const set = (k) => (e) => setF((p) => ({ ...p, [k]: e.target.value }));
+  const cat = CAT[f.category];
+
+  useBackHandler(true, onClose);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!f.name.trim()) { setErr("Please enter a name."); return; }
+    setSaving(true); setErr("");
+    const error = await onSave(f);
+    setSaving(false);
+    if (error) setErr("Couldn't save. Please try again.");
+  };
+
   return (
-    <button className="bd-feat" onClick={() => onGo(item.action)}>
-      <div className="bd-feat__body">
-        <span className="bd-feat__eyebrow">{item.eyebrow}</span>
-        <h3 className="bd-feat__title">{item.title}</h3>
-        <p className="bd-feat__sub">{item.sub}</p>
-        <span className="bd-feat__cta">{item.cta} {I.right}</span>
-      </div>
-      <span className="bd-feat__icon">{I[item.icon]}</span>
-    </button>
+    <div className="bd-sheet-bg" onClick={onClose}>
+      <form className="bd-sheet" onClick={(e) => e.stopPropagation()} onSubmit={submit}>
+        <div className="bd-sheet__grip" />
+        <h2 className="bd-sheet__t">{initial.id ? "Edit contact" : "New contact"}</h2>
+
+        <span className="bd-lbl">Category</span>
+        <div className="bd-seg">
+          {CATEGORIES.map((c) => (
+            <button type="button" key={c.id} className={"bd-seg__b" + (f.category === c.id ? " is-on" : "")}
+              onClick={() => setF((p) => ({ ...p, category: c.id }))}>{c.label}</button>
+          ))}
+        </div>
+
+        <label className="bd-lbl">Name *
+          <input className="bd-in" value={f.name} onChange={set("name")} placeholder={cat.namePh} />
+        </label>
+        <label className="bd-lbl">{cat.orgLabel}
+          <input className="bd-in" value={f.organisation} onChange={set("organisation")} placeholder={cat.orgPh} />
+        </label>
+        <label className="bd-lbl">Phone
+          <input className="bd-in" type="tel" inputMode="tel" value={f.phone} onChange={set("phone")} placeholder="e.g. 9123 4567" />
+        </label>
+        <label className="bd-lbl">Email
+          <input className="bd-in" type="email" inputMode="email" autoCapitalize="off" value={f.email} onChange={set("email")} />
+        </label>
+        <label className="bd-lbl">Address
+          <input className="bd-in" value={f.address} onChange={set("address")} />
+        </label>
+        <label className="bd-lbl">Notes
+          <textarea className="bd-in bd-in--ta" rows={3} value={f.note} onChange={set("note")} placeholder="Opening hours, appointment days, who to ask for…" />
+        </label>
+
+        {err && <p className="bd-err">{err}</p>}
+
+        <div className="bd-sheet__btns">
+          <button type="button" className="bd-btn" onClick={onClose}>Cancel</button>
+          <button type="submit" className="bd-btn is-primary" disabled={saving}>{saving ? "Saving…" : "Save"}</button>
+        </div>
+
+        {initial.id && (
+          confirmDel ? (
+            <div className="bd-del">
+              <span>Delete this contact?</span>
+              <button type="button" className="bd-del__no" onClick={() => setConfirmDel(false)}>No</button>
+              <button type="button" className="bd-del__yes" onClick={() => onDelete(initial.id)}>Delete</button>
+            </div>
+          ) : (
+            <button type="button" className="bd-del__link" onClick={() => setConfirmDel(true)}>Delete contact</button>
+          )
+        )}
+      </form>
+    </div>
   );
 }
 
 /* ---------- main ---------- */
-export default function SupportDirectory() {
+export default function SupportDirectory({ account }) {
   const [query, setQuery] = useState("");
   const [active, setActive] = useState("all");
-  const [open, setOpen] = useState(false);
-  const [slide, setSlide] = useState(0);
-  const [flashCat, setFlashCat] = useState(null);
-  const [orgs, setOrgs] = useState([]);
-  const [loadingOrgs, setLoadingOrgs] = useState(true);
-  const railRef = useRef(null);
-  const flashTimer = useRef(null);
-  const drag = useRef({ down: false, moved: false, startX: 0, startScroll: 0 });
+  const [contacts, setContacts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(null); // contact being edited, or EMPTY-based draft
 
   useEffect(() => {
-    supabase.from("support_directory").select("*").eq("available_online", true).order("sort_order")
-      .then(({ data }) => { setOrgs((data || []).map(mapRow)); setLoadingOrgs(false); });
+    supabase.from("user_contacts").select("*").order("name")
+      .then(({ data }) => { setContacts(data || []); setLoading(false); });
   }, []);
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return orgs.filter((o) => {
-      if (active !== "all" && o.category !== active) return false;
+    return contacts.filter((c) => {
+      if (active !== "all" && c.category !== active) return false;
       if (!q) return true;
-      return (
-        o.name.toLowerCase().includes(q) ||
-        o.desc.toLowerCase().includes(q) ||
-        (o.note || "").toLowerCase().includes(q) ||
-        (o.tags || []).join(" ").toLowerCase().includes(q) ||
-        CAT[o.category].label.toLowerCase().includes(q)
-      );
+      return [c.name, c.organisation, c.phone, c.email, c.address, c.note]
+        .some((v) => (v || "").toLowerCase().includes(q));
     });
-  }, [orgs, query, active]);
+  }, [contacts, query, active]);
 
-  const onRail = () => {
-    const el = railRef.current;
-    if (!el || !el.children.length) return;
-    const step = el.children[0].offsetWidth + 12;
-    setSlide(Math.round(el.scrollLeft / step));
-  };
+  const counts = useMemo(() => {
+    const n = { all: contacts.length };
+    CATEGORIES.forEach((c) => { n[c.id] = contacts.filter((x) => x.category === c.id).length; });
+    return n;
+  }, [contacts]);
 
-  // Mouse drag-to-scroll for the rail (touch already scrolls natively).
-  const onRailPointerDown = (e) => {
-    if (e.pointerType === "touch") return;
-    const el = railRef.current;
-    drag.current = { down: true, moved: false, startX: e.clientX, startScroll: el.scrollLeft };
-    el.style.scrollSnapType = "none"; // fighting mandatory snap during drag is what made it feel heavy
-    el.setPointerCapture(e.pointerId);
-  };
-  const onRailPointerMove = (e) => {
-    const st = drag.current;
-    if (!st.down) return;
-    const dx = e.clientX - st.startX;
-    if (Math.abs(dx) > 3) st.moved = true;
-    railRef.current.scrollLeft = st.startScroll - dx;
-  };
-  const onRailPointerUp = () => {
-    drag.current.down = false;
-    const el = railRef.current;
-    if (el) el.style.scrollSnapType = "";
-  };
-  const onRailClickCapture = (e) => {
-    if (drag.current.moved) { e.preventDefault(); e.stopPropagation(); drag.current.moved = false; }
+  const save = async (f) => {
+    const row = {
+      category: f.category, name: f.name.trim(), organisation: f.organisation.trim(),
+      phone: f.phone.trim(), email: f.email.trim(), address: f.address.trim(), note: f.note.trim(),
+    };
+    const q = f.id
+      ? supabase.from("user_contacts").update({ ...row, updated_at: new Date().toISOString() }).eq("id", f.id)
+      : supabase.from("user_contacts").insert({ ...row, user_id: account.id });
+    const { data, error } = await q.select().single();
+    if (error) return error;
+    setContacts((list) => {
+      const next = f.id ? list.map((c) => (c.id === f.id ? data : c)) : [...list, data];
+      return next.sort((a, b) => a.name.localeCompare(b.name));
+    });
+    setEditing(null);
+    return null;
   };
 
-  const pick = (id) => { setActive(id); setOpen(false); };
-
-  // One behaviour for every quick-access card: filter to the category,
-  // scroll the results into view, and flash their borders briefly.
-  const onGo = (action) => {
-    setActive(action.value);
-    setQuery("");
-    setOpen(false);
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      const first = document.querySelector('[data-cat="' + action.value + '"]');
-      if (first) first.scrollIntoView({ behavior: "smooth", block: "start" });
-      setFlashCat(action.value);
-      if (flashTimer.current) clearTimeout(flashTimer.current);
-      flashTimer.current = setTimeout(() => setFlashCat(null), 1800);
-    }));
+  const remove = async (id) => {
+    const { error } = await supabase.from("user_contacts").delete().eq("id", id);
+    if (!error) setContacts((list) => list.filter((c) => c.id !== id));
+    setEditing(null);
   };
+
+  const startNew = () => setEditing({ ...EMPTY, category: active === "all" ? "school" : active });
 
   return (
     <div className="bd-root">
@@ -240,98 +242,70 @@ export default function SupportDirectory() {
       {/* header (white zone) */}
       <header className="bd-head">
         <div className="bd-wrap">
-          <p className="bd-sub">Singapore contacts for autism and caregiver support.</p>
+          <p className="bd-sub">Your child's school, doctors and therapists in one place.</p>
         </div>
         <div className="bd-head__tools bd-wrap">
           <div className="bd-search">
             <span className="bd-search__i">{I.search}</span>
             <input className="bd-search__in" type="text" inputMode="search"
-              placeholder="Search support…" value={query}
-              onChange={(e) => setQuery(e.target.value)} aria-label="Search the directory" />
+              placeholder="Search contacts…" value={query}
+              onChange={(e) => setQuery(e.target.value)} aria-label="Search contacts" />
             {query && <button className="bd-search__x" onClick={() => setQuery("")} aria-label="Clear search">×</button>}
           </div>
-          <button className={"bd-filterbtn" + (open ? " is-open" : "")}
-            onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-controls="bd-filters">
-            <span className="bd-filterbtn__i">{I.filter}</span>
-            Filters
-            {active !== "all" && <span className="bd-filterbtn__badge" aria-hidden="true" />}
+          <button className="bd-addbtn" onClick={startNew}>
+            <span className="bd-addbtn__i">{I.plus}</span>Add
           </button>
         </div>
-
-        {open && (
-          <div className="bd-filters bd-wrap" id="bd-filters" role="group" aria-label="Filter by category">
-            <div className="bd-filters__grid">
-              <button className={"bd-opt" + (active === "all" ? " is-on" : "")} onClick={() => pick("all")}>
-                {active === "all" && <span className="bd-opt__c">{I.check}</span>}All contacts
-              </button>
-              {CATEGORIES.map((c) => (
-                <button key={c.id} className={"bd-opt" + (active === c.id ? " is-on" : "")} onClick={() => pick(c.id)}>
-                  <span className="bd-opt__dot" style={{ background: TONES[c.tone].dot }} />
-                  {c.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
+        <div className="bd-chips bd-wrap" role="group" aria-label="Filter by category">
+          <button className={"bd-chip" + (active === "all" ? " is-on" : "")} onClick={() => setActive("all")}>
+            All <span className="bd-chip__n">{counts.all}</span>
+          </button>
+          {CATEGORIES.map((c) => (
+            <button key={c.id} className={"bd-chip" + (active === c.id ? " is-on" : "")} onClick={() => setActive(c.id)}>
+              <span className="bd-opt__dot" style={{ background: TONES[c.tone].dot }} />
+              {c.label} <span className="bd-chip__n">{counts[c.id]}</span>
+            </button>
+          ))}
+        </div>
       </header>
 
       {/* body (grey zone) */}
       <main className="bd-body">
         <div className="bd-wrap">
-          {/* quick access */}
-          <section className="bd-feat-wrap" aria-label="Start here">
-            <p className="bd-eyebrow">Start here</p>
-            <div className="bd-rail" ref={railRef} onScroll={onRail}
-              onPointerDown={onRailPointerDown} onPointerMove={onRailPointerMove}
-              onPointerUp={onRailPointerUp} onPointerLeave={onRailPointerUp}
-              onClickCapture={onRailClickCapture}>
-              {FEATURED.map((f) => <Featured key={f.id} item={f} onGo={onGo} />)}
-            </div>
-            <div className="bd-dots">
-              {FEATURED.map((_, i) => (
-                <span key={i} className={"bd-dot" + (i === slide ? " is-on" : "")} />
-              ))}
-            </div>
-          </section>
-
-          {/* count + active filter */}
-          <div className="bd-countrow">
-            <span className="bd-count">
-              {results.length} {results.length === 1 ? "contact" : "contacts"}
-            </span>
-            {active !== "all" && (
-              <button className="bd-activechip" onClick={() => setActive("all")}>
-                {CAT[active].short}<span className="bd-activechip__x">×</span>
-              </button>
-            )}
-          </div>
-
-          {/* list */}
-          {loadingOrgs ? (
-            <p className="bd-empty__b" style={{ padding: "20px 0" }}>Loading directory…</p>
-          ) : results.length === 0 ? (
+          {loading ? (
+            <p className="bd-empty__b" style={{ padding: "20px 0" }}>Loading contacts…</p>
+          ) : contacts.length === 0 ? (
             <div className="bd-empty">
-              <p className="bd-empty__t">No matches</p>
-              <p className="bd-empty__b">Try another word, or clear the filters to see everything.</p>
-              <button className="bd-empty__reset" onClick={() => { setQuery(""); setActive("all"); }}>
-                Clear filters
-              </button>
+              <p className="bd-empty__t">No contacts yet</p>
+              <p className="bd-empty__b">Save your child's school, doctor or clinic, and therapists so they're always one tap away.</p>
+              <button className="bd-empty__reset" onClick={startNew}>Add first contact</button>
             </div>
           ) : (
-            results.map((o) => <Card key={o.id} org={o} flash={flashCat === o.category} />)
+            <>
+              <div className="bd-countrow">
+                <span className="bd-count">{results.length} {results.length === 1 ? "contact" : "contacts"}</span>
+              </div>
+              {results.length === 0 ? (
+                <div className="bd-empty">
+                  <p className="bd-empty__t">No matches</p>
+                  <p className="bd-empty__b">Try another word, or show all categories.</p>
+                  <button className="bd-empty__reset" onClick={() => { setQuery(""); setActive("all"); }}>Show all</button>
+                </div>
+              ) : (
+                results.map((c) => <Card key={c.id} c={c} onEdit={setEditing} />)
+              )}
+            </>
           )}
 
-          {/* footer */}
           <div className="bd-foot">
             <p className="bd-foot__em">
               In an emergency, call <a href="tel:995">995</a> for an ambulance or <a href="tel:999">999</a> for the police.
             </p>
-            <p className="bd-foot__note">
-              Website links are checked daily. Phone numbers and details can still change — please confirm directly before you rely on them.
-            </p>
           </div>
         </div>
       </main>
+
+      {editing && <Sheet initial={editing} onClose={() => setEditing(null)} onSave={save} onDelete={remove} />}
     </div>
   );
 }
@@ -343,7 +317,7 @@ const CSS = `
 .bd-root{
   --ink:#1E2320; --ink-2:#6B7069; --ink-3:#9A9E99;
   --canvas:#F3F2EF; --surface:#FFFFFF; --line:#EBE9E3; --fill:#F5F4F1;
-  --teal:#2E7B6A; --teal-ink:#266657;
+  --teal:#2E7B6A; --teal-ink:#266657; --red:#A4474A;
   font-family:'Literata',Georgia,serif;
   background:var(--canvas); color:var(--ink); min-height:100%;
   -webkit-font-smoothing:antialiased; -webkit-tap-highlight-color:transparent; line-height:1.5;
@@ -358,7 +332,7 @@ const CSS = `
 }
 .bd-head > .bd-wrap:first-child{padding-top:18px; padding-bottom:2px;}
 .bd-sub{margin:0; font-size:13.5px; color:var(--ink-2);}
-.bd-head__tools{display:flex; gap:10px; padding-top:14px; padding-bottom:14px;}
+.bd-head__tools{display:flex; gap:10px; padding-top:14px; padding-bottom:12px;}
 
 .bd-search{
   flex:1; display:flex; align-items:center; gap:9px; height:46px;
@@ -371,98 +345,53 @@ const CSS = `
 .bd-search__in::placeholder{color:var(--ink-3);}
 .bd-search__x{border:0; background:transparent; color:var(--ink-3); font-size:22px; line-height:1; cursor:pointer; min-width:28px; min-height:28px;}
 
-.bd-filterbtn{
-  position:relative; flex:none; display:inline-flex; align-items:center; gap:7px; height:46px; padding:0 15px;
-  background:var(--surface); border:1px solid var(--line); border-radius:12px;
-  font:inherit; font-size:14px; font-weight:600; color:var(--teal-ink); cursor:pointer;
-  transition:background .15s, border-color .15s;
+.bd-addbtn{
+  flex:none; display:inline-flex; align-items:center; gap:6px; height:46px; padding:0 16px;
+  background:var(--teal); border:0; border-radius:12px;
+  font:inherit; font-size:14px; font-weight:600; color:#FBFAF7; cursor:pointer;
 }
-.bd-filterbtn.is-open{background:var(--fill); border-color:#DCDAD3;}
-.bd-filterbtn__i{display:flex; color:var(--teal);}
-.bd-filterbtn__badge{position:absolute; top:9px; right:11px; width:7px; height:7px; border-radius:50%; background:var(--teal); border:1.5px solid var(--surface);}
+.bd-addbtn__i{display:flex;}
 
-/* filter panel */
-.bd-filters{padding-bottom:14px; animation:bd-drop .18s ease;}
-@keyframes bd-drop{from{opacity:0; transform:translateY(-6px);} to{opacity:1; transform:none;}}
-.bd-filters__grid{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
-.bd-opt{
-  display:flex; align-items:center; gap:8px; min-height:44px; padding:0 13px; text-align:left;
-  background:var(--surface); border:1px solid var(--line); border-radius:11px;
-  font:inherit; font-size:13px; font-weight:500; color:var(--ink-2); cursor:pointer;
+/* category chips */
+.bd-chips{display:flex; gap:8px; overflow-x:auto; scrollbar-width:none; padding-bottom:14px;}
+.bd-chips::-webkit-scrollbar{display:none;}
+.bd-chip{
+  flex:none; display:inline-flex; align-items:center; gap:7px; height:38px; padding:0 13px;
+  background:var(--surface); border:1px solid var(--line); border-radius:999px;
+  font:inherit; font-size:13px; font-weight:500; color:var(--ink-2); cursor:pointer; white-space:nowrap;
   transition:border-color .15s, color .15s, background .15s;
 }
-.bd-opt.is-on{border-color:var(--teal); color:var(--teal-ink); font-weight:600; background:rgba(46,123,106,.05);}
+.bd-chip.is-on{border-color:var(--teal); color:var(--teal-ink); font-weight:600; background:rgba(46,123,106,.05);}
+.bd-chip__n{font-size:11.5px; color:var(--ink-3); font-weight:600;}
 .bd-opt__dot{width:8px; height:8px; border-radius:50%; flex:none;}
-.bd-opt__c{display:flex; color:var(--teal); flex:none;}
 
 /* body */
 .bd-body{padding-top:18px; padding-bottom:calc(30px + env(safe-area-inset-bottom));}
 
-/* quick access */
-.bd-eyebrow{margin:0 0 10px; font-size:11.5px; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; color:var(--ink-3);}
-.bd-feat-wrap{margin-bottom:22px;}
-.bd-rail{
-  display:flex; gap:12px; overflow-x:auto; scroll-snap-type:x mandatory;
-  -webkit-overflow-scrolling:touch; scrollbar-width:none; margin:0 -18px; padding:0 18px 2px;
-  cursor:grab;
-}
-.bd-rail:active{cursor:grabbing;}
-.bd-rail::-webkit-scrollbar{display:none;}
-.bd-feat{
-  scroll-snap-align:start; flex:0 0 84%; display:flex; align-items:center; gap:12px; text-align:left;
-  background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:16px;
-  text-decoration:none; color:inherit; font:inherit; cursor:pointer; user-select:none;
-}
-.bd-feat__body{flex:1; min-width:0;}
-.bd-feat__eyebrow{font-size:11px; font-weight:600; letter-spacing:0.05em; text-transform:uppercase; color:var(--teal);}
-.bd-feat__title{margin:6px 0 0; font-size:16.5px; font-weight:700; letter-spacing:-0.01em; line-height:1.25;}
-.bd-feat__sub{margin:4px 0 0; font-size:12.5px; color:var(--ink-2); line-height:1.4;}
-.bd-feat__cta{display:inline-flex; align-items:center; gap:3px; margin-top:11px; font-size:13px; font-weight:600; color:var(--teal-ink);}
-.bd-feat__cta svg{margin-bottom:1px;}
-.bd-feat__icon{flex:none; color:var(--teal); opacity:.9;}
-
-.bd-dots{display:flex; justify-content:center; gap:6px; margin-top:12px;}
-.bd-dot{width:6px; height:6px; border-radius:999px; background:#D4D2CB; transition:width .2s, background .2s;}
-.bd-dot.is-on{width:18px; background:var(--teal);}
-
 /* count row */
 .bd-countrow{display:flex; align-items:center; justify-content:space-between; gap:10px; margin:2px 0 14px;}
 .bd-count{font-size:15px; font-weight:500; color:var(--ink-2);}
-.bd-activechip{
-  display:inline-flex; align-items:center; gap:5px; height:32px; padding:0 6px 0 12px;
-  background:rgba(46,123,106,.08); border:1px solid rgba(46,123,106,.28); border-radius:999px;
-  font:inherit; font-size:12.5px; font-weight:600; color:var(--teal-ink); cursor:pointer;
-}
-.bd-activechip__x{display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; border-radius:50%; background:rgba(46,123,106,.16); font-size:14px; line-height:1;}
 
 /* card */
-.bd-card{background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:16px; margin-bottom:12px; scroll-margin-top:150px;}
-.bd-card.is-flash{animation:bd-flash 1.8s ease;}
-@keyframes bd-flash{
-  0%{box-shadow:0 0 0 0 rgba(46,123,106,0); border-color:var(--line);}
-  12%{box-shadow:0 0 0 3px rgba(46,123,106,.22); border-color:var(--teal);}
-  100%{box-shadow:0 0 0 0 rgba(46,123,106,0); border-color:var(--line);}
-}
+.bd-card{background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:16px; margin-bottom:12px;}
 .bd-card__row{display:flex; align-items:center; justify-content:space-between; gap:10px;}
 .bd-pill{display:inline-flex; align-items:center; gap:6px; padding:5px 11px 5px 9px; border-radius:999px; font-size:11px; font-weight:700; letter-spacing:0.045em; text-transform:uppercase;}
 .bd-pill__dot{width:7px; height:7px; border-radius:50%; flex:none;}
-.bd-context{font-size:12px; font-weight:500; color:var(--ink-3); white-space:nowrap;}
+.bd-edit{display:flex; align-items:center; justify-content:center; width:36px; height:36px; margin:-6px -6px -6px 0; border:0; border-radius:10px; background:transparent; color:var(--ink-3); cursor:pointer;}
+.bd-edit:active{background:var(--fill);}
 
 .bd-card__name{margin:13px 0 0; font-size:16px; font-weight:600; letter-spacing:-0.01em; line-height:1.28;}
+.bd-card__org{margin:3px 0 0; font-size:14px; color:var(--ink-2);}
 
-.bd-card__desc{margin:12px 0 0; font-size:14px; color:var(--ink-2); line-height:1.55;}
-
-.bd-inset{margin-top:13px; background:var(--fill); border-radius:12px; padding:12px 13px;}
-.bd-inset__label{font-size:10.5px; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; color:var(--ink-3);}
-.bd-inset__val{margin:5px 0 0; font-size:13.5px; font-weight:500; color:var(--ink); line-height:1.45;}
-
-.bd-tags{display:flex; flex-wrap:wrap; gap:7px; margin-top:13px;}
-.bd-tag{font-size:12px; font-weight:500; color:var(--ink-2); background:var(--fill); border:1px solid var(--line); border-radius:8px; padding:5px 10px;}
+.bd-inset{margin-top:13px; background:var(--fill); border-radius:12px; padding:12px 13px; display:flex; flex-direction:column; gap:8px;}
+.bd-inset__addr{display:flex; gap:7px; font-size:13.5px; color:var(--ink); text-decoration:none; line-height:1.45;}
+.bd-inset__addr .bd-act__i{margin-top:2px;}
+.bd-inset__val{margin:0; font-size:13.5px; color:var(--ink-2); line-height:1.45; white-space:pre-wrap;}
 
 .bd-actions{display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; padding-top:14px; border-top:1px solid var(--line);}
 .bd-act{display:inline-flex; align-items:center; gap:7px; min-height:44px; padding:0 14px; border-radius:11px; border:1px solid var(--line); background:var(--surface); color:var(--ink); font-size:13.5px; font-weight:500; text-decoration:none; transition:background .15s, border-color .15s;}
 .bd-act:active{background:var(--fill);}
-.bd-act__i{color:var(--ink-3); display:flex;}
+.bd-act__i{color:var(--ink-3); display:flex; flex:none;}
 .bd-act.is-primary{border-color:rgba(46,123,106,.45); color:var(--teal-ink); font-weight:600;}
 .bd-act.is-primary .bd-act__i{color:var(--teal);}
 .bd-act.is-primary:active{background:rgba(46,123,106,.07);}
@@ -475,10 +404,41 @@ const CSS = `
 
 /* footer */
 .bd-foot{margin-top:20px; padding-top:18px; border-top:1px solid var(--line);}
-.bd-foot__em{margin:0 0 8px; font-size:13px;}
+.bd-foot__em{margin:0; font-size:13px;}
 .bd-foot__em a{color:var(--teal-ink); font-weight:600; text-decoration:none;}
-.bd-foot__note{margin:0; font-size:12px; color:var(--ink-3); line-height:1.5;}
 
-@media (max-width:360px){ .bd-filters__grid{grid-template-columns:1fr;} }
+/* sheet */
+.bd-sheet-bg{position:fixed; inset:0; z-index:300; background:rgba(30,35,32,.4); display:flex; align-items:flex-end; justify-content:center; animation:bd-fade .15s ease;}
+@keyframes bd-fade{from{opacity:0;} to{opacity:1;}}
+.bd-sheet{
+  width:100%; max-width:480px; max-height:92vh; overflow-y:auto; -webkit-overflow-scrolling:touch;
+  background:var(--surface); border-radius:20px 20px 0 0; padding:10px 18px calc(18px + env(safe-area-inset-bottom));
+  display:flex; flex-direction:column; gap:12px; animation:bd-up .2s ease;
+}
+@keyframes bd-up{from{transform:translateY(24px);} to{transform:none;}}
+.bd-sheet__grip{width:38px; height:4px; border-radius:99px; background:#DCDAD3; margin:0 auto 4px;}
+.bd-sheet__t{margin:0 0 2px; font-size:18px; font-weight:700; letter-spacing:-0.01em;}
+.bd-lbl{display:flex; flex-direction:column; gap:6px; font-size:12px; font-weight:600; color:var(--ink-2);}
+.bd-in{
+  width:100%; min-height:44px; padding:10px 12px; border:1px solid var(--line); border-radius:11px;
+  background:var(--fill); font:inherit; font-size:15px; font-weight:400; color:var(--ink); outline:0;
+}
+.bd-in:focus{border-color:var(--teal); box-shadow:0 0 0 3px rgba(46,123,106,.12);}
+.bd-in--ta{resize:vertical; line-height:1.45;}
+.bd-seg{display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin-top:-6px;}
+.bd-seg__b{min-height:42px; padding:0 6px; border:1px solid var(--line); border-radius:10px; background:var(--surface); font:inherit; font-size:12.5px; font-weight:500; color:var(--ink-2); cursor:pointer;}
+.bd-seg__b.is-on{border-color:var(--teal); color:var(--teal-ink); font-weight:600; background:rgba(46,123,106,.06);}
+.bd-err{margin:0; font-size:13px; color:var(--red);}
+.bd-sheet__btns{display:flex; gap:10px; margin-top:4px;}
+.bd-btn{flex:1; min-height:46px; border:1px solid var(--line); border-radius:12px; background:var(--surface); font:inherit; font-size:14.5px; font-weight:600; color:var(--ink); cursor:pointer;}
+.bd-btn.is-primary{background:var(--teal); border-color:var(--teal); color:#FBFAF7;}
+.bd-btn:disabled{opacity:.6;}
+.bd-del__link{align-self:center; border:0; background:transparent; font:inherit; font-size:13.5px; font-weight:600; color:var(--red); padding:8px; cursor:pointer;}
+.bd-del{display:flex; align-items:center; gap:8px; font-size:13.5px; color:var(--ink-2);}
+.bd-del span{flex:1;}
+.bd-del__no,.bd-del__yes{min-height:38px; padding:0 14px; border-radius:10px; font:inherit; font-size:13.5px; font-weight:600; cursor:pointer;}
+.bd-del__no{border:1px solid var(--line); background:var(--surface); color:var(--ink);}
+.bd-del__yes{border:0; background:var(--red); color:#fff;}
+
 @media (prefers-reduced-motion:reduce){ .bd-root *{transition:none !important; animation:none !important;} }
 `;
