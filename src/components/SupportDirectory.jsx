@@ -127,8 +127,11 @@ function Sheet({ initial, onClose, onSave, onDelete }) {
   return (
     <div className="bd-sheet-bg" onClick={onClose}>
       <form className="bd-sheet" onClick={(e) => e.stopPropagation()} onSubmit={submit}>
-        <div className="bd-sheet__grip" />
-        <h2 className="bd-sheet__t">{initial.id ? "Edit contact" : "New contact"}</h2>
+        {/* stays pinned while the fields below scroll */}
+        <div className="bd-sheet__top">
+          <div className="bd-sheet__grip" />
+          <h2 className="bd-sheet__t">{initial.id ? "Edit contact" : "New contact"}</h2>
+        </div>
 
         <span className="bd-lbl">Category</span>
         <div className="bd-seg">
@@ -157,13 +160,6 @@ function Sheet({ initial, onClose, onSave, onDelete }) {
           <textarea className="bd-in bd-in--ta" rows={3} value={f.note} onChange={set("note")} placeholder="Opening hours, appointment days, who to ask for…" />
         </label>
 
-        {err && <p className="bd-err">{err}</p>}
-
-        <div className="bd-sheet__btns">
-          <button type="button" className="bd-btn" onClick={onClose}>Cancel</button>
-          <button type="submit" className="bd-btn is-primary" disabled={saving}>{saving ? "Saving…" : "Save"}</button>
-        </div>
-
         {initial.id && (
           confirmDel ? (
             <div className="bd-del">
@@ -175,6 +171,15 @@ function Sheet({ initial, onClose, onSave, onDelete }) {
             <button type="button" className="bd-del__link" onClick={() => setConfirmDel(true)}>Delete contact</button>
           )
         )}
+
+        {/* stays pinned at the bottom while the fields above scroll */}
+        <div className="bd-sheet__bottom">
+          {err && <p className="bd-err">{err}</p>}
+          <div className="bd-sheet__btns">
+            <button type="button" className="bd-btn" onClick={onClose}>Cancel</button>
+            <button type="submit" className="bd-btn is-primary" disabled={saving}>{saving ? "Saving…" : "Save"}</button>
+          </div>
+        </div>
       </form>
     </div>
   );
@@ -412,10 +417,15 @@ const CSS = `
 @keyframes bd-fade{from{opacity:0;} to{opacity:1;}}
 .bd-sheet{
   width:100%; max-width:480px; max-height:92vh; overflow-y:auto; -webkit-overflow-scrolling:touch;
-  background:var(--surface); border-radius:20px 20px 0 0; padding:10px 18px calc(18px + env(safe-area-inset-bottom));
+  background:var(--surface); border-radius:20px 20px 0 0; padding:0 18px;
   display:flex; flex-direction:column; gap:12px; animation:bd-up .2s ease;
 }
 @keyframes bd-up{from{transform:translateY(24px);} to{transform:none;}}
+.bd-sheet__top{
+  position:sticky; top:0; z-index:2; background:var(--surface);
+  margin:0 -18px; padding:10px 18px 12px; border-bottom:1px solid var(--line);
+  display:flex; flex-direction:column; gap:12px;
+}
 .bd-sheet__grip{width:38px; height:4px; border-radius:99px; background:#DCDAD3; margin:0 auto 4px;}
 .bd-sheet__t{margin:0 0 2px; font-size:18px; font-weight:700; letter-spacing:-0.01em;}
 .bd-lbl{display:flex; flex-direction:column; gap:6px; font-size:12px; font-weight:600; color:var(--ink-2);}
@@ -429,7 +439,12 @@ const CSS = `
 .bd-seg__b{min-height:42px; padding:0 6px; border:1px solid var(--line); border-radius:10px; background:var(--surface); font:inherit; font-size:12.5px; font-weight:500; color:var(--ink-2); cursor:pointer;}
 .bd-seg__b.is-on{border-color:var(--teal); color:var(--teal-ink); font-weight:600; background:rgba(46,123,106,.06);}
 .bd-err{margin:0; font-size:13px; color:var(--red);}
-.bd-sheet__btns{display:flex; gap:10px; margin-top:4px;}
+.bd-sheet__bottom{
+  position:sticky; bottom:0; z-index:2; background:var(--surface);
+  margin:0 -18px; padding:12px 18px calc(14px + env(safe-area-inset-bottom)); border-top:1px solid var(--line);
+  display:flex; flex-direction:column; gap:10px;
+}
+.bd-sheet__btns{display:flex; gap:10px;}
 .bd-btn{flex:1; min-height:46px; border:1px solid var(--line); border-radius:12px; background:var(--surface); font:inherit; font-size:14.5px; font-weight:600; color:var(--ink); cursor:pointer;}
 .bd-btn.is-primary{background:var(--teal); border-color:var(--teal); color:#FBFAF7;}
 .bd-btn:disabled{opacity:.6;}
