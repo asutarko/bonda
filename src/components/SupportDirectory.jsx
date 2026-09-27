@@ -442,7 +442,7 @@ const CSS = `
 .bd-head__tools{display:flex; gap:10px; padding-top:14px; padding-bottom:12px;}
 
 .bd-search{
-  flex:1; display:flex; align-items:center; gap:9px; height:46px;
+  flex:1; min-width:0; display:flex; align-items:center; gap:9px; height:46px;
   background:var(--fill); border:1px solid var(--line); border-radius:12px; padding:0 12px;
   transition:border-color .15s, box-shadow .15s;
 }
