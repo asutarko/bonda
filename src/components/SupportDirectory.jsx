@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { supabase } from "../lib/supabase";
 import { useBackHandler } from "../hooks";
 
@@ -33,15 +33,40 @@ const CATEGORIES = [
 ];
 const CAT = Object.fromEntries(CATEGORIES.map((c) => [c.id, c]));
 
-const EMPTY = { category: "school", name: "", organisation: "", phone: "", email: "", address: "", note: "" };
+const EMPTY = { category: "school", name: "", organisation: "", cc: "65", phone: "", email: "", address: "", note: "" };
 
-// Singapore numbers are usually typed as 8 digits; wa.me needs the country code.
-const telHref = (phone) => "tel:" + phone.replace(/[^\d+]/g, "");
-const waHref = (phone) => {
-  let d = phone.replace(/\D/g, "");
-  if (d.length === 8) d = "65" + d;
-  return "https://wa.me/" + d;
+// Phones are stored as "+<country code> <number>" because wa.me needs the
+// country code. Older rows were saved without one — those are Singapore numbers.
+const COUNTRIES = [
+  { cc: "65",  label: "SG" }, { cc: "60",  label: "MY" }, { cc: "62",  label: "ID" },
+  { cc: "63",  label: "PH" }, { cc: "66",  label: "TH" }, { cc: "84",  label: "VN" },
+  { cc: "91",  label: "IN" }, { cc: "86",  label: "CN" }, { cc: "852", label: "HK" },
+  { cc: "61",  label: "AU" }, { cc: "44",  label: "UK" }, { cc: "1",   label: "US" },
+];
+const DEFAULT_CC = "65";
+
+// "+62 812 3456" → { cc: "62", local: "812 3456" }; "9123 4567" → { cc: "65", local: "9123 4567" }
+const splitPhone = (phone) => {
+  const p = (phone || "").trim();
+  if (!p.startsWith("+")) return { cc: DEFAULT_CC, local: p };
+  const digits = p.slice(1).replace(/\D/g, "");
+  const match = COUNTRIES.map((c) => c.cc).sort((a, b) => b.length - a.length).find((cc) => digits.startsWith(cc));
+  if (!match) return { cc: DEFAULT_CC, local: p };
+  // drop the country code digits from the front, keeping the user's spacing after it
+  const rest = p.slice(1);
+  let i = 0, seen = 0;
+  while (seen < match.length && i < rest.length) { if (/\d/.test(rest[i])) seen++; i++; }
+  return { cc: match, local: rest.slice(i).replace(/^[\s-]+/, "") };
 };
+// Local numbers are often typed with a trunk "0" (e.g. 0812…) that is dropped after the country code.
+const joinPhone = (cc, local) => {
+  const l = local.trim().replace(/^0+/, "");
+  return l ? `+${cc} ${l}` : "";
+};
+const fullPhone = (phone) => { const { cc, local } = splitPhone(phone); return joinPhone(cc, local); };
+
+const telHref = (phone) => "tel:" + phone.replace(/[^\d+*#]/g, "");
+const waHref = (phone) => "https://wa.me/" + fullPhone(phone).replace(/\D/g, "");
 
 /* ---------- icons ---------- */
 const I = {
@@ -52,6 +77,8 @@ const I = {
   pin: <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21Z"/><circle cx="12" cy="9.5" r="2.5"/></svg>,
   edit: <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 20h4L19 9l-4-4L4 16v4Z"/><path d="m13.5 6.5 4 4"/></svg>,
   plus: <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>,
+  keypad: <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><circle cx="6" cy="5" r="1.8"/><circle cx="12" cy="5" r="1.8"/><circle cx="18" cy="5" r="1.8"/><circle cx="6" cy="11" r="1.8"/><circle cx="12" cy="11" r="1.8"/><circle cx="18" cy="11" r="1.8"/><circle cx="6" cy="17" r="1.8"/><circle cx="12" cy="17" r="1.8"/><circle cx="18" cy="17" r="1.8"/><circle cx="12" cy="22" r="1.6"/></svg>,
+  back: <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 5H9l-6 7 6 7h12a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1Z"/><path d="m17.5 9.5-5 5M12.5 9.5l5 5"/></svg>,
 };
 
 /* ---------- action link ---------- */
@@ -95,7 +122,7 @@ function Card({ c, onEdit }) {
 
       {(c.phone || c.email) && (
         <div className="bd-actions">
-          {c.phone && <Action href={telHref(c.phone)} icon={I.phone} label={c.phone} primary />}
+          {c.phone && <Action href={telHref(fullPhone(c.phone))} icon={I.phone} label={fullPhone(c.phone)} primary />}
           {c.phone && <Action href={waHref(c.phone)} icon={I.chat} label="WhatsApp" external />}
           {c.email && <Action href={`mailto:${c.email}`} icon={I.mail} label="Email" />}
         </div>
@@ -106,7 +133,11 @@ function Card({ c, onEdit }) {
 
 /* ---------- add / edit sheet ---------- */
 function Sheet({ initial, onClose, onSave, onDelete }) {
-  const [f, setF] = useState(initial);
+  const [f, setF] = useState(() => {
+    if (!initial.id) return initial;
+    const { cc, local } = splitPhone(initial.phone);
+    return { ...initial, cc, phone: local };
+  });
   const [saving, setSaving] = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
   const [err, setErr] = useState("");
@@ -148,7 +179,12 @@ function Sheet({ initial, onClose, onSave, onDelete }) {
           <input className="bd-in" value={f.organisation} onChange={set("organisation")} placeholder={cat.orgPh} />
         </label>
         <label className="bd-lbl">Phone
-          <input className="bd-in" type="tel" inputMode="tel" value={f.phone} onChange={set("phone")} placeholder="e.g. 9123 4567" />
+          <div className="bd-phone">
+            <select className="bd-in bd-cc" value={f.cc} onChange={set("cc")} aria-label="Country code">
+              {COUNTRIES.map((c) => <option key={c.cc} value={c.cc}>{c.label} +{c.cc}</option>)}
+            </select>
+            <input className="bd-in" type="tel" inputMode="tel" value={f.phone} onChange={set("phone")} placeholder="e.g. 9123 4567" />
+          </div>
         </label>
         <label className="bd-lbl">Email
           <input className="bd-in" type="email" inputMode="email" autoCapitalize="off" value={f.email} onChange={set("email")} />
@@ -185,6 +221,69 @@ function Sheet({ initial, onClose, onSave, onDelete }) {
   );
 }
 
+/* ---------- keypad sheet ---------- */
+const KEYS = [
+  ["1", ""], ["2", "ABC"], ["3", "DEF"],
+  ["4", "GHI"], ["5", "JKL"], ["6", "MNO"],
+  ["7", "PQRS"], ["8", "TUV"], ["9", "WXYZ"],
+  ["*", ""], ["0", "+"], ["#", ""],
+];
+
+function Keypad({ onClose }) {
+  const [num, setNum] = useState("");
+  useBackHandler(true, onClose);
+
+  const press = (k) => setNum((n) => (n.length < 20 ? n + k : n));
+  const del = () => setNum((n) => n.slice(0, -1));
+  // long-press 0 types "+" for international numbers, like a phone dialer
+  const hold = useRef(null);
+  const zeroDown = () => { hold.current = setTimeout(() => { hold.current = "done"; press("+"); }, 500); };
+  const zeroUp = () => {
+    if (hold.current === null) return;
+    const longPressed = hold.current === "done";
+    clearTimeout(hold.current); hold.current = null;
+    if (!longPressed) press("0");
+  };
+  const zeroCancel = () => { clearTimeout(hold.current); hold.current = null; };
+
+  return (
+    <div className="bd-sheet-bg" onClick={onClose}>
+      <div className="bd-sheet bd-pad" onClick={(e) => e.stopPropagation()}>
+        <div className="bd-sheet__top">
+          <div className="bd-sheet__grip" />
+          <h2 className="bd-sheet__t">Dial a number</h2>
+        </div>
+
+        <input className="bd-pad__num" type="tel" inputMode="none" value={num}
+          onChange={(e) => setNum(e.target.value.replace(/[^\d+*#\s]/g, ""))}
+          placeholder="Enter number" aria-label="Phone number" />
+
+        <div className="bd-pad__grid">
+          {KEYS.map(([k, sub]) => (
+            <button type="button" key={k} className="bd-pad__k"
+              {...(k === "0"
+                ? { onPointerDown: zeroDown, onPointerUp: zeroUp, onPointerLeave: zeroCancel, onContextMenu: (e) => e.preventDefault() }
+                : { onClick: () => press(k) })}>
+              <span className="bd-pad__d">{k}</span>
+              <span className="bd-pad__s">{sub}</span>
+            </button>
+          ))}
+        </div>
+
+        <div className="bd-pad__row">
+          <span />
+          {num ? (
+            <a className="bd-pad__call" href={telHref(num)} aria-label={"Call " + num}>{I.phone}</a>
+          ) : (
+            <span className="bd-pad__call is-off" aria-hidden="true">{I.phone}</span>
+          )}
+          <button type="button" className="bd-pad__del" onClick={del} disabled={!num} aria-label="Delete digit">{I.back}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ---------- main ---------- */
 export default function SupportDirectory({ account }) {
   const [query, setQuery] = useState("");
@@ -192,6 +291,7 @@ export default function SupportDirectory({ account }) {
   const [contacts, setContacts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null); // contact being edited, or EMPTY-based draft
+  const [dialing, setDialing] = useState(false);
 
   useEffect(() => {
     supabase.from("user_contacts").select("*").order("name")
@@ -217,7 +317,7 @@ export default function SupportDirectory({ account }) {
   const save = async (f) => {
     const row = {
       category: f.category, name: f.name.trim(), organisation: f.organisation.trim(),
-      phone: f.phone.trim(), email: f.email.trim(), address: f.address.trim(), note: f.note.trim(),
+      phone: joinPhone(f.cc, f.phone), email: f.email.trim(), address: f.address.trim(), note: f.note.trim(),
     };
     const q = f.id
       ? supabase.from("user_contacts").update({ ...row, updated_at: new Date().toISOString() }).eq("id", f.id)
@@ -257,6 +357,7 @@ export default function SupportDirectory({ account }) {
               onChange={(e) => setQuery(e.target.value)} aria-label="Search contacts" />
             {query && <button className="bd-search__x" onClick={() => setQuery("")} aria-label="Clear search">×</button>}
           </div>
+          <button className="bd-padbtn" onClick={() => setDialing(true)} aria-label="Open keypad">{I.keypad}</button>
           <button className="bd-addbtn" onClick={startNew}>
             <span className="bd-addbtn__i">{I.plus}</span>Add
           </button>
@@ -311,6 +412,7 @@ export default function SupportDirectory({ account }) {
       </main>
 
       {editing && <Sheet initial={editing} onClose={() => setEditing(null)} onSave={save} onDelete={remove} />}
+      {dialing && <Keypad onClose={() => setDialing(false)} />}
     </div>
   );
 }
@@ -356,6 +458,37 @@ const CSS = `
   font:inherit; font-size:14px; font-weight:600; color:#FBFAF7; cursor:pointer;
 }
 .bd-addbtn__i{display:flex;}
+.bd-padbtn{
+  flex:none; display:inline-flex; align-items:center; justify-content:center; width:46px; height:46px;
+  background:var(--surface); border:1px solid var(--line); border-radius:12px; color:var(--teal-ink); cursor:pointer;
+}
+.bd-padbtn:active{background:var(--fill);}
+
+/* keypad */
+.bd-pad{padding-bottom:calc(18px + env(safe-area-inset-bottom)); gap:14px;}
+.bd-pad__num{
+  width:100%; min-height:56px; border:0; outline:0; background:transparent; text-align:center;
+  font:inherit; font-size:30px; font-weight:500; letter-spacing:0.04em; color:var(--ink);
+}
+.bd-pad__num::placeholder{color:var(--ink-3); font-size:18px; letter-spacing:0;}
+.bd-pad__grid{display:grid; grid-template-columns:repeat(3,1fr); gap:12px 18px; max-width:300px; width:100%; margin:0 auto;}
+.bd-pad__k{
+  height:64px; border:0; border-radius:999px; background:var(--fill); cursor:pointer;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px;
+  font:inherit; color:var(--ink); user-select:none; -webkit-user-select:none; touch-action:manipulation;
+}
+.bd-pad__k:active{background:#E8E6E0;}
+.bd-pad__d{font-size:26px; font-weight:500; line-height:1;}
+.bd-pad__s{font-size:9.5px; font-weight:700; letter-spacing:0.12em; color:var(--ink-3); min-height:11px;}
+.bd-pad__row{display:grid; grid-template-columns:repeat(3,1fr); gap:18px; max-width:300px; width:100%; margin:4px auto 0; align-items:center; justify-items:center;}
+.bd-pad__call{
+  width:64px; height:64px; border-radius:999px; background:var(--teal); color:#FBFAF7;
+  display:flex; align-items:center; justify-content:center; text-decoration:none;
+}
+.bd-pad__call svg{width:26px; height:26px;}
+.bd-pad__call.is-off{opacity:.4;}
+.bd-pad__del{width:52px; height:52px; border:0; border-radius:999px; background:transparent; color:var(--ink-2); cursor:pointer; display:flex; align-items:center; justify-content:center;}
+.bd-pad__del:disabled{opacity:0;}
 
 /* category chips */
 .bd-chips{display:flex; gap:8px; overflow-x:auto; scrollbar-width:none; padding-bottom:14px;}
@@ -435,6 +568,8 @@ const CSS = `
 }
 .bd-in:focus{border-color:var(--teal); box-shadow:0 0 0 3px rgba(46,123,106,.12);}
 .bd-in--ta{resize:vertical; line-height:1.45;}
+.bd-phone{display:flex; gap:8px;}
+.bd-cc{flex:none; width:auto; padding-right:8px;}
 .bd-seg{display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin-top:-6px;}
 .bd-seg__b{min-height:42px; padding:0 6px; border:1px solid var(--line); border-radius:10px; background:var(--surface); font:inherit; font-size:12.5px; font-weight:500; color:var(--ink-2); cursor:pointer;}
 .bd-seg__b.is-on{border-color:var(--teal); color:var(--teal-ink); font-weight:600; background:rgba(46,123,106,.06);}
