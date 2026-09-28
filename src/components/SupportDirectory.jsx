@@ -28,7 +28,7 @@ const TONES = {
 
 const CATEGORIES = [
   { id: "school",    label: "School",         orgLabel: "School name",        namePh: "e.g. Ms Tan (form teacher)", orgPh: "e.g. Rainbow Centre", tone: "blue" },
-  { id: "doctor",    label: "Doctor / Clinic", orgLabel: "Clinic / hospital", namePh: "e.g. Dr Lim",               orgPh: "e.g. KKH Child Development Unit", tone: "teal" },
+  { id: "doctor",    label: "Doctor / Clinic", short: "Doctor", orgLabel: "Clinic / hospital", namePh: "e.g. Dr Lim",               orgPh: "e.g. KKH Child Development Unit", tone: "teal" },
   { id: "therapist", label: "Therapist",      orgLabel: "Centre / practice",  namePh: "e.g. Sarah (speech therapist)", orgPh: "e.g. Thye Hua Kwan EIPIC", tone: "violet" },
 ];
 const CAT = Object.fromEntries(CATEGORIES.map((c) => [c.id, c]));
@@ -296,13 +296,10 @@ export default function SupportDirectory({ account }) {
           </button>
         </div>
         <div className="bd-chips bd-wrap" role="group" aria-label="Filter by category">
-          <button className={"bd-chip" + (active === "all" ? " is-on" : "")} onClick={() => setActive("all")}>
-            All <span className="bd-chip__n">{counts.all}</span>
-          </button>
-          {CATEGORIES.map((c) => (
-            <button key={c.id} className={"bd-chip" + (active === c.id ? " is-on" : "")} onClick={() => setActive(c.id)}>
-              <span className="bd-opt__dot" style={{ background: TONES[c.tone].dot }} />
-              {c.label} <span className="bd-chip__n">{counts[c.id]}</span>
+          {[{ id: "all", label: "All" }, ...CATEGORIES].map((c) => (
+            <button key={c.id} className={"bd-chip" + (active === c.id ? " is-on" : "")}
+              onClick={() => setActive(c.id)} aria-pressed={active === c.id}>
+              {c.short || c.label}<span className="bd-chip__n">{counts[c.id]}</span>
             </button>
           ))}
         </div>
@@ -391,18 +388,22 @@ const CSS = `
 }
 .bd-addbtn__i{display:flex;}
 
-/* category chips */
-.bd-chips{display:flex; gap:8px; overflow-x:auto; scrollbar-width:none; padding-bottom:14px;}
+/* category chips — one row that fills the width; scrolls only on very narrow screens */
+.bd-chips{display:flex; gap:6px; overflow-x:auto; scrollbar-width:none; padding-bottom:14px;}
 .bd-chips::-webkit-scrollbar{display:none;}
 .bd-chip{
-  flex:none; display:inline-flex; align-items:center; gap:7px; height:38px; padding:0 13px;
+  flex:1 0 auto; display:inline-flex; align-items:center; justify-content:center; gap:6px; height:38px; padding:0 10px;
   background:var(--surface); border:1px solid var(--line); border-radius:999px;
   font:inherit; font-size:13px; font-weight:500; color:var(--ink-2); cursor:pointer; white-space:nowrap;
   transition:border-color .15s, color .15s, background .15s;
 }
-.bd-chip.is-on{border-color:var(--teal); color:var(--teal-ink); font-weight:600; background:rgba(46,123,106,.05);}
-.bd-chip__n{font-size:11.5px; color:var(--ink-3); font-weight:600;}
-.bd-opt__dot{width:8px; height:8px; border-radius:50%; flex:none;}
+.bd-chip.is-on{border-color:var(--teal); color:var(--teal-ink); font-weight:600; background:rgba(46,123,106,.06);}
+.bd-chip__n{
+  min-width:18px; height:18px; padding:0 5px; border-radius:999px; background:var(--fill);
+  display:inline-flex; align-items:center; justify-content:center;
+  font-size:11px; font-weight:600; color:var(--ink-3);
+}
+.bd-chip.is-on .bd-chip__n{background:var(--teal); color:#FBFAF7;}
 
 /* body */
 .bd-body{padding-top:18px; padding-bottom:calc(30px + env(safe-area-inset-bottom));}
