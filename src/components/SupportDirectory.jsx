@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import { useBackHandler } from "../hooks";
 
@@ -77,8 +77,6 @@ const I = {
   pin: <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21Z"/><circle cx="12" cy="9.5" r="2.5"/></svg>,
   edit: <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 20h4L19 9l-4-4L4 16v4Z"/><path d="m13.5 6.5 4 4"/></svg>,
   plus: <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>,
-  keypad: <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><circle cx="6" cy="5" r="1.8"/><circle cx="12" cy="5" r="1.8"/><circle cx="18" cy="5" r="1.8"/><circle cx="6" cy="11" r="1.8"/><circle cx="12" cy="11" r="1.8"/><circle cx="18" cy="11" r="1.8"/><circle cx="6" cy="17" r="1.8"/><circle cx="12" cy="17" r="1.8"/><circle cx="18" cy="17" r="1.8"/><circle cx="12" cy="22" r="1.6"/></svg>,
-  back: <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 5H9l-6 7 6 7h12a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1Z"/><path d="m17.5 9.5-5 5M12.5 9.5l5 5"/></svg>,
 };
 
 /* ---------- action link ---------- */
@@ -221,69 +219,6 @@ function Sheet({ initial, onClose, onSave, onDelete }) {
   );
 }
 
-/* ---------- keypad sheet ---------- */
-const KEYS = [
-  ["1", ""], ["2", "ABC"], ["3", "DEF"],
-  ["4", "GHI"], ["5", "JKL"], ["6", "MNO"],
-  ["7", "PQRS"], ["8", "TUV"], ["9", "WXYZ"],
-  ["*", ""], ["0", "+"], ["#", ""],
-];
-
-function Keypad({ onClose }) {
-  const [num, setNum] = useState("");
-  useBackHandler(true, onClose);
-
-  const press = (k) => setNum((n) => (n.length < 20 ? n + k : n));
-  const del = () => setNum((n) => n.slice(0, -1));
-  // long-press 0 types "+" for international numbers, like a phone dialer
-  const hold = useRef(null);
-  const zeroDown = () => { hold.current = setTimeout(() => { hold.current = "done"; press("+"); }, 500); };
-  const zeroUp = () => {
-    if (hold.current === null) return;
-    const longPressed = hold.current === "done";
-    clearTimeout(hold.current); hold.current = null;
-    if (!longPressed) press("0");
-  };
-  const zeroCancel = () => { clearTimeout(hold.current); hold.current = null; };
-
-  return (
-    <div className="bd-sheet-bg" onClick={onClose}>
-      <div className="bd-sheet bd-pad" onClick={(e) => e.stopPropagation()}>
-        <div className="bd-sheet__top">
-          <div className="bd-sheet__grip" />
-          <h2 className="bd-sheet__t">Dial a number</h2>
-        </div>
-
-        <input className="bd-pad__num" type="tel" inputMode="none" value={num}
-          onChange={(e) => setNum(e.target.value.replace(/[^\d+*#\s]/g, ""))}
-          placeholder="Enter number" aria-label="Phone number" />
-
-        <div className="bd-pad__grid">
-          {KEYS.map(([k, sub]) => (
-            <button type="button" key={k} className="bd-pad__k"
-              {...(k === "0"
-                ? { onPointerDown: zeroDown, onPointerUp: zeroUp, onPointerLeave: zeroCancel, onContextMenu: (e) => e.preventDefault() }
-                : { onClick: () => press(k) })}>
-              <span className="bd-pad__d">{k}</span>
-              <span className="bd-pad__s">{sub}</span>
-            </button>
-          ))}
-        </div>
-
-        <div className="bd-pad__row">
-          <span />
-          {num ? (
-            <a className="bd-pad__call" href={telHref(num)} aria-label={"Call " + num}>{I.phone}</a>
-          ) : (
-            <span className="bd-pad__call is-off" aria-hidden="true">{I.phone}</span>
-          )}
-          <button type="button" className="bd-pad__del" onClick={del} disabled={!num} aria-label="Delete digit">{I.back}</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 /* ---------- main ---------- */
 export default function SupportDirectory({ account }) {
   const [query, setQuery] = useState("");
@@ -291,7 +226,6 @@ export default function SupportDirectory({ account }) {
   const [contacts, setContacts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null); // contact being edited, or EMPTY-based draft
-  const [dialing, setDialing] = useState(false);
 
   useEffect(() => {
     supabase.from("user_contacts").select("*").order("name")
@@ -357,7 +291,6 @@ export default function SupportDirectory({ account }) {
               onChange={(e) => setQuery(e.target.value)} aria-label="Search contacts" />
             {query && <button className="bd-search__x" onClick={() => setQuery("")} aria-label="Clear search">×</button>}
           </div>
-          <button className="bd-padbtn" onClick={() => setDialing(true)} aria-label="Open keypad">{I.keypad}</button>
           <button className="bd-addbtn" onClick={startNew}>
             <span className="bd-addbtn__i">{I.plus}</span>Add
           </button>
@@ -412,7 +345,6 @@ export default function SupportDirectory({ account }) {
       </main>
 
       {editing && <Sheet initial={editing} onClose={() => setEditing(null)} onSave={save} onDelete={remove} />}
-      {dialing && <Keypad onClose={() => setDialing(false)} />}
     </div>
   );
 }
@@ -458,37 +390,6 @@ const CSS = `
   font:inherit; font-size:14px; font-weight:600; color:#FBFAF7; cursor:pointer;
 }
 .bd-addbtn__i{display:flex;}
-.bd-padbtn{
-  flex:none; display:inline-flex; align-items:center; justify-content:center; width:46px; height:46px;
-  background:var(--surface); border:1px solid var(--line); border-radius:12px; color:var(--teal-ink); cursor:pointer;
-}
-.bd-padbtn:active{background:var(--fill);}
-
-/* keypad */
-.bd-pad{padding-bottom:calc(18px + env(safe-area-inset-bottom)); gap:14px;}
-.bd-pad__num{
-  width:100%; min-height:56px; border:0; outline:0; background:transparent; text-align:center;
-  font:inherit; font-size:30px; font-weight:500; letter-spacing:0.04em; color:var(--ink);
-}
-.bd-pad__num::placeholder{color:var(--ink-3); font-size:18px; letter-spacing:0;}
-.bd-pad__grid{display:grid; grid-template-columns:repeat(3,1fr); gap:12px 18px; max-width:300px; width:100%; margin:0 auto;}
-.bd-pad__k{
-  height:64px; border:0; border-radius:999px; background:var(--fill); cursor:pointer;
-  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px;
-  font:inherit; color:var(--ink); user-select:none; -webkit-user-select:none; touch-action:manipulation;
-}
-.bd-pad__k:active{background:#E8E6E0;}
-.bd-pad__d{font-size:26px; font-weight:500; line-height:1;}
-.bd-pad__s{font-size:9.5px; font-weight:700; letter-spacing:0.12em; color:var(--ink-3); min-height:11px;}
-.bd-pad__row{display:grid; grid-template-columns:repeat(3,1fr); gap:18px; max-width:300px; width:100%; margin:4px auto 0; align-items:center; justify-items:center;}
-.bd-pad__call{
-  width:64px; height:64px; border-radius:999px; background:var(--teal); color:#FBFAF7;
-  display:flex; align-items:center; justify-content:center; text-decoration:none;
-}
-.bd-pad__call svg{width:26px; height:26px;}
-.bd-pad__call.is-off{opacity:.4;}
-.bd-pad__del{width:52px; height:52px; border:0; border-radius:999px; background:transparent; color:var(--ink-2); cursor:pointer; display:flex; align-items:center; justify-content:center;}
-.bd-pad__del:disabled{opacity:0;}
 
 /* category chips */
 .bd-chips{display:flex; gap:8px; overflow-x:auto; scrollbar-width:none; padding-bottom:14px;}
