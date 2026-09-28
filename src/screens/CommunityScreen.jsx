@@ -26,7 +26,7 @@ const TRANSLATE_LANGUAGES = ["English", "Malay", "Mandarin", "Tamil"];
 // Normalizes an admin community_rooms row or a parent-created community_groups
 // row into the same shape, so chat/members/invite code doesn't need to care
 // which kind of group it's dealing with.
-const roomToGroup = r => ({ id: r.id, label: r.label, description: r.description, icon_key: r.icon_key, color_key: r.color_key, topics: r.topics || [], kind: "admin" });
+const roomToGroup = r => ({ id: r.id, label: r.label, description: r.description, icon_key: r.icon_key, color_key: r.color_key, topics: r.topics || [], invite_code: r.invite_code, kind: "admin" });
 const groupToGroup = g => ({ id: g.id, label: g.name, description: g.description, icon_key: g.icon_key, color_key: g.color_key, topics: g.topics || [], created_by: g.created_by, is_private: g.is_private, invite_code: g.invite_code, admins: g.admins || [], kind: "user" });
 
 // Owner = whoever created the group (community_groups.created_by); admins
@@ -219,9 +219,10 @@ function ToggleRow({ label, sub, on, onToggle }) {
   );
 }
 
-// Deterministic pseudo-QR pattern — cosmetic only (there's no real deep-link
-// target yet), just enough to look like a scannable code next to the copyable
-// text link.
+// Deterministic pseudo-QR pattern — purely visual dressing next to the real,
+// copyable invite link/code below (see openGroupInvite); it doesn't actually
+// encode the link, so it's not a scannable QR code, just decoration seeded
+// off it so it at least looks stable per group.
 function qrMatrix(seed, n = 25) {
   let h = 2166136261;
   for (const ch of seed) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619) >>> 0; }
@@ -251,7 +252,7 @@ function QRCode({ seed = "bonda", size = 160 }) {
   );
 }
 
-export function CommunityScreen({ account }) {
+export function CommunityScreen({ account, openGroupId, onConsumedDeepLink }) {
   const [view, setView] = useState("home");
   // Premium (private groups + private messaging) is a simulated monthly
   // subscription — the stored value is the expiry timestamp, not a flag, so
@@ -435,6 +436,31 @@ export function CommunityScreen({ account }) {
       .on("postgres_changes", { event: "DELETE", schema: "public", table: "messages", filter: `room=eq.room_${group.id}` }, p => setGroupMsgs(prev => prev.filter(m => m.id !== p.old.id)))
       .subscribe();
   };
+
+  // Resolves an invite link's group (App.jsx pulled the code out of the
+  // URL's ?g= query param — see openGroupInvite below for how that link is
+  // built) once we land on this screen. Only public groups (admin-curated
+  // rooms, or parent-created groups that aren't private) are reachable this
+  // way — private groups still require typing in their invite code. Current
+  // links carry the short invite_code; a uuid means the link predates it, so
+  // match on "id" instead — id is a uuid column and errors given anything
+  // else, so which column to query has to be picked by the value's shape.
+  useEffect(() => {
+    if (!openGroupId) return;
+    const col = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(openGroupId) ? "id" : "invite_code";
+    let cancelled = false;
+    (async () => {
+      const { data: room } = await supabase.from("community_rooms").select("*").eq(col, openGroupId).maybeSingle();
+      if (cancelled) return;
+      if (room) { openGroup(roomToGroup(room)); onConsumedDeepLink?.(); return; }
+      const { data: group } = await supabase.from("community_groups").select("*").eq(col, openGroupId).eq("is_private", false).maybeSingle();
+      if (cancelled) return;
+      if (group) { openGroup(groupToGroup(group)); onConsumedDeepLink?.(); return; }
+      onConsumedDeepLink?.();
+      flash("That invite link's group isn't available anymore.");
+    })();
+    return () => { cancelled = true; };
+  }, [openGroupId]);
 
   const sendGroup = async () => {
     const text = groupInput.trim(); const attachment = groupAttachment;
@@ -712,9 +738,12 @@ export function CommunityScreen({ account }) {
     flash("Left group");
   };
 
-  // Owner-only: appoint/unappoint a member as admin of the active (parent-
-  // created) group. Just an update to community_groups.admins — RLS already
-  // restricts that column's update to the owner (created_by = auth.uid()).
+  // Appoint/unappoint a member as admin of the active (parent-created)
+  // group. Just an update to community_groups.admins. The owner can do
+  // both; a private group's other admins can only appoint (promoteMember),
+  // not unappoint — enforce_group_admin_edit_scope (in
+  // community_groups_admins.sql) rejects an admin's update if it removes
+  // anyone from the admins array, so demoteMember stays owner-only.
   const [savingAdmins, setSavingAdmins] = useState(false);
   const setGroupAdmins = async nextAdmins => {
     if (!activeRoom || activeRoom.kind !== "user") return;
@@ -802,7 +831,15 @@ export function CommunityScreen({ account }) {
     if (group.is_private) {
       setQrData({ title: `Invite to ${group.label}`, code: group.invite_code, hint: `This group is private. Share this code — they can enter it under "Have an invite code?" to join.` });
     } else {
-      setQrData({ title: `Invite to ${group.label}`, code: `bonda.app/g/${group.id}`, hint: "Share this code or link so other parents can find and join this group." });
+      // A plain ?g= query string, not a pretty /g/:id path — this always
+      // resolves to index.html on any static host with zero server-side
+      // rewrite rules, since the path stays "/". App.jsx reads it on load,
+      // signs the visitor in if needed, and hands the code to this screen's
+      // deep-link effect above once they land here. Uses the short
+      // invite_code (not the raw uuid) so the link is short enough to read
+      // and share as plain text; the deep-link effect still falls back to
+      // matching by id for links shared before invite_code existed.
+      setQrData({ title: `Invite to ${group.label}`, code: `${window.location.origin}/?g=${group.invite_code || group.id}`, hint: "Share this link — opening it in Bonda takes them straight to this group, ready to join." });
     }
     setQrOpen(true);
   };
@@ -1064,12 +1101,19 @@ export function CommunityScreen({ account }) {
           const following = isFollowing(m.id);
           const memberIsOwner = m.id === activeRoom.created_by;
           const memberIsAdmin = (activeRoom.admins || []).includes(m.id);
-          // Only the owner can appoint/unappoint admins; the owner can't be
-          // demoted this way (they'd delete the group instead).
-          const canPromote = isGroupOwner(activeRoom, account.id) && !isMe && !memberIsOwner;
+          const actingIsOwner = isGroupOwner(activeRoom, account.id);
+          // Owner or an existing admin can appoint a regular member as
+          // admin. Only the owner can unappoint one, transfer ownership, or
+          // appoint someone who's already an admin (nothing to do there) —
+          // the owner can't be demoted this way, they'd delete the group
+          // instead. Enforced again server-side by
+          // enforce_group_admin_edit_scope in community_groups_admins.sql.
+          const canPromote = isGroupAdmin(activeRoom, account.id) && !isMe && !memberIsOwner && !memberIsAdmin;
+          const canDemote = actingIsOwner && !isMe && !memberIsOwner && memberIsAdmin;
+          const canTransfer = actingIsOwner && !isMe && !memberIsOwner;
           // Owner can remove anyone; an admin can remove regular members but
           // not the owner or other admins (enforced again by RLS server-side).
-          const canRemove = !isMe && !memberIsOwner && (isGroupOwner(activeRoom, account.id) || (isGroupAdmin(activeRoom, account.id) && !memberIsAdmin));
+          const canRemove = !isMe && !memberIsOwner && (actingIsOwner || (isGroupAdmin(activeRoom, account.id) && !memberIsAdmin));
           return (
             <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 4px", borderBottom: `1px solid ${T.border}` }}>
               <ComAvatar value={m.avatar} size={44} active={false} borderColor={T.border} />
@@ -1097,11 +1141,17 @@ export function CommunityScreen({ account }) {
                           },
                           ...(canPromote ? [{
                             key: "admin", ic: Shield,
-                            label: memberIsAdmin ? "Remove admin" : "Make admin",
+                            label: "Make admin",
                             disabled: savingAdmins,
-                            onClick: () => { setMemberMenuOpenId(null); memberIsAdmin ? demoteMember(m) : promoteMember(m); },
+                            onClick: () => { setMemberMenuOpenId(null); promoteMember(m); },
                           }] : []),
-                          ...(canPromote ? [{
+                          ...(canDemote ? [{
+                            key: "demote-admin", ic: Shield,
+                            label: "Remove admin",
+                            disabled: savingAdmins,
+                            onClick: () => { setMemberMenuOpenId(null); demoteMember(m); },
+                          }] : []),
+                          ...(canTransfer ? [{
                             key: "transfer", ic: Crown, danger: true,
                             label: "Transfer ownership",
                             disabled: transferringOwnerId === m.id,

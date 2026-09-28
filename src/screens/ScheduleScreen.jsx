@@ -467,7 +467,6 @@ function TimelineRow({ item, essential, status, skipped, notToday, conflict, onT
               >⠿</span>
               {item.emoji && <span style={{ fontSize: 20, flexShrink: 0, lineHeight: 1, display: "flex" }}>{item.emoji}</span>}
               <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 700, color: done ? T.inkMuted : T.ink, textDecoration: done ? "line-through" : "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.label}</span>
-              {essential && <span style={{ fontSize: 13, flexShrink: 0, lineHeight: 1 }}>🔒</span>}
               <button onClick={e => { e.stopPropagation(); onMenuToggle(); }} style={{ border: "none", background: "none", cursor: "pointer", padding: "2px 4px", fontSize: 18, fontWeight: 900, color: T.inkMuted, lineHeight: 1 }} aria-label="Options">⋯</button>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginTop: 3 }}>
@@ -492,7 +491,7 @@ function TimelineRow({ item, essential, status, skipped, notToday, conflict, onT
               <>
                 <button onClick={onSkip} style={{ ...rowMenuBtn, color: T.ink }}>{skipped ? "↩ Un-skip today" : "⏭ Skip for today"}</button>
                 <div style={{ height: 1, background: T.border }} />
-                <div style={{ ...rowMenuBtn, cursor: "default", color: T.inkMuted, fontSize: 12 }}>🔒 Essential · can't remove</div>
+                <div style={{ ...rowMenuBtn, cursor: "default", color: T.inkMuted, fontSize: 12 }}>Essential · can't remove</div>
               </>
             ) : (
               <button onClick={onDelete} style={{ ...rowMenuBtn, color: T.red }}>🗑️ Delete</button>
@@ -656,7 +655,7 @@ function layoutDayGridColumns(dayItems) {
   return results;
 }
 
-function DayGridView({ items, dow, isToday, nowHHMM, onItemClick }) {
+function DayGridView({ items, dow, isToday, nowHHMM, onItemClick, hasConflict }) {
   const scrollRef = useRef(null);
   const dayItems = layoutDayGridColumns(items.filter(i => appliesToday(i, dow)));
   const nowMin = timeToMinutes(nowHHMM);
@@ -680,8 +679,9 @@ function DayGridView({ items, dow, isToday, nowHHMM, onItemClick }) {
 
         {dayItems.map(({ item, start, end, col, cols }) => {
           const top = (start / 60) * DAY_GRID_HOUR_PX;
-          const height = Math.max(22, ((Math.max(end, start + 15) - start) / 60) * DAY_GRID_HOUR_PX - 2);
-          const { c, l } = categoryColor(item.category);
+          const conflict = hasConflict ? hasConflict(item) : false;
+          const height = Math.max(conflict ? 36 : 22, ((Math.max(end, start + 15) - start) / 60) * DAY_GRID_HOUR_PX - 2);
+          const { c, l } = conflict ? { c: CONFLICT_COLOR, l: CONFLICT_COLOR_L } : categoryColor(item.category);
           const gap = 3;
           const laneLeft = `calc(50px + (100% - 54px) * ${col / cols})`;
           const laneWidth = `calc((100% - 54px) / ${cols} - ${gap}px)`;
@@ -690,9 +690,11 @@ function DayGridView({ items, dow, isToday, nowHHMM, onItemClick }) {
               key={item.id}
               type="button"
               onClick={() => onItemClick(item)}
-              style={{ position: "absolute", top, left: laneLeft, width: laneWidth, height, background: l, borderLeft: `5px solid ${c}`, borderRadius: 6, padding: "3px 8px", overflow: "hidden", textAlign: "left", cursor: "pointer", border: "none", fontFamily: T.fontBody, zIndex: cols > 1 ? 2 : 1 }}
+              title={conflict ? "Overlaps with another activity" : undefined}
+              style={{ position: "absolute", top, left: laneLeft, width: laneWidth, height, background: l, borderLeft: `5px solid ${c}`, borderRadius: 6, padding: "3px 8px", overflow: "hidden", textAlign: "left", cursor: "pointer", border: "none", fontFamily: T.fontBody, zIndex: cols > 1 ? 2 : 1, display: "flex", flexDirection: "column", justifyContent: "center", gap: 1 }}
             >
-              <span style={{ fontSize: 11.5, fontWeight: 700, color: T.ink, whiteSpace: "nowrap" }}>{item.emoji} {item.label}</span>
+              <span style={{ fontSize: 11.5, fontWeight: 700, color: T.ink, whiteSpace: "nowrap", lineHeight: 1.15 }}>{item.emoji} {item.label}</span>
+              {conflict && <span style={{ fontSize: 9.5, fontWeight: 800, color: CONFLICT_COLOR, whiteSpace: "nowrap", lineHeight: 1.15 }}>Conflict</span>}
             </button>
           );
         })}
@@ -1277,7 +1279,7 @@ export function ScheduleScreen({ childCtx, push, showAlarmSettings, setShowAlarm
 
           {dayLayout === "grid" ? (
             <div style={{ marginBottom: 12 }}>
-              <DayGridView items={visibleTimeline} dow={todayDow} isToday nowHHMM={nowHHMM} onItemClick={item => startEdit(item)} />
+              <DayGridView items={visibleTimeline} dow={todayDow} isToday nowHHMM={nowHHMM} onItemClick={item => startEdit(item)} hasConflict={hasConflict} />
               {editing && <div style={{ marginTop: 10 }}>{renderItem(items.find(i => i.id === editing), isEssential(items.find(i => i.id === editing)))}</div>}
             </div>
           ) : (

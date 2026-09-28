@@ -25,6 +25,22 @@ const defaultChildDob = () => {
 // word (so it doesn't fight names with intentional internal capitals).
 const autoCapName = text => text.replace(/(^|\s)([a-z])/g, (_, boundary, letter) => boundary + letter.toUpperCase());
 
+// The child's full name is still what every other screen (schedule, growth
+// tracker, carer letters, etc.) reads, so it's composed from the three
+// entry fields rather than replaced by them.
+const joinName = (first, middle, last) => [first, middle, last].map(s => s.trim()).filter(Boolean).join(" ");
+
+// Best-effort split of a legacy single-field name (entered before first/
+// middle/last were separate columns) so the edit form has something to
+// show — first word is the first name, last word the surname, anything
+// between is the middle name.
+const splitName = full => {
+  const parts = (full || "").trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return { firstName: "", middleName: "", lastName: "" };
+  if (parts.length === 1) return { firstName: parts[0], middleName: "", lastName: "" };
+  return { firstName: parts[0], middleName: parts.slice(1, -1).join(" "), lastName: parts[parts.length - 1] };
+};
+
 const splitJoined = text => text ? text.split(/,\s*/).map(s => s.trim()).filter(Boolean) : [];
 
 const joinMultiField = (selected, other) =>
@@ -67,6 +83,24 @@ const parseSessions = text => {
     return { type: "", note: chunk };
   });
   return sessions.length ? sessions : [{ type: "", note: "" }];
+};
+
+// Clinics share CarerLetterScreen's storage: each clinic_*/doctor_name column
+// holds its entries newline-joined, index-aligned across columns. Address and
+// email aren't edited here but ride along in each entry so removing a clinic
+// doesn't shift the next clinic's address/email onto the wrong row.
+const EMPTY_CLINIC = { name: "", doctor: "", address: "", phone: "", email: "" };
+const CLINIC_FIELDS = { name: "clinicName", doctor: "doctorName", address: "clinicAddress", phone: "clinicPhone", email: "clinicEmail" };
+const parseClinics = child => {
+  const keys = Object.keys(CLINIC_FIELDS);
+  const lists = keys.map(k => (child?.[CLINIC_FIELDS[k]] || "").split("\n").map(s => s.trim()));
+  const count = Math.max(1, ...lists.map(l => l.length));
+  return Array.from({ length: count }, (_, i) => Object.fromEntries(keys.map((k, idx) => [k, lists[idx][i] || ""])));
+};
+const hasAnyClinic = child => Object.values(CLINIC_FIELDS).some(f => child?.[f]);
+const clinicsPatch = (clinics, on) => {
+  const kept = on ? clinics.filter(c => Object.values(c).some(v => v.trim())) : [];
+  return Object.fromEntries(Object.entries(CLINIC_FIELDS).map(([k, field]) => [field, kept.map(c => c[k].trim()).join("\n")]));
 };
 
 const toggleOption = (selected, setSelected, setOther, option) => {
@@ -307,17 +341,38 @@ export function MedicalInfoSection({
   );
 }
 
-export function CareClinicSection({ hasClinic, setHasClinic, location, setLocation, clinicName, setClinicName, countryOptions }) {
+export function CareClinicSection({ hasClinic, setHasClinic, location, setLocation, clinics, setClinics, countryOptions }) {
+  const updateClinic = (i, key, value) => setClinics(cs => cs.map((c, idx) => idx === i ? { ...c, [key]: value } : c));
+  const addClinic = () => setClinics(cs => [...cs, { ...EMPTY_CLINIC }]);
+  const removeClinic = i => setClinics(cs => cs.filter((_, idx) => idx !== i));
+
   return (
     <>
       <ToggleField label="Seeing a clinic or specialist?" on={hasClinic === "Yes"} onChange={v => {
         setHasClinic(v ? "Yes" : "No");
-        if (!v) { setLocation(""); setClinicName(""); }
+        if (!v) { setLocation(""); setClinics([{ ...EMPTY_CLINIC }]); }
       }} />
       {hasClinic === "Yes" && (
         <>
           <Select label="Location (country)" placeholder="Select country" value={location} onChange={e => setLocation(e.target.value)} options={countryOptions} />
-          <Input label="Clinic, psychologist or psychiatrist" placeholder="e.g. Dr Tan — Sunrise Family Clinic" value={clinicName} onChange={e => setClinicName(e.target.value)} />
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 10 }}>
+              {clinics.map((c, i) => (
+                <div key={i} style={{ border: `1.5px solid ${T.border}`, borderRadius: T.r, padding: "12px 12px 0", position: "relative" }}>
+                  {clinics.length > 1 && (
+                    <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>Clinic {i + 1}</p>
+                  )}
+                  <Input label="Clinic, psychologist or psychiatrist" placeholder="e.g. Sunrise Family Clinic" value={c.name} onChange={e => updateClinic(i, "name", e.target.value)} />
+                  <Input label="Doctor's name" placeholder="e.g. Dr Tan" value={c.doctor} onChange={e => updateClinic(i, "doctor", e.target.value)} />
+                  <Input label="Phone number" type="tel" placeholder="e.g. 6123 4567" value={c.phone} onChange={e => updateClinic(i, "phone", e.target.value)} />
+                  {clinics.length > 1 && (
+                    <button type="button" onClick={() => removeClinic(i)} aria-label="Remove clinic" style={{ position: "absolute", top: 8, right: 10, background: "none", border: "none", color: T.inkMuted, fontSize: 18, cursor: "pointer", lineHeight: 1, fontFamily: T.fontBody }}>×</button>
+                  )}
+                </div>
+              ))}
+            </div>
+            <button type="button" onClick={addClinic} style={{ background: T.purpleL, color: T.purple, fontWeight: 700, fontSize: 13, padding: "9px 14px", borderRadius: 99, border: "none", cursor: "pointer", fontFamily: T.fontBody }}>+ Add another clinic</button>
+          </div>
         </>
       )}
     </>
@@ -351,7 +406,9 @@ export function PlacementDetailsSection({
 }
 
 export function AddChildScreen({ childCtx, pop }) {
-  const [name, setName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [middleName, setMiddleName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [photo, setPhoto] = useState(null);
   const [photoErr, setPhotoErr] = useState("");
   const camera = useChildCamera(setPhoto);
@@ -384,7 +441,7 @@ export function AddChildScreen({ childCtx, pop }) {
   const [caseWorkerName, setCaseWorkerName] = useState("");
   const [caseWorkerPhone, setCaseWorkerPhone] = useState("");
   const [caseWorkerEmail, setCaseWorkerEmail] = useState("");
-  const [clinicName, setClinicName] = useState("");
+  const [clinics, setClinics] = useState([{ ...EMPTY_CLINIC }]);
   const [location, setLocation] = useState("");
   const [countryOptions, setCountryOptions] = useState([]);
   const [err, setErr] = useState("");
@@ -406,7 +463,8 @@ export function AddChildScreen({ childCtx, pop }) {
     const therapySchedule = joinSessions(therapySessions);
 
     const fe = {};
-    if (!name.trim()) fe.name = "Please enter your child's name.";
+    if (!firstName.trim()) fe.firstName = "Please enter your child's first name.";
+    if (!lastName.trim()) fe.lastName = "Please enter your child's surname.";
     if (!dob) fe.dob = "Please enter your child's date of birth.";
     if (!gender) fe.gender = "Please select your child's gender.";
     if (caregiverType === "other" && !caregiverLabel.trim()) fe.relationshipDetail = "Please tell us your relationship to this child.";
@@ -422,7 +480,8 @@ export function AddChildScreen({ childCtx, pop }) {
     setErr(""); setSaving(true);
     const finalCaregiverLabel = caregiverType === "other" ? (caregiverLabel === "Others" ? customRelative.trim() : caregiverLabel.trim()) : "";
     const id = await addChild({
-      name: name.trim(), emoji: photo || "none", dob, gender, caregiverType, caregiverLabel: finalCaregiverLabel,
+      name: joinName(firstName, middleName, lastName), firstName: firstName.trim(), middleName: middleName.trim(), lastName: lastName.trim(),
+      emoji: photo || "none", dob, gender, caregiverType, caregiverLabel: finalCaregiverLabel,
       hasSpecialNeeds: true, verbalStatus,
       knownTriggers: hasTriggers === "Yes" ? knownTriggers : "",
       therapySchedule: hasTherapy === "Yes" ? therapySchedule : "",
@@ -432,7 +491,7 @@ export function AddChildScreen({ childCtx, pop }) {
       diagnosis: joinMultiField(diagnosisSelected, diagnosisOther),
       placementStartDate, fosteringAgency: fosteringAgency.trim(), placementType, courtOrderRef: courtOrderRef.trim(),
       caseWorkerName: caseWorkerName.trim(), caseWorkerPhone: caseWorkerPhone.trim(), caseWorkerEmail: caseWorkerEmail.trim(),
-      clinicName: hasClinic === "Yes" ? clinicName.trim() : "", location: hasClinic === "Yes" ? location : "",
+      ...clinicsPatch(clinics, hasClinic === "Yes"), location: hasClinic === "Yes" ? location : "",
     });
     setSaving(false);
     if (!id) return setErr("Could not save the profile. Please try again.");
@@ -454,8 +513,11 @@ export function AddChildScreen({ childCtx, pop }) {
       <CameraPanel show={camera.showCamera} videoRef={camera.videoRef} cameraReady={camera.cameraReady} takePhoto={camera.takePhoto} stopCamera={camera.stopCamera} />
 
       <FormSection title="General information">
-        <Input label={<>Child's name <span style={{ color: T.red }}>*</span></>} value={name} onChange={e => setName(autoCapName(e.target.value))} placeholder="e.g. Aiden" />
-        <FieldError>{errors.name}</FieldError>
+        <Input label={<>First name <span style={{ color: T.red }}>*</span></>} value={firstName} onChange={e => setFirstName(autoCapName(e.target.value))} placeholder="e.g. Aiden" />
+        <FieldError>{errors.firstName}</FieldError>
+        <Input label="Middle name" value={middleName} onChange={e => setMiddleName(autoCapName(e.target.value))} placeholder="e.g. Rafael" />
+        <Input label={<>Surname <span style={{ color: T.red }}>*</span></>} value={lastName} onChange={e => setLastName(autoCapName(e.target.value))} placeholder="e.g. Smith" />
+        <FieldError>{errors.lastName}</FieldError>
         <Input label={<>Date of birth <span style={{ color: T.red }}>*</span></>} value={dob} onChange={e => setDob(e.target.value)} type="date" />
         <FieldError>{errors.dob}</FieldError>
         <Select label={<>Gender <span style={{ color: T.red }}>*</span></>} value={gender} onChange={e => setGender(e.target.value)} placeholder="Select gender" options={["Male", "Female", "Prefer not to say"]} />
@@ -497,7 +559,7 @@ export function AddChildScreen({ childCtx, pop }) {
       </FormSection>
 
       <FormSection title="Care & clinic" defaultOpen={false}>
-        <CareClinicSection hasClinic={hasClinic} setHasClinic={setHasClinic} location={location} setLocation={setLocation} clinicName={clinicName} setClinicName={setClinicName} countryOptions={countryOptions} />
+        <CareClinicSection hasClinic={hasClinic} setHasClinic={setHasClinic} location={location} setLocation={setLocation} clinics={clinics} setClinics={setClinics} countryOptions={countryOptions} />
       </FormSection>
 
       <FormSection title="Foster & placement details" defaultOpen={false}>
@@ -532,7 +594,10 @@ export function ChildProfileForm({ childCtx, onSaved, onCancel, onDeleted, showH
   const initialDiet = parseMultiField(activeChild?.dietProgram || "", DIET_OPTIONS);
   const initialAllergies = parseMultiField(activeChild?.allergies || "", ALLERGY_OPTIONS);
 
-  const [name, setName] = useState(activeChild?.name || "");
+  const initialNameParts = splitName(activeChild?.name || "");
+  const [firstName, setFirstName] = useState(activeChild?.firstName || initialNameParts.firstName);
+  const [middleName, setMiddleName] = useState(activeChild?.middleName || initialNameParts.middleName);
+  const [lastName, setLastName] = useState(activeChild?.lastName || initialNameParts.lastName);
   const [photo, setPhoto] = useState(isExistingPhoto ? activeChild.emoji : null);
   const [photoErr, setPhotoErr] = useState("");
   const camera = useChildCamera(setPhoto);
@@ -557,7 +622,7 @@ export function ChildProfileForm({ childCtx, onSaved, onCancel, onDeleted, showH
   const [allergiesOther, setAllergiesOther] = useState(initialAllergies.other);
   const [hasMedication, setHasMedication] = useState(activeChild?.medication ? "Yes" : "No");
   const [medicationDetail, setMedicationDetail] = useState(activeChild?.medication || "");
-  const [hasClinic, setHasClinic] = useState((activeChild?.clinicName || activeChild?.location) ? "Yes" : "No");
+  const [hasClinic, setHasClinic] = useState((hasAnyClinic(activeChild) || activeChild?.location) ? "Yes" : "No");
   const [placementStartDate, setPlacementStartDate] = useState(activeChild?.placementStartDate || "");
   const [fosteringAgency, setFosteringAgency] = useState(activeChild?.fosteringAgency || "");
   const [placementType, setPlacementType] = useState(activeChild?.placementType || "");
@@ -565,7 +630,7 @@ export function ChildProfileForm({ childCtx, onSaved, onCancel, onDeleted, showH
   const [caseWorkerName, setCaseWorkerName] = useState(activeChild?.caseWorkerName || "");
   const [caseWorkerPhone, setCaseWorkerPhone] = useState(activeChild?.caseWorkerPhone || "");
   const [caseWorkerEmail, setCaseWorkerEmail] = useState(activeChild?.caseWorkerEmail || "");
-  const [clinicName, setClinicName] = useState(activeChild?.clinicName || "");
+  const [clinics, setClinics] = useState(parseClinics(activeChild));
   const [location, setLocation] = useState(activeChild?.location || "");
   const [countryOptions, setCountryOptions] = useState([]);
   const [err, setErr] = useState("");
@@ -589,7 +654,8 @@ export function ChildProfileForm({ childCtx, onSaved, onCancel, onDeleted, showH
     const therapySchedule = joinSessions(therapySessions);
 
     const fe = {};
-    if (!name.trim()) fe.name = "Please enter your child's name.";
+    if (!firstName.trim()) fe.firstName = "Please enter your child's first name.";
+    if (!lastName.trim()) fe.lastName = "Please enter your child's surname.";
     if (!dob) fe.dob = "Please enter your child's date of birth.";
     if (!gender) fe.gender = "Please select your child's gender.";
     if (caregiverType === "other" && !caregiverLabel.trim()) fe.relationshipDetail = "Please tell us your relationship to this child.";
@@ -605,7 +671,8 @@ export function ChildProfileForm({ childCtx, onSaved, onCancel, onDeleted, showH
     setErr(""); setSaving(true);
     const finalCaregiverLabel = caregiverType === "other" ? (caregiverLabel === "Others" ? customRelative.trim() : caregiverLabel.trim()) : "";
     const patch = {
-      name: name.trim(), dob, gender, caregiverType, caregiverLabel: finalCaregiverLabel,
+      name: joinName(firstName, middleName, lastName), firstName: firstName.trim(), middleName: middleName.trim(), lastName: lastName.trim(),
+      dob, gender, caregiverType, caregiverLabel: finalCaregiverLabel,
       hasSpecialNeeds: true, verbalStatus,
       knownTriggers: hasTriggers === "Yes" ? knownTriggers : "",
       therapySchedule: hasTherapy === "Yes" ? therapySchedule : "",
@@ -615,7 +682,7 @@ export function ChildProfileForm({ childCtx, onSaved, onCancel, onDeleted, showH
       diagnosis: joinMultiField(diagnosisSelected, diagnosisOther),
       placementStartDate, fosteringAgency: fosteringAgency.trim(), placementType, courtOrderRef: courtOrderRef.trim(),
       caseWorkerName: caseWorkerName.trim(), caseWorkerPhone: caseWorkerPhone.trim(), caseWorkerEmail: caseWorkerEmail.trim(),
-      clinicName: hasClinic === "Yes" ? clinicName.trim() : "", location: hasClinic === "Yes" ? location : "",
+      ...clinicsPatch(clinics, hasClinic === "Yes"), location: hasClinic === "Yes" ? location : "",
     };
     if (photo) {
       let emojiValue = photo;
@@ -658,8 +725,11 @@ export function ChildProfileForm({ childCtx, onSaved, onCancel, onDeleted, showH
       <CameraPanel show={camera.showCamera} videoRef={camera.videoRef} cameraReady={camera.cameraReady} takePhoto={camera.takePhoto} stopCamera={camera.stopCamera} />
 
       <FormSection title="General information">
-        <Input label={<>Child's name <span style={{ color: T.red }}>*</span></>} value={name} onChange={e => setName(autoCapName(e.target.value))} placeholder="e.g. Aiden" />
-        <FieldError>{errors.name}</FieldError>
+        <Input label={<>First name <span style={{ color: T.red }}>*</span></>} value={firstName} onChange={e => setFirstName(autoCapName(e.target.value))} placeholder="e.g. Aiden" />
+        <FieldError>{errors.firstName}</FieldError>
+        <Input label="Middle name" value={middleName} onChange={e => setMiddleName(autoCapName(e.target.value))} placeholder="e.g. Rafael" />
+        <Input label={<>Surname <span style={{ color: T.red }}>*</span></>} value={lastName} onChange={e => setLastName(autoCapName(e.target.value))} placeholder="e.g. Smith" />
+        <FieldError>{errors.lastName}</FieldError>
         <Input label={<>Date of birth <span style={{ color: T.red }}>*</span></>} value={dob} onChange={e => setDob(e.target.value)} type="date" />
         <FieldError>{errors.dob}</FieldError>
         <Select label={<>Gender <span style={{ color: T.red }}>*</span></>} value={gender} onChange={e => setGender(e.target.value)} placeholder="Select gender" options={["Male", "Female", "Prefer not to say"]} />
@@ -701,7 +771,7 @@ export function ChildProfileForm({ childCtx, onSaved, onCancel, onDeleted, showH
       </FormSection>
 
       <FormSection title="Care & clinic" defaultOpen={false}>
-        <CareClinicSection hasClinic={hasClinic} setHasClinic={setHasClinic} location={location} setLocation={setLocation} clinicName={clinicName} setClinicName={setClinicName} countryOptions={countryOptions} />
+        <CareClinicSection hasClinic={hasClinic} setHasClinic={setHasClinic} location={location} setLocation={setLocation} clinics={clinics} setClinics={setClinics} countryOptions={countryOptions} />
       </FormSection>
 
       <FormSection title="Foster & placement details" defaultOpen={false}>

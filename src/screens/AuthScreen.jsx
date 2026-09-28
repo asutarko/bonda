@@ -229,7 +229,7 @@ export function AuthScreen() {
   const [view, setView] = useState("welcome");
   const [transition, setTransition] = useState(null); // { from, to, dir: "fwd" | "back" }
   const [loginEmail, setLoginEmail] = useState(""); const [loginPass, setLoginPass] = useState(""); const [loginErr, setLoginErr] = useState("");
-  const [regEmail, setRegEmail] = useState(""); const [regName, setRegName] = useState(""); const [regPass, setRegPass] = useState(""); const [regErr, setRegErr] = useState(""); const [regMsg, setRegMsg] = useState("");
+  const [regEmail, setRegEmail] = useState(""); const [regFirstName, setRegFirstName] = useState(""); const [regMiddleName, setRegMiddleName] = useState(""); const [regLastName, setRegLastName] = useState(""); const [regPass, setRegPass] = useState(""); const [regErr, setRegErr] = useState(""); const [regMsg, setRegMsg] = useState("");
   const [forgotEmail, setForgotEmail] = useState(""); const [forgotErr, setForgotErr] = useState(""); const [forgotMsg, setForgotMsg] = useState("");
   const [showTerms, setShowTerms] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
@@ -282,11 +282,13 @@ export function AuthScreen() {
   const register = async () => {
     setRegErr(""); setRegMsg("");
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(regEmail.trim())) return setRegErr("Please enter a valid email address.");
-    if (!regName.trim() || regName.trim().length < 2) return setRegErr("Name must be at least 2 characters.");
+    if (!regFirstName.trim()) return setRegErr("Please enter your first name.");
+    if (!regLastName.trim()) return setRegErr("Please enter your surname.");
     if (regPass.length < 6) return setRegErr("Password must be at least 6 characters.");
     if (!agreeLegal) return setRegErr("Please agree to the Terms & Conditions and Privacy Policy to continue.");
 
     const joined = new Date().toLocaleDateString("en-SG", { month: "short", year: "numeric" });
+    const fullName = [regFirstName, regMiddleName, regLastName].map(s => s.trim()).filter(Boolean).join(" ");
     // Flag this as a fresh signup before calling signUp() — the client fires
     // its SIGNED_IN auth-state event as part of processing that call, so the
     // flag must already be in place for App.jsx to see it in time.
@@ -294,7 +296,7 @@ export function AuthScreen() {
     const { data, error } = await supabase.auth.signUp({
       email: regEmail.trim(),
       password: regPass,
-      options: { data: { name: regName.trim(), avatar: "none", joined } },
+      options: { data: { name: fullName, firstName: regFirstName.trim(), middleName: regMiddleName.trim(), lastName: regLastName.trim(), avatar: "none", joined } },
     });
     if (error) {
       consumeNewSignupFlag();
@@ -377,7 +379,9 @@ export function AuthScreen() {
       <div style={{ display: "flex", flexDirection: "column" }}>
         <TopBar onBack={() => { setRegErr(""); navigate("welcome", "back"); }} />
         <ScreenHeading eyebrow="Create account" title="Create your account" subtitle="A free space to track, learn, and connect." />
-        <TextField label="Name" value={regName} onChange={e => setRegName(e.target.value)} placeholder="e.g. Sarah, Mum of Aiden" />
+        <TextField label="First name" value={regFirstName} onChange={e => setRegFirstName(e.target.value)} placeholder="e.g. Sarah" />
+        <TextField label="Middle name" value={regMiddleName} onChange={e => setRegMiddleName(e.target.value)} placeholder="Optional" />
+        <TextField label="Surname" value={regLastName} onChange={e => setRegLastName(e.target.value)} placeholder="e.g. Tan" />
         <TextField label="Email" type="email" inputMode="email" autoComplete="email" value={regEmail} onChange={e => setRegEmail(e.target.value)} placeholder="you@example.com" />
         <PasswordField label="Password" autoComplete="new-password" value={regPass} onChange={e => setRegPass(e.target.value)} placeholder="Create a password" />
         <label style={{ display: "flex", alignItems: "flex-start", gap: 10, margin: "4px 0 16px", fontSize: 13, lineHeight: 1.5, color: INK55, cursor: "pointer" }}>

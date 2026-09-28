@@ -166,7 +166,7 @@ export function HomeScreen({ childCtx, setTab, push, account }) {
     ...(isFoster ? [{ type: "foster", category: "documents", label: "Foster Parent Hub", desc: "HealthHub, CDA, school access guides", action: () => push("fosterHub"), isFoster: true }] : []),
     { type: "letter", category: "documents", label: "Generate Carer Letter", desc: "Introduction letter for clinics & schools", action: () => push("carerLetterHub") },
     { type: "grants", category: "support", label: "Subsidies & Grants", desc: "Government schemes that cut therapy & care costs", action: () => push("subsidiesGrants") },
-    { type: "subsidies", category: "support", label: "Support Directory", desc: "Singapore autism & caregiver contacts", action: () => push("subsidies") },
+    { type: "subsidies", category: "support", label: "Support Hotlines", desc: "School, doctor & therapist contacts", action: () => push("subsidies") },
     { type: "devGuide", category: "guides", label: "Development & Behaviour Guide", desc: "Home activities & behaviour training", action: () => push("devGuide") },
     { type: "emotions", category: "guides", label: "Emotion & Behaviour", desc: "Understand feelings & behaviours", action: () => push("emotionsGuide") },
   ];
@@ -192,7 +192,7 @@ export function HomeScreen({ childCtx, setTab, push, account }) {
   };
   const goToNews = (i) => newsTrack.current && newsTrack.current.scrollTo({ left: i * newsStep(), behavior: "smooth" });
 
-  const firstName = account?.name?.split(" ")[0];
+  const firstName = account?.firstName || account?.name?.split(" ")[0];
 
   return (
     <Page>

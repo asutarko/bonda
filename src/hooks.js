@@ -5,6 +5,9 @@ import { DEFAULT_SCHEDULE } from "./data";
 export const childFromRow = (row) => ({
   id: row.id,
   name: row.name,
+  firstName: row.first_name || "",
+  middleName: row.middle_name || "",
+  lastName: row.last_name || "",
   emoji: row.emoji,
   caregiverType: row.caregiver_type,
   caregiverLabel: row.caregiver_label || "",
@@ -26,6 +29,7 @@ export const childFromRow = (row) => ({
   medication: row.medication || "",
   diagnosis: row.diagnosis || "",
   placementStartDate: row.placement_start_date || "",
+  recipientId: row.recipient_id || null,
   fosteringAgency: row.fostering_agency || "",
   placementType: row.placement_type || "",
   courtOrderRef: row.court_order_ref || "",
@@ -100,6 +104,9 @@ export function useChildren(userId) {
     const { data, error } = await supabase.from("children").insert({
       user_id: userId,
       name: child.name,
+      first_name: child.firstName || "",
+      middle_name: child.middleName || "",
+      last_name: child.lastName || "",
       emoji,
       caregiver_type: child.caregiverType,
       caregiver_label: child.caregiverLabel || "",
@@ -119,6 +126,7 @@ export function useChildren(userId) {
       medication: child.medication || "",
       diagnosis: child.diagnosis || "",
       placement_start_date: child.placementStartDate || null,
+      recipient_id: child.recipientId || null,
       fostering_agency: child.fosteringAgency || "",
       placement_type: child.placementType || "",
       court_order_ref: child.courtOrderRef || "",
@@ -145,6 +153,9 @@ export function useChildren(userId) {
     setChildren(cs => cs.map(c => c.id === id ? { ...c, ...patch } : c));
     const dbPatch = {};
     if ("name" in patch) dbPatch.name = patch.name;
+    if ("firstName" in patch) dbPatch.first_name = patch.firstName;
+    if ("middleName" in patch) dbPatch.middle_name = patch.middleName;
+    if ("lastName" in patch) dbPatch.last_name = patch.lastName;
     if ("emoji" in patch) dbPatch.emoji = patch.emoji;
     if ("caregiverType" in patch) dbPatch.caregiver_type = patch.caregiverType;
     if ("caregiverLabel" in patch) dbPatch.caregiver_label = patch.caregiverLabel;
@@ -166,6 +177,7 @@ export function useChildren(userId) {
     if ("medication" in patch) dbPatch.medication = patch.medication;
     if ("diagnosis" in patch) dbPatch.diagnosis = patch.diagnosis;
     if ("placementStartDate" in patch) dbPatch.placement_start_date = patch.placementStartDate || null;
+    if ("recipientId" in patch) dbPatch.recipient_id = patch.recipientId || null;
     if ("fosteringAgency" in patch) dbPatch.fostering_agency = patch.fosteringAgency;
     if ("placementType" in patch) dbPatch.placement_type = patch.placementType;
     if ("courtOrderRef" in patch) dbPatch.court_order_ref = patch.courtOrderRef;
@@ -342,9 +354,30 @@ export const consumeNewSignupFlag = () => {
   } catch { return false; }
 };
 
+// Set right before navigating to the carer letter screen from an existing
+// saved letter (e.g. Documents screen's "Open ›" row), so that screen opens
+// straight to the letter preview instead of its "Set up your first letter"
+// form — which otherwise shows first on every visit, saved letter or not.
+// In-memory only: it's read once (peekCarerLetterPreviewFlag, in a useState
+// initializer) and cleared once (clearCarerLetterPreviewFlag, in a useEffect)
+// by the very next CarerLetterScreen mount, kept as two separate pure/impure
+// halves specifically because React.StrictMode calls a useState initializer
+// twice in development — a single read-and-clear function would consume the
+// flag on the first call and see it already gone on the second, so whichever
+// of those two calls' result React kept would be inconsistent between dev
+// and prod. Splitting them avoids that: the read is side-effect-free (safe
+// to call twice), and the effect's clear runs once after both calls settle.
+let pendingCarerLetterPreview = false;
+export const requestCarerLetterPreview = () => { pendingCarerLetterPreview = true; };
+export const peekCarerLetterPreviewFlag = () => pendingCarerLetterPreview;
+export const clearCarerLetterPreviewFlag = () => { pendingCarerLetterPreview = false; };
+
 export const accountFromUser = (u) => u ? {
   id: u.id,
   name: u.user_metadata?.name || u.email,
+  firstName: u.user_metadata?.firstName || "",
+  middleName: u.user_metadata?.middleName || "",
+  lastName: u.user_metadata?.lastName || "",
   avatar: u.user_metadata?.avatar || "none",
   email: u.email,
   joined: u.user_metadata?.joined || new Date(u.created_at).toLocaleDateString("en-SG", { month: "short", year: "numeric" }),
