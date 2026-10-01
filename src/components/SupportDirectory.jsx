@@ -5,7 +5,7 @@ import { useBackHandler } from "../hooks";
 /**
  * Bonda — Contacts
  * The caregiver's own address book for the people around their child:
- * teacher, doctor / clinic and therapist.
+ * teacher, doctor, clinic and therapist.
  *
  * Layout keeps the old Support Directory look (see SupportDirectory.backup.jsx):
  *   • white header zone over a soft grey body
@@ -21,7 +21,8 @@ import { useBackHandler } from "../hooks";
 
 const CATEGORIES = [
   { id: "school",    label: "Teacher",        orgLabel: "School name",        namePh: "e.g. Ms Tan (form teacher)", orgPh: "e.g. Rainbow Centre" },
-  { id: "doctor",    label: "Doctor / Clinic", short: "Clinic", orgLabel: "Clinic / hospital", namePh: "e.g. Dr Lim",               orgPh: "e.g. KKH Child Development Unit" },
+  { id: "doctor",    label: "Doctor",         orgLabel: "Clinic / hospital",  namePh: "e.g. Dr Lim",               orgPh: "e.g. KKH Child Development Unit" },
+  { id: "clinic",    label: "Clinic",         orgLabel: "Department / unit",  namePh: "e.g. KKH Child Development Unit", orgPh: "e.g. Developmental Paediatrics" },
   { id: "therapist", label: "Therapist",      orgLabel: "Centre / practice",  namePh: "e.g. Sarah (speech therapist)", orgPh: "e.g. Thye Hua Kwan EIPIC" },
 ];
 const CAT = Object.fromEntries(CATEGORIES.map((c) => [c.id, c]));
@@ -299,7 +300,7 @@ export default function SupportDirectory({ account }) {
       {/* header (white zone) */}
       <header className="bd-head">
         <div className="bd-wrap">
-          <p className="bd-sub">Your child's teachers, doctors and therapists in one place.</p>
+          <p className="bd-sub">Your child's teachers, doctors, clinics and therapists in one place.</p>
         </div>
         <div className="bd-head__tools bd-wrap">
           <div className="bd-search">
@@ -324,7 +325,7 @@ export default function SupportDirectory({ account }) {
           ) : contacts.length === 0 ? (
             <div className="bd-empty">
               <p className="bd-empty__t">No contacts yet</p>
-              <p className="bd-empty__b">Save your child's teachers, doctor or clinic, and therapists so they're always one tap away.</p>
+              <p className="bd-empty__b">Save your child's teachers, doctors, clinics and therapists so they're always one tap away.</p>
               <button className="bd-empty__reset" onClick={startNew}>Add first contact</button>
             </div>
           ) : (
