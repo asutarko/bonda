@@ -11,7 +11,7 @@ import { useBackHandler } from "../hooks";
  *   • white header zone over a soft grey body
  *   • search field + category filter button (dropdown)
  *   • a results count
- *   • cards: name, organisation, note inset, then
+ *   • cards: name, one sub-line ("Doctor", or the school / clinic / centre), note inset, then
  *     tap-to-contact actions (tel / WhatsApp / mailto)
  *   • an add / edit bottom sheet
  *
@@ -22,7 +22,7 @@ import { useBackHandler } from "../hooks";
 const CATEGORIES = [
   { id: "school",    label: "Teacher",        orgLabel: "School name",        namePh: "e.g. Ms Tan (form teacher)", orgPh: "e.g. Rainbow Centre" },
   { id: "doctor",    label: "Doctor",         orgLabel: "Clinic / hospital",  namePh: "e.g. Dr Lim",               orgPh: "e.g. KKH Child Development Unit" },
-  { id: "clinic",    label: "Clinic",         orgLabel: "Department / unit",  namePh: "e.g. KKH Child Development Unit", orgPh: "e.g. Developmental Paediatrics" },
+  { id: "clinic",    label: "Clinic",         orgLabel: "Clinic name",        namePh: "e.g. Nurse Aisha (front desk)", orgPh: "e.g. KKH Child Development Unit" },
   { id: "therapist", label: "Therapist",      orgLabel: "Centre / practice",  namePh: "e.g. Sarah (speech therapist)", orgPh: "e.g. Thye Hua Kwan EIPIC" },
 ];
 const CAT = Object.fromEntries(CATEGORIES.map((c) => [c.id, c]));
@@ -128,13 +128,16 @@ function Action({ href, icon, label, variant, external }) {
 
 /* ---------- contact card ---------- */
 function Card({ c, onEdit }) {
+  const cat = CAT[c.category] || CATEGORIES[0];
+  const sub = c.category === "doctor" ? cat.label : c.organisation;
   return (
     <article className="bd-card">
       <div className="bd-card__row">
         <h3 className="bd-card__name">{c.name}</h3>
         <button className="bd-edit" onClick={() => onEdit(c)} aria-label={"Edit " + c.name}>{I.edit}</button>
       </div>
-      {c.organisation && <p className="bd-card__org">{c.organisation}</p>}
+      {/* one line under the name: "Doctor" for doctors; the school / clinic / centre name for everyone else */}
+      {sub && <p className="bd-card__cat">{sub}</p>}
 
       {c.note && (
         <div className="bd-inset">
@@ -172,9 +175,16 @@ function Sheet({ initial, onClose, onSave, onDelete }) {
     e.preventDefault();
     if (!f.name.trim()) { setErr("Please enter a name."); return; }
     setSaving(true); setErr("");
-    const error = await onSave(f);
+    let error;
+    try { error = await onSave(f); } catch (ex) { error = ex; }
     setSaving(false);
-    if (error) setErr("Couldn't save. Please try again.");
+    if (error) {
+      console.error("Saving contact failed:", error);
+      // 23514 = check constraint violation: the database doesn't know this category yet
+      setErr(error.code === "23514"
+        ? "This category isn't available yet. Please try another category."
+        : "Couldn't save. Please try again." + (error.message ? ` (${error.message})` : ""));
+    }
   };
 
   return (
@@ -268,9 +278,10 @@ export default function SupportDirectory({ account }) {
   }, [contacts]);
 
   const save = async (f) => {
+    const t = (v) => (v || "").trim();
     const row = {
-      category: f.category, name: f.name.trim(), organisation: f.organisation.trim(),
-      phone: joinPhone(f.cc, f.phone), email: f.email.trim(), address: f.address.trim(), note: f.note.trim(),
+      category: f.category, name: t(f.name), organisation: t(f.organisation),
+      phone: joinPhone(f.cc, f.phone || ""), email: t(f.email), address: t(f.address), note: t(f.note),
     };
     const q = f.id
       ? supabase.from("user_contacts").update({ ...row, updated_at: new Date().toISOString() }).eq("id", f.id)
@@ -455,8 +466,7 @@ const CSS = `
 .bd-edit:active{background:var(--fill);}
 
 .bd-card__name{margin:0; min-width:0; font-size:16px; font-weight:600; letter-spacing:-0.01em; line-height:1.28;}
-.bd-card__org{margin:3px 0 0; font-size:14px; color:var(--ink-2);}
-
+.bd-card__cat{margin:2px 0 0; font-size:12.5px; font-weight:600; color:var(--teal-ink);}
 .bd-inset{margin-top:13px; background:var(--fill); border-radius:12px; padding:12px 13px; display:flex; flex-direction:column; gap:8px;}
 .bd-inset__val{margin:0; font-size:13.5px; color:var(--ink-2); line-height:1.45; white-space:pre-wrap;}
 
