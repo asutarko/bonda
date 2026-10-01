@@ -1,17 +1,17 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { supabase } from "../lib/supabase";
 import { useBackHandler } from "../hooks";
 
 /**
  * Bonda — Contacts
  * The caregiver's own address book for the people around their child:
- * school, doctor / clinic and therapist.
+ * teacher, doctor / clinic and therapist.
  *
  * Layout keeps the old Support Directory look (see SupportDirectory.backup.jsx):
  *   • white header zone over a soft grey body
- *   • search field + category chips
+ *   • search field + category filter button (dropdown)
  *   • a results count
- *   • cards: category pill, name, organisation, address / note inset, then
+ *   • cards: name, organisation, note inset, then
  *     tap-to-contact actions (tel / WhatsApp / mailto)
  *   • an add / edit bottom sheet
  *
@@ -19,17 +19,10 @@ import { useBackHandler } from "../hooks";
  * contact, private to its owner via RLS.
  */
 
-/* ---------- muted category tones (no yellow) ---------- */
-const TONES = {
-  teal:   { bg: "#E4F0EC", fg: "#2E7B6A", dot: "#2E7B6A" },
-  blue:   { bg: "#E6ECF3", fg: "#3C6088", dot: "#4A79A6" },
-  violet: { bg: "#ECE8F3", fg: "#63578A", dot: "#7E6FAC" },
-};
-
 const CATEGORIES = [
-  { id: "school",    label: "School",         orgLabel: "School name",        namePh: "e.g. Ms Tan (form teacher)", orgPh: "e.g. Rainbow Centre", tone: "blue" },
-  { id: "doctor",    label: "Doctor / Clinic", short: "Doctor", orgLabel: "Clinic / hospital", namePh: "e.g. Dr Lim",               orgPh: "e.g. KKH Child Development Unit", tone: "teal" },
-  { id: "therapist", label: "Therapist",      orgLabel: "Centre / practice",  namePh: "e.g. Sarah (speech therapist)", orgPh: "e.g. Thye Hua Kwan EIPIC", tone: "violet" },
+  { id: "school",    label: "Teacher",        orgLabel: "School name",        namePh: "e.g. Ms Tan (form teacher)", orgPh: "e.g. Rainbow Centre" },
+  { id: "doctor",    label: "Doctor / Clinic", short: "Clinic", orgLabel: "Clinic / hospital", namePh: "e.g. Dr Lim",               orgPh: "e.g. KKH Child Development Unit" },
+  { id: "therapist", label: "Therapist",      orgLabel: "Centre / practice",  namePh: "e.g. Sarah (speech therapist)", orgPh: "e.g. Thye Hua Kwan EIPIC" },
 ];
 const CAT = Object.fromEntries(CATEGORIES.map((c) => [c.id, c]));
 
@@ -72,57 +65,87 @@ const waHref = (phone) => "https://wa.me/" + fullPhone(phone).replace(/\D/g, "")
 const I = {
   search: <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>,
   phone: <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2Z"/></svg>,
-  chat: <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9 9 0 0 1-3.9-.9L3 20l1.1-4.1A8.4 8.4 0 0 1 3 11.5a8.4 8.4 0 0 1 9-8.4 8.4 8.4 0 0 1 9 8.4Z"/></svg>,
+  whatsapp: <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.304-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/></svg>,
   mail: <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>,
-  pin: <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21Z"/><circle cx="12" cy="9.5" r="2.5"/></svg>,
   edit: <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 20h4L19 9l-4-4L4 16v4Z"/><path d="m13.5 6.5 4 4"/></svg>,
   plus: <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>,
+  filter: <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round"><path d="M3 6h2.8M10.2 6H21M3 12h10.8M18.2 12H21M3 18h5.8M13.2 18H21"/><circle cx="8" cy="6" r="2.2"/><circle cx="16" cy="12" r="2.2"/><circle cx="11" cy="18" r="2.2"/></svg>,
+  check: <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>,
 };
 
-/* ---------- action link ---------- */
-function Action({ href, icon, label, primary, external }) {
+const FILTERS = [{ id: "all", label: "All" }, ...CATEGORIES];
+
+/* ---------- filter button + menu ---------- */
+function FilterMenu({ active, counts, onPick }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const away = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    const esc = (e) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("pointerdown", away);
+    document.addEventListener("keydown", esc);
+    return () => { document.removeEventListener("pointerdown", away); document.removeEventListener("keydown", esc); };
+  }, [open]);
+
   return (
-    <a className={"bd-act" + (primary ? " is-primary" : "")} href={href}
+    <div className="bd-filter" ref={ref}>
+      <button className={"bd-filter__btn" + (active !== "all" ? " is-on" : "")} onClick={() => setOpen((o) => !o)}
+        aria-label="Filter by category" aria-haspopup="menu" aria-expanded={open}>
+        {I.filter}
+        {active !== "all" && <span className="bd-filter__dot" />}
+      </button>
+      {open && (
+        <div className="bd-filter__menu" role="menu">
+          {FILTERS.map((c) => (
+            <button key={c.id} role="menuitemradio" aria-checked={active === c.id}
+              className={"bd-filter__item" + (active === c.id ? " is-on" : "")}
+              onClick={() => { onPick(c.id); setOpen(false); }}>
+              <span className="bd-filter__check">{active === c.id && I.check}</span>
+              <span className="bd-filter__lbl">{c.short || c.label}</span>
+              <span className="bd-chip__n">{counts[c.id]}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------- action link ---------- */
+function Action({ href, icon, label, variant, external }) {
+  return (
+    <a className={"bd-act" + (variant ? " is-" + variant : "")} href={href}
        target={external ? "_blank" : undefined}
-       rel={external ? "noopener noreferrer" : undefined}>
-      <span className="bd-act__i">{icon}</span><span>{label}</span>
+       rel={external ? "noopener noreferrer" : undefined}
+       aria-label={label} title={label}>
+      <span className="bd-act__i">{icon}</span>
     </a>
   );
 }
 
 /* ---------- contact card ---------- */
 function Card({ c, onEdit }) {
-  const cat = CAT[c.category] || CATEGORIES[0];
-  const t = TONES[cat.tone];
   return (
     <article className="bd-card">
       <div className="bd-card__row">
-        <span className="bd-pill" style={{ background: t.bg, color: t.fg }}>
-          <span className="bd-pill__dot" style={{ background: t.dot }} />
-          {cat.label}
-        </span>
+        <h3 className="bd-card__name">{c.name}</h3>
         <button className="bd-edit" onClick={() => onEdit(c)} aria-label={"Edit " + c.name}>{I.edit}</button>
       </div>
-
-      <h3 className="bd-card__name">{c.name}</h3>
       {c.organisation && <p className="bd-card__org">{c.organisation}</p>}
 
-      {(c.address || c.note) && (
+      {c.note && (
         <div className="bd-inset">
-          {c.address && (
-            <a className="bd-inset__addr" href={"https://maps.google.com/?q=" + encodeURIComponent(c.address)} target="_blank" rel="noopener noreferrer">
-              <span className="bd-act__i">{I.pin}</span>{c.address}
-            </a>
-          )}
-          {c.note && <p className="bd-inset__val">{c.note}</p>}
+          <p className="bd-inset__val">{c.note}</p>
         </div>
       )}
 
       {(c.phone || c.email) && (
         <div className="bd-actions">
-          {c.phone && <Action href={telHref(fullPhone(c.phone))} icon={I.phone} label={fullPhone(c.phone)} primary />}
-          {c.phone && <Action href={waHref(c.phone)} icon={I.chat} label="WhatsApp" external />}
-          {c.email && <Action href={`mailto:${c.email}`} icon={I.mail} label="Email" />}
+          {c.phone && <Action href={telHref(fullPhone(c.phone))} icon={I.phone} label={"Call " + fullPhone(c.phone)} variant="primary" />}
+          {c.phone && <Action href={waHref(c.phone)} icon={I.whatsapp} label="WhatsApp" variant="wa" external />}
+          {c.email && <Action href={`mailto:${c.email}`} icon={I.mail} label={"Email " + c.email} />}
         </div>
       )}
     </article>
@@ -162,13 +185,11 @@ function Sheet({ initial, onClose, onSave, onDelete }) {
           <h2 className="bd-sheet__t">{initial.id ? "Edit contact" : "New contact"}</h2>
         </div>
 
-        <span className="bd-lbl">Category</span>
-        <div className="bd-seg">
-          {CATEGORIES.map((c) => (
-            <button type="button" key={c.id} className={"bd-seg__b" + (f.category === c.id ? " is-on" : "")}
-              onClick={() => setF((p) => ({ ...p, category: c.id }))}>{c.label}</button>
-          ))}
-        </div>
+        <label className="bd-lbl">Category
+          <select className="bd-in bd-select" value={f.category} onChange={set("category")}>
+            {CATEGORIES.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
+          </select>
+        </label>
 
         <label className="bd-lbl">Name *
           <input className="bd-in" value={f.name} onChange={set("name")} placeholder={cat.namePh} />
@@ -186,9 +207,6 @@ function Sheet({ initial, onClose, onSave, onDelete }) {
         </label>
         <label className="bd-lbl">Email
           <input className="bd-in" type="email" inputMode="email" autoCapitalize="off" value={f.email} onChange={set("email")} />
-        </label>
-        <label className="bd-lbl">Address
-          <input className="bd-in" value={f.address} onChange={set("address")} />
         </label>
         <label className="bd-lbl">Notes
           <textarea className="bd-in bd-in--ta" rows={3} value={f.note} onChange={set("note")} placeholder="Opening hours, appointment days, who to ask for…" />
@@ -237,7 +255,7 @@ export default function SupportDirectory({ account }) {
     return contacts.filter((c) => {
       if (active !== "all" && c.category !== active) return false;
       if (!q) return true;
-      return [c.name, c.organisation, c.phone, c.email, c.address, c.note]
+      return [c.name, c.organisation, c.phone, c.email, c.note]
         .some((v) => (v || "").toLowerCase().includes(q));
     });
   }, [contacts, query, active]);
@@ -281,7 +299,7 @@ export default function SupportDirectory({ account }) {
       {/* header (white zone) */}
       <header className="bd-head">
         <div className="bd-wrap">
-          <p className="bd-sub">Your child's school, doctors and therapists in one place.</p>
+          <p className="bd-sub">Your child's teachers, doctors and therapists in one place.</p>
         </div>
         <div className="bd-head__tools bd-wrap">
           <div className="bd-search">
@@ -291,17 +309,10 @@ export default function SupportDirectory({ account }) {
               onChange={(e) => setQuery(e.target.value)} aria-label="Search contacts" />
             {query && <button className="bd-search__x" onClick={() => setQuery("")} aria-label="Clear search">×</button>}
           </div>
+          <FilterMenu active={active} counts={counts} onPick={setActive} />
           <button className="bd-addbtn" onClick={startNew}>
             <span className="bd-addbtn__i">{I.plus}</span>Add
           </button>
-        </div>
-        <div className="bd-chips bd-wrap" role="group" aria-label="Filter by category">
-          {[{ id: "all", label: "All" }, ...CATEGORIES].map((c) => (
-            <button key={c.id} className={"bd-chip" + (active === c.id ? " is-on" : "")}
-              onClick={() => setActive(c.id)} aria-pressed={active === c.id}>
-              {c.short || c.label}<span className="bd-chip__n">{counts[c.id]}</span>
-            </button>
-          ))}
         </div>
       </header>
 
@@ -313,13 +324,18 @@ export default function SupportDirectory({ account }) {
           ) : contacts.length === 0 ? (
             <div className="bd-empty">
               <p className="bd-empty__t">No contacts yet</p>
-              <p className="bd-empty__b">Save your child's school, doctor or clinic, and therapists so they're always one tap away.</p>
+              <p className="bd-empty__b">Save your child's teachers, doctor or clinic, and therapists so they're always one tap away.</p>
               <button className="bd-empty__reset" onClick={startNew}>Add first contact</button>
             </div>
           ) : (
             <>
               <div className="bd-countrow">
                 <span className="bd-count">{results.length} {results.length === 1 ? "contact" : "contacts"}</span>
+                {active !== "all" && (
+                  <button className="bd-tag" onClick={() => setActive("all")} aria-label={"Clear filter " + (CAT[active].short || CAT[active].label)}>
+                    {CAT[active].short || CAT[active].label}<span aria-hidden="true">×</span>
+                  </button>
+                )}
               </div>
               {results.length === 0 ? (
                 <div className="bd-empty">
@@ -388,22 +404,41 @@ const CSS = `
 }
 .bd-addbtn__i{display:flex;}
 
-/* category chips — one row that fills the width; scrolls only on very narrow screens */
-.bd-chips{display:flex; gap:6px; overflow-x:auto; scrollbar-width:none; padding-bottom:14px;}
-.bd-chips::-webkit-scrollbar{display:none;}
-.bd-chip{
-  flex:1 0 auto; display:inline-flex; align-items:center; justify-content:center; gap:6px; height:38px; padding:0 10px;
-  background:var(--surface); border:1px solid var(--line); border-radius:999px;
-  font:inherit; font-size:13px; font-weight:500; color:var(--ink-2); cursor:pointer; white-space:nowrap;
+/* category filter — icon button with a dropdown menu */
+.bd-filter{position:relative; flex:none;}
+.bd-filter__btn{
+  position:relative; display:flex; align-items:center; justify-content:center; width:46px; height:46px;
+  background:var(--fill); border:1px solid var(--line); border-radius:12px; color:var(--ink-2); cursor:pointer;
   transition:border-color .15s, color .15s, background .15s;
 }
-.bd-chip.is-on{border-color:var(--teal); color:var(--teal-ink); font-weight:600; background:rgba(46,123,106,.06);}
+.bd-filter__btn.is-on{border-color:var(--teal); color:var(--teal-ink); background:rgba(46,123,106,.06);}
+.bd-filter__dot{position:absolute; top:9px; right:9px; width:8px; height:8px; border-radius:50%; background:var(--teal); box-shadow:0 0 0 2px var(--surface);}
+.bd-filter__menu{
+  position:absolute; top:calc(100% + 6px); right:0; z-index:40; min-width:190px; padding:6px;
+  background:var(--surface); border:1px solid var(--line); border-radius:14px;
+  box-shadow:0 10px 28px rgba(30,35,32,.12); animation:bd-fade .12s ease;
+}
+.bd-filter__item{
+  width:100%; display:flex; align-items:center; gap:8px; min-height:44px; padding:0 10px;
+  border:0; border-radius:10px; background:transparent; font:inherit; font-size:14px; font-weight:500;
+  color:var(--ink); text-align:left; cursor:pointer;
+}
+.bd-filter__item:active{background:var(--fill);}
+.bd-filter__item.is-on{color:var(--teal-ink); font-weight:600;}
+.bd-filter__check{width:16px; display:flex; color:var(--teal); flex:none;}
+.bd-filter__lbl{flex:1;}
 .bd-chip__n{
   min-width:18px; height:18px; padding:0 5px; border-radius:999px; background:var(--fill);
   display:inline-flex; align-items:center; justify-content:center;
   font-size:11px; font-weight:600; color:var(--ink-3);
 }
-.bd-chip.is-on .bd-chip__n{background:var(--teal); color:#FBFAF7;}
+.bd-filter__item.is-on .bd-chip__n{background:var(--teal); color:#FBFAF7;}
+.bd-tag{
+  display:inline-flex; align-items:center; gap:6px; height:30px; padding:0 10px 0 12px;
+  border:1px solid var(--teal); border-radius:999px; background:rgba(46,123,106,.06);
+  font:inherit; font-size:12.5px; font-weight:600; color:var(--teal-ink); cursor:pointer;
+}
+.bd-tag span{font-size:16px; line-height:1;}
 
 /* body */
 .bd-body{padding-top:18px; padding-bottom:calc(30px + env(safe-area-inset-bottom));}
@@ -414,27 +449,26 @@ const CSS = `
 
 /* card */
 .bd-card{background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:16px; margin-bottom:12px;}
-.bd-card__row{display:flex; align-items:center; justify-content:space-between; gap:10px;}
-.bd-pill{display:inline-flex; align-items:center; gap:6px; padding:5px 11px 5px 9px; border-radius:999px; font-size:11px; font-weight:700; letter-spacing:0.045em; text-transform:uppercase;}
-.bd-pill__dot{width:7px; height:7px; border-radius:50%; flex:none;}
-.bd-edit{display:flex; align-items:center; justify-content:center; width:36px; height:36px; margin:-6px -6px -6px 0; border:0; border-radius:10px; background:transparent; color:var(--ink-3); cursor:pointer;}
+.bd-card__row{display:flex; align-items:flex-start; justify-content:space-between; gap:10px;}
+.bd-edit{flex:none; display:flex; align-items:center; justify-content:center; width:36px; height:36px; margin:-8px -6px -8px 0; border:0; border-radius:10px; background:transparent; color:var(--ink-3); cursor:pointer;}
 .bd-edit:active{background:var(--fill);}
 
-.bd-card__name{margin:13px 0 0; font-size:16px; font-weight:600; letter-spacing:-0.01em; line-height:1.28;}
+.bd-card__name{margin:0; min-width:0; font-size:16px; font-weight:600; letter-spacing:-0.01em; line-height:1.28;}
 .bd-card__org{margin:3px 0 0; font-size:14px; color:var(--ink-2);}
 
 .bd-inset{margin-top:13px; background:var(--fill); border-radius:12px; padding:12px 13px; display:flex; flex-direction:column; gap:8px;}
-.bd-inset__addr{display:flex; gap:7px; font-size:13.5px; color:var(--ink); text-decoration:none; line-height:1.45;}
-.bd-inset__addr .bd-act__i{margin-top:2px;}
 .bd-inset__val{margin:0; font-size:13.5px; color:var(--ink-2); line-height:1.45; white-space:pre-wrap;}
 
 .bd-actions{display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; padding-top:14px; border-top:1px solid var(--line);}
-.bd-act{display:inline-flex; align-items:center; gap:7px; min-height:44px; padding:0 14px; border-radius:11px; border:1px solid var(--line); background:var(--surface); color:var(--ink); font-size:13.5px; font-weight:500; text-decoration:none; transition:background .15s, border-color .15s;}
+.bd-act{display:inline-flex; align-items:center; justify-content:center; width:48px; height:44px; border-radius:11px; border:1px solid var(--line); background:var(--surface); color:var(--ink); text-decoration:none; transition:background .15s, border-color .15s;}
+.bd-act .bd-act__i svg{width:20px; height:20px;}
 .bd-act:active{background:var(--fill);}
 .bd-act__i{color:var(--ink-3); display:flex; flex:none;}
 .bd-act.is-primary{border-color:rgba(46,123,106,.45); color:var(--teal-ink); font-weight:600;}
 .bd-act.is-primary .bd-act__i{color:var(--teal);}
 .bd-act.is-primary:active{background:rgba(46,123,106,.07);}
+.bd-act.is-wa .bd-act__i{color:#25D366;}
+.bd-act.is-wa:active{background:rgba(37,211,102,.08);}
 
 /* empty */
 .bd-empty{text-align:center; padding:48px 20px; background:var(--surface); border:1px solid var(--line); border-radius:16px;}
@@ -472,9 +506,11 @@ const CSS = `
 .bd-in--ta{resize:vertical; line-height:1.45;}
 .bd-phone{display:flex; gap:8px;}
 .bd-cc{flex:none; width:auto; padding-right:8px;}
-.bd-seg{display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin-top:-6px;}
-.bd-seg__b{min-height:42px; padding:0 6px; border:1px solid var(--line); border-radius:10px; background:var(--surface); font:inherit; font-size:12.5px; font-weight:500; color:var(--ink-2); cursor:pointer;}
-.bd-seg__b.is-on{border-color:var(--teal); color:var(--teal-ink); font-weight:600; background:rgba(46,123,106,.06);}
+.bd-select{
+  appearance:none; -webkit-appearance:none; padding-right:38px; cursor:pointer;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239A9E99' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat:no-repeat; background-position:right 12px center; background-size:18px;
+}
 .bd-err{margin:0; font-size:13px; color:var(--red);}
 .bd-sheet__bottom{
   position:sticky; bottom:0; z-index:2; background:var(--surface);
