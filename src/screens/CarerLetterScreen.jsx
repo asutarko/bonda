@@ -56,6 +56,15 @@ const EMPTY_CASE_WORKER = { name: "", phone: "", email: "" };
 const CASE_WORKER_FIELDS = { name: "caseWorkerName", phone: "caseWorkerPhone", email: "caseWorkerEmail" };
 const parseCaseWorkers = (child) => parseEntries(child, CASE_WORKER_FIELDS);
 
+const EMPTY_THERAPIST = { name: "", centre: "", phone: "" };
+const THERAPIST_FIELDS = { name: "therapistName", centre: "therapistCentre", phone: "therapistPhone" };
+const parseTherapists = (child) => parseEntries(child, THERAPIST_FIELDS);
+
+// Entries with at least one field filled in — a blank trailing entry (the
+// form always shows one) shouldn't add an empty repeat to the letter.
+const nonEmptyEntries = (child, fieldMap) =>
+  parseEntries(child, fieldMap).filter(e => Object.values(e).some(Boolean));
+
 // This screen's look is ported from the carer-letter.html mockup, which pairs
 // a serif display face (titles, the letter body itself) with a sans body face
 // (labels, UI chrome) instead of the Literata-everywhere look used by the rest
@@ -100,72 +109,155 @@ const joinName = (first, middle, last) => [first, middle, last].map(s => s.trim(
 // so an unrecognised placeholder stays visible for the caregiver to fill by hand.
 const normalizeBracket = (s) => s.toLowerCase().replace(/_/g, " ").replace(/['']/g, "").replace(/\s+/g, " ").trim();
 
+// Form values are typed by the caregiver and dropped straight into the
+// template's HTML, so escape them — otherwise e.g. "Tan & Sons" or "<3 yrs"
+// would be parsed as markup and render differently from what was entered.
+const escapeHtml = (s) => String(s ?? "")
+  .replace(/&/g, "&amp;")
+  .replace(/</g, "&lt;")
+  .replace(/>/g, "&gt;")
+  .replace(/"/g, "&quot;");
+
 const fillTemplate = (content, values) => {
   if (!content) return content || "";
-  const withBrackets = content.replace(/\[([^\]]+)\]/g, (match, inner) => {
-    const key = normalizeBracket(inner);
-    const has = (...words) => words.every(w => key.includes(w));
-
-    if (has("date") && has("birth")) return values.dob;
-    if (key === "date" || has("today") || has("letter", "date")) return values.date;
-    if (has("receiver") || has("recipient")) {
-      if (has("address")) return values.recipientAddress;
-      if (has("phone")) return values.recipientPhone;
-      return values.recipientName;
-    }
-    if (has("child") && has("name")) return values.childName;
-    if (has("placement") && has("start")) return values.placementStartDate;
-    if (has("placement") && (has("type") || has("status"))) return values.placementType;
-    if (has("fostering") || has("agency") || has("vwo")) return values.fosteringAgency;
-    if (has("case", "worker") || has("caseworker")) {
-      if (has("phone")) return values.caseWorkerPhone;
-      if (has("email")) return values.caseWorkerEmail;
-      return values.caseWorkerName;
-    }
-    if (has("court") && has("order")) return values.courtOrderRef;
-    if (has("verbal")) return values.verbalText;
-    if (has("diagnosis")) return values.diagnosis;
-    if (has("allerg")) return values.allergies;
-    // Checked before the bare name fallback below, since we only collect one
-    // phone/email for the child's doctor's clinic as a whole (values.clinicPhone/
-    // clinicEmail) — a placeholder asking for the doctor/psychiatrist's own
-    // direct line isn't something we have data for, so it's left bracketed
-    // rather than wrongly filled with their name.
-    if (has("doctor") || has("physician") || has("psychiatrist")) {
-      if (has("phone") || has("email")) return match;
-      return values.doctorName;
-    }
-    if (has("clinic") && has("address")) return values.clinicAddress;
-    if (has("clinic") && has("phone")) return values.clinicPhone;
-    if (has("clinic") && has("email")) return values.clinicEmail;
-    if (has("clinic")) return values.clinic;
-    // Word-boundary check (not a plain substring test) — "him"/"her" as a
-    // standalone word, not merely present inside another word. A plain
-    // `.includes("her")` would misfire on any placeholder mentioning a
-    // "therapist" (t-HER-apist), wrongly filling it with the pronoun instead
-    // of leaving it bracketed.
-    if (key === "pronoun" || /\b(him|her)\b/.test(key)) return values.pronoun;
-    if (has("location") || has("country")) return values.location;
-    // Collected once via the "Set up your first letter" step (CarerLetterScreen's
-    // carer-details form) — left bracketed only if the caregiver skipped it.
-    // Checked before the generic "carer" catch-all below, since the phrase
-    // "licensed foster carer" would otherwise match on "carer" and get
-    // wrongly filled with the caregiver's name.
-    if (has("licensed")) return values.licensedCarer || match;
-    if (has("carer") || has("your") || has("parent")) {
-      if (has("phone")) return values.yourPhone;
-      if (has("email")) return values.yourEmail;
-      if (has("role")) return values.roleLabel;
-      return values.yourName;
-    }
-    return match;
+  // Filled values are swapped in as opaque tokens first and only restored
+  // after the "foster carer" → role label pass below, so that pass rewrites
+  // the template's own wording but never what the caregiver typed (e.g. a
+  // licensed-carer answer of "Foster carer (not licensed)").
+  const filledValues = [];
+  const fillBrackets = (html, vals) => html.replace(/\[([^\]]+)\]/g, (match, inner) => {
+    const value = resolvePlaceholder(match, inner, vals);
+    if (value === match) return match;
+    filledValues.push(escapeHtml(value));
+    return `\u0000${filledValues.length - 1}\u0000`;
   });
+  const withTokens = fillBrackets(expandRepeatingRows(content, values, fillBrackets), values);
   // Case-insensitive + tag-agnostic so this still matches when the phrase
   // sits inside HTML markup (e.g. "<strong>Foster Carer</strong>"), not just
   // on its own plain-text line.
-  return withBrackets.replace(/\bfoster carer\b/gi, (match) =>
+  const withRole = withTokens.replace(/\bfoster carer\b/gi, (match) =>
     match === "Foster Carer" ? titleCase(values.roleLabel) : values.roleLabel
   );
+  return withRole.replace(/\u0000(\d+)\u0000/g, (_, i) => filledValues[Number(i)]);
+};
+
+// The form allows any number of clinic/doctor, therapist and case worker
+// entries, but the template only has one set of table rows for each
+// ("Psychiatrist name", "Clinic or hospital", "Phone", ... / "Therapist or
+// counsellor", "Centre", "Phone" / case worker "Name", "Phone", "Email").
+// Each run of consecutive <tr> rows whose placeholders belong to the same
+// group is repeated once per entry and filled with that entry's values, so
+// two therapists in the form show up as two sets of rows.
+const ROW_RE = /<tr\b[^>]*>[\s\S]*?<\/tr>/gi;
+
+const repeatGroupFor = (key) => {
+  if (/case ?worker/.test(key)) return "caseWorkerRows";
+  if (/therap|counsel|centre|center|intervention|program/.test(key)) return "therapistRows";
+  if (/psychiatr|doctor|physician|clinic|hospital|appointment/.test(key)) return "clinicRows";
+  return null;
+};
+
+const rowGroupFor = (rowHtml) => {
+  for (const m of rowHtml.matchAll(/\[([^\]]+)\]/g)) {
+    const group = repeatGroupFor(normalizeBracket(m[1]));
+    if (group) return group;
+  }
+  return null;
+};
+
+const expandRepeatingRows = (html, values, fill) => {
+  const rows = [...html.matchAll(ROW_RE)];
+  let out = "";
+  let pos = 0;
+  let i = 0;
+  while (i < rows.length) {
+    const group = rowGroupFor(rows[i][0]);
+    if (!group) { i += 1; continue; }
+    let j = i + 1;
+    while (
+      j < rows.length &&
+      rowGroupFor(rows[j][0]) === group &&
+      !html.slice(rows[j - 1].index + rows[j - 1][0].length, rows[j].index).trim()
+    ) j += 1;
+    const start = rows[i].index;
+    const end = rows[j - 1].index + rows[j - 1][0].length;
+    const block = html.slice(start, end);
+    const entries = values[group]?.length ? values[group] : [{}];
+    out += html.slice(pos, start) + entries.map(e => fill(block, { ...values, ...e })).join("");
+    pos = end;
+    i = j;
+  }
+  return out + html.slice(pos);
+};
+
+const resolvePlaceholder = (match, inner, values) => {
+  const key = normalizeBracket(inner);
+  const has = (...words) => words.every(w => key.includes(w));
+
+  if (has("date") && has("birth")) return values.dob;
+  if (key === "date" || has("today") || has("letter", "date")) return values.date;
+  if (has("receiver") || has("recipient")) {
+    if (has("address")) return values.recipientAddress;
+    if (has("phone")) return values.recipientPhone;
+    return values.recipientName;
+  }
+  if (has("therap") || has("counsel") || has("intervention") || has("program") || has("centre") || has("center")) {
+    if (has("phone")) return values.therapistPhone;
+    if (has("email")) return match;
+    if (has("centre") || has("center") || has("intervention") || has("program")) return values.therapistCentre;
+    return values.therapistName;
+  }
+  if (has("child") && has("name")) return values.childName;
+  if (has("placement") && has("start")) return values.placementStartDate;
+  if (has("placement") && (has("type") || has("status"))) return values.placementType;
+  if (has("fostering") || has("agency") || has("vwo")) return values.fosteringAgency;
+  if (has("case", "worker") || has("caseworker")) {
+    if (has("phone")) return values.caseWorkerPhone;
+    if (has("email")) return values.caseWorkerEmail;
+    return values.caseWorkerName;
+  }
+  if (has("court") && has("order")) return values.courtOrderRef;
+  if (has("verbal")) return values.verbalText;
+  if (has("diagnosis")) return values.diagnosis;
+  if (has("allerg")) return values.allergies;
+  // Clinic contact fields are checked before the doctor branch so a
+  // placeholder like "[Doctor's clinic address]" gets the address entered
+  // in the form instead of the doctor's name.
+  if (has("clinic") && has("address")) return values.clinicAddress;
+  if (has("clinic") && has("phone")) return values.clinicPhone;
+  if (has("clinic") && has("email")) return values.clinicEmail;
+  // We only collect one phone/email for the child's doctor's clinic as a
+  // whole (values.clinicPhone/clinicEmail) — a placeholder asking for the
+  // doctor/psychiatrist's own direct line isn't something we have data for,
+  // so it's left bracketed rather than wrongly filled with their name.
+  if (has("doctor") || has("physician") || has("psychiatrist")) {
+    if (has("phone") || has("email")) return match;
+    // "[Psychiatrist_clinic]" / "[Doctor's hospital]" ask for the place,
+    // not the person.
+    if (has("clinic") || has("hospital")) return values.clinic;
+    return values.doctorName;
+  }
+  if (has("clinic") || has("hospital")) return values.clinic;
+  // Word-boundary check (not a plain substring test) — "him"/"her" as a
+  // standalone word, not merely present inside another word. A plain
+  // `.includes("her")` would misfire on any placeholder mentioning a
+  // "therapist" (t-HER-apist), wrongly filling it with the pronoun instead
+  // of leaving it bracketed.
+  if (key === "pronoun" || /\b(him|her)\b/.test(key)) return values.pronoun;
+  if (has("location") || has("country")) return values.location;
+  // Collected once via the "Set up your first letter" step (CarerLetterScreen's
+  // carer-details form) — left bracketed only if the caregiver skipped it.
+  // Checked before the generic "carer" catch-all below, since the phrase
+  // "licensed foster carer" would otherwise match on "carer" and get
+  // wrongly filled with the caregiver's name.
+  if (has("licensed")) return values.licensedCarer || match;
+  if (has("carer") || has("your") || has("parent")) {
+    if (has("phone")) return values.yourPhone;
+    if (has("email")) return values.yourEmail;
+    if (has("role")) return values.roleLabel;
+    return values.yourName;
+  }
+  return match;
 };
 
 // Anything still bracketed after fillTemplate is, by definition, unfilled — wrap
@@ -204,6 +296,9 @@ const PLACEHOLDER_HELP = {
   "Clinic phone": "A contact phone number for that clinic.",
   "Clinic email": "A contact email address for that clinic.",
   "Doctor name": "The name of the doctor/psychiatrist treating this child.",
+  "Therapist name": "The name of the child's therapist or counsellor.",
+  "Therapist centre": "The centre or early intervention programme the therapist works at.",
+  "Therapist phone": "A contact phone number for that therapist or centre.",
   "Your name": "Your full name, as the person signing this letter.",
   "Your phone": "Your contact phone number.",
   "Your email": "Your contact email address.",
@@ -350,6 +445,7 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
   const [editorVersion, setEditorVersion] = useState(0);
   const [howtoOpen, setHowtoOpen] = useState(false);
   const saveTimer = useRef(null);
+  const letterGeneratedRef = useRef(false);
 
   // "Set up your first letter" — the mandatory first step of this screen
   // (ported from the carer-letter.html mockup's s-profile screen: "Your
@@ -408,14 +504,15 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
   const [knownTriggers, setKnownTriggers] = useState(selectedChild?.knownTriggers || "");
   const [clinicEntries, setClinicEntries] = useState(parseClinics(selectedChild));
   const [caseWorkerEntries, setCaseWorkerEntries] = useState(parseCaseWorkers(selectedChild));
+  const [therapistEntries, setTherapistEntries] = useState(parseTherapists(selectedChild));
 
-  // Each of the five groups below ("Your details", "Recipient", "Child's
-  // details", "Clinic & doctor", "Case worker") can be saved on its own —
-  // saving collapses it to a compact summary so the long setup form doesn't
-  // stay fully expanded; "Edit" re-expands it (the entered values are still
-  // in state, so nothing is lost).
-  const [sectionSaved, setSectionSaved] = useState({ carer: false, recipient: false, child: false, clinic: false, caseWorker: false });
-  const [sectionSaving, setSectionSaving] = useState({ carer: false, recipient: false, child: false, clinic: false, caseWorker: false });
+  // Each of the groups below ("Your details", "Recipient", "Child's details",
+  // "Clinic & doctor", "Therapist / counsellor", "Case worker") can be saved
+  // on its own — saving collapses it to a compact summary so the long setup
+  // form doesn't stay fully expanded; "Edit" re-expands it (the entered
+  // values are still in state, so nothing is lost).
+  const [sectionSaved, setSectionSaved] = useState({ carer: false, recipient: false, child: false, clinic: false, therapist: false, caseWorker: false });
+  const [sectionSaving, setSectionSaving] = useState({ carer: false, recipient: false, child: false, clinic: false, therapist: false, caseWorker: false });
   const setSaved = (key, value) => setSectionSaved(s => ({ ...s, [key]: value }));
   const setSectionSavingKey = (key, value) => setSectionSaving(s => ({ ...s, [key]: value }));
 
@@ -440,8 +537,9 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
     setKnownTriggers(selectedChild?.knownTriggers || "");
     setClinicEntries(parseClinics(selectedChild));
     setCaseWorkerEntries(parseCaseWorkers(selectedChild));
+    setTherapistEntries(parseTherapists(selectedChild));
     setCarerErrors({});
-    setSectionSaved(s => ({ ...s, recipient: false, child: false, clinic: false, caseWorker: false }));
+    setSectionSaved(s => ({ ...s, recipient: false, child: false, clinic: false, therapist: false, caseWorker: false }));
   }, [selectedChild?.id]);
 
   // The bottom button no longer saves anything itself — each group above has
@@ -473,6 +571,9 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
       caseWorkerName: joinLines(caseWorkerEntries, "name"),
       caseWorkerPhone: joinLines(caseWorkerEntries, "phone"),
       caseWorkerEmail: joinLines(caseWorkerEntries, "email"),
+      therapistName: joinLines(therapistEntries, "name"),
+      therapistCentre: joinLines(therapistEntries, "centre"),
+      therapistPhone: joinLines(therapistEntries, "phone"),
     };
     setShowCarerSetup(false);
     buildAndSetLetter(childData, { name: carerFullName, phone: carerPhone.trim(), email: account?.email, licensedCarer, carerAgency: carerAgency.trim() });
@@ -561,6 +662,17 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
     setSaved("caseWorker", true);
   };
 
+  const saveTherapistSection = () => {
+    setSectionSavingKey("therapist", true);
+    updateChild(selectedChild.id, {
+      therapistName: joinLines(therapistEntries, "name"),
+      therapistCentre: joinLines(therapistEntries, "centre"),
+      therapistPhone: joinLines(therapistEntries, "phone"),
+    });
+    setSectionSavingKey("therapist", false);
+    setSaved("therapist", true);
+  };
+
   // Load the mockup's font pairing once, same guarded-injection pattern as
   // AddChildProfile.jsx / CommunityApp.jsx use for their own local fonts.
   useEffect(() => {
@@ -631,11 +743,15 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
     // letter..." during this fetch instead of a blank gap where the editor
     // would otherwise be, since {letterText && ...} hides that block until
     // this resolves.
+    // If "Preview letter" is clicked before this fetch resolves, the freshly
+    // generated letter must not be overwritten by the older saved copy —
+    // otherwise the preview shows stale values instead of the form input.
+    letterGeneratedRef.current = false;
     setLoadingLetter(true);
     supabase.from("carer_letters").select("content").eq("child_id", selectedChild.id).maybeSingle()
       .then(({ data }) => {
         if (cancelled) return;
-        if (data?.content) { setLetterText(data.content); setEditorVersion(v => v + 1); }
+        if (data?.content && !letterGeneratedRef.current) { setLetterText(data.content); setEditorVersion(v => v + 1); }
         setLoadingLetter(false);
       });
     return () => { cancelled = true; };
@@ -692,7 +808,7 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
       childName: childData.name,
       dob: childData.dob ? formatDate(childData.dob) : "[Date of birth]",
       placementStartDate: childData.placementStartDate ? formatDate(childData.placementStartDate) : "[Placement start date]",
-      fosteringAgency: childData.fosteringAgency?.trim() || carerData.carerAgency?.trim() || "[Fostering agency / VWO name]",
+      fosteringAgency: carerData.carerAgency?.trim() || childData.fosteringAgency?.trim() || "[Fostering agency / VWO name]",
       caseWorkerName: joinForLetter(childData.caseWorkerName) || "[Case worker name]",
       caseWorkerPhone: joinForLetter(childData.caseWorkerPhone) || "[Case worker phone]",
       caseWorkerEmail: joinForLetter(childData.caseWorkerEmail) || "[Case worker email]",
@@ -701,11 +817,35 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
       verbalText: verbalTextFor(childData.verbalStatus),
       diagnosis: childData.diagnosis?.trim() || "[Diagnosis, if applicable]",
       allergies: childData.knownTriggers?.trim() || "[Known allergies / triggers]",
-      clinic: assignedClinic?.name || joinForLetter(childData.clinicName) || "[Clinic name]",
-      clinicAddress: assignedClinic?.address?.trim() || joinForLetter(childData.clinicAddress) || "[Clinic address]",
-      clinicPhone: assignedClinic?.phone?.trim() || joinForLetter(childData.clinicPhone) || "[Clinic phone]",
+      // What the caregiver typed in the "Clinic & doctor" section wins; the
+      // admin-assigned clinic/psychologist is only a fallback for blanks.
+      clinic: joinForLetter(childData.clinicName) || assignedClinic?.name || "[Clinic name]",
+      clinicAddress: joinForLetter(childData.clinicAddress) || assignedClinic?.address?.trim() || "[Clinic address]",
+      clinicPhone: joinForLetter(childData.clinicPhone) || assignedClinic?.phone?.trim() || "[Clinic phone]",
       clinicEmail: joinForLetter(childData.clinicEmail) || "[Clinic email]",
-      doctorName: assignedPsychologist?.name || joinForLetter(childData.doctorName) || "[Doctor name]",
+      doctorName: joinForLetter(childData.doctorName) || assignedPsychologist?.name || "[Doctor name]",
+      therapistName: joinForLetter(childData.therapistName) || "[Therapist name]",
+      therapistCentre: joinForLetter(childData.therapistCentre) || "[Therapist centre]",
+      therapistPhone: joinForLetter(childData.therapistPhone) || "[Therapist phone]",
+      // Per-entry values for the repeated table rows (see expandRepeatingRows).
+      // Empty lists fall back to the single combined values above.
+      clinicRows: nonEmptyEntries(childData, CLINIC_FIELDS).map((e, i) => ({
+        clinic: e.name || (i === 0 && assignedClinic?.name) || "[Clinic name]",
+        clinicAddress: e.address || (i === 0 && assignedClinic?.address?.trim()) || "[Clinic address]",
+        clinicPhone: e.phone || (i === 0 && assignedClinic?.phone?.trim()) || "[Clinic phone]",
+        clinicEmail: e.email || "[Clinic email]",
+        doctorName: e.doctor || (i === 0 && assignedPsychologist?.name) || "[Doctor name]",
+      })),
+      caseWorkerRows: nonEmptyEntries(childData, CASE_WORKER_FIELDS).map(e => ({
+        caseWorkerName: e.name || "[Case worker name]",
+        caseWorkerPhone: e.phone || "[Case worker phone]",
+        caseWorkerEmail: e.email || "[Case worker email]",
+      })),
+      therapistRows: nonEmptyEntries(childData, THERAPIST_FIELDS).map(e => ({
+        therapistName: e.name || "[Therapist name]",
+        therapistCentre: e.centre || "[Therapist centre]",
+        therapistPhone: e.phone || "[Therapist phone]",
+      })),
       pronoun: pronounFor(childData.gender),
       roleLabel: roleLabelFor(childData.caregiverType, childData.caregiverLabel),
       yourName: carerData.name || "[Your name]",
@@ -728,6 +868,7 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
       console.error("Failed to fill carer letter template:", err);
       filled = highlightBrackets(template.content);
     }
+    letterGeneratedRef.current = true;
     setLetterText(filled || highlightBrackets(template.content));
     setEditorVersion(v => v + 1);
     clearTimeout(saveTimer.current);
@@ -1082,6 +1223,52 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
                 </button>
 
                 <button type="button" className="save-btn" onClick={saveClinicSection} disabled={sectionSaving.clinic}>{sectionSaving.clinic ? "Saving..." : "Save"}</button>
+              </>
+            )}
+          </div>
+
+          <div className="grp">
+            {sectionSaved.therapist ? (
+              <div className="grp-head-collapsed">
+                <p className="glabel cl-serif">Therapist / counsellor <span style={{ fontWeight: 400, color: T.inkMuted, fontSize: 13 }}>— optional</span></p>
+                <button type="button" className="edit-link" onClick={() => setSaved("therapist", false)}>Edit</button>
+              </div>
+            ) : (
+              <>
+                <p className="glabel cl-serif">Therapist / counsellor <span style={{ fontWeight: 400, color: T.inkMuted, fontSize: 13 }}>— optional</span></p>
+                {therapistEntries.map((t, i) => {
+                  const setField = (key) => (e) =>
+                    setTherapistEntries(prev => prev.map((v, idx) => (idx === i ? { ...v, [key]: e.target.value } : v)));
+                  return (
+                    <div key={i} style={{ background: T.canvas, border: `1px solid ${T.border}`, borderRadius: T.r, padding: "16px 14px 2px", marginBottom: 16 }}>
+                      {therapistEntries.length > 1 && (
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                          <p className="gsub" style={{ margin: 0, fontWeight: 700 }}>Therapist {i + 1}</p>
+                          <button
+                            type="button"
+                            onClick={() => setTherapistEntries(prev => prev.filter((_, idx) => idx !== i))}
+                            style={{ background: "none", border: "none", padding: 0, fontFamily: FONT_BODY, fontSize: 12.5, fontWeight: 700, color: T.inkMuted, cursor: "pointer" }}
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      )}
+                      <div className="fld"><label>Therapist or counsellor name</label><input value={t.name} onChange={setField("name")} placeholder="e.g. Ms Lim" /></div>
+                      <div className="fld"><label>Centre / early intervention programme</label><input value={t.centre} onChange={setField("centre")} placeholder="e.g. Rainbow Centre" /></div>
+                      <div className="fld"><label>Phone</label><input type="tel" value={t.phone} onChange={setField("phone")} placeholder="e.g. 6123 4567" /></div>
+                    </div>
+                  );
+                })}
+
+                <button
+                  type="button"
+                  onClick={() => setTherapistEntries(prev => [...prev, { ...EMPTY_THERAPIST }])}
+                  style={{ background: "none", border: "none", padding: 0, marginBottom: 16, fontFamily: FONT_BODY, fontSize: 12.5, fontWeight: 700, color: T.purple, cursor: "pointer" }}
+                >
+                  + Add another therapist
+                </button>
+
+                <button type="button" className="save-btn" onClick={saveTherapistSection} disabled={sectionSaving.therapist}>{sectionSaving.therapist ? "Saving..." : "Save"}</button>
               </>
             )}
           </div>

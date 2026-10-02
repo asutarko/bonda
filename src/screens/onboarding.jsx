@@ -103,6 +103,112 @@ const clinicsPatch = (clinics, on) => {
   return Object.fromEntries(Object.entries(CLINIC_FIELDS).map(([k, field]) => [field, kept.map(c => c[k].trim()).join("\n")]));
 };
 
+// Case workers use the same newline-joined, index-aligned storage as clinics
+// (case_worker_name/_phone/_email), matching CarerLetterScreen.
+const EMPTY_CASE_WORKER = { name: "", phone: "", email: "" };
+const CASE_WORKER_FIELDS = { name: "caseWorkerName", phone: "caseWorkerPhone", email: "caseWorkerEmail" };
+const parseCaseWorkers = child => {
+  const keys = Object.keys(CASE_WORKER_FIELDS);
+  const lists = keys.map(k => (child?.[CASE_WORKER_FIELDS[k]] || "").split("\n").map(s => s.trim()));
+  const count = Math.max(1, ...lists.map(l => l.length));
+  return Array.from({ length: count }, (_, i) => Object.fromEntries(keys.map((k, idx) => [k, lists[idx][i] || ""])));
+};
+const caseWorkersPatch = caseWorkers => {
+  const kept = caseWorkers.filter(w => Object.values(w).some(v => v.trim()));
+  return Object.fromEntries(Object.entries(CASE_WORKER_FIELDS).map(([k, field]) => [field, kept.map(w => w[k].trim()).join("\n")]));
+};
+
+const entryHasData = e => Object.values(e).some(v => (v || "").trim());
+
+// A list of clinic / case worker entries where each entry has its own Save
+// button: saving collapses it to a one-line summary (Edit re-opens it), so a
+// long list doesn't stay fully expanded. Entries that already hold data start
+// collapsed. `snap` keeps each entry's last-saved values, so when the parent
+// persists on save (onPersist, edit-profile only — a child being added has no
+// id yet), an entry that's open for editing is written with its saved values
+// rather than dropped or half-edited.
+function RepeatableEntries({ entries, setEntries, empty, fields, itemLabel, requiredKey, requiredMsg, summaryFor, addLabel, onPersist }) {
+  const [meta, setMeta] = useState(() => entries.map(e => (entryHasData(e) ? { snap: e, open: false } : { snap: null, open: true })));
+  const [errs, setErrs] = useState({});
+  const metaAt = i => meta[i] || { snap: null, open: true };
+
+  const persist = nextMeta => onPersist && onPersist(nextMeta.map(m => m.snap).filter(Boolean));
+
+  const update = (i, key, value) => setEntries(es => es.map((e, idx) => (idx === i ? { ...e, [key]: value } : e)));
+  const add = () => {
+    setEntries(es => [...es, { ...empty }]);
+    setMeta(ms => [...entries.map((_, i) => ms[i] || { snap: null, open: true }), { snap: null, open: true }]);
+  };
+  const save = i => {
+    if (!(entries[i][requiredKey] || "").trim()) { setErrs(es => ({ ...es, [i]: requiredMsg })); return; }
+    setErrs(es => ({ ...es, [i]: "" }));
+    const nextMeta = entries.map((_, idx) => (idx === i ? { snap: entries[i], open: false } : metaAt(idx)));
+    setMeta(nextMeta);
+    persist(nextMeta);
+  };
+  const edit = i => setMeta(entries.map((_, idx) => (idx === i ? { ...metaAt(idx), open: true } : metaAt(idx))));
+  const remove = i => {
+    const nextEntries = entries.filter((_, idx) => idx !== i);
+    const nextMeta = entries.map((_, idx) => metaAt(idx)).filter((_, idx) => idx !== i);
+    setErrs({});
+    if (nextEntries.length) { setEntries(nextEntries); setMeta(nextMeta); }
+    else { setEntries([{ ...empty }]); setMeta([{ snap: null, open: true }]); }
+    persist(nextMeta);
+  };
+
+  const removeBtn = i => (
+    <button type="button" onClick={() => remove(i)} aria-label={`Remove ${itemLabel.toLowerCase()}`} style={{ background: "none", border: "none", color: T.inkMuted, fontSize: 18, cursor: "pointer", lineHeight: 1, fontFamily: T.fontBody, padding: 0 }}>×</button>
+  );
+
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 10 }}>
+        {entries.map((e, i) => {
+          const m = metaAt(i);
+          if (!m.open) {
+            const { title, sub } = summaryFor(e);
+            return (
+              <div key={i} style={{ border: `1.5px solid ${T.border}`, borderRadius: T.r, padding: "12px 12px", display: "flex", alignItems: "flex-start", gap: 10 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: T.ink, overflowWrap: "anywhere" }}>{title}</p>
+                  {sub && <p style={{ margin: "2px 0 0", fontSize: 12.5, color: T.inkSoft, overflowWrap: "anywhere" }}>{sub}</p>}
+                </div>
+                <button type="button" onClick={() => edit(i)} style={{ background: "none", border: "none", padding: 0, color: T.purple, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: T.fontBody }}>Edit</button>
+                {removeBtn(i)}
+              </div>
+            );
+          }
+          return (
+            <div key={i} style={{ border: `1.5px solid ${T.border}`, borderRadius: T.r, padding: "12px 12px", position: "relative" }}>
+              {entries.length > 1 && (
+                <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>{itemLabel} {i + 1}</p>
+              )}
+              {fields.map(f => (
+                <Input key={f.key} label={f.label} type={f.type} placeholder={f.placeholder} value={e[f.key]} onChange={ev => update(i, f.key, ev.target.value)} />
+              ))}
+              <FieldError>{errs[i]}</FieldError>
+              <button type="button" onClick={() => save(i)} style={{ width: "100%", border: `1.5px solid ${T.purple}`, borderRadius: 12, padding: "10px 14px", fontSize: 13.5, fontWeight: 700, cursor: "pointer", background: "transparent", color: T.purple, fontFamily: T.fontBody }}>Save</button>
+              {entries.length > 1 && <div style={{ position: "absolute", top: 8, right: 10 }}>{removeBtn(i)}</div>}
+            </div>
+          );
+        })}
+      </div>
+      <button type="button" onClick={add} style={{ background: T.purpleL, color: T.purple, fontWeight: 700, fontSize: 13, padding: "9px 14px", borderRadius: 99, border: "none", cursor: "pointer", fontFamily: T.fontBody }}>{addLabel}</button>
+    </div>
+  );
+}
+
+const CLINIC_INPUTS = [
+  { key: "name", label: "Clinic, psychologist or psychiatrist", placeholder: "e.g. Sunrise Family Clinic" },
+  { key: "doctor", label: "Doctor's name", placeholder: "e.g. Dr Tan" },
+  { key: "phone", label: "Phone number", type: "tel", placeholder: "e.g. 6123 4567" },
+];
+const CASE_WORKER_INPUTS = [
+  { key: "name", label: "Case worker name" },
+  { key: "phone", label: "Case worker phone", type: "tel" },
+  { key: "email", label: "Case worker email", type: "email" },
+];
+
 const toggleOption = (selected, setSelected, setOther, option) => {
   setSelected(sel => {
     const has = sel.includes(option);
@@ -341,11 +447,7 @@ export function MedicalInfoSection({
   );
 }
 
-export function CareClinicSection({ hasClinic, setHasClinic, location, setLocation, clinics, setClinics, countryOptions }) {
-  const updateClinic = (i, key, value) => setClinics(cs => cs.map((c, idx) => idx === i ? { ...c, [key]: value } : c));
-  const addClinic = () => setClinics(cs => [...cs, { ...EMPTY_CLINIC }]);
-  const removeClinic = i => setClinics(cs => cs.filter((_, idx) => idx !== i));
-
+export function CareClinicSection({ hasClinic, setHasClinic, location, setLocation, clinics, setClinics, countryOptions, onPersistClinics }) {
   return (
     <>
       <ToggleField label="Seeing a clinic or specialist?" on={hasClinic === "Yes"} onChange={v => {
@@ -355,24 +457,12 @@ export function CareClinicSection({ hasClinic, setHasClinic, location, setLocati
       {hasClinic === "Yes" && (
         <>
           <Select label="Location (country)" placeholder="Select country" value={location} onChange={e => setLocation(e.target.value)} options={countryOptions} />
-          <div style={{ marginBottom: 14 }}>
-            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 10 }}>
-              {clinics.map((c, i) => (
-                <div key={i} style={{ border: `1.5px solid ${T.border}`, borderRadius: T.r, padding: "12px 12px 0", position: "relative" }}>
-                  {clinics.length > 1 && (
-                    <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>Clinic {i + 1}</p>
-                  )}
-                  <Input label="Clinic, psychologist or psychiatrist" placeholder="e.g. Sunrise Family Clinic" value={c.name} onChange={e => updateClinic(i, "name", e.target.value)} />
-                  <Input label="Doctor's name" placeholder="e.g. Dr Tan" value={c.doctor} onChange={e => updateClinic(i, "doctor", e.target.value)} />
-                  <Input label="Phone number" type="tel" placeholder="e.g. 6123 4567" value={c.phone} onChange={e => updateClinic(i, "phone", e.target.value)} />
-                  {clinics.length > 1 && (
-                    <button type="button" onClick={() => removeClinic(i)} aria-label="Remove clinic" style={{ position: "absolute", top: 8, right: 10, background: "none", border: "none", color: T.inkMuted, fontSize: 18, cursor: "pointer", lineHeight: 1, fontFamily: T.fontBody }}>×</button>
-                  )}
-                </div>
-              ))}
-            </div>
-            <button type="button" onClick={addClinic} style={{ background: T.purpleL, color: T.purple, fontWeight: 700, fontSize: 13, padding: "9px 14px", borderRadius: 99, border: "none", cursor: "pointer", fontFamily: T.fontBody }}>+ Add another clinic</button>
-          </div>
+          <RepeatableEntries
+            entries={clinics} setEntries={setClinics} empty={EMPTY_CLINIC} fields={CLINIC_INPUTS}
+            itemLabel="Clinic" requiredKey="name" requiredMsg="Please enter the clinic, psychologist or psychiatrist."
+            summaryFor={c => ({ title: c.name, sub: [c.doctor, c.phone].filter(Boolean).join(" · ") })}
+            addLabel="+ Add another clinic" onPersist={onPersistClinics}
+          />
         </>
       )}
     </>
@@ -388,9 +478,8 @@ export function PlacementDetailsSection({
   fosteringAgency, setFosteringAgency,
   placementType, setPlacementType,
   courtOrderRef, setCourtOrderRef,
-  caseWorkerName, setCaseWorkerName,
-  caseWorkerPhone, setCaseWorkerPhone,
-  caseWorkerEmail, setCaseWorkerEmail,
+  caseWorkers, setCaseWorkers,
+  onPersistCaseWorkers,
 }) {
   return (
     <>
@@ -398,9 +487,12 @@ export function PlacementDetailsSection({
       <Input label="Fostering agency / VWO name" value={fosteringAgency} onChange={e => setFosteringAgency(e.target.value)} />
       <Select label="Placement status" placeholder="Select placement status (foster carers only)" value={placementType} onChange={e => setPlacementType(e.target.value)} options={PLACEMENT_TYPE_OPTIONS.map(o => ({ value: o, label: o }))} />
       <Input label="Court order reference" value={courtOrderRef} onChange={e => setCourtOrderRef(e.target.value)} />
-      <Input label="Case worker name" value={caseWorkerName} onChange={e => setCaseWorkerName(e.target.value)} />
-      <Input label="Case worker phone" value={caseWorkerPhone} onChange={e => setCaseWorkerPhone(e.target.value)} />
-      <Input label="Case worker email" value={caseWorkerEmail} onChange={e => setCaseWorkerEmail(e.target.value)} />
+      <RepeatableEntries
+        entries={caseWorkers} setEntries={setCaseWorkers} empty={EMPTY_CASE_WORKER} fields={CASE_WORKER_INPUTS}
+        itemLabel="Case worker" requiredKey="name" requiredMsg="Please enter the case worker's name."
+        summaryFor={w => ({ title: w.name, sub: [w.phone, w.email].filter(Boolean).join(" · ") })}
+        addLabel="+ Add another case worker" onPersist={onPersistCaseWorkers}
+      />
     </>
   );
 }
@@ -438,9 +530,7 @@ export function AddChildScreen({ childCtx, pop }) {
   const [fosteringAgency, setFosteringAgency] = useState("");
   const [placementType, setPlacementType] = useState("");
   const [courtOrderRef, setCourtOrderRef] = useState("");
-  const [caseWorkerName, setCaseWorkerName] = useState("");
-  const [caseWorkerPhone, setCaseWorkerPhone] = useState("");
-  const [caseWorkerEmail, setCaseWorkerEmail] = useState("");
+  const [caseWorkers, setCaseWorkers] = useState([{ ...EMPTY_CASE_WORKER }]);
   const [clinics, setClinics] = useState([{ ...EMPTY_CLINIC }]);
   const [location, setLocation] = useState("");
   const [countryOptions, setCountryOptions] = useState([]);
@@ -490,7 +580,7 @@ export function AddChildScreen({ childCtx, pop }) {
       medication: hasMedication === "Yes" ? medicationDetail.trim() : "",
       diagnosis: joinMultiField(diagnosisSelected, diagnosisOther),
       placementStartDate, fosteringAgency: fosteringAgency.trim(), placementType, courtOrderRef: courtOrderRef.trim(),
-      caseWorkerName: caseWorkerName.trim(), caseWorkerPhone: caseWorkerPhone.trim(), caseWorkerEmail: caseWorkerEmail.trim(),
+      ...caseWorkersPatch(caseWorkers),
       ...clinicsPatch(clinics, hasClinic === "Yes"), location: hasClinic === "Yes" ? location : "",
     });
     setSaving(false);
@@ -563,7 +653,7 @@ export function AddChildScreen({ childCtx, pop }) {
       </FormSection>
 
       <FormSection title="Foster & placement details" defaultOpen={false}>
-        <PlacementDetailsSection placementStartDate={placementStartDate} setPlacementStartDate={setPlacementStartDate} fosteringAgency={fosteringAgency} setFosteringAgency={setFosteringAgency} placementType={placementType} setPlacementType={setPlacementType} courtOrderRef={courtOrderRef} setCourtOrderRef={setCourtOrderRef} caseWorkerName={caseWorkerName} setCaseWorkerName={setCaseWorkerName} caseWorkerPhone={caseWorkerPhone} setCaseWorkerPhone={setCaseWorkerPhone} caseWorkerEmail={caseWorkerEmail} setCaseWorkerEmail={setCaseWorkerEmail} />
+        <PlacementDetailsSection placementStartDate={placementStartDate} setPlacementStartDate={setPlacementStartDate} fosteringAgency={fosteringAgency} setFosteringAgency={setFosteringAgency} placementType={placementType} setPlacementType={setPlacementType} courtOrderRef={courtOrderRef} setCourtOrderRef={setCourtOrderRef} caseWorkers={caseWorkers} setCaseWorkers={setCaseWorkers} />
       </FormSection>
 
       {err && <p style={{ color: T.red, fontSize: 13, fontWeight: 700, margin: "-8px 0 12px" }}>{err}</p>}
@@ -627,9 +717,7 @@ export function ChildProfileForm({ childCtx, onSaved, onCancel, onDeleted, showH
   const [fosteringAgency, setFosteringAgency] = useState(activeChild?.fosteringAgency || "");
   const [placementType, setPlacementType] = useState(activeChild?.placementType || "");
   const [courtOrderRef, setCourtOrderRef] = useState(activeChild?.courtOrderRef || "");
-  const [caseWorkerName, setCaseWorkerName] = useState(activeChild?.caseWorkerName || "");
-  const [caseWorkerPhone, setCaseWorkerPhone] = useState(activeChild?.caseWorkerPhone || "");
-  const [caseWorkerEmail, setCaseWorkerEmail] = useState(activeChild?.caseWorkerEmail || "");
+  const [caseWorkers, setCaseWorkers] = useState(parseCaseWorkers(activeChild));
   const [clinics, setClinics] = useState(parseClinics(activeChild));
   const [location, setLocation] = useState(activeChild?.location || "");
   const [countryOptions, setCountryOptions] = useState([]);
@@ -681,7 +769,7 @@ export function ChildProfileForm({ childCtx, onSaved, onCancel, onDeleted, showH
       medication: hasMedication === "Yes" ? medicationDetail.trim() : "",
       diagnosis: joinMultiField(diagnosisSelected, diagnosisOther),
       placementStartDate, fosteringAgency: fosteringAgency.trim(), placementType, courtOrderRef: courtOrderRef.trim(),
-      caseWorkerName: caseWorkerName.trim(), caseWorkerPhone: caseWorkerPhone.trim(), caseWorkerEmail: caseWorkerEmail.trim(),
+      ...caseWorkersPatch(caseWorkers),
       ...clinicsPatch(clinics, hasClinic === "Yes"), location: hasClinic === "Yes" ? location : "",
     };
     if (photo) {
@@ -771,11 +859,13 @@ export function ChildProfileForm({ childCtx, onSaved, onCancel, onDeleted, showH
       </FormSection>
 
       <FormSection title="Care & clinic" defaultOpen={false}>
-        <CareClinicSection hasClinic={hasClinic} setHasClinic={setHasClinic} location={location} setLocation={setLocation} clinics={clinics} setClinics={setClinics} countryOptions={countryOptions} />
+        <CareClinicSection hasClinic={hasClinic} setHasClinic={setHasClinic} location={location} setLocation={setLocation} clinics={clinics} setClinics={setClinics} countryOptions={countryOptions}
+          onPersistClinics={saved => updateChild(activeChild.id, clinicsPatch(saved, true))} />
       </FormSection>
 
       <FormSection title="Foster & placement details" defaultOpen={false}>
-        <PlacementDetailsSection placementStartDate={placementStartDate} setPlacementStartDate={setPlacementStartDate} fosteringAgency={fosteringAgency} setFosteringAgency={setFosteringAgency} placementType={placementType} setPlacementType={setPlacementType} courtOrderRef={courtOrderRef} setCourtOrderRef={setCourtOrderRef} caseWorkerName={caseWorkerName} setCaseWorkerName={setCaseWorkerName} caseWorkerPhone={caseWorkerPhone} setCaseWorkerPhone={setCaseWorkerPhone} caseWorkerEmail={caseWorkerEmail} setCaseWorkerEmail={setCaseWorkerEmail} />
+        <PlacementDetailsSection placementStartDate={placementStartDate} setPlacementStartDate={setPlacementStartDate} fosteringAgency={fosteringAgency} setFosteringAgency={setFosteringAgency} placementType={placementType} setPlacementType={setPlacementType} courtOrderRef={courtOrderRef} setCourtOrderRef={setCourtOrderRef} caseWorkers={caseWorkers} setCaseWorkers={setCaseWorkers}
+          onPersistCaseWorkers={saved => updateChild(activeChild.id, caseWorkersPatch(saved))} />
       </FormSection>
 
       {err && <p style={{ color: T.red, fontSize: 13, fontWeight: 700, margin: "-8px 0 12px" }}>{err}</p>}

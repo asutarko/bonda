@@ -41,6 +41,9 @@ export const childFromRow = (row) => ({
   clinicAddress: row.clinic_address || "",
   clinicPhone: row.clinic_phone || "",
   clinicEmail: row.clinic_email || "",
+  therapistName: row.therapist_name || "",
+  therapistCentre: row.therapist_centre || "",
+  therapistPhone: row.therapist_phone || "",
   location: row.location || "",
   psychologistId: row.psychologist_id || null,
   active: row.active ?? true,
@@ -189,6 +192,9 @@ export function useChildren(userId) {
     if ("clinicAddress" in patch) dbPatch.clinic_address = patch.clinicAddress;
     if ("clinicPhone" in patch) dbPatch.clinic_phone = patch.clinicPhone;
     if ("clinicEmail" in patch) dbPatch.clinic_email = patch.clinicEmail;
+    if ("therapistName" in patch) dbPatch.therapist_name = patch.therapistName;
+    if ("therapistCentre" in patch) dbPatch.therapist_centre = patch.therapistCentre;
+    if ("therapistPhone" in patch) dbPatch.therapist_phone = patch.therapistPhone;
     if ("location" in patch) dbPatch.location = patch.location;
     supabase.from("children").update(dbPatch).eq("id", id).then(({ error }) => { if (error) console.error("Failed to save child profile:", error.message); });
   };
