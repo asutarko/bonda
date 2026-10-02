@@ -129,14 +129,14 @@ function Action({ href, icon, label, variant, external }) {
 /* ---------- contact card ---------- */
 function Card({ c, onEdit }) {
   const cat = CAT[c.category] || CATEGORIES[0];
-  const sub = c.category === "doctor" ? cat.label : c.organisation;
+  const sub = c.category === "doctor" || c.category === "school" ? cat.label : c.organisation;
   return (
     <article className="bd-card">
       <div className="bd-card__row">
         <h3 className="bd-card__name">{c.name}</h3>
         <button className="bd-edit" onClick={() => onEdit(c)} aria-label={"Edit " + c.name}>{I.edit}</button>
       </div>
-      {/* one line under the name: "Doctor" for doctors; the school / clinic / centre name for everyone else */}
+      {/* one line under the name: "Doctor" / "Teacher" for those; the clinic / centre name for everyone else */}
       {sub && <p className="bd-card__cat">{sub}</p>}
 
       {c.note && (
