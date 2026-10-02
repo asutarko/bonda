@@ -237,11 +237,20 @@ export function HomeScreen({ childCtx, setTab, push, account }) {
           </Card>
         ) : (
           <div>
-            <SectionLabel style={{ marginBottom: 10 }}>My Children</SectionLabel>
-            <Card style={{ padding: "16px 14px", position: "relative" }}>
-              <button onClick={() => push("allChildren")} style={{ position: "absolute", top: 14, right: 14, background: "none", border: "none", color: T.purple, fontWeight: 700, fontSize: 11.5, cursor: "pointer", fontFamily: T.fontBody }}>
-                View all
-              </button>
+            {/* "View all" sits in the heading row rather than absolutely
+                positioned inside the card, where it overlapped the avatar row
+                once there were enough children to reach the right edge. */}
+            <SectionLabel
+              style={{ marginBottom: 10 }}
+              action={
+                <button onClick={() => push("allChildren")} style={{ background: "none", border: "none", padding: 0, color: T.purple, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: T.fontBody, flexShrink: 0 }}>
+                  View all
+                </button>
+              }
+            >
+              My Children
+            </SectionLabel>
+            <Card style={{ padding: "16px 14px" }}>
               <div style={{ display: "flex", gap: 14, overflowX: "auto", paddingBottom: 2 }}>
                 {children.filter(c => c.active).map(c => {
                   const isSelected = activeChild?.id === c.id;
