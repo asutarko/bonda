@@ -36,6 +36,7 @@ export const childFromRow = (row) => ({
   caseWorkerName: row.case_worker_name || "",
   caseWorkerPhone: row.case_worker_phone || "",
   caseWorkerEmail: row.case_worker_email || "",
+  clinicType: row.clinic_type || "",
   clinicName: row.clinic_name || "",
   doctorName: row.doctor_name || "",
   clinicAddress: row.clinic_address || "",
@@ -136,6 +137,7 @@ export function useChildren(userId) {
       case_worker_name: child.caseWorkerName || "",
       case_worker_phone: child.caseWorkerPhone || "",
       case_worker_email: child.caseWorkerEmail || "",
+      clinic_type: child.clinicType || "",
       clinic_name: child.clinicName || "",
       doctor_name: child.doctorName || "",
       clinic_address: child.clinicAddress || "",
@@ -187,6 +189,7 @@ export function useChildren(userId) {
     if ("caseWorkerName" in patch) dbPatch.case_worker_name = patch.caseWorkerName;
     if ("caseWorkerPhone" in patch) dbPatch.case_worker_phone = patch.caseWorkerPhone;
     if ("caseWorkerEmail" in patch) dbPatch.case_worker_email = patch.caseWorkerEmail;
+    if ("clinicType" in patch) dbPatch.clinic_type = patch.clinicType;
     if ("clinicName" in patch) dbPatch.clinic_name = patch.clinicName;
     if ("doctorName" in patch) dbPatch.doctor_name = patch.doctorName;
     if ("clinicAddress" in patch) dbPatch.clinic_address = patch.clinicAddress;

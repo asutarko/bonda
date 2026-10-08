@@ -89,8 +89,8 @@ const parseSessions = text => {
 // holds its entries newline-joined, index-aligned across columns. Address and
 // email aren't edited here but ride along in each entry so removing a clinic
 // doesn't shift the next clinic's address/email onto the wrong row.
-const EMPTY_CLINIC = { name: "", doctor: "", address: "", phone: "", email: "" };
-const CLINIC_FIELDS = { name: "clinicName", doctor: "doctorName", address: "clinicAddress", phone: "clinicPhone", email: "clinicEmail" };
+const EMPTY_CLINIC = { type: "", name: "", doctor: "", address: "", phone: "", email: "" };
+const CLINIC_FIELDS = { type: "clinicType", name: "clinicName", doctor: "doctorName", address: "clinicAddress", phone: "clinicPhone", email: "clinicEmail" };
 const parseClinics = child => {
   const keys = Object.keys(CLINIC_FIELDS);
   const lists = keys.map(k => (child?.[CLINIC_FIELDS[k]] || "").split("\n").map(s => s.trim()));
@@ -183,8 +183,9 @@ function RepeatableEntries({ entries, setEntries, empty, fields, itemLabel, requ
               {entries.length > 1 && (
                 <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>{itemLabel} {i + 1}</p>
               )}
-              {fields.map(f => (
-                <Input key={f.key} label={f.label} type={f.type} placeholder={f.placeholder} value={e[f.key]} onChange={ev => update(i, f.key, ev.target.value)} />
+              {fields.map(f => (f.options
+                ? <Select key={f.key} label={f.label} placeholder={f.placeholder} options={f.options} value={e[f.key]} onChange={ev => update(i, f.key, ev.target.value)} />
+                : <Input key={f.key} label={f.label} type={f.type} placeholder={f.placeholder} value={e[f.key]} onChange={ev => update(i, f.key, ev.target.value)} />
               ))}
               <FieldError>{errs[i]}</FieldError>
               <button type="button" onClick={() => save(i)} style={{ width: "100%", border: `1.5px solid ${T.purple}`, borderRadius: 12, padding: "10px 14px", fontSize: 13.5, fontWeight: 700, cursor: "pointer", background: "transparent", color: T.purple, fontFamily: T.fontBody }}>Save</button>
@@ -198,7 +199,9 @@ function RepeatableEntries({ entries, setEntries, empty, fields, itemLabel, requ
   );
 }
 
+const CARE_TYPE_OPTIONS = ["Clinic", "Therapist"];
 const CLINIC_INPUTS = [
+  { key: "type", label: "Type of care", placeholder: "Select type of care", options: CARE_TYPE_OPTIONS },
   { key: "name", label: "Clinic, psychologist or psychiatrist", placeholder: "e.g. Sunrise Family Clinic" },
   { key: "doctor", label: "Doctor's name", placeholder: "e.g. Dr Tan" },
   { key: "phone", label: "Phone number", type: "tel", placeholder: "e.g. 6123 4567" },
@@ -460,7 +463,7 @@ export function CareClinicSection({ hasClinic, setHasClinic, location, setLocati
           <RepeatableEntries
             entries={clinics} setEntries={setClinics} empty={EMPTY_CLINIC} fields={CLINIC_INPUTS}
             itemLabel="Clinic" requiredKey="name" requiredMsg="Please enter the clinic, psychologist or psychiatrist."
-            summaryFor={c => ({ title: c.name, sub: [c.doctor, c.phone].filter(Boolean).join(" · ") })}
+            summaryFor={c => ({ title: c.name, sub: [c.type, c.doctor, c.phone].filter(Boolean).join(" · ") })}
             addLabel="+ Add another clinic" onPersist={onPersistClinics}
           />
         </>

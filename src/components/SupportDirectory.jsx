@@ -59,7 +59,35 @@ const joinPhone = (cc, local) => {
 };
 const fullPhone = (phone) => { const { cc, local } = splitPhone(phone); return joinPhone(cc, local); };
 
-const telHref = (phone) => "tel:" + phone.replace(/[^\d+*#]/g, "");
+// Default contacts from each child's "Clinic & doctor" profile section. Those
+// columns hold several clinics newline-joined, index-aligned across columns
+// (see CarerLetterScreen.jsx). A clinic shared by several children shows once.
+// source_key ties a saved user_contacts row (an edit, or hidden = deleted) to its default.
+const lines = (v) => (v || "").split("\n").map((s) => s.trim());
+const profileClinics = (children) => {
+  const byKey = new Map();
+  (children || []).forEach((child) => {
+    const names = lines(child.clinicName), doctors = lines(child.doctorName), addresses = lines(child.clinicAddress),
+      phones = lines(child.clinicPhone), emails = lines(child.clinicEmail);
+    const n = Math.max(names.length, doctors.length, addresses.length, phones.length, emails.length);
+    for (let i = 0; i < n; i++) {
+      const clinic = names[i] || "", doctor = doctors[i] || "";
+      if (!clinic && !doctor) continue;
+      const key = "clinic:" + clinic.toLowerCase() + "|" + doctor.toLowerCase();
+      const seen = byKey.get(key);
+      if (seen) { if (!seen.children.includes(child.name)) seen.children.push(child.name); continue; }
+      const address = addresses[i] || "";
+      byKey.set(key, {
+        source_key: key, children: [child.name],
+        category: doctor ? "doctor" : "clinic", name: doctor || clinic, organisation: doctor ? clinic : "",
+        phone: phones[i] || "", email: emails[i] || "", address, note: address,
+      });
+    }
+  });
+  return [...byKey.values()];
+};
+
+const telHref =(phone) => "tel:" + phone.replace(/[^\d+*#]/g, "");
 const waHref = (phone) => "https://wa.me/" + fullPhone(phone).replace(/\D/g, "");
 
 /* ---------- icons ---------- */
@@ -68,7 +96,6 @@ const I = {
   phone: <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2Z"/></svg>,
   whatsapp: <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.304-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/></svg>,
   mail: <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>,
-  edit: <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 20h4L19 9l-4-4L4 16v4Z"/><path d="m13.5 6.5 4 4"/></svg>,
   plus: <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>,
   filter: <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round"><path d="M3 6h2.8M10.2 6H21M3 12h10.8M18.2 12H21M3 18h5.8M13.2 18H21"/><circle cx="8" cy="6" r="2.2"/><circle cx="16" cy="12" r="2.2"/><circle cx="11" cy="18" r="2.2"/></svg>,
   check: <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>,
@@ -133,11 +160,13 @@ function Card({ c, onEdit }) {
   return (
     <article className="bd-card">
       <div className="bd-card__row">
-        <h3 className="bd-card__name">{c.name}</h3>
-        <button className="bd-edit" onClick={() => onEdit(c)} aria-label={"Edit " + c.name}>{I.edit}</button>
+        <h3 className="bd-card__name">
+          <button className="bd-card__namebtn" onClick={() => onEdit(c)}>{c.name}</button>
+        </h3>
       </div>
       {/* one line under the name: "Doctor" / "Teacher" for those; the clinic / centre name for everyone else */}
       {sub && <p className="bd-card__cat">{sub}</p>}
+      {c.children && <p className="bd-card__src">From {c.children.join(" & ")}'s profile</p>}
 
       {c.note && (
         <div className="bd-inset">
@@ -158,8 +187,10 @@ function Card({ c, onEdit }) {
 
 /* ---------- add / edit sheet ---------- */
 function Sheet({ initial, onClose, onSave, onDelete }) {
+  // an existing contact: a saved row, or a default from a child profile
+  const existing = !!(initial.id || initial.source_key);
   const [f, setF] = useState(() => {
-    if (!initial.id) return initial;
+    if (!existing) return initial;
     const { cc, local } = splitPhone(initial.phone);
     return { ...initial, cc, phone: local };
   });
@@ -193,7 +224,7 @@ function Sheet({ initial, onClose, onSave, onDelete }) {
         {/* stays pinned while the fields below scroll */}
         <div className="bd-sheet__top">
           <div className="bd-sheet__grip" />
-          <h2 className="bd-sheet__t">{initial.id ? "Edit contact" : "New contact"}</h2>
+          <h2 className="bd-sheet__t">{existing ? "Edit contact" : "New contact"}</h2>
         </div>
 
         <label className="bd-lbl">Category
@@ -223,12 +254,12 @@ function Sheet({ initial, onClose, onSave, onDelete }) {
           <textarea className="bd-in bd-in--ta" rows={3} value={f.note} onChange={set("note")} placeholder="Opening hours, appointment days, who to ask for…" />
         </label>
 
-        {initial.id && (
+        {existing && (
           confirmDel ? (
             <div className="bd-del">
               <span>Delete this contact?</span>
               <button type="button" className="bd-del__no" onClick={() => setConfirmDel(false)}>No</button>
-              <button type="button" className="bd-del__yes" onClick={() => onDelete(initial.id)}>Delete</button>
+              <button type="button" className="bd-del__yes" onClick={() => onDelete(initial)}>Delete</button>
             </div>
           ) : (
             <button type="button" className="bd-del__link" onClick={() => setConfirmDel(true)}>Delete contact</button>
@@ -249,17 +280,24 @@ function Sheet({ initial, onClose, onSave, onDelete }) {
 }
 
 /* ---------- main ---------- */
-export default function SupportDirectory({ account }) {
+export default function SupportDirectory({ account, kids }) {
   const [query, setQuery] = useState("");
   const [active, setActive] = useState("all");
-  const [contacts, setContacts] = useState([]);
+  const [rows, setRows] = useState([]); // user_contacts rows, incl. edited / hidden profile defaults
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null); // contact being edited, or EMPTY-based draft
 
   useEffect(() => {
     supabase.from("user_contacts").select("*").order("name")
-      .then(({ data }) => { setContacts(data || []); setLoading(false); });
+      .then(({ data }) => { setRows(data || []); setLoading(false); });
   }, []);
+
+  // saved rows, plus the profile clinics the caregiver hasn't edited or deleted yet
+  const contacts = useMemo(() => {
+    const saved = new Set(rows.map((r) => r.source_key).filter(Boolean));
+    return [...rows.filter((r) => !r.hidden), ...profileClinics(kids).filter((d) => !saved.has(d.source_key))]
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [rows, kids]);
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -285,20 +323,32 @@ export default function SupportDirectory({ account }) {
     };
     const q = f.id
       ? supabase.from("user_contacts").update({ ...row, updated_at: new Date().toISOString() }).eq("id", f.id)
-      : supabase.from("user_contacts").insert({ ...row, user_id: account.id });
+      : supabase.from("user_contacts").insert({ ...row, user_id: account.id, source_key: f.source_key || null });
     const { data, error } = await q.select().single();
     if (error) return error;
-    setContacts((list) => {
-      const next = f.id ? list.map((c) => (c.id === f.id ? data : c)) : [...list, data];
-      return next.sort((a, b) => a.name.localeCompare(b.name));
-    });
+    setRows((list) => (f.id ? list.map((c) => (c.id === f.id ? data : c)) : [...list, data]));
     setEditing(null);
     return null;
   };
 
-  const remove = async (id) => {
-    const { error } = await supabase.from("user_contacts").delete().eq("id", id);
-    if (!error) setContacts((list) => list.filter((c) => c.id !== id));
+  // A profile default can't simply be deleted — it would come back from the
+  // profile — so it's kept as a hidden row instead.
+  const remove = async (c) => {
+    let error;
+    if (!c.source_key) {
+      ({ error } = await supabase.from("user_contacts").delete().eq("id", c.id));
+      if (!error) setRows((list) => list.filter((r) => r.id !== c.id));
+    } else {
+      const q = c.id
+        ? supabase.from("user_contacts").update({ hidden: true, updated_at: new Date().toISOString() }).eq("id", c.id)
+        : supabase.from("user_contacts").insert({
+            user_id: account.id, source_key: c.source_key, hidden: true, category: c.category, name: c.name,
+          });
+      const { data, error: e } = await q.select().single();
+      error = e;
+      if (!error) setRows((list) => (c.id ? list.map((r) => (r.id === c.id ? data : r)) : [...list, data]));
+    }
+    if (error) console.error("Deleting contact failed:", error);
     setEditing(null);
   };
 
@@ -356,7 +406,7 @@ export default function SupportDirectory({ account }) {
                   <button className="bd-empty__reset" onClick={() => { setQuery(""); setActive("all"); }}>Show all</button>
                 </div>
               ) : (
-                results.map((c) => <Card key={c.id} c={c} onEdit={setEditing} />)
+                results.map((c) => <Card key={c.id || c.source_key} c={c} onEdit={setEditing} />)
               )}
             </>
           )}
@@ -462,11 +512,11 @@ const CSS = `
 /* card */
 .bd-card{background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:16px; margin-bottom:12px;}
 .bd-card__row{display:flex; align-items:flex-start; justify-content:space-between; gap:10px;}
-.bd-edit{flex:none; display:flex; align-items:center; justify-content:center; width:36px; height:36px; margin:-8px -6px -8px 0; border:0; border-radius:10px; background:transparent; color:var(--ink-3); cursor:pointer;}
-.bd-edit:active{background:var(--fill);}
 
 .bd-card__name{margin:0; min-width:0; font-size:16px; font-weight:600; letter-spacing:-0.01em; line-height:1.28;}
+.bd-card__namebtn{padding:0; border:0; background:transparent; font:inherit; color:inherit; text-align:left; cursor:pointer;}
 .bd-card__cat{margin:2px 0 0; font-size:12.5px; font-weight:600; color:var(--teal-ink);}
+.bd-card__src{margin:2px 0 0; font-size:12px; color:var(--ink-3);}
 .bd-inset{margin-top:13px; background:var(--fill); border-radius:12px; padding:12px 13px; display:flex; flex-direction:column; gap:8px;}
 .bd-inset__val{margin:0; font-size:13.5px; color:var(--ink-2); line-height:1.45; white-space:pre-wrap;}
 

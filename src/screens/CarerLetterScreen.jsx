@@ -48,8 +48,10 @@ const parseEntries = (child, fieldMap) => {
   return Array.from({ length: count }, (_, i) => Object.fromEntries(keys.map((k, idx) => [k, lists[idx][i] || ""])));
 };
 
-const EMPTY_CLINIC = { name: "", doctor: "", address: "", phone: "", email: "" };
-const CLINIC_FIELDS = { name: "clinicName", doctor: "doctorName", address: "clinicAddress", phone: "clinicPhone", email: "clinicEmail" };
+// "type" (Type of care) is set in the child profile, not here, but rides along
+// so adding / removing a clinic keeps it on the right entry.
+const EMPTY_CLINIC = { type: "", name: "", doctor: "", address: "", phone: "", email: "" };
+const CLINIC_FIELDS = { type: "clinicType", name: "clinicName", doctor: "doctorName", address: "clinicAddress", phone: "clinicPhone", email: "clinicEmail" };
 const parseClinics = (child) => parseEntries(child, CLINIC_FIELDS);
 
 const EMPTY_CASE_WORKER = { name: "", phone: "", email: "" };
@@ -420,9 +422,11 @@ const exportLetterToPdf = async (html, fileName) => {
 };
 
 export function CarerLetterScreen({ pop, push, childCtx, account }) {
-  const { children = [], activeChild, updateChild } = childCtx || {};
-  const [selectedChildId, setSelectedChildId] = useState(activeChild?.id || "");
-  const selectedChild = children.find(c => c.id === selectedChildId) || activeChild || null;
+  const { children: allChildren = [], activeChild, updateChild } = childCtx || {};
+  // only children whose profile is active (approved) can be picked for a letter
+  const children = allChildren.filter(c => c.active);
+  const [selectedChildId, setSelectedChildId] = useState(activeChild?.active ? activeChild.id : "");
+  const selectedChild = children.find(c => c.id === selectedChildId) || (activeChild?.active ? activeChild : children[0]) || null;
 
   const [template, setTemplate] = useState(null);
   const [loadingTemplate, setLoadingTemplate] = useState(true);
@@ -641,6 +645,7 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
   const saveClinicSection = () => {
     setSectionSavingKey("clinic", true);
     updateChild(selectedChild.id, {
+      clinicType: joinLines(clinicEntries, "type"),
       clinicName: joinLines(clinicEntries, "name"),
       doctorName: joinLines(clinicEntries, "doctor"),
       clinicAddress: joinLines(clinicEntries, "address"),
@@ -1102,7 +1107,7 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
                   <div className="fld">
                     <label>Child</label>
                     <div className="selwrap">
-                      <select value={selectedChildId || selectedChild.id} onChange={e => setSelectedChildId(e.target.value)}>
+                      <select value={selectedChild.id} onChange={e => setSelectedChildId(e.target.value)}>
                         {children.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                       </select>
                     </div>
