@@ -152,19 +152,30 @@ const fillTemplate = (content, values) => {
 // two therapists in the form show up as two sets of rows.
 const ROW_RE = /<tr\b[^>]*>[\s\S]*?<\/tr>/gi;
 
+// A row like "Next appointment [Date_appointment]" doesn't say whose
+// appointment it is — the template puts one under the psychiatrist rows and
+// another ("[Date_appointment2]") under the therapist rows — so it's
+// "ATTACH": it joins whichever repeated block it directly follows instead of
+// always counting as a clinic row (which repeated the therapist's
+// appointment row once per clinic).
+const ATTACH = "attach";
+
 const repeatGroupFor = (key) => {
   if (/case ?worker/.test(key)) return "caseWorkerRows";
   if (/therap|counsel|centre|center|intervention|program/.test(key)) return "therapistRows";
-  if (/psychiatr|doctor|physician|clinic|hospital|appointment/.test(key)) return "clinicRows";
+  if (/psychiatr|doctor|physician|clinic|hospital/.test(key)) return "clinicRows";
+  if (/appointment/.test(key)) return ATTACH;
   return null;
 };
 
 const rowGroupFor = (rowHtml) => {
+  let attach = null;
   for (const m of rowHtml.matchAll(/\[([^\]]+)\]/g)) {
     const group = repeatGroupFor(normalizeBracket(m[1]));
-    if (group) return group;
+    if (group === ATTACH) attach = ATTACH;
+    else if (group) return group;
   }
-  return null;
+  return attach;
 };
 
 const expandRepeatingRows = (html, values, fill) => {
@@ -174,11 +185,11 @@ const expandRepeatingRows = (html, values, fill) => {
   let i = 0;
   while (i < rows.length) {
     const group = rowGroupFor(rows[i][0]);
-    if (!group) { i += 1; continue; }
+    if (!group || group === ATTACH) { i += 1; continue; }
     let j = i + 1;
     while (
       j < rows.length &&
-      rowGroupFor(rows[j][0]) === group &&
+      [group, ATTACH].includes(rowGroupFor(rows[j][0])) &&
       !html.slice(rows[j - 1].index + rows[j - 1][0].length, rows[j].index).trim()
     ) j += 1;
     const start = rows[i].index;
@@ -409,7 +420,9 @@ const exportLetterToPdf = async (html, fileName) => {
       sliceCanvas.getContext("2d").drawImage(canvas, 0, sliceTopPx, canvas.width, sliceHeightPx, 0, 0, canvas.width, sliceHeightPx);
 
       if (pageIndex > 0) doc.addPage();
-      doc.addImage(sliceCanvas.toDataURL("image/png"), "PNG", margin, margin, contentWidth, sliceHeightPx / canvasPxPerPt);
+      // JPEG, not PNG — jsPDF embeds PNG data uncompressed, which made a
+      // 3-page letter ~29 MB; on the plain white page JPEG stays crisp.
+      doc.addImage(sliceCanvas.toDataURL("image/jpeg", 0.92), "JPEG", margin, margin, contentWidth, sliceHeightPx / canvasPxPerPt);
 
       cursor = breakAt;
       pageIndex += 1;
@@ -446,7 +459,13 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
   // is the only way to force it to reload fresh content — done only when the
   // letter is generated or loaded from storage below, never from the
   // editor's own onEditorChange.
+  // That also means `initialValue` itself must stay put between reloads:
+  // tinymce-react calls setContent() whenever that prop changes, so passing
+  // `letterText` (updated on every keystroke) reset the caret to the start
+  // after each character and typed text came out reversed. `editorInitial`
+  // only changes alongside `editorVersion`.
   const [editorVersion, setEditorVersion] = useState(0);
+  const [editorInitial, setEditorInitial] = useState("");
   const [howtoOpen, setHowtoOpen] = useState(false);
   const saveTimer = useRef(null);
   const letterGeneratedRef = useRef(false);
@@ -756,7 +775,7 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
     supabase.from("carer_letters").select("content").eq("child_id", selectedChild.id).maybeSingle()
       .then(({ data }) => {
         if (cancelled) return;
-        if (data?.content && !letterGeneratedRef.current) { setLetterText(data.content); setEditorVersion(v => v + 1); }
+        if (data?.content && !letterGeneratedRef.current) { setLetterText(data.content); setEditorInitial(data.content); setEditorVersion(v => v + 1); }
         setLoadingLetter(false);
       });
     return () => { cancelled = true; };
@@ -874,7 +893,9 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
       filled = highlightBrackets(template.content);
     }
     letterGeneratedRef.current = true;
-    setLetterText(filled || highlightBrackets(template.content));
+    const html = filled || highlightBrackets(template.content);
+    setLetterText(html);
+    setEditorInitial(html);
     setEditorVersion(v => v + 1);
     clearTimeout(saveTimer.current);
     persistLetter(filled);
@@ -1405,7 +1426,7 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
               <TinyMCEEditor
                 key={editorVersion}
                 licenseKey="gpl"
-                initialValue={letterText}
+                initialValue={editorInitial}
                 onEditorChange={handleEditorChange}
                 init={{
                   height: 520,
