@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { useBackHandler } from "../hooks";
+import { ChildAvatar } from "../ui";
 
 /* ==================================================================
    Bonda — Development (Vineland-inspired observation tracker)
@@ -120,10 +122,10 @@ const REWARDS = [
   { id: "free1", title: "1 month of Bonda free", cost: 20000, detail: "Added to your subscription as a free month." },
 ];
 
-const CHILD = { name: "Mariam", photo: null };
-/* per-category points earned (cumulative) — these feed the overall total.
-   everyone starts at zero; points are earned only by observing. */
-const SEED = { communication: 0, dailyliving: 0, socialization: 0 };
+/* Everything is per child: observations and claimed rewards live on the
+   active child's row (children.growth_observations / growth_claims — the
+   same columns the Growth Tracker tab in My Child uses), and points are
+   derived from the observations rather than stored separately. */
 
 /* ---------- inline icon set (stroke, currentColor) ---------- */
 function Icon({ name, size = 22, color = "currentColor", w = 1.8 }) {
@@ -184,12 +186,16 @@ function FaceIcon({ mood, size = 28, color = T.ink55 }) {
   );
 }
 
-export default function BondaDevelopment() {
+export default function BondaDevelopment({ childCtx, onAddChild }) {
+  const { children = [], activeChild: child, updateChild, switchChild } = childCtx || {};
   const [view, setView] = useState("home");     // home | quiz | feedback | redeem | progress
   const [quizCat, setQuizCat] = useState(null);
-  const [earned, setEarned] = useState(SEED);    // per-category cumulative points
-  const [claimed, setClaimed] = useState({});    // rewardId -> code
-  const [observations, setObservations] = useState([]);   // dated {date,category,section,skill,score}
+  const [sample, setSample] = useState(null);    // preview-only history, never saved
+
+  useBackHandler(view !== "home", () => setView("home"));
+
+  // switching child mid-flow drops back to that child's home view
+  useEffect(() => { setView("home"); setSample(null); }, [child?.id]);
 
   useEffect(() => {
     const id = "bonda-fonts";
@@ -200,19 +206,38 @@ export default function BondaDevelopment() {
     document.head.appendChild(l);
   }, []);
 
+  const observations = child?.growthObservations || [];   // dated {date,category,section,skill,score}
+  const claimed = child?.growthClaims || {};               // rewardId -> code
+  const earned = useMemo(() => {
+    const e = {};
+    CATS.forEach((c) => { e[c.key] = observations.filter((o) => o.category === c.key).length * POINTS_PER_OBSERVATION; });
+    return e;
+  }, [observations]);
   const total = CATS.reduce((n, c) => n + (earned[c.key] || 0), 0);
-  const addToCategory = (key, n) => setEarned((e) => ({ ...e, [key]: (e[key] || 0) + n }));
-  const logObservations = (obs) => setObservations((o) => [...o, ...obs]);
+  const logObservations = (obs) => updateChild(child.id, { growthObservations: [...obs, ...observations] });
   const redeem = (r) => {
     if (total < r.cost || claimed[r.id]) return;   // reach the threshold to redeem
-    setClaimed((c) => ({ ...c, [r.id]: "BONDA-" + Math.random().toString(36).slice(2, 7).toUpperCase() }));
+    updateChild(child.id, { growthClaims: { ...claimed, [r.id]: "BONDA-" + Math.random().toString(36).slice(2, 7).toUpperCase() } });
   };
 
+  if (!child) {
+    return (
+      <div style={{ background: T.canvas, minHeight: "100%", fontFamily: T.body, color: T.ink, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 30, textAlign: "center" }}>
+        <style>{CSS}</style>
+        <div style={{ fontFamily: T.title, fontWeight: 600, fontSize: 22, marginBottom: 8 }}>No child profile yet</div>
+        <div style={{ fontSize: 14, color: T.ink55, lineHeight: 1.5, maxWidth: 280, marginBottom: 22 }}>
+          Add a child to start observing. Points and progress are kept separately for each child.
+        </div>
+        {onAddChild && <button onClick={onAddChild} className="b-primary" style={{ paddingLeft: 28, paddingRight: 28 }}>Add a child</button>}
+      </div>
+    );
+  }
+
   return (
-    <div style={{ background: T.canvas, minHeight: "100vh", fontFamily: T.body, color: T.ink }}>
+    <div style={{ background: T.canvas, minHeight: "100%", fontFamily: T.body, color: T.ink }}>
       <style>{CSS}</style>
       {view === "home" && (
-        <Home earned={earned} total={total}
+        <Home child={child} kids={children} onSwitch={switchChild} earned={earned} total={total}
           onStartQuiz={(c) => { setQuizCat(c); setView("quiz"); }}
           onFeedback={() => setView("feedback")}
           onRedeem={() => setView("redeem")}
@@ -220,14 +245,14 @@ export default function BondaDevelopment() {
       )}
       {view === "quiz" && (
         <Quiz cat={quizCat}
-          onDone={(pts, obs) => { addToCategory(quizCat.key, pts); logObservations(obs); setView("home"); }}
+          onDone={(obs) => { if (obs.length) logObservations(obs); setView("home"); }}
           onClose={() => setView("home")} />
       )}
       {view === "redeem" && (
         <Redeem points={total} claimed={claimed} onRedeem={redeem} onClose={() => setView("home")} />
       )}
       {view === "progress" && (
-        <Progress observations={observations} onClose={() => setView("home")} onLoadSample={() => setObservations(makeSampleHistory())} />
+        <Progress childName={child.name} observations={sample || observations} onClose={() => setView("home")} onLoadSample={() => setSample(makeSampleHistory())} />
       )}
       {view === "feedback" && <Feedback onClose={() => setView("home")} />}
     </div>
@@ -237,21 +262,32 @@ export default function BondaDevelopment() {
 /* ==================================================================
    HOME
    ================================================================== */
-function Home({ earned, total, onStartQuiz, onFeedback, onRedeem, onProgress }) {
+function Home({ child, kids, onSwitch, earned, total, onStartQuiz, onFeedback, onRedeem, onProgress }) {
   const [open, setOpen] = useState(null);
   const remaining = Math.max(0, HEADLINE_TARGET - total);
 
   return (
     <div>
-      <div className="b-safe-top" style={{ padding: "14px 20px 6px", background: T.canvas }}>
+      <div style={{ padding: "14px 20px 6px", background: T.canvas }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ width: 46, height: 46, borderRadius: 999, background: T.accent, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontFamily: T.title, fontWeight: 600, fontSize: 20 }}>{CHILD.name[0]}</div>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 12.5, color: T.ink55 }}>{todayLabel()}</div>
-            <div style={{ fontFamily: T.title, fontWeight: 600, fontSize: 22, lineHeight: 1.1 }}>{CHILD.name}</div>
+          <ChildAvatar value={child.emoji} size={46} active />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontFamily: T.title, fontWeight: 600, fontSize: 22, lineHeight: 1.1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{child.name}</div>
           </div>
-          <span style={{ color: T.ink40 }}><Icon name="bell" size={22} w={1.8} /></span>
         </div>
+        {kids.length > 1 && (
+          <div style={{ display: "flex", gap: 8, overflowX: "auto", marginTop: 12, paddingBottom: 2 }}>
+            {kids.map((k) => {
+              const on = k.id === child.id;
+              return (
+                <button key={k.id} onClick={() => !on && onSwitch(k.id)} style={{ display: "flex", alignItems: "center", gap: 7, flexShrink: 0, padding: "5px 12px 5px 5px", borderRadius: 999, cursor: on ? "default" : "pointer", border: `1.5px solid ${on ? T.accent : T.lineStrong}`, background: on ? T.tintBg : T.card, fontFamily: T.body, fontSize: 13, fontWeight: on ? 600 : 500, color: on ? T.accentPress : T.ink70 }}>
+                  <ChildAvatar value={k.emoji} size={24} active={on} />
+                  {k.name}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <div style={{ maxWidth: 560, margin: "0 auto", padding: "10px 18px 40px" }}>
@@ -316,7 +352,7 @@ function Home({ earned, total, onStartQuiz, onFeedback, onRedeem, onProgress }) 
           Share feedback on this tracker
         </button>
 
-        <InfoAccordion />
+        <InfoAccordion childName={child.name} />
       </div>
     </div>
   );
@@ -380,7 +416,7 @@ const INFO = [
   ]},
 ];
 
-function InfoAccordion() {
+function InfoAccordion({ childName }) {
   const [open, setOpen] = useState(null);
   return (
     <div style={{ marginTop: 20 }}>
@@ -407,7 +443,7 @@ function InfoAccordion() {
         );
       })}
       <p style={{ fontSize: 11, color: T.ink40, lineHeight: 1.5, marginTop: 6, padding: "0 2px" }}>
-        If you have concerns about {CHILD.name}'s development, a qualified clinician can offer a proper assessment.
+        If you have concerns about {childName}'s development, a qualified clinician can offer a proper assessment.
         Questions are original items inspired by the Vineland domain structure, not the Vineland test itself.
       </p>
     </div>
@@ -502,7 +538,7 @@ function Quiz({ cat, onDone, onClose }) {
           const ans = ANSWERS.find((x) => x.key === next[idx]);
           if (ans && ans.v !== null) obs.push({ date: today, category: cat.key, section: q.section, skill: q.q, score: ans.v });
         });
-        onDone(obs.length * POINTS_PER_OBSERVATION, obs);   // points + the observations
+        onDone(obs);   // points are derived from these per child
       }
     }, 180);
   };
@@ -667,7 +703,7 @@ function scoreWord(avg) {
   return "mostly usually";
 }
 
-function Progress({ observations, onClose, onLoadSample }) {
+function Progress({ childName, observations, onClose, onLoadSample }) {
   const [period, setPeriod] = useState("month");
   const P = PERIODS.find((p) => p.key === period);
   const DAY = 86400000;
@@ -762,7 +798,7 @@ function Progress({ observations, onClose, onLoadSample }) {
             )}
 
             <p style={{ fontSize: 11, color: T.ink40, lineHeight: 1.5, marginTop: 14 }}>
-              Development moves slowly — a flat or quiet {period === "week" ? "week" : "period"} is normal, not a step back. Gaps mean fewer observations, not a drop. This is {CHILD.name}'s own path over time, not a score to beat.
+              Development moves slowly — a flat or quiet {period === "week" ? "week" : "period"} is normal, not a step back. Gaps mean fewer observations, not a drop. This is {childName}'s own path over time, not a score to beat.
             </p>
           </>
         )}
@@ -874,7 +910,4 @@ const CSS = `
 `;
 
 /* ---------- helpers ---------- */
-function todayLabel() {
-  return new Date().toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "short" });
-}
 function estMin(n) { return Math.max(1, Math.round((n * 12) / 60)); }

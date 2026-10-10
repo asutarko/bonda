@@ -224,7 +224,7 @@ export default function Bonda() {
       case "subsidies":  return <SupportDirectory account={account} kids={childCtx.children} />;
       case "subsidiesGrants": return <SubsidiesScreen pop={pop} account={account} />;
       case "sos":        return <SOSScreen pop={pop} account={account} />;
-      case "devGuide":   return <DevelopmentGuideScreen />;
+      case "devGuide":   return <DevelopmentGuideScreen childCtx={childCtx} push={push} />;
       case "allChildren": return <AllChildrenScreen childCtx={childCtx} pop={pop} setTab={setTab} push={push} />;
       case "addChild":   return <AddChildScreen childCtx={childCtx} pop={pop} />;
       case "editChild":  return <EditChildScreen childCtx={childCtx} pop={pop} />;
