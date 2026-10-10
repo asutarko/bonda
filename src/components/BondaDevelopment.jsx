@@ -262,6 +262,13 @@ export default function BondaDevelopment({ childCtx, onAddChild }) {
 /* ==================================================================
    HOME
    ================================================================== */
+/* only a real photo is shown; anything else (emoji, illustration, none)
+   falls back to ChildAvatar's plain user icon */
+function photoOrNone(child) {
+  const v = child.emoji || "";
+  return v.startsWith("http") || v.startsWith("data:") ? v : "none";
+}
+
 function Home({ child, kids, onSwitch, earned, total, onStartQuiz, onFeedback, onRedeem, onProgress }) {
   const [open, setOpen] = useState(null);
   const remaining = Math.max(0, HEADLINE_TARGET - total);
@@ -270,7 +277,7 @@ function Home({ child, kids, onSwitch, earned, total, onStartQuiz, onFeedback, o
     <div>
       <div style={{ padding: "14px 20px 6px", background: T.canvas }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <ChildAvatar value={child.emoji} size={46} active />
+          <ChildAvatar value={photoOrNone(child)} size={46} active />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontFamily: T.title, fontWeight: 600, fontSize: 22, lineHeight: 1.1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{child.name}</div>
           </div>
@@ -281,7 +288,7 @@ function Home({ child, kids, onSwitch, earned, total, onStartQuiz, onFeedback, o
               const on = k.id === child.id;
               return (
                 <button key={k.id} onClick={() => !on && onSwitch(k.id)} style={{ display: "flex", alignItems: "center", gap: 7, flexShrink: 0, padding: "5px 12px 5px 5px", borderRadius: 999, cursor: on ? "default" : "pointer", border: `1.5px solid ${on ? T.accent : T.lineStrong}`, background: on ? T.tintBg : T.card, fontFamily: T.body, fontSize: 13, fontWeight: on ? 600 : 500, color: on ? T.accentPress : T.ink70 }}>
-                  <ChildAvatar value={k.emoji} size={24} active={on} />
+                  <ChildAvatar value={photoOrNone(k)} size={24} active={on} />
                   {k.name}
                 </button>
               );
