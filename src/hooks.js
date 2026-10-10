@@ -2,6 +2,41 @@ import { useState, useEffect, useRef } from "react";
 import { supabase } from "./lib/supabase";
 import { DEFAULT_SCHEDULE } from "./data";
 
+// Clinics, therapists and case workers live in their own tables, one row per
+// entry (supabase/child_entries.sql), embedded into the children select below
+// and saved through the set_child_entries RPC.
+const ENTRY_TABLES = { clinics: "child_clinics", therapists: "child_therapists", caseWorkers: "child_case_workers" };
+const ENTRY_FROM_ROW = {
+  clinics: r => ({ clinicId: r.clinic_id || null, type: r.clinic_type || "", name: r.name || "", doctor: r.doctor || "", address: r.address || "", phone: r.phone || "", email: r.email || "" }),
+  therapists: r => ({ name: r.name || "", centre: r.centre || "", phone: r.phone || "" }),
+  caseWorkers: r => ({ name: r.name || "", phone: r.phone || "", email: r.email || "" }),
+};
+// Fallback for a database where child_entries.sql hasn't run yet: rebuild the
+// entries from the legacy newline-joined, index-aligned children columns.
+const LEGACY_COLUMNS = {
+  clinics: { type: "clinic_type", name: "clinic_name", doctor: "doctor_name", address: "clinic_address", phone: "clinic_phone", email: "clinic_email" },
+  therapists: { name: "therapist_name", centre: "therapist_centre", phone: "therapist_phone" },
+  caseWorkers: { name: "case_worker_name", phone: "case_worker_phone", email: "case_worker_email" },
+};
+const entryHasData = e => Object.entries(e).some(([k, v]) => k !== "clinicId" && (v || "").trim());
+const entriesFromRow = (row, kind) => {
+  const embedded = row[ENTRY_TABLES[kind]];
+  if (embedded) return [...embedded].sort((a, b) => a.sort_order - b.sort_order).map(ENTRY_FROM_ROW[kind]);
+  const cols = LEGACY_COLUMNS[kind];
+  const keys = Object.keys(cols);
+  const lists = keys.map(k => (row[cols[k]] || "").split("\n").map(s => s.trim()));
+  const count = Math.max(0, ...lists.map(l => l.length));
+  return Array.from({ length: count }, (_, i) => Object.fromEntries(keys.map((k, idx) => [k, lists[idx][i] || ""]))).filter(entryHasData);
+};
+// Blank entries (the forms always show one) are never stored.
+const cleanEntries = entries => (entries || []).filter(entryHasData);
+const saveEntries = (childId, lists) => supabase.rpc("set_child_entries", {
+  p_child_id: childId,
+  p_clinics: lists.clinics ?? null,
+  p_therapists: lists.therapists ?? null,
+  p_case_workers: lists.caseWorkers ?? null,
+}).then(({ error }) => { if (error) console.error("Failed to save clinics/therapists/case workers:", error.message); });
+
 export const childFromRow = (row) => ({
   id: row.id,
   name: row.name,
@@ -33,18 +68,9 @@ export const childFromRow = (row) => ({
   fosteringAgency: row.fostering_agency || "",
   placementType: row.placement_type || "",
   courtOrderRef: row.court_order_ref || "",
-  caseWorkerName: row.case_worker_name || "",
-  caseWorkerPhone: row.case_worker_phone || "",
-  caseWorkerEmail: row.case_worker_email || "",
-  clinicType: row.clinic_type || "",
-  clinicName: row.clinic_name || "",
-  doctorName: row.doctor_name || "",
-  clinicAddress: row.clinic_address || "",
-  clinicPhone: row.clinic_phone || "",
-  clinicEmail: row.clinic_email || "",
-  therapistName: row.therapist_name || "",
-  therapistCentre: row.therapist_centre || "",
-  therapistPhone: row.therapist_phone || "",
+  clinics: entriesFromRow(row, "clinics"),
+  therapists: entriesFromRow(row, "therapists"),
+  caseWorkers: entriesFromRow(row, "caseWorkers"),
   location: row.location || "",
   psychologistId: row.psychologist_id || null,
   active: row.active ?? true,
@@ -60,7 +86,12 @@ export function useChildren(userId) {
     if (!userId) { setChildren([]); setActiveId(null); setLoading(false); return; }
     let cancelled = false;
 
-    const load = () => supabase.from("children").select("*").eq("user_id", userId).order("created_at").then(({ data, error }) => {
+    const query = (cols) => supabase.from("children").select(cols).eq("user_id", userId).order("created_at");
+    // If the entry tables aren't there yet (child_entries.sql not run), retry
+    // without them; entriesFromRow then falls back to the legacy columns.
+    const load = () => query("*, child_clinics(*), child_therapists(*), child_case_workers(*)")
+      .then(res => res.error ? query("*") : res)
+      .then(({ data, error }) => {
       if (cancelled) return;
       // A failed/empty read here can happen if the request goes out before the
       // Supabase client has re-attached a freshly-refreshed auth token (common
@@ -134,19 +165,12 @@ export function useChildren(userId) {
       fostering_agency: child.fosteringAgency || "",
       placement_type: child.placementType || "",
       court_order_ref: child.courtOrderRef || "",
-      case_worker_name: child.caseWorkerName || "",
-      case_worker_phone: child.caseWorkerPhone || "",
-      case_worker_email: child.caseWorkerEmail || "",
-      clinic_type: child.clinicType || "",
-      clinic_name: child.clinicName || "",
-      doctor_name: child.doctorName || "",
-      clinic_address: child.clinicAddress || "",
-      clinic_phone: child.clinicPhone || "",
-      clinic_email: child.clinicEmail || "",
       location: child.location || "",
     }).select().single();
     if (error || !data) { if (error) console.error("Failed to add child profile:", error.message); return null; }
-    const newChild = childFromRow(data);
+    const lists = { clinics: cleanEntries(child.clinics), therapists: cleanEntries(child.therapists), caseWorkers: cleanEntries(child.caseWorkers) };
+    if (lists.clinics.length || lists.therapists.length || lists.caseWorkers.length) await saveEntries(data.id, lists);
+    const newChild = { ...childFromRow(data), ...lists };
     setChildren(cs => [...cs, newChild]);
     switchChild(newChild.id);
     return newChild.id;
@@ -155,7 +179,11 @@ export function useChildren(userId) {
   // "active" is deliberately not whitelisted below — only an admin account can
   // change it (enforced by a DB trigger), so the parent-facing app never writes it.
   const updateChild = (id, patch) => {
+    const lists = {};
+    Object.keys(ENTRY_TABLES).forEach(kind => { if (kind in patch) lists[kind] = cleanEntries(patch[kind]); });
+    patch = { ...patch, ...lists };
     setChildren(cs => cs.map(c => c.id === id ? { ...c, ...patch } : c));
+    if (Object.keys(lists).length) saveEntries(id, lists);
     const dbPatch = {};
     if ("name" in patch) dbPatch.name = patch.name;
     if ("firstName" in patch) dbPatch.first_name = patch.firstName;
@@ -186,19 +214,8 @@ export function useChildren(userId) {
     if ("fosteringAgency" in patch) dbPatch.fostering_agency = patch.fosteringAgency;
     if ("placementType" in patch) dbPatch.placement_type = patch.placementType;
     if ("courtOrderRef" in patch) dbPatch.court_order_ref = patch.courtOrderRef;
-    if ("caseWorkerName" in patch) dbPatch.case_worker_name = patch.caseWorkerName;
-    if ("caseWorkerPhone" in patch) dbPatch.case_worker_phone = patch.caseWorkerPhone;
-    if ("caseWorkerEmail" in patch) dbPatch.case_worker_email = patch.caseWorkerEmail;
-    if ("clinicType" in patch) dbPatch.clinic_type = patch.clinicType;
-    if ("clinicName" in patch) dbPatch.clinic_name = patch.clinicName;
-    if ("doctorName" in patch) dbPatch.doctor_name = patch.doctorName;
-    if ("clinicAddress" in patch) dbPatch.clinic_address = patch.clinicAddress;
-    if ("clinicPhone" in patch) dbPatch.clinic_phone = patch.clinicPhone;
-    if ("clinicEmail" in patch) dbPatch.clinic_email = patch.clinicEmail;
-    if ("therapistName" in patch) dbPatch.therapist_name = patch.therapistName;
-    if ("therapistCentre" in patch) dbPatch.therapist_centre = patch.therapistCentre;
-    if ("therapistPhone" in patch) dbPatch.therapist_phone = patch.therapistPhone;
     if ("location" in patch) dbPatch.location = patch.location;
+    if (!Object.keys(dbPatch).length) return;
     supabase.from("children").update(dbPatch).eq("id", id).then(({ error }) => { if (error) console.error("Failed to save child profile:", error.message); });
   };
 

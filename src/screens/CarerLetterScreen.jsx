@@ -28,44 +28,30 @@ const verbalTextFor = (verbalStatus) => {
 
 const pronounFor = (gender) => (gender === "Male" ? "him" : gender === "Female" ? "her" : "them");
 
-// Unlimited repeats for clinic/doctor and case worker. Kept on the existing
-// single-value "children" columns (clinic_name/doctor_name/clinic_address/
-// clinic_phone/clinic_email, case_worker_name/_phone/_email) rather than new
-// jsonb columns — each holds its entries newline-joined (a plain <input> can
-// never contain a literal newline, unlike a comma, which addresses routinely
-// do), with position i across the columns of one group belonging to the same
-// entry. Index-aligned so leaving e.g. clinic 2's doctor blank doesn't shift
-// clinic 3's fields down.
-const splitLines = (value) => (value || "").split("\n").map(s => s.trim());
-const joinLines = (entries, key) => entries.map(e => e[key].trim()).join("\n");
+// Unlimited repeats for clinic/doctor, therapist and case worker: arrays of
+// entries on the child (child.clinics / therapists / caseWorkers, one table
+// row each — see hooks.js). The form always shows at least one, possibly
+// blank, entry; hooks.js drops blanks on save.
+const withBlank = (entries, empty) => (entries?.length ? entries.map(e => ({ ...empty, ...e })) : [{ ...empty }]);
 // Human-readable form for the letter itself — a comma list reads naturally
-// mid-sentence/table-cell, unlike the newline join used for storage above.
-const joinForLetter = (value) => splitLines(value).filter(Boolean).join(", ");
-const parseEntries = (child, fieldMap) => {
-  const keys = Object.keys(fieldMap);
-  const lists = keys.map(k => splitLines(child?.[fieldMap[k]]));
-  const count = Math.max(1, ...lists.map(l => l.length));
-  return Array.from({ length: count }, (_, i) => Object.fromEntries(keys.map((k, idx) => [k, lists[idx][i] || ""])));
-};
+// mid-sentence/table-cell.
+const listForLetter = (entries, key) => (entries || []).map(e => (e[key] || "").trim()).filter(Boolean).join(", ");
 
 // "type" (Type of care) is set in the child profile, not here, but rides along
 // so adding / removing a clinic keeps it on the right entry.
 const EMPTY_CLINIC = { type: "", name: "", doctor: "", address: "", phone: "", email: "" };
-const CLINIC_FIELDS = { type: "clinicType", name: "clinicName", doctor: "doctorName", address: "clinicAddress", phone: "clinicPhone", email: "clinicEmail" };
-const parseClinics = (child) => parseEntries(child, CLINIC_FIELDS);
+const parseClinics = (child) => withBlank(child?.clinics, EMPTY_CLINIC);
 
 const EMPTY_CASE_WORKER = { name: "", phone: "", email: "" };
-const CASE_WORKER_FIELDS = { name: "caseWorkerName", phone: "caseWorkerPhone", email: "caseWorkerEmail" };
-const parseCaseWorkers = (child) => parseEntries(child, CASE_WORKER_FIELDS);
+const parseCaseWorkers = (child) => withBlank(child?.caseWorkers, EMPTY_CASE_WORKER);
 
 const EMPTY_THERAPIST = { name: "", centre: "", phone: "" };
-const THERAPIST_FIELDS = { name: "therapistName", centre: "therapistCentre", phone: "therapistPhone" };
-const parseTherapists = (child) => parseEntries(child, THERAPIST_FIELDS);
+const parseTherapists = (child) => withBlank(child?.therapists, EMPTY_THERAPIST);
 
 // Entries with at least one field filled in — a blank trailing entry (the
 // form always shows one) shouldn't add an empty repeat to the letter.
-const nonEmptyEntries = (child, fieldMap) =>
-  parseEntries(child, fieldMap).filter(e => Object.values(e).some(Boolean));
+const nonEmptyEntries = (entries) =>
+  (entries || []).filter(e => Object.entries(e).some(([k, v]) => k !== "clinicId" && (v || "").trim()));
 
 // This screen's look is ported from the carer-letter.html mockup, which pairs
 // a serif display face (titles, the letter body itself) with a sans body face
@@ -586,17 +572,9 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
       verbalStatus,
       diagnosis: diagnosis.trim(),
       knownTriggers: knownTriggers.trim(),
-      clinicName: joinLines(clinicEntries, "name"),
-      doctorName: joinLines(clinicEntries, "doctor"),
-      clinicAddress: joinLines(clinicEntries, "address"),
-      clinicPhone: joinLines(clinicEntries, "phone"),
-      clinicEmail: joinLines(clinicEntries, "email"),
-      caseWorkerName: joinLines(caseWorkerEntries, "name"),
-      caseWorkerPhone: joinLines(caseWorkerEntries, "phone"),
-      caseWorkerEmail: joinLines(caseWorkerEntries, "email"),
-      therapistName: joinLines(therapistEntries, "name"),
-      therapistCentre: joinLines(therapistEntries, "centre"),
-      therapistPhone: joinLines(therapistEntries, "phone"),
+      clinics: clinicEntries,
+      caseWorkers: caseWorkerEntries,
+      therapists: therapistEntries,
     };
     setShowCarerSetup(false);
     buildAndSetLetter(childData, { name: carerFullName, phone: carerPhone.trim(), email: account?.email, licensedCarer, carerAgency: carerAgency.trim() });
@@ -663,36 +641,21 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
 
   const saveClinicSection = () => {
     setSectionSavingKey("clinic", true);
-    updateChild(selectedChild.id, {
-      clinicType: joinLines(clinicEntries, "type"),
-      clinicName: joinLines(clinicEntries, "name"),
-      doctorName: joinLines(clinicEntries, "doctor"),
-      clinicAddress: joinLines(clinicEntries, "address"),
-      clinicPhone: joinLines(clinicEntries, "phone"),
-      clinicEmail: joinLines(clinicEntries, "email"),
-    });
+    updateChild(selectedChild.id, { clinics: clinicEntries });
     setSectionSavingKey("clinic", false);
     setSaved("clinic", true);
   };
 
   const saveCaseWorkerSection = () => {
     setSectionSavingKey("caseWorker", true);
-    updateChild(selectedChild.id, {
-      caseWorkerName: joinLines(caseWorkerEntries, "name"),
-      caseWorkerPhone: joinLines(caseWorkerEntries, "phone"),
-      caseWorkerEmail: joinLines(caseWorkerEntries, "email"),
-    });
+    updateChild(selectedChild.id, { caseWorkers: caseWorkerEntries });
     setSectionSavingKey("caseWorker", false);
     setSaved("caseWorker", true);
   };
 
   const saveTherapistSection = () => {
     setSectionSavingKey("therapist", true);
-    updateChild(selectedChild.id, {
-      therapistName: joinLines(therapistEntries, "name"),
-      therapistCentre: joinLines(therapistEntries, "centre"),
-      therapistPhone: joinLines(therapistEntries, "phone"),
-    });
+    updateChild(selectedChild.id, { therapists: therapistEntries });
     setSectionSavingKey("therapist", false);
     setSaved("therapist", true);
   };
@@ -825,7 +788,7 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
     const chosenRecipient = recipients.find(r => r.id === childData.recipientId) || null;
     const values = {
       date: formatDate(new Date()),
-      recipientName: chosenRecipient?.name?.trim() || buildRecipientLabel(assignedClinic, assignedPsychologist) || joinForLetter(childData.clinicName) || "[Recipient name / organisation]",
+      recipientName: chosenRecipient?.name?.trim() || buildRecipientLabel(assignedClinic, assignedPsychologist) || listForLetter(childData.clinics, "name") || "[Recipient name / organisation]",
       recipientAddress: chosenRecipient?.address?.trim() || assignedClinic?.address?.trim() || "[Recipient address]",
       recipientPhone: chosenRecipient?.phone?.trim() || assignedClinic?.phone?.trim() || "[Recipient phone]",
       location: childData.location?.trim() || "[Location]",
@@ -833,9 +796,9 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
       dob: childData.dob ? formatDate(childData.dob) : "[Date of birth]",
       placementStartDate: childData.placementStartDate ? formatDate(childData.placementStartDate) : "[Placement start date]",
       fosteringAgency: carerData.carerAgency?.trim() || childData.fosteringAgency?.trim() || "[Fostering agency / VWO name]",
-      caseWorkerName: joinForLetter(childData.caseWorkerName) || "[Case worker name]",
-      caseWorkerPhone: joinForLetter(childData.caseWorkerPhone) || "[Case worker phone]",
-      caseWorkerEmail: joinForLetter(childData.caseWorkerEmail) || "[Case worker email]",
+      caseWorkerName: listForLetter(childData.caseWorkers, "name") || "[Case worker name]",
+      caseWorkerPhone: listForLetter(childData.caseWorkers, "phone") || "[Case worker phone]",
+      caseWorkerEmail: listForLetter(childData.caseWorkers, "email") || "[Case worker email]",
       placementType: childData.placementType || "[Placement status]",
       courtOrderRef: childData.courtOrderRef?.trim() || "[Court order reference, if applicable]",
       verbalText: verbalTextFor(childData.verbalStatus),
@@ -843,29 +806,29 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
       allergies: childData.knownTriggers?.trim() || "[Known allergies / triggers]",
       // What the caregiver typed in the "Clinic & doctor" section wins; the
       // admin-assigned clinic/psychologist is only a fallback for blanks.
-      clinic: joinForLetter(childData.clinicName) || assignedClinic?.name || "[Clinic name]",
-      clinicAddress: joinForLetter(childData.clinicAddress) || assignedClinic?.address?.trim() || "[Clinic address]",
-      clinicPhone: joinForLetter(childData.clinicPhone) || assignedClinic?.phone?.trim() || "[Clinic phone]",
-      clinicEmail: joinForLetter(childData.clinicEmail) || "[Clinic email]",
-      doctorName: joinForLetter(childData.doctorName) || assignedPsychologist?.name || "[Doctor name]",
-      therapistName: joinForLetter(childData.therapistName) || "[Therapist name]",
-      therapistCentre: joinForLetter(childData.therapistCentre) || "[Therapist centre]",
-      therapistPhone: joinForLetter(childData.therapistPhone) || "[Therapist phone]",
+      clinic: listForLetter(childData.clinics, "name") || assignedClinic?.name || "[Clinic name]",
+      clinicAddress: listForLetter(childData.clinics, "address") || assignedClinic?.address?.trim() || "[Clinic address]",
+      clinicPhone: listForLetter(childData.clinics, "phone") || assignedClinic?.phone?.trim() || "[Clinic phone]",
+      clinicEmail: listForLetter(childData.clinics, "email") || "[Clinic email]",
+      doctorName: listForLetter(childData.clinics, "doctor") || assignedPsychologist?.name || "[Doctor name]",
+      therapistName: listForLetter(childData.therapists, "name") || "[Therapist name]",
+      therapistCentre: listForLetter(childData.therapists, "centre") || "[Therapist centre]",
+      therapistPhone: listForLetter(childData.therapists, "phone") || "[Therapist phone]",
       // Per-entry values for the repeated table rows (see expandRepeatingRows).
       // Empty lists fall back to the single combined values above.
-      clinicRows: nonEmptyEntries(childData, CLINIC_FIELDS).map((e, i) => ({
+      clinicRows: nonEmptyEntries(childData.clinics).map((e, i) => ({
         clinic: e.name || (i === 0 && assignedClinic?.name) || "[Clinic name]",
         clinicAddress: e.address || (i === 0 && assignedClinic?.address?.trim()) || "[Clinic address]",
         clinicPhone: e.phone || (i === 0 && assignedClinic?.phone?.trim()) || "[Clinic phone]",
         clinicEmail: e.email || "[Clinic email]",
         doctorName: e.doctor || (i === 0 && assignedPsychologist?.name) || "[Doctor name]",
       })),
-      caseWorkerRows: nonEmptyEntries(childData, CASE_WORKER_FIELDS).map(e => ({
+      caseWorkerRows: nonEmptyEntries(childData.caseWorkers).map(e => ({
         caseWorkerName: e.name || "[Case worker name]",
         caseWorkerPhone: e.phone || "[Case worker phone]",
         caseWorkerEmail: e.email || "[Case worker email]",
       })),
-      therapistRows: nonEmptyEntries(childData, THERAPIST_FIELDS).map(e => ({
+      therapistRows: nonEmptyEntries(childData.therapists).map(e => ({
         therapistName: e.name || "[Therapist name]",
         therapistCentre: e.centre || "[Therapist centre]",
         therapistPhone: e.phone || "[Therapist phone]",

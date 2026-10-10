@@ -59,30 +59,25 @@ const joinPhone = (cc, local) => {
 };
 const fullPhone = (phone) => { const { cc, local } = splitPhone(phone); return joinPhone(cc, local); };
 
-// Default contacts from each child's "Clinic & doctor" profile section. Those
-// columns hold several clinics newline-joined, index-aligned across columns
-// (see CarerLetterScreen.jsx). A clinic shared by several children shows once.
+// Default contacts from each child's "Clinic & doctor" profile section
+// (child.clinics, see hooks.js). A clinic shared by several children shows once.
 // source_key ties a saved user_contacts row (an edit, or hidden = deleted) to its default.
-const lines = (v) => (v || "").split("\n").map((s) => s.trim());
 const profileClinics = (children) => {
   const byKey = new Map();
   (children || []).forEach((child) => {
-    const names = lines(child.clinicName), doctors = lines(child.doctorName), addresses = lines(child.clinicAddress),
-      phones = lines(child.clinicPhone), emails = lines(child.clinicEmail);
-    const n = Math.max(names.length, doctors.length, addresses.length, phones.length, emails.length);
-    for (let i = 0; i < n; i++) {
-      const clinic = names[i] || "", doctor = doctors[i] || "";
-      if (!clinic && !doctor) continue;
+    (child.clinics || []).forEach((c) => {
+      const clinic = (c.name || "").trim(), doctor = (c.doctor || "").trim();
+      if (!clinic && !doctor) return;
       const key = "clinic:" + clinic.toLowerCase() + "|" + doctor.toLowerCase();
       const seen = byKey.get(key);
-      if (seen) { if (!seen.children.includes(child.name)) seen.children.push(child.name); continue; }
-      const address = addresses[i] || "";
+      if (seen) { if (!seen.children.includes(child.name)) seen.children.push(child.name); return; }
+      const address = (c.address || "").trim();
       byKey.set(key, {
         source_key: key, children: [child.name],
         category: doctor ? "doctor" : "clinic", name: doctor || clinic, organisation: doctor ? clinic : "",
-        phone: phones[i] || "", email: emails[i] || "", address, note: address,
+        phone: (c.phone || "").trim(), email: (c.email || "").trim(), address, note: address,
       });
-    }
+    });
   });
   return [...byKey.values()];
 };

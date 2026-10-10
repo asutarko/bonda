@@ -85,38 +85,19 @@ const parseSessions = text => {
   return sessions.length ? sessions : [{ type: "", note: "" }];
 };
 
-// Clinics share CarerLetterScreen's storage: each clinic_*/doctor_name column
-// holds its entries newline-joined, index-aligned across columns. Address and
-// email aren't edited here but ride along in each entry so removing a clinic
-// doesn't shift the next clinic's address/email onto the wrong row.
+// Clinics and case workers are arrays of entries on the child (child.clinics /
+// child.caseWorkers, one table row each — see hooks.js). The form always shows
+// at least one, possibly blank, entry; blanks are dropped on save. Address and
+// email aren't edited here but ride along in each clinic entry.
 const EMPTY_CLINIC = { type: "", name: "", doctor: "", address: "", phone: "", email: "" };
-const CLINIC_FIELDS = { type: "clinicType", name: "clinicName", doctor: "doctorName", address: "clinicAddress", phone: "clinicPhone", email: "clinicEmail" };
-const parseClinics = child => {
-  const keys = Object.keys(CLINIC_FIELDS);
-  const lists = keys.map(k => (child?.[CLINIC_FIELDS[k]] || "").split("\n").map(s => s.trim()));
-  const count = Math.max(1, ...lists.map(l => l.length));
-  return Array.from({ length: count }, (_, i) => Object.fromEntries(keys.map((k, idx) => [k, lists[idx][i] || ""])));
-};
-const hasAnyClinic = child => Object.values(CLINIC_FIELDS).some(f => child?.[f]);
-const clinicsPatch = (clinics, on) => {
-  const kept = on ? clinics.filter(c => Object.values(c).some(v => v.trim())) : [];
-  return Object.fromEntries(Object.entries(CLINIC_FIELDS).map(([k, field]) => [field, kept.map(c => c[k].trim()).join("\n")]));
-};
+const withBlank = (entries, empty) => (entries?.length ? entries.map(e => ({ ...empty, ...e })) : [{ ...empty }]);
+const parseClinics = child => withBlank(child?.clinics, EMPTY_CLINIC);
+const hasAnyClinic = child => !!child?.clinics?.length;
+const clinicsPatch = (clinics, on) => ({ clinics: on ? clinics : [] });
 
-// Case workers use the same newline-joined, index-aligned storage as clinics
-// (case_worker_name/_phone/_email), matching CarerLetterScreen.
 const EMPTY_CASE_WORKER = { name: "", phone: "", email: "" };
-const CASE_WORKER_FIELDS = { name: "caseWorkerName", phone: "caseWorkerPhone", email: "caseWorkerEmail" };
-const parseCaseWorkers = child => {
-  const keys = Object.keys(CASE_WORKER_FIELDS);
-  const lists = keys.map(k => (child?.[CASE_WORKER_FIELDS[k]] || "").split("\n").map(s => s.trim()));
-  const count = Math.max(1, ...lists.map(l => l.length));
-  return Array.from({ length: count }, (_, i) => Object.fromEntries(keys.map((k, idx) => [k, lists[idx][i] || ""])));
-};
-const caseWorkersPatch = caseWorkers => {
-  const kept = caseWorkers.filter(w => Object.values(w).some(v => v.trim()));
-  return Object.fromEntries(Object.entries(CASE_WORKER_FIELDS).map(([k, field]) => [field, kept.map(w => w[k].trim()).join("\n")]));
-};
+const parseCaseWorkers = child => withBlank(child?.caseWorkers, EMPTY_CASE_WORKER);
+const caseWorkersPatch = caseWorkers => ({ caseWorkers });
 
 const entryHasData = e => Object.values(e).some(v => (v || "").trim());
 
