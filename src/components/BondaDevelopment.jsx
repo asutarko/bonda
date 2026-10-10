@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useBackHandler } from "../hooks";
 import { ChildAvatar } from "../ui";
+import { supabase } from "../lib/supabase";
 
 /* ==================================================================
    Bonda — Development (Vineland-inspired observation tracker)
@@ -12,8 +13,8 @@ import { ChildAvatar } from "../ui";
    case throughout.
 
    Rewards model (points -> redeem):
-   - Observing earns points into a single balance (only a real
-     observation earns; "No chance to see" earns 0).
+   - Each answer earns the points set on the chosen option (managed
+     in the database) into a single balance per child.
    - A points hero at the top shows the total as a donut, with a
      Redeem button that opens the rewards catalogue.
    - Headline reward: 10,000 points -> 10% off Bonda. Redeeming spends
@@ -36,83 +37,57 @@ const T = {
   mono: '"JetBrains Mono", ui-monospace, monospace',
 };
 
-/* official muted tag tones — category colour lives here only */
-const CATS = [
-  {
-    key: "communication", name: "Communication", icon: "chat",
-    bg: "#EDE8F3", tx: "#574B78",
-    blurb: "Understanding others and getting a message across.",
-    sections: [
-      { name: "Understanding", items: [
-        { q: "Responds to their name", ex: "Turns, looks, or replies when you call them from across the room." },
-        { q: "Follows a simple request", ex: "Gets their shoes when asked, without you pointing." },
-        { q: "Understands “stop” or “wait”", ex: "Pauses — even briefly — when you say it." },
-      ]},
-      { name: "Expressing", items: [
-        { q: "Lets you know what they want", ex: "With a word, sign, picture card, or by leading your hand." },
-        { q: "Uses gestures to communicate", ex: "Points, waves, nods, or shakes their head." },
-        { q: "Puts two ideas together", ex: "Two words, two signs, or a word plus a point — “more juice”." },
-      ]},
-      { name: "Everyday symbols", items: [
-        { q: "Recognises a familiar symbol", ex: "Their name card, a favourite logo, or a picture on a menu." },
-        { q: "Shows interest in books", ex: "Turns pages, points at pictures, or brings you a book." },
-      ]},
-    ],
-  },
-  {
-    key: "dailyliving", name: "Daily living", icon: "home",
-    bg: "#E4ECF3", tx: "#3A5A78",
-    blurb: "Everyday self-care and getting things done.",
-    sections: [
-      { name: "Personal care", items: [
-        { q: "Helps with dressing", ex: "Pushes arms through sleeves, pulls up trousers." },
-        { q: "Feeds themselves", ex: "Uses a spoon, fork, or fingers for most of a meal." },
-        { q: "Manages a hygiene step", ex: "Washes hands or brushes teeth, with help is fine." },
-      ]},
-      { name: "Around the home", items: [
-        { q: "Helps with a small task", ex: "Puts toys in a box, carries their plate to the sink." },
-        { q: "Follows a home routine", ex: "Comes to the table at mealtime, to the door for shoes." },
-      ]},
-      { name: "Out and about", items: [
-        { q: "Copes with an outing", ex: "Manages a shop or clinic trip with your support." },
-        { q: "Shows basic safety sense", ex: "Stops at the kerb, stays near you in a busy place." },
-      ]},
-    ],
-  },
-  {
-    key: "socialization", name: "Socialization", icon: "users",
-    bg: "#F3E7EA", tx: "#7A4651",
-    blurb: "Connecting, playing, and handling feelings.",
-    sections: [
-      { name: "Relationships", items: [
-        { q: "Recognises familiar people", ex: "Greets, reaches for, or smiles at a parent or sibling." },
-        { q: "Shares a look during a moment", ex: "Glances at you during a game or when excited." },
-        { q: "Shows you something", ex: "Looks at a toy, then at you, then back — sharing it." },
-      ]},
-      { name: "Play & leisure", items: [
-        { q: "Plays near or with others", ex: "Rolls a ball back, takes a turn, joins a game." },
-        { q: "Shows pretend play", ex: "Feeds a doll, makes a car “drive”, stirs a pretend pot." },
-        { q: "Seeks out a favourite thing", ex: "Chooses a preferred toy, song, or video." },
-      ]},
-      { name: "Coping", items: [
-        { q: "Recovers from a change", ex: "Settles after a routine shifts, with or without help." },
-        { q: "Waits a short moment", ex: "Tolerates a brief wait for a turn or a snack." },
-      ]},
-    ],
-  },
-];
+/* Categories, questions and answer options live in the database
+   (supabase/dev_tracker.sql) so they can be added, removed and re-valued
+   from the admin app. Each option carries its own points value and a
+   progress level (0 not yet / 1 sometimes / 2 usually, null = not an
+   observation, e.g. "No chance to see"). A category is shaped as
+   { key, name, icon, bg, tx, blurb, sections: [{ name, items: [{ id, q, ex, options }] }] }. */
+const bySort = (a, b) => a.sort_order - b.sort_order;
+function catFromRow(row) {
+  const sections = [];
+  (row.dev_questions || []).filter((q) => q.active).sort(bySort).forEach((q) => {
+    const options = [...(q.dev_options || [])].sort(bySort);
+    if (!options.length) return;
+    let s = sections.find((x) => x.name === q.section);
+    if (!s) sections.push((s = { name: q.section, items: [] }));
+    s.items.push({ id: q.id, q: q.question, ex: q.example, options });
+  });
+  return { key: row.id, name: row.name, icon: row.icon, bg: row.bg, tx: row.tx, blurb: row.blurb, sections };
+}
 
-const ANSWERS = [
-  { key: "not_yet",   label: "Not yet",   sub: "Never, so far", v: 0 },
-  { key: "sometimes", label: "Sometimes", sub: "Now and then",  v: 1 },
-  { key: "usually",   label: "Usually",   sub: "Most times",    v: 2 },
-  { key: "no_chance", label: "No chance to see", sub: "Didn't come up", v: null },
-];
+function useCatalogue() {
+  const [cats, setCats] = useState(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    supabase.from("dev_categories").select("*, dev_questions(*, dev_options(*))").eq("active", true).order("sort_order")
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error) { console.error("Failed to load development questions:", error.message); setFailed(true); return; }
+        setCats(data.map(catFromRow).filter((c) => c.sections.length));
+      });
+    return () => { cancelled = true; };
+  }, []);
+  return { cats, failed };
+}
 
-/* only a real observation earns; "No chance to see" earns 0.
-   Scaled so the 10,000-point reward is reachable through consistent
-   observing (~2 months of a daily category) rather than instantly. */
-const POINTS_PER_OBSERVATION = 20;
+/* One dev_answers row → the {date, category, section, skill, score, points}
+   shape the charts below work with. score is the option's level. */
+const ANSWER_COLS = "category_id, section, question_text, level, points, observed_on";
+const answerToObs = (r) => ({ date: r.observed_on, category: r.category_id, section: r.section, skill: r.question_text, score: r.level, points: r.points });
+
+/* All of a child's answers, paged past PostgREST's 1,000-row cap. */
+async function fetchAnswers(childId) {
+  const out = [];
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await supabase.from("dev_answers").select(ANSWER_COLS)
+      .eq("child_id", childId).order("observed_on").order("id").range(from, from + 999);
+    if (error) throw error;
+    out.push(...data);
+    if (data.length < 1000) return out.map(answerToObs);
+  }
+}
 
 /* rewards catalogue — Bonda subscription discounts. 10% at 10,000 is the headline. */
 const HEADLINE_TARGET = 10000;
@@ -122,10 +97,9 @@ const REWARDS = [
   { id: "free1", title: "1 month of Bonda free", cost: 20000, detail: "Added to your subscription as a free month." },
 ];
 
-/* Everything is per child: observations and claimed rewards live on the
-   active child's row (children.growth_observations / growth_claims — the
-   same columns the Growth Tracker tab in My Child uses), and points are
-   derived from the observations rather than stored separately. */
+/* Everything is per child: answers are dev_answers rows (points fixed by the
+   database from the chosen option at answer time), claimed rewards live on
+   the child's row (children.growth_claims). */
 
 /* ---------- inline icon set (stroke, currentColor) ---------- */
 function Icon({ name, size = 22, color = "currentColor", w = 1.8 }) {
@@ -142,7 +116,8 @@ function Icon({ name, size = 22, color = "currentColor", w = 1.8 }) {
     heart: <path d="M12 20s-7-4.6-9.2-9C1.3 8 3 4.6 6.3 4.6c2 0 3.2 1.2 3.7 2.2.5-1 1.7-2.2 3.7-2.2C21 4.6 22.7 8 21.2 11 19 15.4 12 20 12 20z" {...p} />,
     bell: <><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" {...p} /><path d="M13.7 21a2 2 0 0 1-3.4 0" {...p} /></>,
   };
-  return <svg width={size} height={size} viewBox="0 0 24 24" style={{ display: "block" }}>{paths[name]}</svg>;
+  // category icons come from the database — unknown names fall back to chat
+  return <svg width={size} height={size} viewBox="0 0 24 24" style={{ display: "block" }}>{paths[name] || paths.chat}</svg>;
 }
 
 function IconChip({ name, bg, fg, size = 44, radius = 13 }) {
@@ -219,15 +194,60 @@ export default function BondaDevelopment({ childCtx, onAddChild }) {
     document.head.appendChild(l);
   }, []);
 
-  const observations = child?.growthObservations || [];   // dated {date,category,section,skill,score}
+  const { cats, failed } = useCatalogue();
+
+  // this child's answers, as {date, category, section, skill, score, points}
+  const [answers, setAnswers] = useState(null);
+  const [saveError, setSaveError] = useState("");
+  useEffect(() => {
+    if (!child?.id) return;
+    let cancelled = false;
+    setAnswers(null);
+    setSaveError("");
+    fetchAnswers(child.id)
+      .then((rows) => { if (!cancelled) setAnswers(rows); })
+      .catch((e) => { if (!cancelled) { console.error("Failed to load answers:", e.message); setAnswers([]); } });
+    return () => { cancelled = true; };
+  }, [child?.id]);
+
+  // points per child for the picker (view sums dev_answers server-side)
+  const [kidPoints, setKidPoints] = useState({});
+  const eligibleIds = eligible.map((k) => k.id).join(",");
+  useEffect(() => {
+    if (!showPicker || !eligibleIds) return;
+    let cancelled = false;
+    supabase.from("dev_child_points").select("child_id, points").in("child_id", eligibleIds.split(","))
+      .then(({ data, error }) => {
+        if (cancelled || error) return;
+        setKidPoints(Object.fromEntries(data.map((r) => [r.child_id, r.points])));
+      });
+    return () => { cancelled = true; };
+  }, [showPicker, eligibleIds]);
+
   const claimed = child?.growthClaims || {};               // rewardId -> code
   const earned = useMemo(() => {
     const e = {};
-    CATS.forEach((c) => { e[c.key] = observations.filter((o) => o.category === c.key).length * POINTS_PER_OBSERVATION; });
+    (answers || []).forEach((o) => { e[o.category] = (e[o.category] || 0) + o.points; });
     return e;
-  }, [observations]);
-  const total = CATS.reduce((n, c) => n + (earned[c.key] || 0), 0);
-  const logObservations = (obs) => updateChild(child.id, { growthObservations: [...obs, ...observations] });
+  }, [answers]);
+  const total = (answers || []).reduce((n, o) => n + o.points, 0);
+  // progress charts only use real observations (options with a level)
+  const observations = useMemo(() => (answers || []).filter((o) => o.score != null), [answers]);
+
+  // picks = [{ optionId }]; the database fills in points/level/snapshot
+  const saveAnswers = async (picks) => {
+    if (!picks.length) return;
+    const { data, error } = await supabase.from("dev_answers")
+      .insert(picks.map((p) => ({ child_id: child.id, option_id: p.optionId })))
+      .select(ANSWER_COLS);
+    if (error) {
+      console.error("Failed to save answers:", error.message);
+      setSaveError("Your answers couldn't be saved. Please check your connection and try again.");
+      return;
+    }
+    setSaveError("");
+    setAnswers((a) => [...(a || []), ...data.map(answerToObs)]);
+  };
   const redeem = (r) => {
     if (total < r.cost || claimed[r.id]) return;   // reach the threshold to redeem
     updateChild(child.id, { growthClaims: { ...claimed, [r.id]: "BONDA-" + Math.random().toString(36).slice(2, 7).toUpperCase() } });
@@ -253,7 +273,16 @@ export default function BondaDevelopment({ childCtx, onAddChild }) {
     return (
       <div style={{ background: T.canvas, minHeight: "100%", fontFamily: T.body, color: T.ink }}>
         <style>{CSS}</style>
-        <ChildPicker kids={eligible} onPick={pickChild} />
+        <ChildPicker kids={eligible} points={kidPoints} onPick={pickChild} />
+      </div>
+    );
+  }
+
+  if (failed || !cats || !answers) {
+    return (
+      <div style={{ background: T.canvas, minHeight: "60vh", fontFamily: T.body, color: T.ink55, display: "flex", alignItems: "center", justifyContent: "center", padding: 30, textAlign: "center", fontSize: 14 }}>
+        <style>{CSS}</style>
+        {failed ? "The questions couldn't be loaded. Please try again later." : "Loading…"}
       </div>
     );
   }
@@ -262,7 +291,7 @@ export default function BondaDevelopment({ childCtx, onAddChild }) {
     <div style={{ background: T.canvas, minHeight: "100%", fontFamily: T.body, color: T.ink }}>
       <style>{CSS}</style>
       {view === "home" && (
-        <Home child={child} earned={earned} total={total}
+        <Home child={child} cats={cats} earned={earned} total={total} saveError={saveError}
           onStartQuiz={(c) => { setQuizCat(c); setView("quiz"); }}
           onFeedback={() => setView("feedback")}
           onRedeem={() => setView("redeem")}
@@ -270,14 +299,14 @@ export default function BondaDevelopment({ childCtx, onAddChild }) {
       )}
       {view === "quiz" && (
         <Quiz cat={quizCat}
-          onDone={(obs) => { if (obs.length) logObservations(obs); setView("home"); }}
+          onDone={(picks) => { saveAnswers(picks); setView("home"); }}
           onClose={() => setView("home")} />
       )}
       {view === "redeem" && (
         <Redeem points={total} claimed={claimed} onRedeem={redeem} onClose={() => setView("home")} />
       )}
       {view === "progress" && (
-        <Progress childName={child.name} observations={sample || observations} onClose={() => setView("home")} onLoadSample={() => setSample(makeSampleHistory())} />
+        <Progress cats={cats} childName={child.name} observations={sample || observations} onClose={() => setView("home")} onLoadSample={() => setSample(makeSampleHistory(cats))} />
       )}
       {view === "feedback" && <Feedback onClose={() => setView("home")} />}
     </div>
@@ -297,8 +326,8 @@ function photoOrNone(child) {
 /* ==================================================================
    CHILD PICKER — shown first when there's more than one child
    ================================================================== */
-function ChildPicker({ kids, onPick }) {
-  const pointsOf = (k) => (k.growthObservations || []).length * POINTS_PER_OBSERVATION;
+function ChildPicker({ kids, points, onPick }) {
+  const pointsOf = (k) => points[k.id] || 0;
   return (
     <div style={{ maxWidth: 560, margin: "0 auto", padding: "18px 18px 40px" }}>
       <h1 style={{ fontFamily: T.title, fontWeight: 600, fontSize: 22, lineHeight: 1.1, letterSpacing: "-0.01em", margin: "0 2px 4px" }}>
@@ -323,7 +352,7 @@ function ChildPicker({ kids, onPick }) {
   );
 }
 
-function Home({ child, earned, total, onStartQuiz, onFeedback, onRedeem, onProgress }) {
+function Home({ child, cats, earned, total, saveError, onStartQuiz, onFeedback, onRedeem, onProgress }) {
   const [open, setOpen] = useState(null);
   const remaining = Math.max(0, HEADLINE_TARGET - total);
 
@@ -354,7 +383,7 @@ function Home({ child, earned, total, onStartQuiz, onFeedback, onRedeem, onProgr
           </div>
         </div>
 
-        <MilestoneChart earned={earned} onOpenProgress={onProgress} />
+        <MilestoneChart cats={cats} earned={earned} onOpenProgress={onProgress} />
 
         <h1 style={{ fontFamily: T.title, fontWeight: 600, fontSize: 22, lineHeight: 1.1, letterSpacing: "-0.01em", margin: "6px 2px 4px" }}>
           Today's observations
@@ -363,7 +392,13 @@ function Home({ child, earned, total, onStartQuiz, onFeedback, onRedeem, onProgr
           A few minutes of noticing. Every observation adds points.
         </p>
 
-        {CATS.map((c) => {
+        {saveError && (
+          <div role="alert" style={{ background: "#F7E6E3", color: "#8A3B2E", borderRadius: 12, padding: "10px 13px", fontSize: 13, lineHeight: 1.45, marginBottom: 12 }}>
+            {saveError}
+          </div>
+        )}
+
+        {cats.map((c) => {
           const total = c.sections.reduce((n, s) => n + s.items.length, 0);
           const isOpen = open === c.key;
           return (
@@ -406,7 +441,7 @@ function Home({ child, earned, total, onStartQuiz, onFeedback, onRedeem, onProgr
   );
 }
 
-function MilestoneChart({ earned, onOpenProgress }) {
+function MilestoneChart({ cats, earned, onOpenProgress }) {
   const ticks = [0, 25, 50, 75, 100];
   const tickShift = (t) => (t === 0 ? "none" : t === 100 ? "translateX(-100%)" : "translateX(-50%)");
   return (
@@ -416,7 +451,7 @@ function MilestoneChart({ earned, onOpenProgress }) {
         <button onClick={onOpenProgress} style={{ background: "none", border: "none", color: T.accent, fontFamily: T.body, fontWeight: 600, fontSize: 12.5, cursor: "pointer", flexShrink: 0, padding: 0 }}>Over time ›</button>
       </div>
       <div style={{ fontSize: 12.5, color: T.ink40, marginBottom: 16 }}>How each area is progressing toward the reward</div>
-      {CATS.map((c) => {
+      {cats.map((c) => {
         const pct = Math.min(100, ((earned[c.key] || 0) / HEADLINE_TARGET) * 100);
         return (
           <div key={c.key} style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
@@ -574,20 +609,12 @@ function Quiz({ cat, onDone, onClose }) {
   const isNewSection = i === 0 || flat[i - 1].section !== cur.section;
   const sectionNo = cat.sections.findIndex((s) => s.name === cur.section) + 1;
 
-  const answer = (a) => {
-    const next = { ...answers, [i]: a.key };
+  const answer = (opt) => {
+    const next = { ...answers, [i]: opt.id };
     setAnswers(next);
     setTimeout(() => {
       if (i + 1 < flat.length) setI(i + 1);
-      else {
-        const today = new Date().toISOString().slice(0, 10);
-        const obs = [];
-        flat.forEach((q, idx) => {
-          const ans = ANSWERS.find((x) => x.key === next[idx]);
-          if (ans && ans.v !== null) obs.push({ date: today, category: cat.key, section: q.section, skill: q.q, score: ans.v });
-        });
-        onDone(obs);   // points are derived from these per child
-      }
+      else onDone(Object.values(next).map((optionId) => ({ optionId })));   // points come from each option, server-side
     }, 180);
   };
   const back = () => (i === 0 ? onClose() : setI(i - 1));
@@ -621,24 +648,26 @@ function Quiz({ cat, onDone, onClose }) {
         )}
 
         <div style={{ fontFamily: T.title, fontWeight: 600, fontSize: 25, lineHeight: 1.2, letterSpacing: "-0.01em", marginBottom: 10 }}>
-          {cur.q}?
+          {/[?.!]$/.test(cur.q.trim()) ? cur.q : `${cur.q}?`}
         </div>
-        <div style={{ background: T.card, border: `1px solid ${T.line}`, borderRadius: 12, padding: "12px 14px", fontSize: 13.5, color: T.ink55, lineHeight: 1.5, marginBottom: 24 }}>
-          <b style={{ color: T.ink70, fontWeight: 600 }}>For example:</b> {cur.ex}
-        </div>
+        {cur.ex ? (
+          <div style={{ background: T.card, border: `1px solid ${T.line}`, borderRadius: 12, padding: "12px 14px", fontSize: 13.5, color: T.ink55, lineHeight: 1.5, marginBottom: 24 }}>
+            <b style={{ color: T.ink70, fontWeight: 600 }}>For example:</b> {cur.ex}
+          </div>
+        ) : <div style={{ marginBottom: 14 }} />}
 
         <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: "auto" }}>
-          {ANSWERS.map((a) => {
-            const on = answers[i] === a.key;
-            const muted = a.v === null;
+          {cur.options.map((a) => {
+            const on = answers[i] === a.id;
+            const muted = a.level == null;
             return (
-              <button key={a.key} onClick={() => answer(a)} className="b-ans" style={{
+              <button key={a.id} onClick={() => answer(a)} className="b-ans" style={{
                 border: `1.5px solid ${on ? cat.tx : T.lineStrong}`,
                 background: on ? cat.bg : T.card,
               }}>
                 <div style={{ textAlign: "left" }}>
                   <div style={{ fontSize: 15.5, fontWeight: 600, color: muted ? T.ink55 : on ? cat.tx : T.ink }}>{a.label}</div>
-                  <div style={{ fontSize: 12, color: T.ink40, marginTop: 1 }}>{a.sub}</div>
+                  {a.sub && <div style={{ fontSize: 12, color: T.ink40, marginTop: 1 }}>{a.sub}</div>}
                 </div>
                 <span style={{ width: 24, height: 24, borderRadius: 999, flexShrink: 0, border: `2px solid ${on ? cat.tx : T.lineStrong}`, background: on ? cat.tx : "transparent", display: "flex", alignItems: "center", justifyContent: "center" }}>
                   {on && <Icon name="check" size={13} w={2.4} color="#fff" />}
@@ -648,7 +677,7 @@ function Quiz({ cat, onDone, onClose }) {
           })}
         </div>
         <div style={{ textAlign: "center", fontSize: 11.5, color: T.ink40, marginTop: 16 }}>
-          Only what you actually see earns points. “No chance to see” is always fine.
+          Answer with what you've actually seen — there's no wrong answer.
         </div>
       </div>
     </div>
@@ -751,7 +780,7 @@ function scoreWord(avg) {
   return "mostly usually";
 }
 
-function Progress({ childName, observations, onClose, onLoadSample }) {
+function Progress({ cats: catList, childName, observations, onClose, onLoadSample }) {
   const [period, setPeriod] = useState("month");
   const P = PERIODS.find((p) => p.key === period);
   const DAY = 86400000;
@@ -764,7 +793,7 @@ function Progress({ childName, observations, onClose, onLoadSample }) {
   const prevWin = observations.filter((o) => at(o) >= prevStart && at(o) < start);
   const daysObserved = new Set(inWin.map((o) => o.date)).size;
 
-  const cats = CATS.map((c) => {
+  const cats = catList.map((c) => {
     const mine = inWin.filter((o) => o.category === c.key);
     const prevMine = prevWin.filter((o) => o.category === c.key);
     const mean = (arr) => (arr.length ? arr.reduce((s, o) => s + o.score, 0) / arr.length : null);
@@ -882,12 +911,12 @@ function TrendLine({ buckets, color, track }) {
 }
 
 /* preview-only: fabricate ~10 months of dated observations that trend upward */
-function makeSampleHistory() {
+function makeSampleHistory(cats) {
   const out = [];
   const DAY = 86400000;
   const now = Date.now();
   const span = 300;
-  CATS.forEach((c, ci) => {
+  cats.forEach((c, ci) => {
     c.sections.forEach((s) => s.items.forEach((it, si) => {
       const offset = ((ci + si) % 5) * 0.05;
       for (let d = span; d >= 0; d -= 12 + ((ci + si) % 4)) {
