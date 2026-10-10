@@ -187,12 +187,25 @@ function FaceIcon({ mood, size = 28, color = T.ink55 }) {
 }
 
 export default function BondaDevelopment({ childCtx, onAddChild }) {
-  const { children = [], activeChild: child, updateChild, switchChild } = childCtx || {};
+  const { children = [], activeChild, updateChild, switchChild } = childCtx || {};
   const [view, setView] = useState("home");     // home | quiz | feedback | redeem | progress
   const [quizCat, setQuizCat] = useState(null);
   const [sample, setSample] = useState(null);    // preview-only history, never saved
 
-  useBackHandler(view !== "home", () => setView("home"));
+  // Only approved (active) children can be observed. With more than one, a
+  // child list comes first; picking one also switches the app-wide active
+  // child. Back from that child returns here.
+  const eligible = children.filter((c) => c.active);
+  const multi = eligible.length > 1;
+  const [picked, setPicked] = useState(false);
+  const child = eligible.find((c) => c.id === activeChild?.id) || (multi ? null : eligible[0]) || null;
+  const showPicker = multi && (!picked || !child);
+  const pickChild = (id) => { if (id !== child?.id) switchChild(id); setPicked(true); };
+
+  useBackHandler(view !== "home" || (multi && picked), () => {
+    if (view !== "home") setView("home");
+    else setPicked(false);
+  });
 
   // switching child mid-flow drops back to that child's home view
   useEffect(() => { setView("home"); setSample(null); }, [child?.id]);
@@ -220,15 +233,27 @@ export default function BondaDevelopment({ childCtx, onAddChild }) {
     updateChild(child.id, { growthClaims: { ...claimed, [r.id]: "BONDA-" + Math.random().toString(36).slice(2, 7).toUpperCase() } });
   };
 
-  if (!child) {
+  if (!eligible.length) {
+    const none = children.length === 0;
     return (
       <div style={{ background: T.canvas, minHeight: "100%", fontFamily: T.body, color: T.ink, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 30, textAlign: "center" }}>
         <style>{CSS}</style>
-        <div style={{ fontFamily: T.title, fontWeight: 600, fontSize: 22, marginBottom: 8 }}>No child profile yet</div>
+        <div style={{ fontFamily: T.title, fontWeight: 600, fontSize: 22, marginBottom: 8 }}>{none ? "No child profile yet" : "Waiting for approval"}</div>
         <div style={{ fontSize: 14, color: T.ink55, lineHeight: 1.5, maxWidth: 280, marginBottom: 22 }}>
-          Add a child to start observing. Points and progress are kept separately for each child.
+          {none
+            ? "Add a child to start observing. Points and progress are kept separately for each child."
+            : "The development tracker unlocks once a child's profile is approved."}
         </div>
-        {onAddChild && <button onClick={onAddChild} className="b-primary" style={{ paddingLeft: 28, paddingRight: 28 }}>Add a child</button>}
+        {none && onAddChild && <button onClick={onAddChild} className="b-primary" style={{ paddingLeft: 28, paddingRight: 28 }}>Add a child</button>}
+      </div>
+    );
+  }
+
+  if (showPicker) {
+    return (
+      <div style={{ background: T.canvas, minHeight: "100%", fontFamily: T.body, color: T.ink }}>
+        <style>{CSS}</style>
+        <ChildPicker kids={eligible} onPick={pickChild} />
       </div>
     );
   }
@@ -237,7 +262,7 @@ export default function BondaDevelopment({ childCtx, onAddChild }) {
     <div style={{ background: T.canvas, minHeight: "100%", fontFamily: T.body, color: T.ink }}>
       <style>{CSS}</style>
       {view === "home" && (
-        <Home child={child} kids={children} onSwitch={switchChild} earned={earned} total={total}
+        <Home child={child} earned={earned} total={total}
           onStartQuiz={(c) => { setQuizCat(c); setView("quiz"); }}
           onFeedback={() => setView("feedback")}
           onRedeem={() => setView("redeem")}
@@ -269,7 +294,36 @@ function photoOrNone(child) {
   return v.startsWith("http") || v.startsWith("data:") ? v : "none";
 }
 
-function Home({ child, kids, onSwitch, earned, total, onStartQuiz, onFeedback, onRedeem, onProgress }) {
+/* ==================================================================
+   CHILD PICKER — shown first when there's more than one child
+   ================================================================== */
+function ChildPicker({ kids, onPick }) {
+  const pointsOf = (k) => (k.growthObservations || []).length * POINTS_PER_OBSERVATION;
+  return (
+    <div style={{ maxWidth: 560, margin: "0 auto", padding: "18px 18px 40px" }}>
+      <h1 style={{ fontFamily: T.title, fontWeight: 600, fontSize: 22, lineHeight: 1.1, letterSpacing: "-0.01em", margin: "0 2px 4px" }}>
+        Choose a child
+      </h1>
+      <p style={{ fontSize: 13.5, color: T.ink55, lineHeight: 1.5, margin: "0 2px 16px" }}>
+        Observations and points are kept separately for each child.
+      </p>
+      {kids.map((k) => (
+        <button key={k.id} onClick={() => onPick(k.id)} className="b-cat-head" style={{ background: T.card, border: `1px solid ${T.line}`, borderRadius: 16, marginBottom: 11 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 13, minWidth: 0 }}>
+            <ChildAvatar value={photoOrNone(k)} size={44} active />
+            <div style={{ textAlign: "left", minWidth: 0 }}>
+              <div style={{ fontSize: 15.5, fontWeight: 600, color: T.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{k.name}</div>
+              <div style={{ fontSize: 12.5, color: T.ink55, marginTop: 2 }}>{pointsOf(k).toLocaleString()} points</div>
+            </div>
+          </div>
+          <span style={{ color: T.ink40, flexShrink: 0 }}><Icon name="chevron" size={20} w={2} /></span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function Home({ child, earned, total, onStartQuiz, onFeedback, onRedeem, onProgress }) {
   const [open, setOpen] = useState(null);
   const remaining = Math.max(0, HEADLINE_TARGET - total);
 
@@ -282,19 +336,6 @@ function Home({ child, kids, onSwitch, earned, total, onStartQuiz, onFeedback, o
             <div style={{ fontFamily: T.title, fontWeight: 600, fontSize: 22, lineHeight: 1.1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{child.name}</div>
           </div>
         </div>
-        {kids.length > 1 && (
-          <div style={{ display: "flex", gap: 8, overflowX: "auto", marginTop: 12, paddingBottom: 2 }}>
-            {kids.map((k) => {
-              const on = k.id === child.id;
-              return (
-                <button key={k.id} onClick={() => !on && onSwitch(k.id)} style={{ display: "flex", alignItems: "center", gap: 7, flexShrink: 0, padding: "5px 12px 5px 5px", borderRadius: 999, cursor: on ? "default" : "pointer", border: `1.5px solid ${on ? T.accent : T.lineStrong}`, background: on ? T.tintBg : T.card, fontFamily: T.body, fontSize: 13, fontWeight: on ? 600 : 500, color: on ? T.accentPress : T.ink70 }}>
-                  <ChildAvatar value={photoOrNone(k)} size={24} active={on} />
-                  {k.name}
-                </button>
-              );
-            })}
-          </div>
-        )}
       </div>
 
       <div style={{ maxWidth: 560, margin: "0 auto", padding: "10px 18px 40px" }}>
