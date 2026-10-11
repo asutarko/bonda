@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { T } from "../theme";
 import { Page } from "../ui";
 
@@ -7,8 +6,8 @@ import { Page } from "../ui";
 // It's just a 2-tile hub (Carer letter, Documents) so the "Generate Carer
 // Letter" quick-access tile on the app's main Home now lands here first,
 // matching that flow, instead of jumping straight into CarerLetterScreen.
-const FONT_TITLE = "'Fraunces', Georgia, serif";
-const FONT_BODY = "'Plus Jakarta Sans', system-ui, -apple-system, sans-serif";
+const FONT_TITLE = "'Literata', Georgia, serif";
+const FONT_BODY = "'Literata', Georgia, serif";
 
 const Tile = ({ icon, label, onClick }) => (
   <button
@@ -38,16 +37,6 @@ const Tile = ({ icon, label, onClick }) => (
 );
 
 export function CarerLetterHubScreen({ push }) {
-  useEffect(() => {
-    const id = "carer-letter-fonts";
-    if (document.getElementById(id)) return;
-    const link = document.createElement("link");
-    link.id = id;
-    link.rel = "stylesheet";
-    link.href = "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap";
-    document.head.appendChild(link);
-  }, []);
-
   return (
     <Page>
       <style>{`.cl-mock, .cl-mock * { font-family: ${FONT_BODY} !important; } .cl-mock b { font-family: ${FONT_TITLE} !important; }`}</style>

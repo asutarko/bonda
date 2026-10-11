@@ -53,13 +53,9 @@ const parseTherapists = (child) => withBlank(child?.therapists, EMPTY_THERAPIST)
 const nonEmptyEntries = (entries) =>
   (entries || []).filter(e => Object.entries(e).some(([k, v]) => k !== "clinicId" && (v || "").trim()));
 
-// This screen's look is ported from the carer-letter.html mockup, which pairs
-// a serif display face (titles, the letter body itself) with a sans body face
-// (labels, UI chrome) instead of the Literata-everywhere look used by the rest
-// of the app — kept local to this screen (same pattern as AddChildProfile.jsx /
-// CommunityApp.jsx) rather than changed globally in theme.js.
-const FONT_TITLE = "'Fraunces', Georgia, serif";
-const FONT_BODY = "'Plus Jakarta Sans', system-ui, -apple-system, sans-serif";
+// Literata everywhere, same as the rest of the app (loaded globally in App.jsx).
+const FONT_TITLE = "'Literata', Georgia, serif";
+const FONT_BODY = "'Literata', Georgia, serif";
 
 // The template was written for foster carers specifically ("I am writing to
 // introduce myself as the foster carer for...") but this letter is now offered
@@ -659,18 +655,6 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
     setSectionSavingKey("therapist", false);
     setSaved("therapist", true);
   };
-
-  // Load the mockup's font pairing once, same guarded-injection pattern as
-  // AddChildProfile.jsx / CommunityApp.jsx use for their own local fonts.
-  useEffect(() => {
-    const id = "carer-letter-fonts";
-    if (document.getElementById(id)) return;
-    const link = document.createElement("link");
-    link.id = id;
-    link.rel = "stylesheet";
-    link.href = "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap";
-    document.head.appendChild(link);
-  }, []);
 
   useEffect(() => {
     const load = async () => {

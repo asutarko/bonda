@@ -9,8 +9,7 @@ import { supabase } from "../lib/supabase";
    Built to the Bonda "Colours & type" reference: warm ivory canvas,
    white cards, hairlines over shadows, teal (#3E6E6A) only for links /
    active / primary, muted tag tones + icon chips for category colour,
-   Fraunces for large titles, Plus Jakarta Sans for the rest, sentence
-   case throughout.
+   Literata throughout, sentence case throughout.
 
    Rewards model (points -> redeem):
    - Each answer earns the points set on the chosen option (managed
@@ -32,9 +31,9 @@ const T = {
   ink70: "rgba(35,32,28,.70)", ink55: "rgba(35,32,28,.55)", ink40: "rgba(35,32,28,.40)", ink28: "rgba(35,32,28,.28)",
   line: "rgba(35,32,28,.12)", lineStrong: "rgba(35,32,28,.20)", focus: "rgba(62,110,106,.16)",
   tintBg: "#E6EDEC", tintTx: "#2E5A56",
-  title: '"Fraunces", Georgia, serif',
-  body: '"Plus Jakarta Sans", system-ui, -apple-system, sans-serif',
-  mono: '"JetBrains Mono", ui-monospace, monospace',
+  title: "'Literata', Georgia, serif",
+  body: "'Literata', Georgia, serif",
+  mono: "'Literata', Georgia, serif",
 };
 
 /* Categories, questions and answer options live in the database
@@ -184,15 +183,6 @@ export default function BondaDevelopment({ childCtx, onAddChild }) {
 
   // switching child mid-flow drops back to that child's home view
   useEffect(() => { setView("home"); setSample(null); }, [child?.id]);
-
-  useEffect(() => {
-    const id = "bonda-fonts";
-    if (document.getElementById(id)) return;
-    const l = document.createElement("link");
-    l.id = id; l.rel = "stylesheet";
-    l.href = "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap";
-    document.head.appendChild(l);
-  }, []);
 
   const { cats, failed } = useCatalogue();
 
