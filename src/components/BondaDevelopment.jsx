@@ -50,7 +50,7 @@ function catFromRow(row) {
     if (!options.length) return;
     let s = sections.find((x) => x.name === q.section);
     if (!s) sections.push((s = { name: q.section, items: [] }));
-    s.items.push({ id: q.id, q: q.question, ex: q.example, options });
+    s.items.push({ id: q.id, kind: q.kind || "observation", q: q.question, ex: q.example, options });
   });
   return { key: row.id, name: row.name, icon: row.icon, bg: row.bg, tx: row.tx, blurb: row.blurb, sections };
 }
@@ -649,7 +649,8 @@ function Quiz({ cat, onDone, onClose }) {
         <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: "auto" }}>
           {cur.options.map((a) => {
             const on = answers[i] === a.id;
-            const muted = a.level == null;
+            // "No chance to see" in an observation; check-in options never have a level
+            const muted = cur.kind === "observation" && a.level == null;
             return (
               <button key={a.id} onClick={() => answer(a)} className="b-ans" style={{
                 border: `1.5px solid ${on ? cat.tx : T.lineStrong}`,
@@ -907,7 +908,7 @@ function makeSampleHistory(cats) {
   const now = Date.now();
   const span = 300;
   cats.forEach((c, ci) => {
-    c.sections.forEach((s) => s.items.forEach((it, si) => {
+    c.sections.forEach((s) => s.items.filter((it) => it.kind === "observation").forEach((it, si) => {
       const offset = ((ci + si) % 5) * 0.05;
       for (let d = span; d >= 0; d -= 12 + ((ci + si) % 4)) {
         const prog = 1 - d / span;                                   // 0 -> 1 over time
