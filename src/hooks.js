@@ -409,6 +409,7 @@ export const accountFromUser = (u) => u ? {
   joined: u.user_metadata?.joined || new Date(u.created_at).toLocaleDateString("en-SG", { month: "short", year: "numeric" }),
   gender: u.user_metadata?.gender || "",
   address: u.user_metadata?.address || "",
+  postalCode: u.user_metadata?.postalCode || "",
   phone: u.user_metadata?.phone || "",
   relationship: u.user_metadata?.relationship || "",
   occupation: u.user_metadata?.occupation || "",

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import { markNewSignup, consumeNewSignupFlag } from "../hooks";
+import { PHONE_COUNTRIES } from "../data";
 
 const ACCENT = "#3E6E6A";
 const INK = "#23201C";
@@ -468,31 +469,6 @@ export function AuthScreen() {
     </div>
   );
 }
-
-// Dial codes for the countries Bonda's parents/caregivers most commonly come
-// from — not the full ISO list, just enough to cover the userbase.
-const PHONE_COUNTRIES = [
-  { iso: "SG", dial: "+65", name: "Singapore" },
-  { iso: "MY", dial: "+60", name: "Malaysia" },
-  { iso: "ID", dial: "+62", name: "Indonesia" },
-  { iso: "PH", dial: "+63", name: "Philippines" },
-  { iso: "IN", dial: "+91", name: "India" },
-  { iso: "CN", dial: "+86", name: "China" },
-  { iso: "MM", dial: "+95", name: "Myanmar" },
-  { iso: "BD", dial: "+880", name: "Bangladesh" },
-  { iso: "VN", dial: "+84", name: "Vietnam" },
-  { iso: "TH", dial: "+66", name: "Thailand" },
-  { iso: "LK", dial: "+94", name: "Sri Lanka" },
-  { iso: "NP", dial: "+977", name: "Nepal" },
-  { iso: "PK", dial: "+92", name: "Pakistan" },
-  { iso: "HK", dial: "+852", name: "Hong Kong" },
-  { iso: "TW", dial: "+886", name: "Taiwan" },
-  { iso: "KR", dial: "+82", name: "South Korea" },
-  { iso: "JP", dial: "+81", name: "Japan" },
-  { iso: "AU", dial: "+61", name: "Australia" },
-  { iso: "GB", dial: "+44", name: "United Kingdom" },
-  { iso: "US", dial: "+1", name: "United States" },
-];
 
 // Shown once, right after a fresh signup, before the account can enter the
 // app — collects the phone number that register() doesn't ask for up front,

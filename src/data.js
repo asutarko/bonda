@@ -73,6 +73,39 @@ export const OCCUPATION_OPTIONS = ["Unemployed", "Homemaker", "Student", "Civil 
 
 export const MARITAL_STATUS_OPTIONS = ["Single", "Married", "Divorced", "Widowed"];
 
+// Dial codes for the countries Bonda's parents/caregivers most commonly come
+// from — not the full ISO list, just enough to cover the userbase.
+export const PHONE_COUNTRIES = [
+  { iso: "SG", dial: "+65", name: "Singapore" },
+  { iso: "MY", dial: "+60", name: "Malaysia" },
+  { iso: "ID", dial: "+62", name: "Indonesia" },
+  { iso: "PH", dial: "+63", name: "Philippines" },
+  { iso: "IN", dial: "+91", name: "India" },
+  { iso: "CN", dial: "+86", name: "China" },
+  { iso: "MM", dial: "+95", name: "Myanmar" },
+  { iso: "BD", dial: "+880", name: "Bangladesh" },
+  { iso: "VN", dial: "+84", name: "Vietnam" },
+  { iso: "TH", dial: "+66", name: "Thailand" },
+  { iso: "LK", dial: "+94", name: "Sri Lanka" },
+  { iso: "NP", dial: "+977", name: "Nepal" },
+  { iso: "PK", dial: "+92", name: "Pakistan" },
+  { iso: "HK", dial: "+852", name: "Hong Kong" },
+  { iso: "TW", dial: "+886", name: "Taiwan" },
+  { iso: "KR", dial: "+82", name: "South Korea" },
+  { iso: "JP", dial: "+81", name: "Japan" },
+  { iso: "AU", dial: "+61", name: "Australia" },
+  { iso: "GB", dial: "+44", name: "United Kingdom" },
+  { iso: "US", dial: "+1", name: "United States" },
+];
+
+// Splits a stored "+6591234567" into its dial code and local number, matching
+// the longest known dial code. Numbers without a known code keep the default.
+export const splitPhone = (full, fallbackDial = "+65") => {
+  const s = (full || "").replace(/\s+/g, "");
+  const match = PHONE_COUNTRIES.map(c => c.dial).sort((a, b) => b.length - a.length).find(d => s.startsWith(d));
+  return match ? { dial: match, number: s.slice(match.length) } : { dial: fallbackDial, number: s.replace(/^\+/, "") };
+};
+
 // Multi-select option lists for the child profile's "About your child" and
 // "Medical information" sections. Selections are joined into the existing
 // free-text columns (diagnosis, known_triggers, diet_program) on save, so an

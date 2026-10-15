@@ -3,7 +3,7 @@ import { supabase } from "../lib/supabase";
 import { uploadPhoto } from "../hooks";
 import { T } from "../theme";
 import { Page, SectionLabel, Input, Select, FieldError, Btn, ComAvatar } from "../ui";
-import { RELATIONSHIP_OPTIONS, OCCUPATION_OPTIONS, MARITAL_STATUS_OPTIONS } from "../data";
+import { RELATIONSHIP_OPTIONS, OCCUPATION_OPTIONS, MARITAL_STATUS_OPTIONS, PHONE_COUNTRIES, splitPhone } from "../data";
 
 // Best-effort split of a legacy single-field name (entered before first/
 // middle/last were separate fields) so this form has something to show —
@@ -25,8 +25,11 @@ export function EditProfileScreen({ account, pop, push }) {
   const [lastName, setLastName] = useState(account?.lastName || initialNameParts.lastName);
   const [avatar, setAvatar] = useState(isExistingPhoto ? "none" : (account?.avatar || "none"));
   const [photo, setPhoto] = useState(isExistingPhoto ? account.avatar : null);
-  const [phone, setPhone] = useState(account?.phone || "");
+  const initialPhone = splitPhone(account?.phone);
+  const [dial, setDial] = useState(initialPhone.dial);
+  const [phone, setPhone] = useState(initialPhone.number);
   const [address, setAddress] = useState(account?.address || "");
+  const [postalCode, setPostalCode] = useState(account?.postalCode || "");
   const [relationship, setRelationship] = useState(account?.relationship || "");
   const initialOccupation = account?.occupation && !OCCUPATION_OPTIONS.includes(account.occupation) ? "Other" : (account?.occupation || "");
   const initialCustomOccupation = account?.occupation && !OCCUPATION_OPTIONS.includes(account.occupation) ? account.occupation : "";
@@ -102,7 +105,9 @@ export function EditProfileScreen({ account, pop, push }) {
     if (!firstName.trim()) fe.firstName = "Please enter your first name.";
     if (!lastName.trim()) fe.lastName = "Please enter your surname.";
     if (!phone.trim()) fe.phone = "Please enter your phone number.";
+    else if (!/^\d+$/.test(phone.replace(/\s+/g, ""))) fe.phone = "Phone number must contain numbers only. Please use numbers.";
     if (!address.trim()) fe.address = "Please enter your home address.";
+    if (!postalCode.trim()) fe.postalCode = "Please enter your postal code.";
     if (!relationship) fe.relationship = "Please select your relationship to the child.";
     if (occupation === "Other" && !customOccupation.trim()) fe.customOccupation = "Please enter your occupation.";
     if (!nationality) fe.nationality = "Please select your nationality.";
@@ -112,6 +117,7 @@ export function EditProfileScreen({ account, pop, push }) {
 
     const finalOccupation = occupation === "Other" ? customOccupation.trim() : occupation;
     const fullName = [firstName, middleName, lastName].map(s => s.trim()).filter(Boolean).join(" ");
+    const fullPhone = `${dial}${phone.replace(/\s+/g, "")}`;
 
     let avatarValue = photo || avatar;
     if (avatarValue && avatarValue.startsWith("data:")) {
@@ -119,9 +125,9 @@ export function EditProfileScreen({ account, pop, push }) {
       if (url) avatarValue = url;
     }
 
-    const { error } = await supabase.auth.updateUser({ data: { name: fullName, firstName: firstName.trim(), middleName: middleName.trim(), lastName: lastName.trim(), avatar: avatarValue, phone: phone.trim(), address: address.trim(), relationship, occupation: finalOccupation, nationality: nationality.trim(), maritalStatus } });
+    const { error } = await supabase.auth.updateUser({ data: { name: fullName, firstName: firstName.trim(), middleName: middleName.trim(), lastName: lastName.trim(), avatar: avatarValue, phone: fullPhone, address: address.trim(), postalCode: postalCode.trim(), relationship, occupation: finalOccupation, nationality: nationality.trim(), maritalStatus } });
     if (error) { setSaving(false); return setErr(error.message); }
-    await supabase.from("profiles").update({ name: fullName, first_name: firstName.trim(), middle_name: middleName.trim(), last_name: lastName.trim(), avatar: avatarValue, phone: phone.trim(), address: address.trim(), relationship, occupation: finalOccupation, nationality: nationality.trim(), marital_status: maritalStatus }).eq("id", account.id);
+    await supabase.from("profiles").update({ name: fullName, first_name: firstName.trim(), middle_name: middleName.trim(), last_name: lastName.trim(), avatar: avatarValue, phone: fullPhone, address: address.trim(), postal_code: postalCode.trim(), relationship, occupation: finalOccupation, nationality: nationality.trim(), marital_status: maritalStatus }).eq("id", account.id);
     setSaving(false);
     // Loaded on demand — sweetalert2 is only needed for this one success
     // popup, so it's kept out of the main bundle until a save actually happens.
@@ -201,10 +207,19 @@ export function EditProfileScreen({ account, pop, push }) {
 
       <SectionLabel style={{ marginBottom: 10 }}>Contact Details</SectionLabel>
       <Input label="Email address" type="email" value={account?.email || ""} disabled style={{ background: T.border, cursor: "not-allowed", color: T.inkSoft }} />
-      <Input label="Phone number" type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="e.g. 9123 4567" />
+      <div style={{ display: "flex", gap: 10 }}>
+        <div style={{ flex: "0 0 118px" }}>
+          <Select label="Country" value={dial} onChange={e => setDial(e.target.value)} options={PHONE_COUNTRIES.map(c => ({ value: c.dial, label: `${c.iso} ${c.dial}` }))} />
+        </div>
+        <div style={{ flex: 1 }}>
+          <Input label="Phone number" type="tel" inputMode="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="e.g. 9123 4567" />
+        </div>
+      </div>
       <FieldError>{errors.phone}</FieldError>
       <Input label="Home address" value={address} onChange={e => setAddress(e.target.value)} placeholder="e.g. Blk 123 Ang Mo Kio Ave 3, #04-56" />
       <FieldError>{errors.address}</FieldError>
+      <Input label="Postal code" inputMode="numeric" autoComplete="postal-code" value={postalCode} onChange={e => setPostalCode(e.target.value)} placeholder="e.g. 560123" />
+      <FieldError>{errors.postalCode}</FieldError>
 
       <Select label="Relationship to the child" value={relationship} onChange={e => setRelationship(e.target.value)} placeholder="Select relationship" options={RELATIONSHIP_OPTIONS} />
       <FieldError>{errors.relationship}</FieldError>

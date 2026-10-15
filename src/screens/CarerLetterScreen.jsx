@@ -185,6 +185,16 @@ const expandRepeatingRows = (html, values, fill) => {
   return out + html.slice(pos);
 };
 
+const isPostalKey = (key) => /postal|post ?code|zip/.test(key);
+const isRecipientKey = (key) => /receiver|recipient/.test(key);
+const isCarerKey = (key) => /carer|your|parent/.test(key);
+
+// Joins an address and its postal code for an "[... address]" placeholder,
+// unless the template also has its own "[... postal code]" placeholder for
+// that party — then the code goes there instead of appearing twice.
+const withPostal = (address, postal, templateHasPostal) =>
+  templateHasPostal ? address : [address, postal].filter(Boolean).join(", ");
+
 const resolvePlaceholder = (match, inner, values) => {
   const key = normalizeBracket(inner);
   const has = (...words) => words.every(w => key.includes(w));
@@ -192,8 +202,10 @@ const resolvePlaceholder = (match, inner, values) => {
   if (has("date") && has("birth")) return values.dob;
   if (key === "date" || has("today") || has("letter", "date")) return values.date;
   if (has("receiver") || has("recipient")) {
+    if (isPostalKey(key)) return values.recipientPostalCode;
     if (has("address")) return values.recipientAddress;
     if (has("phone")) return values.recipientPhone;
+    if (has("email")) return values.recipientEmail;
     return values.recipientName;
   }
   if (has("therap") || has("counsel") || has("intervention") || has("program") || has("centre") || has("center")) {
@@ -247,6 +259,8 @@ const resolvePlaceholder = (match, inner, values) => {
   // wrongly filled with the caregiver's name.
   if (has("licensed")) return values.licensedCarer || match;
   if (has("carer") || has("your") || has("parent")) {
+    if (isPostalKey(key)) return values.yourPostalCode;
+    if (has("address")) return values.yourAddress;
     if (has("phone")) return values.yourPhone;
     if (has("email")) return values.yourEmail;
     if (has("role")) return values.roleLabel;
@@ -273,7 +287,9 @@ const buildRecipientLabel = (clinic, psychologist) => {
 const PLACEHOLDER_HELP = {
   "Recipient name / organisation": "Who this letter is addressed to — e.g. the school, clinic, or agency name.",
   "Recipient address": "The postal address of that recipient (optional — leave the bracket in place if not needed).",
+  "Recipient postal code": "The postal code of that recipient's address (optional).",
   "Recipient phone": "A contact phone number for that recipient (optional).",
+  "Recipient email": "A contact email address for that recipient (optional).",
   "Location": "The city/country you and the child are based in.",
   "Date of birth": "The child's date of birth.",
   "Placement start date": "The date the child came into your care.",
@@ -295,6 +311,8 @@ const PLACEHOLDER_HELP = {
   "Therapist centre": "The centre or early intervention programme the therapist works at.",
   "Therapist phone": "A contact phone number for that therapist or centre.",
   "Your name": "Your full name, as the person signing this letter.",
+  "Your address": "Your home address.",
+  "Your postal code": "The postal code of your home address.",
   "Your phone": "Your contact phone number.",
   "Your email": "Your contact email address.",
   "Licensed foster carer": "Whether you are an officially licensed/registered foster carer (e.g. state \"Yes\" or \"No\") — this isn't something we store automatically, so type it in directly.",
@@ -475,6 +493,8 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
   const [carerMiddleName, setCarerMiddleName] = useState(account?.middleName || initialCarerNameParts.middleName);
   const [carerLastName, setCarerLastName] = useState(account?.lastName || initialCarerNameParts.lastName);
   const [carerPhone, setCarerPhone] = useState(account?.phone || "");
+  const [carerAddress, setCarerAddress] = useState(account?.address || "");
+  const [carerPostalCode, setCarerPostalCode] = useState(account?.postalCode || "");
   const [licensedCarer, setLicensedCarer] = useState(account?.licensedCarer || "");
   const [carerAgency, setCarerAgency] = useState(account?.carerAgency || "");
   const [carerErrors, setCarerErrors] = useState({});
@@ -492,7 +512,10 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
   const [addingRecipient, setAddingRecipient] = useState(false);
   const [newRecipientName, setNewRecipientName] = useState("");
   const [newRecipientAddress, setNewRecipientAddress] = useState("");
+  const [newRecipientPostalCode, setNewRecipientPostalCode] = useState("");
   const [newRecipientPhone, setNewRecipientPhone] = useState("");
+  const [newRecipientHasEmail, setNewRecipientHasEmail] = useState(false);
+  const [newRecipientEmail, setNewRecipientEmail] = useState("");
   const [savingRecipient, setSavingRecipient] = useState(false);
 
   // Same step also covers the letter-relevant subset of the selected child's
@@ -533,7 +556,10 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
     setAddingRecipient(false);
     setNewRecipientName("");
     setNewRecipientAddress("");
+    setNewRecipientPostalCode("");
     setNewRecipientPhone("");
+    setNewRecipientHasEmail(false);
+    setNewRecipientEmail("");
     setPlacementStartDate(selectedChild?.placementStartDate || "");
     setPlacementType(selectedChild?.placementType || "");
     setCourtOrderRef(selectedChild?.courtOrderRef || "");
@@ -573,7 +599,7 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
       therapists: therapistEntries,
     };
     setShowCarerSetup(false);
-    buildAndSetLetter(childData, { name: carerFullName, phone: carerPhone.trim(), email: account?.email, licensedCarer, carerAgency: carerAgency.trim() });
+    buildAndSetLetter(childData, { name: carerFullName, phone: carerPhone.trim(), address: carerAddress.trim(), postalCode: carerPostalCode.trim(), email: account?.email, licensedCarer, carerAgency: carerAgency.trim() });
   };
 
   // Per-section saves below let each group be filled and saved on its own,
@@ -596,11 +622,13 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
         middleName: carerMiddleName.trim(),
         lastName: carerLastName.trim(),
         phone: carerPhone.trim(),
+        address: carerAddress.trim(),
+        postalCode: carerPostalCode.trim(),
         licensedCarer,
         carerAgency: carerAgency.trim(),
       },
     });
-    if (!error && account?.id) await supabase.from("profiles").update({ name: carerFullName, first_name: carerFirstName.trim(), middle_name: carerMiddleName.trim(), last_name: carerLastName.trim(), phone: carerPhone.trim() }).eq("id", account.id);
+    if (!error && account?.id) await supabase.from("profiles").update({ name: carerFullName, first_name: carerFirstName.trim(), middle_name: carerMiddleName.trim(), last_name: carerLastName.trim(), phone: carerPhone.trim(), address: carerAddress.trim(), postal_code: carerPostalCode.trim() }).eq("id", account.id);
     setSectionSavingKey("carer", false);
     if (!error) setSaved("carer", true);
   };
@@ -683,23 +711,37 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
     return () => { cancelled = true; };
   }, [account?.id]);
 
+  // Email is only asked for once the caregiver says the recipient has one —
+  // and then it has to look like a real address before the recipient saves.
+  const newRecipientEmailValid = !newRecipientHasEmail || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newRecipientEmail.trim());
+  const canSaveNewRecipient = !!newRecipientName.trim() && newRecipientEmailValid;
+
+  const resetNewRecipient = () => {
+    setAddingRecipient(false);
+    setNewRecipientName("");
+    setNewRecipientAddress("");
+    setNewRecipientPostalCode("");
+    setNewRecipientPhone("");
+    setNewRecipientHasEmail(false);
+    setNewRecipientEmail("");
+  };
+
   const saveNewRecipient = async () => {
-    if (!newRecipientName.trim() || !account?.id) return;
+    if (!canSaveNewRecipient || !account?.id) return;
     setSavingRecipient(true);
     const { data, error } = await supabase.from("carer_letter_recipients").insert({
       user_id: account.id,
       name: newRecipientName.trim(),
       address: newRecipientAddress.trim(),
+      postal_code: newRecipientPostalCode.trim(),
       phone: newRecipientPhone.trim(),
+      email: newRecipientHasEmail ? newRecipientEmail.trim() : "",
     }).select().single();
     setSavingRecipient(false);
     if (error || !data) return;
     setRecipients(rs => [...rs, data].sort((a, b) => a.name.localeCompare(b.name)));
     setRecipientId(data.id);
-    setAddingRecipient(false);
-    setNewRecipientName("");
-    setNewRecipientAddress("");
-    setNewRecipientPhone("");
+    resetNewRecipient();
   };
 
   useEffect(() => {
@@ -770,11 +812,17 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
     // always wins over the admin-assigned clinic/psychologist, since picking
     // one is a deliberate choice of where *this* letter is going.
     const chosenRecipient = recipients.find(r => r.id === childData.recipientId) || null;
+    const templateKeys = [...(template.content || "").matchAll(/\[([^\]]+)\]/g)].map(m => normalizeBracket(m[1]));
+    const templateHasRecipientPostal = templateKeys.some(k => isPostalKey(k) && isRecipientKey(k));
+    const templateHasYourPostal = templateKeys.some(k => isPostalKey(k) && isCarerKey(k));
+    const recipientPostalCode = chosenRecipient?.postal_code?.trim() || "";
     const values = {
       date: formatDate(new Date()),
       recipientName: chosenRecipient?.name?.trim() || buildRecipientLabel(assignedClinic, assignedPsychologist) || listForLetter(childData.clinics, "name") || "[Recipient name / organisation]",
-      recipientAddress: chosenRecipient?.address?.trim() || assignedClinic?.address?.trim() || "[Recipient address]",
+      recipientAddress: withPostal(chosenRecipient?.address?.trim() || assignedClinic?.address?.trim() || "", recipientPostalCode, templateHasRecipientPostal) || "[Recipient address]",
+      recipientPostalCode: recipientPostalCode || "[Recipient postal code]",
       recipientPhone: chosenRecipient?.phone?.trim() || assignedClinic?.phone?.trim() || "[Recipient phone]",
+      recipientEmail: chosenRecipient?.email?.trim() || "[Recipient email]",
       location: childData.location?.trim() || "[Location]",
       childName: childData.name,
       dob: childData.dob ? formatDate(childData.dob) : "[Date of birth]",
@@ -820,6 +868,8 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
       pronoun: pronounFor(childData.gender),
       roleLabel: roleLabelFor(childData.caregiverType, childData.caregiverLabel),
       yourName: carerData.name || "[Your name]",
+      yourAddress: withPostal(carerData.address || "", carerData.postalCode || "", templateHasYourPostal) || "[Your address]",
+      yourPostalCode: carerData.postalCode || "[Your postal code]",
       yourPhone: carerData.phone || "[Your phone]",
       yourEmail: carerData.email || "[Your email]",
       licensedCarer: carerData.licensedCarer || "",
@@ -968,6 +1018,16 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
                 </div>
 
                 <div className="fld">
+                  <label>Your address</label>
+                  <input value={carerAddress} onChange={e => setCarerAddress(e.target.value)} placeholder="e.g. Blk 123 Ang Mo Kio Ave 3, #04-56" />
+                </div>
+
+                <div className="fld">
+                  <label>Postal code</label>
+                  <input inputMode="numeric" autoComplete="postal-code" value={carerPostalCode} onChange={e => setCarerPostalCode(e.target.value)} placeholder="e.g. 560123" />
+                </div>
+
+                <div className="fld">
                   <label>Are you a licensed / registered foster carer?</label>
                   <div className="selwrap">
                     <select value={licensedCarer} onChange={e => setLicensedCarer(e.target.value)}>
@@ -1016,7 +1076,7 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
                   </div>
                   {!addingRecipient && recipientId && (() => {
                     const r = recipients.find(x => x.id === recipientId);
-                    const details = [r?.address, r?.phone].filter(Boolean).join(" · ");
+                    const details = [[r?.address, r?.postal_code].filter(Boolean).join(", "), r?.phone, r?.email].filter(Boolean).join(" · ");
                     return details ? <p className="hint">{details}</p> : null;
                   })()}
                   {carerErrors.recipient && <p className="err">{carerErrors.recipient}</p>}
@@ -1033,21 +1093,41 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
                       <input value={newRecipientAddress} onChange={e => setNewRecipientAddress(e.target.value)} placeholder="e.g. 1 Sunrise Ave, #01-01" />
                     </div>
                     <div className="fld">
+                      <label>Postal code</label>
+                      <input inputMode="numeric" autoComplete="postal-code" value={newRecipientPostalCode} onChange={e => setNewRecipientPostalCode(e.target.value)} placeholder="e.g. 560123" />
+                    </div>
+                    <div className="fld">
                       <label>Phone</label>
                       <input type="tel" value={newRecipientPhone} onChange={e => setNewRecipientPhone(e.target.value)} placeholder="e.g. 6123 4567" />
                     </div>
+                    <div className="fld">
+                      <label>Does this recipient have an email address?</label>
+                      <div className="selwrap">
+                        <select value={newRecipientHasEmail ? "yes" : "no"} onChange={e => { const yes = e.target.value === "yes"; setNewRecipientHasEmail(yes); if (!yes) setNewRecipientEmail(""); }}>
+                          <option value="no">No</option>
+                          <option value="yes">Yes</option>
+                        </select>
+                      </div>
+                    </div>
+                    {newRecipientHasEmail && (
+                      <div className="fld">
+                        <label>Email address <span className="req">*</span></label>
+                        <input type="email" autoComplete="email" value={newRecipientEmail} onChange={e => setNewRecipientEmail(e.target.value)} placeholder="e.g. office@sunrise.edu.sg" />
+                        {newRecipientEmail.trim() && !newRecipientEmailValid && <p className="err">Please enter a valid email address.</p>}
+                      </div>
+                    )}
                     <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
                       <button
                         type="button"
                         onClick={saveNewRecipient}
-                        disabled={!newRecipientName.trim() || savingRecipient}
-                        style={{ flex: 1, border: 0, borderRadius: 12, padding: "12px 16px", fontSize: 14, fontWeight: 700, cursor: newRecipientName.trim() ? "pointer" : "not-allowed", background: newRecipientName.trim() ? T.purple : T.border, color: "#fff" }}
+                        disabled={!canSaveNewRecipient || savingRecipient}
+                        style={{ flex: 1, border: 0, borderRadius: 12, padding: "12px 16px", fontSize: 14, fontWeight: 700, cursor: canSaveNewRecipient ? "pointer" : "not-allowed", background: canSaveNewRecipient ? T.purple : T.border, color: "#fff" }}
                       >
                         {savingRecipient ? "Saving..." : "Save recipient"}
                       </button>
                       <button
                         type="button"
-                        onClick={() => { setAddingRecipient(false); setNewRecipientName(""); setNewRecipientAddress(""); setNewRecipientPhone(""); }}
+                        onClick={resetNewRecipient}
                         style={{ border: `1px solid ${T.border}`, borderRadius: 12, padding: "12px 16px", fontSize: 14, fontWeight: 700, cursor: "pointer", background: T.surface, color: T.inkSoft }}
                       >
                         Cancel
