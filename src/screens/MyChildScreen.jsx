@@ -380,7 +380,6 @@ export function MyChildScreen({ childCtx, push }) {
   const [subTab, setSubTab] = useState("profile"); // profile | devlog | growth
 
   const { activeChild, children, updateChild } = childCtx || {};
-  const isFosterChild = activeChild?.caregiverType === "foster";
   const isChildActive = !!activeChild?.active;
 
   // The Development tab needs an approved child profile (devLog write policies
@@ -428,20 +427,6 @@ export function MyChildScreen({ childCtx, push }) {
 
       {children?.length > 1 && (
         <p style={{ margin: "0 0 20px", color: T.inkMuted, fontSize: 12, lineHeight: 1.5 }}>Want to view another child's data? Tap them on the Home tab to switch.</p>
-      )}
-
-      {isFosterChild && (
-        <div style={{ background: T.ink, borderRadius: T.r, padding: "12px 14px", marginBottom: 20, display: "flex", gap: 12, alignItems: "center" }}>
-          <div style={{ width: 34, height: 34, borderRadius: 8, background: "rgba(255,255,255,0.12)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-              <path d="M9 16 C9 16 2 11.5 2 6.5 C2 4 3.5 2.5 5.5 2.5 C7 2.5 8 3.5 9 5 C10 3.5 11 2.5 12.5 2.5 C14.5 2.5 16 4 16 6.5 C16 11.5 9 16 9 16Z" stroke="white" strokeWidth="1.4" fill="white" fillOpacity="0.2"/>
-            </svg>
-          </div>
-          <div style={{ flex: 1 }}>
-            <p style={{ margin: "0 0 2px", color: "white", fontWeight: 800, fontSize: 13 }}>Foster Child Profile</p>
-            <p style={{ margin: 0, color: "rgba(255,255,255,0.6)", fontSize: 11, lineHeight: 1.5 }}>No medical records? Use this guide to document observations and prepare for appointments.</p>
-          </div>
-        </div>
       )}
 
       {SHOW_DEV_GROWTH_TABS && (

@@ -160,13 +160,10 @@ export function HomeScreen({ childCtx, setTab, push, account }) {
 
   const q = quotes[qIdx] || quotes[0];
 
-  const isFoster = activeChild?.caregiverType === "foster";
-
   const quickActions = [
-    ...(isFoster ? [{ type: "foster", category: "documents", label: "Foster Parent Hub", desc: "HealthHub, CDA, school access guides", action: () => push("fosterHub"), isFoster: true }] : []),
     { type: "letter", category: "documents", label: "Generate Carer Letter", desc: "Introduction letter for clinics & schools", action: () => push("carerLetterHub") },
     { type: "grants", category: "support", label: "Subsidies & Grants", desc: "Government schemes that cut therapy & care costs", action: () => push("subsidiesGrants") },
-    { type: "subsidies", category: "support", label: "Support Hotlines", desc: "School, doctor & therapist contacts", action: () => push("subsidies") },
+    { type: "subsidies", category: "support", label: "Support Hotlines", desc: "Teacher, doctor & therapist contacts", action: () => push("subsidies") },
     { type: "devGuide", category: "guides", label: "Development & Behaviour Guide", desc: "Home activities & behaviour training", action: () => push("devGuide") },
     { type: "emotions", category: "guides", label: "Emotion & Behaviour", desc: "Understand feelings & behaviours", action: () => push("emotionsGuide") },
   ];
@@ -237,11 +234,20 @@ export function HomeScreen({ childCtx, setTab, push, account }) {
           </Card>
         ) : (
           <div>
-            <SectionLabel style={{ marginBottom: 10 }}>My Children</SectionLabel>
-            <Card style={{ padding: "16px 14px", position: "relative" }}>
-              <button onClick={() => push("allChildren")} style={{ position: "absolute", top: 14, right: 14, background: "none", border: "none", color: T.purple, fontWeight: 700, fontSize: 11.5, cursor: "pointer", fontFamily: T.fontBody }}>
-                View all
-              </button>
+            {/* "View all" sits in the heading row rather than absolutely
+                positioned inside the card, where it overlapped the avatar row
+                once there were enough children to reach the right edge. */}
+            <SectionLabel
+              style={{ marginBottom: 10 }}
+              action={
+                <button onClick={() => push("allChildren")} style={{ background: "none", border: "none", padding: 0, color: T.purple, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: T.fontBody, flexShrink: 0 }}>
+                  View all
+                </button>
+              }
+            >
+              My Children
+            </SectionLabel>
+            <Card style={{ padding: "16px 14px" }}>
               <div style={{ display: "flex", gap: 14, overflowX: "auto", paddingBottom: 2 }}>
                 {children.filter(c => c.active).map(c => {
                   const isSelected = activeChild?.id === c.id;

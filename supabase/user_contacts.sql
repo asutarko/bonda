@@ -1,11 +1,11 @@
 -- Run this once in the Supabase Dashboard → SQL Editor for this project.
 -- Personal contacts book (the "Contacts" screen, formerly Support Hotlines):
--- each user keeps their own school, doctor/clinic and therapist contacts.
+-- each user keeps their own teacher, doctor, clinic and therapist contacts.
 
 create table if not exists public.user_contacts (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
-  category text not null check (category in ('school', 'doctor', 'therapist')),
+  category text not null check (category in ('school', 'doctor', 'clinic', 'therapist')),
   name text not null,
   organisation text not null default '',
   phone text not null default '',
