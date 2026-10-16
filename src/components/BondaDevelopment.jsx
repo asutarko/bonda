@@ -752,13 +752,17 @@ function Feedback({ onClose }) {
 }
 
 /* ==================================================================
-   PROGRESS OVER TIME — week / month / year
+   PROGRESS OVER TIME — chosen period (from / to)
    ================================================================== */
-const PERIODS = [
-  { key: "week",  label: "Week",  days: 7,   buckets: 7 },
-  { key: "month", label: "Month", days: 30,  buckets: 5 },
-  { key: "year",  label: "Year",  days: 365, buckets: 12 },
-];
+const isoDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const fmtDay = (iso) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+
+// daily points for short periods, weekly up to ~3 months, monthly beyond
+function bucketCount(days) {
+  if (days <= 14) return days;
+  if (days <= 90) return Math.ceil(days / 7);
+  return Math.min(12, Math.ceil(days / 30));
+}
 
 function scoreWord(avg) {
   if (avg == null) return "no observations yet";
@@ -768,15 +772,18 @@ function scoreWord(avg) {
 }
 
 function Progress({ cats: catList, childName, observations, onClose, onLoadSample }) {
-  const [period, setPeriod] = useState("month");
-  const P = PERIODS.find((p) => p.key === period);
   const DAY = 86400000;
-  const now = Date.now();
-  const start = now - P.days * DAY;
+  const today = isoDay(new Date());
+  const [from, setFrom] = useState(() => isoDay(new Date(Date.now() - 29 * DAY)));
+  const [to, setTo] = useState(today);
+  const start = new Date(from).getTime();
+  const end = new Date(to).getTime() + DAY; // "to" day is included
+  const days = Math.max(1, Math.round((end - start) / DAY));
+  const P = { days, buckets: bucketCount(days) };
   const prevStart = start - P.days * DAY;
   const at = (o) => new Date(o.date).getTime();
 
-  const inWin = observations.filter((o) => at(o) >= start);
+  const inWin = observations.filter((o) => at(o) >= start && at(o) < end);
   const prevWin = observations.filter((o) => at(o) >= prevStart && at(o) < start);
   const daysObserved = new Set(inWin.map((o) => o.date)).size;
 
@@ -809,13 +816,15 @@ function Progress({ cats: catList, childName, observations, onClose, onLoadSampl
       </div>
 
       <div style={{ maxWidth: 560, width: "100%", margin: "0 auto", padding: "16px 18px 30px", flex: 1 }}>
-        <div style={{ display: "flex", gap: 5, background: T.card, border: `1px solid ${T.line}`, borderRadius: 12, padding: 4, marginBottom: 18 }}>
-          {PERIODS.map((p) => {
-            const on = period === p.key;
-            return (
-              <button key={p.key} onClick={() => setPeriod(p.key)} style={{ flex: 1, padding: "9px 0", borderRadius: 9, border: "none", cursor: "pointer", fontFamily: T.body, fontWeight: 600, fontSize: 13.5, background: on ? T.accent : "transparent", color: on ? "#fff" : T.ink55 }}>{p.label}</button>
-            );
-          })}
+        <div style={{ display: "flex", gap: 10, background: T.card, border: `1px solid ${T.line}`, borderRadius: 12, padding: 12, marginBottom: 18 }}>
+          <label style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 11.5, fontWeight: 600, color: T.ink55, marginBottom: 5 }}>From</div>
+            <input type="date" value={from} max={to} onChange={(e) => e.target.value && setFrom(e.target.value)} className="b-input" style={{ width: "100%", boxSizing: "border-box" }} />
+          </label>
+          <label style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 11.5, fontWeight: 600, color: T.ink55, marginBottom: 5 }}>To</div>
+            <input type="date" value={to} min={from} max={today} onChange={(e) => e.target.value && setTo(e.target.value)} className="b-input" style={{ width: "100%", boxSizing: "border-box" }} />
+          </label>
         </div>
 
         {empty ? (
@@ -830,7 +839,7 @@ function Progress({ cats: catList, childName, observations, onClose, onLoadSampl
           <>
             <div style={{ background: T.card, border: `1px solid ${T.line}`, borderRadius: 16, padding: 16, marginBottom: 16 }}>
               <div style={{ fontSize: 13, color: T.ink55, lineHeight: 1.6 }}>
-                In the last {P.label.toLowerCase()}, you observed on <b style={{ color: T.ink }}>{daysObserved} day{daysObserved === 1 ? "" : "s"}</b>
+                From {fmtDay(from)} to {fmtDay(to)}, you observed on <b style={{ color: T.ink }}>{daysObserved} day{daysObserved === 1 ? "" : "s"}</b>
                 {gained.length > 0 ? <> and <b style={{ color: T.ink }}>{gained.length} skill{gained.length === 1 ? "" : "s"}</b> reached “usually”.</> : "."}
               </div>
             </div>
@@ -850,7 +859,7 @@ function Progress({ cats: catList, childName, observations, onClose, onLoadSampl
             ))}
 
             <p style={{ fontSize: 11, color: T.ink40, lineHeight: 1.5, marginTop: 14 }}>
-              Development moves slowly — a flat or quiet {period === "week" ? "week" : "period"} is normal, not a step back. Gaps mean fewer observations, not a drop. This is {childName}'s own path over time, not a score to beat.
+              Development moves slowly — a flat or quiet period is normal, not a step back. Gaps mean fewer observations, not a drop. This is {childName}'s own path over time, not a score to beat.
             </p>
           </>
         )}
