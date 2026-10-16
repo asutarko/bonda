@@ -542,6 +542,7 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
   const [addingRecipient, setAddingRecipient] = useState(false);
   const [newRecipientName, setNewRecipientName] = useState("");
   const [newRecipientAddress, setNewRecipientAddress] = useState("");
+  const [newRecipientHasAddress, setNewRecipientHasAddress] = useState(false);
   const [newRecipientPostalCode, setNewRecipientPostalCode] = useState("");
   const [newRecipientDial, setNewRecipientDial] = useState("+65");
   const [newRecipientPhone, setNewRecipientPhone] = useState("");
@@ -590,6 +591,7 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
     setNewRecipientPostalCode("");
     setNewRecipientDial("+65");
     setNewRecipientPhone("");
+    setNewRecipientHasAddress(false);
     setNewRecipientHasEmail(false);
     setNewRecipientEmail("");
     setPlacementStartDate(selectedChild?.placementStartDate || "");
@@ -743,10 +745,12 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
     return () => { cancelled = true; };
   }, [account?.id]);
 
-  // Email is only asked for once the caregiver says the recipient has one —
-  // and then it has to look like a real address before the recipient saves.
+  // Email and address are only asked for once the caregiver says the
+  // recipient has one — and then they have to be filled in (the email has to
+  // look like a real address) before the recipient saves.
   const newRecipientEmailValid = !newRecipientHasEmail || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newRecipientEmail.trim());
-  const canSaveNewRecipient = !!newRecipientName.trim() && newRecipientEmailValid;
+  const newRecipientAddressValid = !newRecipientHasAddress || !!newRecipientAddress.trim();
+  const canSaveNewRecipient = !!newRecipientName.trim() && newRecipientEmailValid && newRecipientAddressValid;
 
   const resetNewRecipient = () => {
     setAddingRecipient(false);
@@ -755,6 +759,7 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
     setNewRecipientPostalCode("");
     setNewRecipientDial("+65");
     setNewRecipientPhone("");
+    setNewRecipientHasAddress(false);
     setNewRecipientHasEmail(false);
     setNewRecipientEmail("");
   };
@@ -765,8 +770,8 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
     const { data, error } = await supabase.from("carer_letter_recipients").insert({
       user_id: account.id,
       name: newRecipientName.trim(),
-      address: newRecipientAddress.trim(),
-      postal_code: newRecipientPostalCode.trim(),
+      address: newRecipientHasAddress ? newRecipientAddress.trim() : "",
+      postal_code: newRecipientHasAddress ? newRecipientPostalCode.trim() : "",
       phone: joinContactPhone(newRecipientDial, newRecipientPhone.trim()),
       email: newRecipientHasEmail ? newRecipientEmail.trim() : "",
     }).select().single();
@@ -1140,13 +1145,26 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
                       <input value={newRecipientName} onChange={e => setNewRecipientName(e.target.value)} placeholder="e.g. Sunrise Primary School" />
                     </div>
                     <div className="fld">
-                      <label>Address</label>
-                      <input value={newRecipientAddress} onChange={e => setNewRecipientAddress(e.target.value)} placeholder="e.g. 1 Sunrise Ave, #01-01" />
+                      <label>Does this recipient have an address?</label>
+                      <div className="selwrap">
+                        <select value={newRecipientHasAddress ? "yes" : "no"} onChange={e => { const yes = e.target.value === "yes"; setNewRecipientHasAddress(yes); if (!yes) { setNewRecipientAddress(""); setNewRecipientPostalCode(""); } }}>
+                          <option value="no">No</option>
+                          <option value="yes">Yes</option>
+                        </select>
+                      </div>
                     </div>
-                    <div className="fld">
-                      <label>Postal code</label>
-                      <input inputMode="numeric" autoComplete="postal-code" value={newRecipientPostalCode} onChange={e => setNewRecipientPostalCode(e.target.value)} placeholder="e.g. 560123" />
-                    </div>
+                    {newRecipientHasAddress && (
+                      <>
+                        <div className="fld">
+                          <label>Address <span className="req">*</span></label>
+                          <input value={newRecipientAddress} onChange={e => setNewRecipientAddress(e.target.value)} placeholder="e.g. 1 Sunrise Ave, #01-01" />
+                        </div>
+                        <div className="fld">
+                          <label>Postal code</label>
+                          <input inputMode="numeric" autoComplete="postal-code" value={newRecipientPostalCode} onChange={e => setNewRecipientPostalCode(e.target.value)} placeholder="e.g. 560123" />
+                        </div>
+                      </>
+                    )}
                     <div style={{ display: "flex", gap: 10 }}>
                       <div className="fld" style={{ flex: "0 0 118px" }}>
                         <label>Country</label>
