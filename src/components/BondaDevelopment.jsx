@@ -640,13 +640,9 @@ function Quiz({ cat, onDone, onClose }) {
         <div style={{ fontFamily: T.title, fontWeight: 600, fontSize: 25, lineHeight: 1.2, letterSpacing: "-0.01em", marginBottom: 10 }}>
           {/[?.!]$/.test(cur.q.trim()) ? cur.q : `${cur.q}?`}
         </div>
-        {cur.ex ? (
-          <div style={{ background: T.card, border: `1px solid ${T.line}`, borderRadius: 12, padding: "12px 14px", fontSize: 13.5, color: T.ink55, lineHeight: 1.5, marginBottom: 24 }}>
-            <b style={{ color: T.ink70, fontWeight: 600 }}>For example:</b> {cur.ex}
-          </div>
-        ) : <div style={{ marginBottom: 14 }} />}
+        <div style={{ marginBottom: 14 }} />
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: "auto" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {cur.options.map((a) => {
             const on = answers[i] === a.id;
             // "No chance to see" in an observation; check-in options never have a level
