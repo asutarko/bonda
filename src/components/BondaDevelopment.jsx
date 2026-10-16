@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useBackHandler } from "../hooks";
 import { ChildAvatar } from "../ui";
 import { supabase } from "../lib/supabase";
@@ -756,19 +756,13 @@ function Feedback({ onClose }) {
    ================================================================== */
 const isoDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const fmtDay = (iso) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+const fmtShort = (ms) => new Date(ms).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
 
 // daily points for short periods, weekly up to ~3 months, monthly beyond
 function bucketCount(days) {
   if (days <= 14) return days;
   if (days <= 90) return Math.ceil(days / 7);
   return Math.min(12, Math.ceil(days / 30));
-}
-
-function scoreWord(avg) {
-  if (avg == null) return "no observations yet";
-  if (avg < 0.67) return "mostly not yet";
-  if (avg < 1.34) return "mostly sometimes";
-  return "mostly usually";
 }
 
 function Progress({ cats: catList, childName, observations, onClose, onLoadSample }) {
@@ -780,23 +774,28 @@ function Progress({ cats: catList, childName, observations, onClose, onLoadSampl
   const end = new Date(to).getTime() + DAY; // "to" day is included
   const days = Math.max(1, Math.round((end - start) / DAY));
   const P = { days, buckets: bucketCount(days) };
-  const prevStart = start - P.days * DAY;
   const at = (o) => new Date(o.date).getTime();
 
   const inWin = observations.filter((o) => at(o) >= start && at(o) < end);
-  const prevWin = observations.filter((o) => at(o) >= prevStart && at(o) < start);
   const daysObserved = new Set(inWin.map((o) => o.date)).size;
 
-  const cats = catList.map((c) => {
+  // points earned per category in each slice of the period
+  const bounds = Array.from({ length: P.buckets }, (_, b) => [
+    start + (b * P.days / P.buckets) * DAY,
+    start + ((b + 1) * P.days / P.buckets) * DAY,
+  ]);
+  const sum = (arr) => arr.reduce((s, o) => s + (o.points || 0), 0);
+  const series = catList.map((c) => {
     const mine = inWin.filter((o) => o.category === c.key);
-    const prevMine = prevWin.filter((o) => o.category === c.key);
-    const mean = (arr) => (arr.length ? arr.reduce((s, o) => s + o.score, 0) / arr.length : null);
-    const buckets = Array.from({ length: P.buckets }, (_, b) => {
-      const bStart = start + (b * P.days / P.buckets) * DAY;
-      const bEnd = start + ((b + 1) * P.days / P.buckets) * DAY;
-      return mean(mine.filter((o) => at(o) >= bStart && at(o) < bEnd));
-    });
-    return { c, avg: mean(mine), prevAvg: mean(prevMine), buckets };
+    return {
+      key: c.key, name: c.name, color: c.tx,
+      total: sum(mine),
+      values: bounds.map(([s, e]) => sum(mine.filter((o) => at(o) >= s && at(o) < e))),
+    };
+  });
+  const bucketLabels = bounds.map(([s, e]) => {
+    const a = fmtShort(s), z = fmtShort(e - DAY);
+    return a === z ? a : `${a} – ${z}`;
   });
 
   // skills newly reaching "usually" (score 2) within the window
@@ -844,19 +843,7 @@ function Progress({ cats: catList, childName, observations, onClose, onLoadSampl
               </div>
             </div>
 
-            {cats.map(({ c, avg, prevAvg, buckets }) => (
-              <div key={c.key} style={{ background: T.card, border: `1px solid ${T.line}`, borderRadius: 16, padding: 15, marginBottom: 11 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <IconChip name={c.icon} bg={c.bg} fg={c.tx} size={38} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 14.5, fontWeight: 600, color: T.ink }}>{c.name}</div>
-                    <div style={{ fontSize: 12.5, color: T.ink55, marginTop: 1 }}>{scoreWord(avg)}</div>
-                  </div>
-                  <Delta now={avg} prev={prevAvg} />
-                </div>
-                <TrendLine buckets={buckets} color={c.tx} track={c.bg} />
-              </div>
-            ))}
+            <PointsChart series={series} labels={bucketLabels} />
 
             <p style={{ fontSize: 11, color: T.ink40, lineHeight: 1.5, marginTop: 14 }}>
               Development moves slowly — a flat or quiet period is normal, not a step back. Gaps mean fewer observations, not a drop. This is {childName}'s own path over time, not a score to beat.
@@ -868,29 +855,98 @@ function Progress({ cats: catList, childName, observations, onClose, onLoadSampl
   );
 }
 
-function Delta({ now, prev }) {
-  if (now == null) return null;
-  if (prev == null) return <span style={{ fontSize: 11.5, color: T.ink40, flexShrink: 0 }}>new</span>;
-  const d = now - prev;
-  const flat = Math.abs(d) < 0.12;
-  const up = d > 0;
-  const color = flat ? T.ink40 : up ? T.accent : T.ink55;
-  return <span style={{ fontSize: 12, fontWeight: 600, color, flexShrink: 0 }}>{flat ? "→ steady" : up ? "↑ up" : "↓ down"}</span>;
+// 1, 2, 2.5, 5 × 10^n — a round step for the y-axis
+function niceStep(raw) {
+  const p = Math.pow(10, Math.floor(Math.log10(Math.max(raw, 1))));
+  const f = raw / p;
+  return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * p;
 }
 
-function TrendLine({ buckets, color, track }) {
-  const w = 300, h = 42, padY = 6;
-  const n = buckets.length;
-  const xOf = (i) => (n === 1 ? w / 2 : (i * w) / (n - 1));
-  const yOf = (v) => padY + (1 - v / 2) * (h - 2 * padY);
-  const pts = buckets.map((v, i) => (v == null ? null : { x: xOf(i), y: yOf(v) })).filter(Boolean);
-  const path = pts.map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(" ");
+/* one line per category: points earned in each slice of the period */
+function PointsChart({ series, labels }) {
+  const boxRef = useRef(null);
+  const [w, setW] = useState(320);
+  const [hover, setHover] = useState(null);
+  useEffect(() => {
+    const el = boxRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([e]) => setW(Math.max(200, Math.round(e.contentRect.width))));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const h = 180, padL = 40, padR = 10, padT = 12, padB = 26;
+  const n = labels.length;
+  const peak = Math.max(0, ...series.flatMap((s) => s.values));
+  const step = niceStep(Math.max(peak, 3) / 3);
+  const top = step * Math.max(1, Math.ceil(peak / step));
+  const ticks = Array.from({ length: Math.round(top / step) + 1 }, (_, k) => k * step);
+  const xOf = (i) => padL + (n === 1 ? (w - padL - padR) / 2 : (i * (w - padL - padR)) / (n - 1));
+  const yOf = (v) => padT + (1 - v / top) * (h - padT - padB);
+  const xTicks = n <= 3 ? labels.map((_, i) => i) : [0, Math.floor((n - 1) / 2), n - 1];
+  const fmtN = (v) => Math.round(v).toLocaleString();
+
+  const onMove = (e) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - r.left;
+    const i = n === 1 ? 0 : Math.round(((x - padL) / (w - padL - padR)) * (n - 1));
+    setHover(Math.min(n - 1, Math.max(0, i)));
+  };
+
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none" style={{ display: "block", marginTop: 10 }}>
-      <line x1="0" y1={yOf(1)} x2={w} y2={yOf(1)} stroke={track} strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
-      {pts.length > 1 && <path d={path} fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />}
-      {pts.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r="3.2" fill={color} vectorEffect="non-scaling-stroke" />)}
-    </svg>
+    <div style={{ background: T.card, border: `1px solid ${T.line}`, borderRadius: 16, padding: 15, marginBottom: 11 }}>
+      <div style={{ fontSize: 14.5, fontWeight: 600, color: T.ink, marginBottom: 10 }}>Points over time</div>
+
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 14px", marginBottom: 10 }}>
+        {series.map((s) => (
+          <div key={s.key} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, color: T.ink70 }}>
+            <span style={{ width: 14, height: 3, borderRadius: 2, background: s.color, flexShrink: 0 }} />
+            {s.name}
+            <b style={{ color: T.ink, fontWeight: 600 }}>{fmtN(s.total)}</b>
+          </div>
+        ))}
+      </div>
+
+      <div ref={boxRef} style={{ position: "relative" }}>
+        <svg width={w} height={h} style={{ display: "block", touchAction: "pan-y" }}
+          onPointerMove={onMove} onPointerDown={onMove} onPointerLeave={() => setHover(null)}
+          role="img" aria-label="Points earned per category over the chosen period">
+          {ticks.map((t) => (
+            <g key={t}>
+              <line x1={padL} x2={w - padR} y1={yOf(t)} y2={yOf(t)} stroke={T.line} strokeWidth="1" />
+              <text x={padL - 6} y={yOf(t)} textAnchor="end" dominantBaseline="middle" style={{ fontFamily: T.body, fontSize: 10.5, fill: T.ink40 }}>{fmtN(t)}</text>
+            </g>
+          ))}
+          {xTicks.map((i, k) => (
+            <text key={i} x={xOf(i)} y={h - 8} textAnchor={n === 1 ? "middle" : k === 0 ? "start" : k === xTicks.length - 1 ? "end" : "middle"}
+              style={{ fontFamily: T.body, fontSize: 10.5, fill: T.ink40 }}>{labels[i].split(" – ")[0]}</text>
+          ))}
+          {hover != null && <line x1={xOf(hover)} x2={xOf(hover)} y1={padT} y2={h - padB} stroke={T.lineStrong} strokeWidth="1" />}
+          {series.map((s) => (
+            <g key={s.key}>
+              {n > 1 && <path d={s.values.map((v, i) => `${i ? "L" : "M"}${xOf(i).toFixed(1)} ${yOf(v).toFixed(1)}`).join(" ")}
+                fill="none" stroke={s.color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />}
+              {s.values.map((v, i) => (n <= 14 || i === hover) && (
+                <circle key={i} cx={xOf(i)} cy={yOf(v)} r={i === hover ? 4.5 : 3} fill={s.color} stroke={T.card} strokeWidth="2" />
+              ))}
+            </g>
+          ))}
+        </svg>
+
+        {hover != null && (
+          <div style={{ position: "absolute", top: 0, pointerEvents: "none", ...(xOf(hover) > w / 2 ? { right: w - xOf(hover) + 10 } : { left: xOf(hover) + 10 }),
+            background: T.card, border: `1px solid ${T.line}`, borderRadius: 10, padding: "8px 10px", boxShadow: "0 4px 14px rgba(0,0,0,0.08)", fontSize: 12, whiteSpace: "nowrap" }}>
+            <div style={{ color: T.ink55, marginBottom: 4 }}>{labels[hover]}</div>
+            {series.map((s) => (
+              <div key={s.key} style={{ display: "flex", alignItems: "center", gap: 6, color: T.ink70 }}>
+                <span style={{ width: 8, height: 8, borderRadius: 4, background: s.color }} />
+                {s.name}<b style={{ marginLeft: "auto", paddingLeft: 10, color: T.ink, fontWeight: 600 }}>{fmtN(s.values[hover])}</b>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -907,7 +963,7 @@ function makeSampleHistory(cats) {
         const prog = 1 - d / span;                                   // 0 -> 1 over time
         const noise = Math.sin((d + ci * 7 + si * 3) * 1.3) * 0.5;
         const score = Math.round(Math.min(2, Math.max(0, (prog + offset) * 2 - 0.4 + noise)));
-        out.push({ date: new Date(now - d * DAY).toISOString().slice(0, 10), category: c.key, section: s.name, skill: it.q, score });
+        out.push({ date: new Date(now - d * DAY).toISOString().slice(0, 10), category: c.key, section: s.name, skill: it.q, score, points: (score + 1) * 100 });
       }
     }));
   });
