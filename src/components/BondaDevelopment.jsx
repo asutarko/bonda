@@ -849,18 +849,6 @@ function Progress({ cats: catList, childName, observations, onClose, onLoadSampl
               </div>
             ))}
 
-            {gained.length > 0 && (
-              <div style={{ marginTop: 10 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: T.ink70, marginBottom: 8 }}>Skills reaching “usually”</div>
-                {gained.map((s) => (
-                  <div key={s} style={{ display: "flex", alignItems: "center", gap: 10, background: T.card, border: `1px solid ${T.line}`, borderRadius: 12, padding: "11px 13px", marginBottom: 8 }}>
-                    <span style={{ color: T.accent, flexShrink: 0, display: "flex" }}><Icon name="check" size={16} w={2.2} /></span>
-                    <span style={{ fontSize: 13.5, color: T.ink }}>{s}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-
             <p style={{ fontSize: 11, color: T.ink40, lineHeight: 1.5, marginTop: 14 }}>
               Development moves slowly — a flat or quiet {period === "week" ? "week" : "period"} is normal, not a step back. Gaps mean fewer observations, not a drop. This is {childName}'s own path over time, not a score to beat.
             </p>
