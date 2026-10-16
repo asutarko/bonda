@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { supabase } from "../lib/supabase";
 import { uploadPhoto } from "../hooks";
 import { T } from "../theme";
-import { Page, SectionLabel, Card, Badge, Btn, Input, TextArea, Select, MultiSelect, FieldError, Avatar, Accordion, FormSection, ToggleField, PageHero, ChildAvatar, ComAvatar, ROOM_ICONS, ACTIVITY_TEXTAREA_STYLE, ActionIllustration, HeroIllustration } from "../ui";
+import { Page, SectionLabel, Card, Badge, Btn, Input, PhoneInput, TextArea, Select, MultiSelect, FieldError, Avatar, Accordion, FormSection, ToggleField, PageHero, ChildAvatar, ComAvatar, ROOM_ICONS, ACTIVITY_TEXTAREA_STYLE, ActionIllustration, HeroIllustration } from "../ui";
 import { CHILD_AVATARS, DEFAULT_CHILDREN, DEFAULT_SCHEDULE, PLACEMENT_TYPE_OPTIONS, ROOM_COLORS, SOS_COLORS, VERBAL_STATUS_OPTIONS, DIAGNOSIS_OPTIONS, TRIGGER_OPTIONS, DIET_OPTIONS, ALLERGY_OPTIONS, THERAPY_TYPES } from "../data";
 
 // Opens the date-of-birth picker 20 years back instead of at today's date —
@@ -166,6 +166,8 @@ function RepeatableEntries({ entries, setEntries, empty, fields, itemLabel, requ
               )}
               {fields.map(f => (f.options
                 ? <Select key={f.key} label={f.label} placeholder={f.placeholder} options={f.options} value={e[f.key]} onChange={ev => update(i, f.key, ev.target.value)} />
+                : f.type === "tel"
+                ? <PhoneInput key={f.key} label={f.label} placeholder={f.placeholder} value={e[f.key]} onChange={v => update(i, f.key, v)} />
                 : <Input key={f.key} label={f.label} type={f.type} placeholder={f.placeholder} value={e[f.key]} onChange={ev => update(i, f.key, ev.target.value)} />
               ))}
               <FieldError>{errs[i]}</FieldError>

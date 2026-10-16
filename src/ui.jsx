@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { T } from "./theme";
+import { PHONE_COUNTRIES, splitContactPhone, joinContactPhone } from "./data";
 
 export const ActionIllustration = ({ type, size = 44 }) => {
   const bg = { subsidies: "#FEF3C7", sos: "#FEE2E2", devGuide: "#DCFCE7" };
@@ -228,6 +229,27 @@ export const Input = ({ label, ...props }) => (
     />
   </div>
 );
+
+// Contact phone as a country-code dropdown + number, laid out like Edit
+// Profile's phone row. `value`/`onChange(string)` carry the single combined
+// "+65 6123 4567" string (see splitContactPhone). The dial picked is kept
+// locally too, so choosing a country before typing the number isn't lost.
+export const PhoneInput = ({ label, value, onChange, placeholder = "e.g. 6123 4567" }) => {
+  const parsed = splitContactPhone(value);
+  const [pendingDial, setPendingDial] = useState(parsed.dial);
+  const dial = parsed.number ? parsed.dial : pendingDial;
+  return (
+    <div style={{ display: "flex", gap: 10 }}>
+      <div style={{ flex: "0 0 118px" }}>
+        <Select label="Country" value={dial} onChange={e => { setPendingDial(e.target.value); onChange(joinContactPhone(e.target.value, parsed.number)); }}
+          options={PHONE_COUNTRIES.map(c => ({ value: c.dial, label: `${c.iso} ${c.dial}` }))} />
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <Input label={label} type="tel" inputMode="tel" value={parsed.number} onChange={e => onChange(joinContactPhone(dial, e.target.value))} placeholder={placeholder} />
+      </div>
+    </div>
+  );
+};
 
 // Multi-line text input — same chrome as Input, for free-text answers
 

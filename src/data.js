@@ -106,6 +106,25 @@ export const splitPhone = (full, fallbackDial = "+65") => {
   return match ? { dial: match, number: s.slice(match.length) } : { dial: fallbackDial, number: s.replace(/^\+/, "") };
 };
 
+// Contact phones (clinic, therapist, case worker, letter recipient) are free
+// text printed as-is in carer letters and summaries, so unlike the account
+// phone above they keep the caregiver's own spacing: "+65 6123 4567". Older
+// entries typed without a dial code fall back to the default one.
+const DIALS_LONGEST_FIRST = PHONE_COUNTRIES.map(c => c.dial).sort((a, b) => b.length - a.length);
+export const splitContactPhone = (full, fallbackDial = "+65") => {
+  const s = (full || "").trimStart();
+  const match = s.startsWith("+") && DIALS_LONGEST_FIRST.find(d => s.replace(/[\s-]/g, "").startsWith(d));
+  if (!match) return { dial: fallbackDial, number: s };
+  // skip past the dial code's digits, whatever spacing was typed between them
+  let i = 1, seen = 1;
+  while (seen < match.length && i < s.length) { if (/\d/.test(s[i])) seen++; i++; }
+  return { dial: match, number: s.slice(i).replace(/^[\s-]+/, "") };
+};
+export const joinContactPhone = (dial, number) => {
+  const n = (number || "").trimStart();
+  return n ? `${dial} ${n}` : "";
+};
+
 // Multi-select option lists for the child profile's "About your child" and
 // "Medical information" sections. Selections are joined into the existing
 // free-text columns (diagnosis, known_triggers, diet_program) on save, so an

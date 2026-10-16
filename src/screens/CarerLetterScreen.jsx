@@ -4,7 +4,7 @@ import html2canvas from "html2canvas";
 import { supabase } from "../lib/supabase";
 import { T } from "../theme";
 import { Page, SectionLabel, Card, Btn, Badge } from "../ui";
-import { VERBAL_STATUS_OPTIONS, PLACEMENT_TYPE_OPTIONS } from "../data";
+import { VERBAL_STATUS_OPTIONS, PLACEMENT_TYPE_OPTIONS, PHONE_COUNTRIES, splitPhone, splitContactPhone, joinContactPhone } from "../data";
 import { peekCarerLetterPreviewFlag, clearCarerLetterPreviewFlag } from "../hooks";
 
 // TinyMCE (core + skin CSS + plugins) is only needed once the caregiver
@@ -434,6 +434,31 @@ const exportLetterToPdf = async (html, fileName) => {
   }
 };
 
+// Country-code dropdown + number in this screen's own .fld markup — the
+// cl-setup counterpart of ui.jsx's PhoneInput (same combined
+// "+65 6123 4567" value, see splitContactPhone).
+function ContactPhoneFld({ label, value, onChange, placeholder = "e.g. 6123 4567" }) {
+  const parsed = splitContactPhone(value);
+  const [pendingDial, setPendingDial] = useState(parsed.dial);
+  const dial = parsed.number ? parsed.dial : pendingDial;
+  return (
+    <div style={{ display: "flex", gap: 10 }}>
+      <div className="fld" style={{ flex: "0 0 118px" }}>
+        <label>Country</label>
+        <div className="selwrap">
+          <select value={dial} onChange={e => { setPendingDial(e.target.value); onChange(joinContactPhone(e.target.value, parsed.number)); }}>
+            {PHONE_COUNTRIES.map(c => <option key={c.iso} value={c.dial}>{c.iso} {c.dial}</option>)}
+          </select>
+        </div>
+      </div>
+      <div className="fld" style={{ flex: 1, minWidth: 0 }}>
+        <label>{label}</label>
+        <input type="tel" inputMode="tel" value={parsed.number} onChange={e => onChange(joinContactPhone(dial, e.target.value))} placeholder={placeholder} />
+      </div>
+    </div>
+  );
+}
+
 export function CarerLetterScreen({ pop, push, childCtx, account }) {
   const { children: allChildren = [], activeChild, updateChild } = childCtx || {};
   // only children whose profile is active (approved) can be picked for a letter
@@ -492,7 +517,12 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
   const [carerFirstName, setCarerFirstName] = useState(account?.firstName || initialCarerNameParts.firstName);
   const [carerMiddleName, setCarerMiddleName] = useState(account?.middleName || initialCarerNameParts.middleName);
   const [carerLastName, setCarerLastName] = useState(account?.lastName || initialCarerNameParts.lastName);
-  const [carerPhone, setCarerPhone] = useState(account?.phone || "");
+  // Stored as one "+6591234567" string (same as Edit Profile), edited here as
+  // a country-code dropdown + local number.
+  const initialCarerPhone = splitPhone(account?.phone);
+  const [carerDial, setCarerDial] = useState(initialCarerPhone.dial);
+  const [carerPhone, setCarerPhone] = useState(initialCarerPhone.number);
+  const carerFullPhone = carerPhone.trim() ? `${carerDial}${carerPhone.replace(/\s+/g, "")}` : "";
   const [carerAddress, setCarerAddress] = useState(account?.address || "");
   const [carerPostalCode, setCarerPostalCode] = useState(account?.postalCode || "");
   const [licensedCarer, setLicensedCarer] = useState(account?.licensedCarer || "");
@@ -513,6 +543,7 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
   const [newRecipientName, setNewRecipientName] = useState("");
   const [newRecipientAddress, setNewRecipientAddress] = useState("");
   const [newRecipientPostalCode, setNewRecipientPostalCode] = useState("");
+  const [newRecipientDial, setNewRecipientDial] = useState("+65");
   const [newRecipientPhone, setNewRecipientPhone] = useState("");
   const [newRecipientHasEmail, setNewRecipientHasEmail] = useState(false);
   const [newRecipientEmail, setNewRecipientEmail] = useState("");
@@ -557,6 +588,7 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
     setNewRecipientName("");
     setNewRecipientAddress("");
     setNewRecipientPostalCode("");
+    setNewRecipientDial("+65");
     setNewRecipientPhone("");
     setNewRecipientHasEmail(false);
     setNewRecipientEmail("");
@@ -599,7 +631,7 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
       therapists: therapistEntries,
     };
     setShowCarerSetup(false);
-    buildAndSetLetter(childData, { name: carerFullName, phone: carerPhone.trim(), address: carerAddress.trim(), postalCode: carerPostalCode.trim(), email: account?.email, licensedCarer, carerAgency: carerAgency.trim() });
+    buildAndSetLetter(childData, { name: carerFullName, phone: carerPhone.trim() ? `${carerDial} ${carerPhone.trim()}` : "", address: carerAddress.trim(), postalCode: carerPostalCode.trim(), email: account?.email, licensedCarer, carerAgency: carerAgency.trim() });
   };
 
   // Per-section saves below let each group be filled and saved on its own,
@@ -621,14 +653,14 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
         firstName: carerFirstName.trim(),
         middleName: carerMiddleName.trim(),
         lastName: carerLastName.trim(),
-        phone: carerPhone.trim(),
+        phone: carerFullPhone,
         address: carerAddress.trim(),
         postalCode: carerPostalCode.trim(),
         licensedCarer,
         carerAgency: carerAgency.trim(),
       },
     });
-    if (!error && account?.id) await supabase.from("profiles").update({ name: carerFullName, first_name: carerFirstName.trim(), middle_name: carerMiddleName.trim(), last_name: carerLastName.trim(), phone: carerPhone.trim(), address: carerAddress.trim(), postal_code: carerPostalCode.trim() }).eq("id", account.id);
+    if (!error && account?.id) await supabase.from("profiles").update({ name: carerFullName, first_name: carerFirstName.trim(), middle_name: carerMiddleName.trim(), last_name: carerLastName.trim(), phone: carerFullPhone, address: carerAddress.trim(), postal_code: carerPostalCode.trim() }).eq("id", account.id);
     setSectionSavingKey("carer", false);
     if (!error) setSaved("carer", true);
   };
@@ -721,6 +753,7 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
     setNewRecipientName("");
     setNewRecipientAddress("");
     setNewRecipientPostalCode("");
+    setNewRecipientDial("+65");
     setNewRecipientPhone("");
     setNewRecipientHasEmail(false);
     setNewRecipientEmail("");
@@ -734,7 +767,7 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
       name: newRecipientName.trim(),
       address: newRecipientAddress.trim(),
       postal_code: newRecipientPostalCode.trim(),
-      phone: newRecipientPhone.trim(),
+      phone: joinContactPhone(newRecipientDial, newRecipientPhone.trim()),
       email: newRecipientHasEmail ? newRecipientEmail.trim() : "",
     }).select().single();
     setSavingRecipient(false);
@@ -1011,10 +1044,28 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
                   {carerErrors.lastName && <p className="err">{carerErrors.lastName}</p>}
                 </div>
 
+                <div style={{ display: "flex", gap: 10 }}>
+                  <div className="fld" style={{ flex: "0 0 118px" }}>
+                    <label>Country</label>
+                    <div className="selwrap">
+                      <select value={carerDial} onChange={e => setCarerDial(e.target.value)}>
+                        {PHONE_COUNTRIES.map(c => <option key={c.iso} value={c.dial}>{c.iso} {c.dial}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="fld" style={{ flex: 1, minWidth: 0 }}>
+                    <label>Your phone <span className="req">*</span></label>
+                    <input type="tel" inputMode="tel" value={carerPhone} onChange={e => setCarerPhone(e.target.value)} placeholder="e.g. 9123 4567" />
+                    {carerErrors.phone && <p className="err">{carerErrors.phone}</p>}
+                  </div>
+                </div>
+
+                {/* Read-only: it's the account's sign-in email (same as Edit
+                    Profile), which is what the letter already uses. */}
                 <div className="fld">
-                  <label>Your phone <span className="req">*</span></label>
-                  <input type="tel" value={carerPhone} onChange={e => setCarerPhone(e.target.value)} placeholder="e.g. 9123 4567" />
-                  {carerErrors.phone && <p className="err">{carerErrors.phone}</p>}
+                  <label>Your email</label>
+                  <input type="email" value={account?.email || ""} disabled style={{ background: T.border, cursor: "not-allowed", color: T.inkSoft }} />
+                  <p className="hint">Taken from your profile.</p>
                 </div>
 
                 <div className="fld">
@@ -1096,9 +1147,19 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
                       <label>Postal code</label>
                       <input inputMode="numeric" autoComplete="postal-code" value={newRecipientPostalCode} onChange={e => setNewRecipientPostalCode(e.target.value)} placeholder="e.g. 560123" />
                     </div>
-                    <div className="fld">
-                      <label>Phone</label>
-                      <input type="tel" value={newRecipientPhone} onChange={e => setNewRecipientPhone(e.target.value)} placeholder="e.g. 6123 4567" />
+                    <div style={{ display: "flex", gap: 10 }}>
+                      <div className="fld" style={{ flex: "0 0 118px" }}>
+                        <label>Country</label>
+                        <div className="selwrap">
+                          <select value={newRecipientDial} onChange={e => setNewRecipientDial(e.target.value)}>
+                            {PHONE_COUNTRIES.map(c => <option key={c.iso} value={c.dial}>{c.iso} {c.dial}</option>)}
+                          </select>
+                        </div>
+                      </div>
+                      <div className="fld" style={{ flex: 1, minWidth: 0 }}>
+                        <label>Phone</label>
+                        <input type="tel" inputMode="tel" value={newRecipientPhone} onChange={e => setNewRecipientPhone(e.target.value)} placeholder="e.g. 6123 4567" />
+                      </div>
                     </div>
                     <div className="fld">
                       <label>Does this recipient have an email address?</label>
@@ -1261,7 +1322,7 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
                       <div className="fld"><label>Clinic name</label><input value={c.name} onChange={setField("name")} placeholder="e.g. Sunrise Family Clinic" /></div>
                       <div className="fld"><label>Doctor name</label><input value={c.doctor} onChange={setField("doctor")} placeholder="e.g. Dr Tan" /></div>
                       <div className="fld"><label>Clinic address</label><input value={c.address} onChange={setField("address")} placeholder="e.g. 1 Sunrise Ave, #01-01" /></div>
-                      <div className="fld"><label>Clinic phone</label><input type="tel" value={c.phone} onChange={setField("phone")} placeholder="e.g. 6123 4567" /></div>
+                      <ContactPhoneFld label="Clinic phone" value={c.phone} onChange={v => setField("phone")({ target: { value: v } })} />
                       <div className="fld"><label>Clinic email</label><input type="email" value={c.email} onChange={setField("email")} placeholder="e.g. contact@clinic.com" /></div>
                     </div>
                   );
@@ -1308,7 +1369,7 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
                       )}
                       <div className="fld"><label>Therapist or counsellor name</label><input value={t.name} onChange={setField("name")} placeholder="e.g. Ms Lim" /></div>
                       <div className="fld"><label>Centre / early intervention programme</label><input value={t.centre} onChange={setField("centre")} placeholder="e.g. Rainbow Centre" /></div>
-                      <div className="fld"><label>Phone</label><input type="tel" value={t.phone} onChange={setField("phone")} placeholder="e.g. 6123 4567" /></div>
+                      <ContactPhoneFld label="Phone" value={t.phone} onChange={v => setField("phone")({ target: { value: v } })} />
                     </div>
                   );
                 })}
@@ -1353,7 +1414,7 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
                         </div>
                       )}
                       <div className="fld"><label>Name</label><input value={w.name} onChange={setField("name")} /></div>
-                      <div className="fld"><label>Phone</label><input type="tel" value={w.phone} onChange={setField("phone")} /></div>
+                      <ContactPhoneFld label="Phone" value={w.phone} onChange={v => setField("phone")({ target: { value: v } })} />
                       <div className="fld"><label>Email</label><input type="email" value={w.email} onChange={setField("email")} /></div>
                     </div>
                   );

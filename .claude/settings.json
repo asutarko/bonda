@@ -3,7 +3,8 @@
     "allow": [
       "Bash(lsof -ti:5173 -sTCP:LISTEN)",
       "Bash(xargs -r kill)",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "PowerShell(npx vite build --logLevel error 2>&1)"
     ]
   }
 }

@@ -29,6 +29,8 @@ const SOSScreen = lazy(() => import("./screens/SOSScreen").then(m => ({ default:
 const DevelopmentGuideScreen = lazy(() => import("./screens/DevelopmentGuideScreen").then(m => ({ default: m.DevelopmentGuideScreen })));
 const EmotionsBehavioursScreen = lazy(() => import("./screens/EmotionsBehavioursGuide").then(m => ({ default: m.EmotionsBehavioursScreen })));
 const EditProfileScreen = lazy(() => import("./screens/ProfileScreen").then(m => ({ default: m.EditProfileScreen })));
+const RedeemPointsScreen = lazy(() => import("./screens/GrowthTracker").then(m => ({ default: m.RedeemPointsScreen })));
+const FeedbackScreen = lazy(() => import("./screens/FeedbackScreen").then(m => ({ default: m.FeedbackScreen })));
 const LegalHub = lazy(() => import("./components/bonda-compliance").then(m => ({ default: m.LegalHub })));
 
 // Shared Suspense fallback, styled like the app's existing full-screen
@@ -194,7 +196,7 @@ export default function Bonda() {
     subsidies: "Support Hotlines",
     subsidiesGrants: "Subsidies & Grants",
     sos: "Emergency Contacts",
-    devGuide: "Development & Behaviour Guide",
+    devGuide: "Development",
     allChildren: "My Children",
     addChild: "Add a Child",
     editChild: "Edit Profile",
@@ -204,6 +206,8 @@ export default function Bonda() {
     carerLetter: "Foster Carer Letter",
     documents: "Documents",
     legalHub: "Legal & Privacy",
+    redeemPoints: "Redeem your points",
+    feedback: "Feedback",
   };
 
   const pageTitle = current ? TITLES[current] || "" : TITLES[tab];
@@ -235,6 +239,8 @@ export default function Bonda() {
       case "documents":   return <DocumentsScreen pop={pop} push={push} childCtx={childCtx} account={account} />;
       case "emotionsGuide": return <EmotionsBehavioursScreen pop={pop} />;
       case "legalHub":    return <LegalHub onBack={pop} />;
+      case "redeemPoints": return <RedeemPointsScreen childCtx={childCtx} push={push} />;
+      case "feedback":    return <FeedbackScreen account={account} pop={pop} />;
       default:           return null;
     }
   };
@@ -278,6 +284,8 @@ export default function Bonda() {
                 })}
               </> }] : []),
               { key: "profile", label: "Profile", onClick: () => { setShowMenu(false); push("editProfile"); }, icon: <><circle cx="12" cy="8" r="4" stroke={T.inkSoft} strokeWidth="1.8" fill="none"/><path d="M5 20c0-4 3.1-6.4 7-6.4s7 2.4 7 6.4" stroke={T.inkSoft} strokeWidth="1.8" strokeLinecap="round" fill="none"/></> },
+              { key: "redeemPoints", label: "Redeem your points", onClick: () => { setShowMenu(false); push("redeemPoints"); }, icon: <><rect x="4" y="10" width="16" height="9" rx="1.6" stroke={T.inkSoft} strokeWidth="1.8" fill="none"/><path d="M4 13.5h16M12 10v9" stroke={T.inkSoft} strokeWidth="1.8" fill="none"/><path d="M12 10c-1.2-2.6-5-2.6-5-.4 0 1.5 2.6 1.4 5 .4zM12 10c1.2-2.6 5-2.6 5-.4 0 1.5-2.6 1.4-5 .4z" stroke={T.inkSoft} strokeWidth="1.8" strokeLinejoin="round" fill="none"/></> },
+              { key: "feedback", label: "Feedback", onClick: () => { setShowMenu(false); push("feedback"); }, icon: <><path d="M4.5 6.5a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H10l-4 3.5v-3.5h0a1.5 1.5 0 0 1-1.5-1.5Z" stroke={T.inkSoft} strokeWidth="1.8" strokeLinejoin="round" fill="none"/><path d="M8.5 9.5h7M8.5 12.5h4.5" stroke={T.inkSoft} strokeWidth="1.8" strokeLinecap="round" fill="none"/></> },
               { key: "notifications", label: "Notifications", soon: true, icon: <><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" stroke={T.inkSoft} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none"/><path d="M13.7 21a2 2 0 0 1-3.4 0" stroke={T.inkSoft} strokeWidth="1.8" strokeLinecap="round" fill="none"/></> },
               { key: "security", label: "Security", soon: true, icon: <><path d="M12 3l7 3v5c0 4.6-3 7.6-7 9-4-1.4-7-4.4-7-9V6Z" stroke={T.inkSoft} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none"/><path d="m9 12 2 2 4-4" stroke={T.inkSoft} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none"/></> },
               { key: "payment", label: "Payment & plans", soon: true, icon: <><rect x="3" y="6" width="18" height="12" rx="2.6" stroke={T.inkSoft} strokeWidth="1.8" fill="none"/><path d="M3 10h18" stroke={T.inkSoft} strokeWidth="1.8" fill="none"/></> },

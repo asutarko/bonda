@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { T } from "../theme";
-import { SectionLabel, Card, Badge, Btn, Accordion } from "../ui";
+import { Page, SectionLabel, Card, Badge, Btn, Accordion } from "../ui";
 import { useBackHandler } from "../hooks";
 
 /* ==================================================================
@@ -196,6 +196,46 @@ export function GrowthTrackerSection({ activeChild, updateChild }) {
       onRedeem={() => setView("redeem")}
       onProgress={() => setView("progress")}
     />
+  );
+}
+
+/* ==================================================================
+   REDEEM SCREEN — the same catalogue, opened straight from the header's
+   3-dot menu ("Redeem your points"). Points belong to each child, so a
+   caregiver with several children can switch whose points to use.
+   ================================================================== */
+export function RedeemPointsScreen({ childCtx, push }) {
+  const { children = [], activeChild, updateChild, switchChild } = childCtx || {};
+  if (!activeChild) {
+    return (
+      <Page>
+        <p style={{ margin: "0 0 14px", color: T.inkSoft, fontSize: 13.5, lineHeight: 1.6 }}>Add a child profile first — points are earned by logging observations in their Growth tracker.</p>
+        <Btn onClick={() => push("addChild")}>Add a child</Btn>
+      </Page>
+    );
+  }
+  const observations = activeChild.growthObservations || [];
+  const claimed = activeChild.growthClaims || {};
+  const total = observations.filter(o => CATS.some(c => c.key === o.category)).length * POINTS_PER_OBSERVATION;
+  const redeem = (r) => {
+    if (total < r.cost || claimed[r.id]) return;
+    const code = "BONDA-" + Math.random().toString(36).slice(2, 7).toUpperCase();
+    updateChild(activeChild.id, { growthClaims: { ...claimed, [r.id]: code } });
+  };
+  return (
+    <Page>
+      {children.length > 1 && (
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 18 }}>
+          {children.map(c => {
+            const on = c.id === activeChild.id;
+            return (
+              <button key={c.id} onClick={() => switchChild(c.id)} style={{ border: `1.5px solid ${on ? T.purple : T.border}`, background: on ? T.purpleL : T.surface, color: on ? T.purple : T.inkSoft, borderRadius: 99, padding: "6px 14px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody }}>{c.name}</button>
+            );
+          })}
+        </div>
+      )}
+      <Redeem points={total} claimed={claimed} onRedeem={redeem} />
+    </Page>
   );
 }
 
