@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { useBackHandler } from "../hooks";
+import { useBackHandler, useRewardClaims } from "../hooks";
 import { ChildAvatar } from "../ui";
 import { supabase } from "../lib/supabase";
 
@@ -16,8 +16,9 @@ import { supabase } from "../lib/supabase";
      in the database) into a single balance per child.
    - A points hero at the top shows the total as a donut, with a
      Redeem button that opens the rewards catalogue.
-   - Headline reward: 10,000 points -> 10% off Bonda. Redeeming spends
-     points and generates a code.
+   - Headline reward: 10,000 points -> 10% off Bonda. Redeeming doesn't
+     spend points; it generates a code, and each reward can be claimed
+     once per account (reward_claims, enforced in the database).
 
    This is an informal tracker, NOT the real Vineland (a proprietary,
    professionally-administered, normed instrument). Questions here are
@@ -97,8 +98,8 @@ const REWARDS = [
 ];
 
 /* Everything is per child: answers are dev_answers rows (points fixed by the
-   database from the chosen option at answer time), claimed rewards live on
-   the child's row (children.growth_claims). */
+   database from the chosen option at answer time). Claimed rewards are per
+   account, not per child (reward_claims). */
 
 /* ---------- inline icon set (stroke, currentColor) ---------- */
 function Icon({ name, size = 22, color = "currentColor", w = 1.8 }) {
@@ -161,7 +162,7 @@ function FaceIcon({ mood, size = 28, color = T.ink55 }) {
 }
 
 export default function BondaDevelopment({ childCtx, onAddChild }) {
-  const { children = [], activeChild, updateChild, switchChild } = childCtx || {};
+  const { children = [], activeChild, switchChild, userId } = childCtx || {};
   const [view, setView] = useState("home");     // home | quiz | feedback | redeem | progress
   const [quizCat, setQuizCat] = useState(null);
   const [sample, setSample] = useState(null);    // preview-only history, never saved
@@ -214,7 +215,7 @@ export default function BondaDevelopment({ childCtx, onAddChild }) {
     return () => { cancelled = true; };
   }, [showPicker, eligibleIds]);
 
-  const claimed = child?.growthClaims || {};               // rewardId -> code
+  const { claimed, claim, error: claimError } = useRewardClaims(userId);   // rewardId -> code, per account
   const earned = useMemo(() => {
     const e = {};
     (answers || []).forEach((o) => { e[o.category] = (e[o.category] || 0) + o.points; });
@@ -240,7 +241,7 @@ export default function BondaDevelopment({ childCtx, onAddChild }) {
   };
   const redeem = (r) => {
     if (total < r.cost || claimed[r.id]) return;   // reach the threshold to redeem
-    updateChild(child.id, { growthClaims: { ...claimed, [r.id]: "BONDA-" + Math.random().toString(36).slice(2, 7).toUpperCase() } });
+    claim(child.id, r.id);                          // the database re-checks both
   };
 
   if (!eligible.length) {
@@ -293,7 +294,7 @@ export default function BondaDevelopment({ childCtx, onAddChild }) {
           onClose={() => setView("home")} />
       )}
       {view === "redeem" && (
-        <Redeem points={total} claimed={claimed} onRedeem={redeem} onClose={() => setView("home")} />
+        <Redeem points={total} claimed={claimed} error={claimError} onRedeem={redeem} onClose={() => setView("home")} />
       )}
       {view === "progress" && (
         <Progress cats={cats} childName={child.name} observations={sample || observations} onClose={() => setView("home")} onLoadSample={() => setSample(makeSampleHistory(cats))} />
@@ -526,7 +527,7 @@ function InfoAccordion({ childName }) {
 /* ==================================================================
    REDEEM — points catalogue
    ================================================================== */
-function Redeem({ points, claimed, onRedeem, onClose }) {
+function Redeem({ points, claimed, error, onRedeem, onClose }) {
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
       <div className="b-safe-top" style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 18px", background: T.card, borderBottom: `1px solid ${T.line}`, position: "sticky", top: 0, zIndex: 5 }}>
@@ -543,8 +544,9 @@ function Redeem({ points, claimed, onRedeem, onClose }) {
           </div>
         </div>
         <p style={{ fontSize: 12.5, color: T.ink40, lineHeight: 1.5, margin: "8px 2px 18px" }}>
-          Points come from observing consistently. Reach a reward's total to unlock it — redeeming doesn't spend your points.
+          Points come from observing consistently. Reach a reward's total to unlock it — redeeming doesn't spend your points. Each reward can be redeemed once per account.
         </p>
+        {error && <p role="alert" style={{ fontSize: 12.5, color: T.ink70, lineHeight: 1.5, margin: "0 2px 14px" }}>{error}</p>}
 
         {REWARDS.map((r) => {
           const code = claimed[r.id];

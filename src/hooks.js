@@ -242,6 +242,44 @@ export function useChildren(userId) {
   return { children, activeChild, addChild, updateChild, deleteChild, switchChild, loading, userId };
 }
 
+// Rewards this account has redeemed (supabase/reward_claims.sql). Each reward
+// can be claimed once per account, whichever child's points unlocked it; the
+// claim_reward RPC checks ownership, points and duplicates server-side.
+export function useRewardClaims(userId) {
+  const [claimed, setClaimed] = useState({}); // rewardId -> code
+  const [error, setError] = useState("");
+  const busy = useRef(false);
+
+  useEffect(() => {
+    setClaimed({});
+    if (!userId) return;
+    let cancelled = false;
+    supabase.from("reward_claims").select("reward_id, code").eq("user_id", userId)
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error) { console.error("Failed to load rewards:", error.message); return; }
+        setClaimed(Object.fromEntries(data.map(r => [r.reward_id, r.code])));
+      });
+    return () => { cancelled = true; };
+  }, [userId]);
+
+  const claim = async (childId, rewardId) => {
+    if (busy.current || claimed[rewardId]) return;
+    busy.current = true;
+    const { data, error } = await supabase.rpc("claim_reward", { p_child_id: childId, p_reward_id: rewardId });
+    busy.current = false;
+    if (error) {
+      console.error("Failed to redeem reward:", error.message);
+      setError("This reward couldn't be redeemed. Please check your connection and try again.");
+      return;
+    }
+    setError("");
+    setClaimed(c => ({ ...c, [data.reward_id]: data.code }));
+  };
+
+  return { claimed, claim, error };
+}
+
 // Stack of "close this" callbacks registered by open modals/forms, so the
 // hardware/browser back button can dismiss them instead of leaving the app.
 

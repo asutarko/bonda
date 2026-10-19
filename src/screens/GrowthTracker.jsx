@@ -1,7 +1,8 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { T } from "../theme";
 import { Page, SectionLabel, Card, Badge, Btn, Accordion } from "../ui";
-import { useBackHandler } from "../hooks";
+import { useBackHandler, useRewardClaims } from "../hooks";
+import { supabase } from "../lib/supabase";
 
 /* ==================================================================
    Growth Tracker — a Vineland-inspired observation tracker, shown as
@@ -201,11 +202,27 @@ export function GrowthTrackerSection({ activeChild, updateChild }) {
 
 /* ==================================================================
    REDEEM SCREEN — the same catalogue, opened straight from the header's
-   3-dot menu ("Redeem your points"). Points belong to each child, so a
-   caregiver with several children can switch whose points to use.
+   3-dot menu ("Redeem your points"). Points belong to each child (summed
+   from dev_answers), so a caregiver with several children can switch
+   whose points to use; each reward is claimed once per account.
    ================================================================== */
 export function RedeemPointsScreen({ childCtx, push }) {
-  const { children = [], activeChild, updateChild, switchChild } = childCtx || {};
+  const { children = [], activeChild, switchChild, userId } = childCtx || {};
+  const { claimed, claim, error } = useRewardClaims(userId);
+  const [total, setTotal] = useState(0);
+  useEffect(() => {
+    setTotal(0);
+    if (!activeChild?.id) return;
+    let cancelled = false;
+    supabase.from("dev_child_points").select("points").eq("child_id", activeChild.id).maybeSingle()
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error) { console.error("Failed to load points:", error.message); return; }
+        setTotal(data?.points || 0);
+      });
+    return () => { cancelled = true; };
+  }, [activeChild?.id]);
+
   if (!activeChild) {
     return (
       <Page>
@@ -214,13 +231,9 @@ export function RedeemPointsScreen({ childCtx, push }) {
       </Page>
     );
   }
-  const observations = activeChild.growthObservations || [];
-  const claimed = activeChild.growthClaims || {};
-  const total = observations.filter(o => CATS.some(c => c.key === o.category)).length * POINTS_PER_OBSERVATION;
   const redeem = (r) => {
     if (total < r.cost || claimed[r.id]) return;
-    const code = "BONDA-" + Math.random().toString(36).slice(2, 7).toUpperCase();
-    updateChild(activeChild.id, { growthClaims: { ...claimed, [r.id]: code } });
+    claim(activeChild.id, r.id);   // the database re-checks points and duplicates
   };
   return (
     <Page>
@@ -234,7 +247,7 @@ export function RedeemPointsScreen({ childCtx, push }) {
           })}
         </div>
       )}
-      <Redeem points={total} claimed={claimed} onRedeem={redeem} />
+      <Redeem points={total} claimed={claimed} error={error} onRedeem={redeem} />
     </Page>
   );
 }
@@ -337,7 +350,7 @@ function Home({ childName, earned, total, onStartQuiz, onRedeem, onProgress }) {
 /* ==================================================================
    REDEEM — points catalogue
    ================================================================== */
-function Redeem({ points, claimed, onRedeem }) {
+function Redeem({ points, claimed, error, onRedeem }) {
   return (
     <>
       <h3 style={{ margin: "0 0 16px", color: T.ink, fontSize: 18, fontWeight: 800 }}>Redeem points</h3>
@@ -352,8 +365,9 @@ function Redeem({ points, claimed, onRedeem }) {
         </div>
       </div>
       <p style={{ fontSize: 12, color: T.inkMuted, lineHeight: 1.5, margin: "8px 0 20px" }}>
-        Points come from observing consistently. Reach a reward's total to unlock it — redeeming doesn't spend your points.
+        Points come from observing consistently. Reach a reward's total to unlock it — redeeming doesn't spend your points. Each reward can be redeemed once per account.
       </p>
+      {error && <p role="alert" style={{ fontSize: 12, color: T.inkSoft, lineHeight: 1.5, margin: "0 0 16px" }}>{error}</p>}
 
       {REWARDS.map(r => {
         const code = claimed[r.id];
