@@ -444,7 +444,11 @@ const exportLetterToPdf = async (html, fileName) => {
     while (cursor < containerHeightPx - 0.5) {
       const maxCursor = cursor + maxSlicePagePx / scale;
       const candidates = breakPoints.filter(top => top > cursor + 1 && top <= maxCursor);
-      const breakAt = candidates.length ? candidates[candidates.length - 1] : Math.min(maxCursor, containerHeightPx);
+      // Whatever's left fits on this page — take it all, rather than breaking
+      // at the last paragraph and pushing it alone onto a new page.
+      const breakAt = containerHeightPx <= maxCursor
+        ? containerHeightPx
+        : candidates.length ? candidates[candidates.length - 1] : maxCursor;
 
       const sliceTopPx = Math.round(cursor * scale);
       const sliceHeightPx = Math.round(breakAt * scale) - sliceTopPx;
