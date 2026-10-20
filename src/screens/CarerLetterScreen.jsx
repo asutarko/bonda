@@ -96,11 +96,13 @@ const normalizeBracket = (s) => s.toLowerCase().replace(/_/g, " ").replace(/['']
 // Form values are typed by the caregiver and dropped straight into the
 // template's HTML, so escape them — otherwise e.g. "Tan & Sons" or "<3 yrs"
 // would be parsed as markup and render differently from what was entered.
+// Line breaks (e.g. a multi-line address textarea) are kept as <br>.
 const escapeHtml = (s) => String(s ?? "")
   .replace(/&/g, "&amp;")
   .replace(/</g, "&lt;")
   .replace(/>/g, "&gt;")
-  .replace(/"/g, "&quot;");
+  .replace(/"/g, "&quot;")
+  .replace(/\r?\n/g, "<br>");
 
 const fillTemplate = (content, values) => {
   if (!content) return content || "";
@@ -190,14 +192,15 @@ const isCountryKey = (key) => /country/.test(key);
 const isRecipientKey = (key) => /receiver|recipient/.test(key);
 const isCarerKey = (key) => /carer|your|parent/.test(key);
 
-// Builds the "[... address]" value in the usual Singapore order —
-// "Blk 123 Ang Mo Kio Ave 3, #04-56, Singapore 560123". The country or postal
+// Builds the "[... address]" value in the usual Singapore order, with the
+// country and postal code on their own line —
+// "Blk 123 Ang Mo Kio Ave 3, #04-56\nSingapore 560123". The country or postal
 // code is left out when the template has its own "[... country]" /
 // "[... postal code]" placeholder for that party, so it doesn't appear twice.
-const formatAddress = (address, country, postal, { hasCountry, hasPostal }) => {
+const formatAddress = (address, country, postal, { hasCountry, hasPostal }, separator = "\n") => {
   if (!address && !postal) return "";
   const tail = [!hasCountry && country, !hasPostal && postal].filter(Boolean).join(" ");
-  return [address, tail].filter(Boolean).join(", ");
+  return [address, tail].filter(Boolean).join(separator);
 };
 
 const resolvePlaceholder = (match, inner, values) => {
@@ -257,7 +260,8 @@ const resolvePlaceholder = (match, inner, values) => {
   // "therapist" (t-HER-apist), wrongly filling it with the pronoun instead
   // of leaving it bracketed.
   if (key === "pronoun" || /\b(him|her)\b/.test(key)) return values.pronoun;
-  if (has("location") || has("country")) return values.location;
+  // "[Your country]" is the carer's own address country, handled below.
+  if (has("location") || (has("country") && !isCarerKey(key))) return values.location;
   // Collected once via the "Set up your first letter" step (CarerLetterScreen's
   // carer-details form) — left bracketed only if the caregiver skipped it.
   // Checked before the generic "carer" catch-all below, since the phrase
@@ -277,9 +281,9 @@ const resolvePlaceholder = (match, inner, values) => {
 };
 
 // Anything still bracketed after fillTemplate is, by definition, unfilled — wrap
-// it so it reads as a highlighted placeholder in the editor and exported PDF
-// instead of plain text that's easy to miss (styled via the "bonda-bk" class
-// added to TinyMCE's content_style below).
+// it so it reads as a highlighted placeholder in the editor instead of plain
+// text that's easy to miss (styled via the "bonda-bk" class added to TinyMCE's
+// content_style below). The PDF export drops them (stripUnfilledPlaceholders).
 const highlightBrackets = (html) => (html || "").replace(/\[([^\]]+)\]/g, '<span class="bonda-bk">[$1]</span>');
 
 const buildRecipientLabel = (clinic, psychologist) => {
@@ -351,6 +355,30 @@ const describePlaceholder = (raw) => {
   return { label: humanizePlaceholder(raw), desc: "From the letter template — read the surrounding sentence to see what belongs here." };
 };
 
+// The highlighted "[Field name]" placeholders are only a to-do list for the
+// in-app editor — a printed letter shouldn't show them. Drops every unfilled
+// placeholder (highlighted or plain bracketed text), then tidies what it
+// leaves behind: wrappers and paragraphs left empty, and the <br>s that
+// would otherwise leave a blank line in a block like FROM / TO.
+const stripUnfilledPlaceholders = (root) => {
+  root.querySelectorAll(".bonda-bk").forEach(el => el.remove());
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const texts = [];
+  while (walker.nextNode()) texts.push(walker.currentNode);
+  texts.forEach(t => { t.nodeValue = t.nodeValue.replace(/\[[^\]]*\]/g, ""); });
+
+  const isBlank = (el) => !el.textContent.trim() && !el.querySelector("img, table");
+  root.querySelectorAll("em, strong, b, i, u, span").forEach(el => { if (isBlank(el) && !el.querySelector("br")) el.remove(); });
+
+  const meaningful = (n) => n && !(n.nodeType === Node.TEXT_NODE && !n.nodeValue.trim());
+  const sibling = (n, dir) => { let s = n[dir]; while (s && !meaningful(s)) s = s[dir]; return s; };
+  root.querySelectorAll("br").forEach(br => {
+    const next = sibling(br, "nextSibling");
+    if (!sibling(br, "previousSibling") || !next || next.nodeName === "BR") br.remove();
+  });
+  root.querySelectorAll("p, li").forEach(el => { if (isBlank(el)) el.remove(); });
+};
+
 // The preview is edited as rich HTML in TinyMCE, so the PDF is rendered
 // straight from that HTML — but as a rasterized image per page (via
 // html2canvas), not through jsPDF's own doc.html() vector-text renderer.
@@ -389,11 +417,8 @@ const exportLetterToPdf = async (html, fileName) => {
   const container = document.createElement("div");
   container.style.width = `${renderWidthPx}px`;
   container.style.background = "#fff";
-  // The "bonda-bk" highlight on unfilled placeholders (see highlightBrackets)
-  // is meant for the in-app editor — a printed letter shouldn't have an orange
-  // highlight box, just the plain bracketed text, same as the mockup's own
-  // `@media print { .bk { background: none } }` rule.
-  container.innerHTML = `<style>.bonda-bk{background:none!important;padding:0!important;color:${T.amber}!important;}</style><div style="font-family:${FONT_TITLE};font-size:12pt;line-height:1.5;color:#000;">${html}</div>`;
+  container.innerHTML = `<div style="font-family:${FONT_TITLE};font-size:12pt;line-height:1.5;color:#000;">${html}</div>`;
+  stripUnfilledPlaceholders(container);
   hider.appendChild(container);
   document.body.appendChild(hider);
 
@@ -1170,7 +1195,7 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
                   </div>
                   {!addingRecipient && recipientId && (() => {
                     const r = recipients.find(x => x.id === recipientId);
-                    const details = [formatAddress(r?.address, r?.country, r?.postal_code, {}), r?.phone, r?.email].filter(Boolean).join(" · ");
+                    const details = [formatAddress(r?.address, r?.country, r?.postal_code, {}, ", "), r?.phone, r?.email].filter(Boolean).join(" · ");
                     return details ? <p className="hint">{details}</p> : null;
                   })()}
                   {carerErrors.recipient && <p className="err">{carerErrors.recipient}</p>}
@@ -1587,6 +1612,10 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
                   statusbar: false,
                   plugins: "lists link table",
                   toolbar: "undo redo | bold italic underline | bullist numlist | link table | removeformat",
+                  // Enter adds a plain line break, matching the template's
+                  // FROM / TO address lines, instead of a new paragraph with
+                  // its 12px gap. Shift+Enter still starts a new paragraph.
+                  newline_behavior: "linebreak",
                   // Mirrors the carer-letter.html mockup's ".doc" typography: the
                   // letter body itself reads as serif (Fraunces) like a formal
                   // typed letter, while section headers and bolded row labels
