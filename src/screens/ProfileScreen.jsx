@@ -29,6 +29,8 @@ export function EditProfileScreen({ account, pop, push }) {
   const [dial, setDial] = useState(initialPhone.dial);
   const [phone, setPhone] = useState(initialPhone.number);
   const [address, setAddress] = useState(account?.address || "");
+  const [country, setCountry] = useState(account?.country || "Singapore");
+  const [countryOptions, setCountryOptions] = useState([]);
   const [postalCode, setPostalCode] = useState(account?.postalCode || "");
   const [relationship, setRelationship] = useState(account?.relationship || "");
   const initialOccupation = account?.occupation && !OCCUPATION_OPTIONS.includes(account.occupation) ? "Other" : (account?.occupation || "");
@@ -66,6 +68,9 @@ export function EditProfileScreen({ account, pop, push }) {
   useEffect(() => {
     supabase.from("nationalities").select("name").order("sort_order").then(({ data }) => {
       if (data) setNationalityOptions(data.map(n => n.name));
+    });
+    supabase.from("countries").select("name").order("sort_order").then(({ data }) => {
+      if (data) setCountryOptions(data.map(c => c.name));
     });
   }, []);
 
@@ -107,6 +112,7 @@ export function EditProfileScreen({ account, pop, push }) {
     if (!phone.trim()) fe.phone = "Please enter your phone number.";
     else if (!/^\d+$/.test(phone.replace(/\s+/g, ""))) fe.phone = "Phone number must contain numbers only. Please use numbers.";
     if (!address.trim()) fe.address = "Please enter your home address.";
+    if (!country) fe.country = "Please select your country.";
     if (!postalCode.trim()) fe.postalCode = "Please enter your postal code.";
     if (!relationship) fe.relationship = "Please select your relationship to the child.";
     if (occupation === "Other" && !customOccupation.trim()) fe.customOccupation = "Please enter your occupation.";
@@ -125,9 +131,9 @@ export function EditProfileScreen({ account, pop, push }) {
       if (url) avatarValue = url;
     }
 
-    const { error } = await supabase.auth.updateUser({ data: { name: fullName, firstName: firstName.trim(), middleName: middleName.trim(), lastName: lastName.trim(), avatar: avatarValue, phone: fullPhone, address: address.trim(), postalCode: postalCode.trim(), relationship, occupation: finalOccupation, nationality: nationality.trim(), maritalStatus } });
+    const { error } = await supabase.auth.updateUser({ data: { name: fullName, firstName: firstName.trim(), middleName: middleName.trim(), lastName: lastName.trim(), avatar: avatarValue, phone: fullPhone, address: address.trim(), country, postalCode: postalCode.trim(), relationship, occupation: finalOccupation, nationality: nationality.trim(), maritalStatus } });
     if (error) { setSaving(false); return setErr(error.message); }
-    await supabase.from("profiles").update({ name: fullName, first_name: firstName.trim(), middle_name: middleName.trim(), last_name: lastName.trim(), avatar: avatarValue, phone: fullPhone, address: address.trim(), postal_code: postalCode.trim(), relationship, occupation: finalOccupation, nationality: nationality.trim(), marital_status: maritalStatus }).eq("id", account.id);
+    await supabase.from("profiles").update({ name: fullName, first_name: firstName.trim(), middle_name: middleName.trim(), last_name: lastName.trim(), avatar: avatarValue, phone: fullPhone, address: address.trim(), country, postal_code: postalCode.trim(), relationship, occupation: finalOccupation, nationality: nationality.trim(), marital_status: maritalStatus }).eq("id", account.id);
     setSaving(false);
     // Loaded on demand — sweetalert2 is only needed for this one success
     // popup, so it's kept out of the main bundle until a save actually happens.
@@ -218,6 +224,8 @@ export function EditProfileScreen({ account, pop, push }) {
       <FieldError>{errors.phone}</FieldError>
       <TextArea label="Home address" rows={3} value={address} onChange={e => setAddress(e.target.value)} placeholder="e.g. Blk 123 Ang Mo Kio Ave 3, #04-56" />
       <FieldError>{errors.address}</FieldError>
+      <Select label="Country" placeholder="Select country" value={country} onChange={e => setCountry(e.target.value)} options={countryOptions} />
+      <FieldError>{errors.country}</FieldError>
       <Input label="Postal code" inputMode="numeric" autoComplete="postal-code" value={postalCode} onChange={e => setPostalCode(e.target.value)} placeholder="e.g. 560123" />
       <FieldError>{errors.postalCode}</FieldError>
 

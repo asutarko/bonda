@@ -186,14 +186,19 @@ const expandRepeatingRows = (html, values, fill) => {
 };
 
 const isPostalKey = (key) => /postal|post ?code|zip/.test(key);
+const isCountryKey = (key) => /country/.test(key);
 const isRecipientKey = (key) => /receiver|recipient/.test(key);
 const isCarerKey = (key) => /carer|your|parent/.test(key);
 
-// Joins an address and its postal code for an "[... address]" placeholder,
-// unless the template also has its own "[... postal code]" placeholder for
-// that party — then the code goes there instead of appearing twice.
-const withPostal = (address, postal, templateHasPostal) =>
-  templateHasPostal ? address : [address, postal].filter(Boolean).join(", ");
+// Builds the "[... address]" value in the usual Singapore order —
+// "Blk 123 Ang Mo Kio Ave 3, #04-56, Singapore 560123". The country or postal
+// code is left out when the template has its own "[... country]" /
+// "[... postal code]" placeholder for that party, so it doesn't appear twice.
+const formatAddress = (address, country, postal, { hasCountry, hasPostal }) => {
+  if (!address && !postal) return "";
+  const tail = [!hasCountry && country, !hasPostal && postal].filter(Boolean).join(" ");
+  return [address, tail].filter(Boolean).join(", ");
+};
 
 const resolvePlaceholder = (match, inner, values) => {
   const key = normalizeBracket(inner);
@@ -203,6 +208,7 @@ const resolvePlaceholder = (match, inner, values) => {
   if (key === "date" || has("today") || has("letter", "date")) return values.date;
   if (has("receiver") || has("recipient")) {
     if (isPostalKey(key)) return values.recipientPostalCode;
+    if (isCountryKey(key)) return values.recipientCountry;
     if (has("address")) return values.recipientAddress;
     if (has("phone")) return values.recipientPhone;
     if (has("email")) return values.recipientEmail;
@@ -260,6 +266,7 @@ const resolvePlaceholder = (match, inner, values) => {
   if (has("licensed")) return values.licensedCarer || match;
   if (has("carer") || has("your") || has("parent")) {
     if (isPostalKey(key)) return values.yourPostalCode;
+    if (isCountryKey(key)) return values.yourCountry;
     if (has("address")) return values.yourAddress;
     if (has("phone")) return values.yourPhone;
     if (has("email")) return values.yourEmail;
@@ -288,6 +295,7 @@ const PLACEHOLDER_HELP = {
   "Recipient name / organisation": "Who this letter is addressed to — e.g. the school, clinic, or agency name.",
   "Recipient address": "The postal address of that recipient (optional — leave the bracket in place if not needed).",
   "Recipient postal code": "The postal code of that recipient's address (optional).",
+  "Recipient country": "The country of that recipient's address (optional).",
   "Recipient phone": "A contact phone number for that recipient (optional).",
   "Recipient email": "A contact email address for that recipient (optional).",
   "Location": "The city/country you and the child are based in.",
@@ -313,6 +321,7 @@ const PLACEHOLDER_HELP = {
   "Your name": "Your full name, as the person signing this letter.",
   "Your address": "Your home address.",
   "Your postal code": "The postal code of your home address.",
+  "Your country": "The country of your home address.",
   "Your phone": "Your contact phone number.",
   "Your email": "Your contact email address.",
   "Licensed foster carer": "Whether you are an officially licensed/registered foster carer (e.g. state \"Yes\" or \"No\") — this isn't something we store automatically, so type it in directly.",
@@ -524,7 +533,9 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
   const [carerPhone, setCarerPhone] = useState(initialCarerPhone.number);
   const carerFullPhone = carerPhone.trim() ? `${carerDial}${carerPhone.replace(/\s+/g, "")}` : "";
   const [carerAddress, setCarerAddress] = useState(account?.address || "");
+  const [carerCountry, setCarerCountry] = useState(account?.country || "Singapore");
   const [carerPostalCode, setCarerPostalCode] = useState(account?.postalCode || "");
+  const [countryOptions, setCountryOptions] = useState([]);
   const [licensedCarer, setLicensedCarer] = useState(account?.licensedCarer || "");
   const [carerAgency, setCarerAgency] = useState(account?.carerAgency || "");
   const [carerErrors, setCarerErrors] = useState({});
@@ -544,6 +555,7 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
   const [newRecipientAddress, setNewRecipientAddress] = useState("");
   const [newRecipientHasAddress, setNewRecipientHasAddress] = useState(false);
   const [newRecipientPostalCode, setNewRecipientPostalCode] = useState("");
+  const [newRecipientCountry, setNewRecipientCountry] = useState("Singapore");
   const [newRecipientDial, setNewRecipientDial] = useState("+65");
   const [newRecipientPhone, setNewRecipientPhone] = useState("");
   const [newRecipientHasEmail, setNewRecipientHasEmail] = useState(false);
@@ -589,6 +601,7 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
     setNewRecipientName("");
     setNewRecipientAddress("");
     setNewRecipientPostalCode("");
+    setNewRecipientCountry("Singapore");
     setNewRecipientDial("+65");
     setNewRecipientPhone("");
     setNewRecipientHasAddress(false);
@@ -633,7 +646,7 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
       therapists: therapistEntries,
     };
     setShowCarerSetup(false);
-    buildAndSetLetter(childData, { name: carerFullName, phone: carerPhone.trim() ? `${carerDial} ${carerPhone.trim()}` : "", address: carerAddress.trim(), postalCode: carerPostalCode.trim(), email: account?.email, licensedCarer, carerAgency: carerAgency.trim() });
+    buildAndSetLetter(childData, { name: carerFullName, phone: carerPhone.trim() ? `${carerDial} ${carerPhone.trim()}` : "", address: carerAddress.trim(), country: carerCountry, postalCode: carerPostalCode.trim(), email: account?.email, licensedCarer, carerAgency: carerAgency.trim() });
   };
 
   // Per-section saves below let each group be filled and saved on its own,
@@ -657,12 +670,13 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
         lastName: carerLastName.trim(),
         phone: carerFullPhone,
         address: carerAddress.trim(),
+        country: carerCountry,
         postalCode: carerPostalCode.trim(),
         licensedCarer,
         carerAgency: carerAgency.trim(),
       },
     });
-    if (!error && account?.id) await supabase.from("profiles").update({ name: carerFullName, first_name: carerFirstName.trim(), middle_name: carerMiddleName.trim(), last_name: carerLastName.trim(), phone: carerFullPhone, address: carerAddress.trim(), postal_code: carerPostalCode.trim() }).eq("id", account.id);
+    if (!error && account?.id) await supabase.from("profiles").update({ name: carerFullName, first_name: carerFirstName.trim(), middle_name: carerMiddleName.trim(), last_name: carerLastName.trim(), phone: carerFullPhone, address: carerAddress.trim(), country: carerCountry, postal_code: carerPostalCode.trim() }).eq("id", account.id);
     setSectionSavingKey("carer", false);
     if (!error) setSaved("carer", true);
   };
@@ -745,6 +759,12 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
     return () => { cancelled = true; };
   }, [account?.id]);
 
+  useEffect(() => {
+    supabase.from("countries").select("name").order("sort_order").then(({ data }) => {
+      if (data) setCountryOptions(data.map(c => c.name));
+    });
+  }, []);
+
   // Email and address are only asked for once the caregiver says the
   // recipient has one — and then they have to be filled in (the email has to
   // look like a real address) before the recipient saves.
@@ -757,6 +777,7 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
     setNewRecipientName("");
     setNewRecipientAddress("");
     setNewRecipientPostalCode("");
+    setNewRecipientCountry("Singapore");
     setNewRecipientDial("+65");
     setNewRecipientPhone("");
     setNewRecipientHasAddress(false);
@@ -772,6 +793,7 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
       name: newRecipientName.trim(),
       address: newRecipientHasAddress ? newRecipientAddress.trim() : "",
       postal_code: newRecipientHasAddress ? newRecipientPostalCode.trim() : "",
+      country: newRecipientHasAddress ? newRecipientCountry : "",
       phone: joinContactPhone(newRecipientDial, newRecipientPhone.trim()),
       email: newRecipientHasEmail ? newRecipientEmail.trim() : "",
     }).select().single();
@@ -853,12 +875,16 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
     const templateKeys = [...(template.content || "").matchAll(/\[([^\]]+)\]/g)].map(m => normalizeBracket(m[1]));
     const templateHasRecipientPostal = templateKeys.some(k => isPostalKey(k) && isRecipientKey(k));
     const templateHasYourPostal = templateKeys.some(k => isPostalKey(k) && isCarerKey(k));
+    const templateHasRecipientCountry = templateKeys.some(k => isCountryKey(k) && isRecipientKey(k));
+    const templateHasYourCountry = templateKeys.some(k => isCountryKey(k) && isCarerKey(k));
     const recipientPostalCode = chosenRecipient?.postal_code?.trim() || "";
+    const recipientCountry = chosenRecipient?.country?.trim() || "";
     const values = {
       date: formatDate(new Date()),
       recipientName: chosenRecipient?.name?.trim() || buildRecipientLabel(assignedClinic, assignedPsychologist) || listForLetter(childData.clinics, "name") || "[Recipient name / organisation]",
-      recipientAddress: withPostal(chosenRecipient?.address?.trim() || assignedClinic?.address?.trim() || "", recipientPostalCode, templateHasRecipientPostal) || "[Recipient address]",
+      recipientAddress: formatAddress(chosenRecipient?.address?.trim() || assignedClinic?.address?.trim() || "", recipientCountry, recipientPostalCode, { hasCountry: templateHasRecipientCountry, hasPostal: templateHasRecipientPostal }) || "[Recipient address]",
       recipientPostalCode: recipientPostalCode || "[Recipient postal code]",
+      recipientCountry: recipientCountry || "[Recipient country]",
       recipientPhone: chosenRecipient?.phone?.trim() || assignedClinic?.phone?.trim() || "[Recipient phone]",
       recipientEmail: chosenRecipient?.email?.trim() || "[Recipient email]",
       location: childData.location?.trim() || "[Location]",
@@ -906,8 +932,9 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
       pronoun: pronounFor(childData.gender),
       roleLabel: roleLabelFor(childData.caregiverType, childData.caregiverLabel),
       yourName: carerData.name || "[Your name]",
-      yourAddress: withPostal(carerData.address || "", carerData.postalCode || "", templateHasYourPostal) || "[Your address]",
+      yourAddress: formatAddress(carerData.address || "", carerData.country || "", carerData.postalCode || "", { hasCountry: templateHasYourCountry, hasPostal: templateHasYourPostal }) || "[Your address]",
       yourPostalCode: carerData.postalCode || "[Your postal code]",
+      yourCountry: carerData.country || "[Your country]",
       yourPhone: carerData.phone || "[Your phone]",
       yourEmail: carerData.email || "[Your email]",
       licensedCarer: carerData.licensedCarer || "",
@@ -1080,6 +1107,16 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
                 </div>
 
                 <div className="fld">
+                  <label>Country</label>
+                  <div className="selwrap">
+                    <select value={carerCountry} onChange={e => setCarerCountry(e.target.value)}>
+                      {!countryOptions.includes(carerCountry) && <option value={carerCountry}>{carerCountry}</option>}
+                      {countryOptions.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="fld">
                   <label>Postal code</label>
                   <input inputMode="numeric" autoComplete="postal-code" value={carerPostalCode} onChange={e => setCarerPostalCode(e.target.value)} placeholder="e.g. 560123" />
                 </div>
@@ -1133,7 +1170,7 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
                   </div>
                   {!addingRecipient && recipientId && (() => {
                     const r = recipients.find(x => x.id === recipientId);
-                    const details = [[r?.address, r?.postal_code].filter(Boolean).join(", "), r?.phone, r?.email].filter(Boolean).join(" · ");
+                    const details = [formatAddress(r?.address, r?.country, r?.postal_code, {}), r?.phone, r?.email].filter(Boolean).join(" · ");
                     return details ? <p className="hint">{details}</p> : null;
                   })()}
                   {carerErrors.recipient && <p className="err">{carerErrors.recipient}</p>}
@@ -1159,6 +1196,15 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
                         <div className="fld">
                           <label>Address <span className="req">*</span></label>
                           <textarea rows={3} value={newRecipientAddress} onChange={e => setNewRecipientAddress(e.target.value)} placeholder="e.g. 1 Sunrise Ave, #01-01" />
+                        </div>
+                        <div className="fld">
+                          <label>Country</label>
+                          <div className="selwrap">
+                            <select value={newRecipientCountry} onChange={e => setNewRecipientCountry(e.target.value)}>
+                              {!countryOptions.includes(newRecipientCountry) && <option value={newRecipientCountry}>{newRecipientCountry}</option>}
+                              {countryOptions.map(c => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                          </div>
                         </div>
                         <div className="fld">
                           <label>Postal code</label>
