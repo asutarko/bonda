@@ -992,12 +992,13 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
           .cl-setup .fld{margin-bottom:16px;}
           .cl-setup .fld > label{display:block;font-size:13px;font-weight:700;color:${T.inkSoft};letter-spacing:.02em;margin:0 0 8px;}
           .cl-setup .req{color:${T.red};}
-          .cl-setup input, .cl-setup select{
+          .cl-setup input, .cl-setup select, .cl-setup textarea{
             width:100%;font-size:15px;color:${T.ink};background:${T.surface};
             border:1px solid ${T.border};border-radius:${T.r};padding:15px 16px;appearance:none;
             box-sizing:border-box;transition:border-color .15s,box-shadow .15s;
           }
-          .cl-setup input:focus, .cl-setup select:focus{outline:none;border-color:${T.purple};box-shadow:0 0 0 4px ${T.purpleL};}
+          .cl-setup textarea{font-family:inherit;line-height:1.5;resize:vertical;display:block;}
+          .cl-setup input:focus, .cl-setup select:focus, .cl-setup textarea:focus{outline:none;border-color:${T.purple};box-shadow:0 0 0 4px ${T.purpleL};}
           .cl-setup input:disabled{background:${T.canvas};color:${T.inkMuted};cursor:not-allowed;}
           .cl-setup .selwrap{position:relative;}
           .cl-setup .selwrap select{padding-right:40px;}
@@ -1075,7 +1076,7 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
 
                 <div className="fld">
                   <label>Your address</label>
-                  <input value={carerAddress} onChange={e => setCarerAddress(e.target.value)} placeholder="e.g. Blk 123 Ang Mo Kio Ave 3, #04-56" />
+                  <textarea rows={3} value={carerAddress} onChange={e => setCarerAddress(e.target.value)} placeholder="e.g. Blk 123 Ang Mo Kio Ave 3, #04-56" />
                 </div>
 
                 <div className="fld">
@@ -1157,7 +1158,7 @@ export function CarerLetterScreen({ pop, push, childCtx, account }) {
                       <>
                         <div className="fld">
                           <label>Address <span className="req">*</span></label>
-                          <input value={newRecipientAddress} onChange={e => setNewRecipientAddress(e.target.value)} placeholder="e.g. 1 Sunrise Ave, #01-01" />
+                          <textarea rows={3} value={newRecipientAddress} onChange={e => setNewRecipientAddress(e.target.value)} placeholder="e.g. 1 Sunrise Ave, #01-01" />
                         </div>
                         <div className="fld">
                           <label>Postal code</label>

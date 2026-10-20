@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { supabase } from "../lib/supabase";
 import { uploadPhoto } from "../hooks";
 import { T } from "../theme";
-import { Page, SectionLabel, Input, Select, FieldError, Btn, ComAvatar } from "../ui";
+import { Page, SectionLabel, Input, TextArea, Select, FieldError, Btn, ComAvatar } from "../ui";
 import { RELATIONSHIP_OPTIONS, OCCUPATION_OPTIONS, MARITAL_STATUS_OPTIONS, PHONE_COUNTRIES, splitPhone } from "../data";
 
 // Best-effort split of a legacy single-field name (entered before first/
@@ -216,7 +216,7 @@ export function EditProfileScreen({ account, pop, push }) {
         </div>
       </div>
       <FieldError>{errors.phone}</FieldError>
-      <Input label="Home address" value={address} onChange={e => setAddress(e.target.value)} placeholder="e.g. Blk 123 Ang Mo Kio Ave 3, #04-56" />
+      <TextArea label="Home address" rows={3} value={address} onChange={e => setAddress(e.target.value)} placeholder="e.g. Blk 123 Ang Mo Kio Ave 3, #04-56" />
       <FieldError>{errors.address}</FieldError>
       <Input label="Postal code" inputMode="numeric" autoComplete="postal-code" value={postalCode} onChange={e => setPostalCode(e.target.value)} placeholder="e.g. 560123" />
       <FieldError>{errors.postalCode}</FieldError>
