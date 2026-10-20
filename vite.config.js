@@ -20,6 +20,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       workbox: {
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+        // Web Push "push" / "notificationclick" handlers (see public/push-sw.js).
+        importScripts: ['push-sw.js'],
       },
       manifest: {
         name: 'Bonda',
