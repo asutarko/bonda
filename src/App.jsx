@@ -249,20 +249,6 @@ export default function Bonda() {
     }
   };
 
-  const inboxBell = current !== "inbox" && (
-    <button onClick={() => push("inbox")} title="Notifications" style={{ position: "relative", width: "clamp(26px, 7vw, 30px)", height: "clamp(26px, 7vw, 30px)", borderRadius: "50%", border: "none", background: "none", padding: 0, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
-      <svg width="19" height="19" viewBox="0 0 24 24">
-        <path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" stroke={T.purple} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-        <path d="M13.7 21a2 2 0 0 1-3.4 0" stroke={T.purple} strokeWidth="1.8" strokeLinecap="round" fill="none"/>
-      </svg>
-      {unread > 0 && (
-        <span style={{ position: "absolute", top: -2, right: -4, minWidth: 16, height: 16, padding: "0 4px", borderRadius: 99, background: T.red, color: "white", fontSize: 9.5, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", boxSizing: "border-box", fontFamily: T.fontBody }}>
-          {unread > 99 ? "99+" : unread}
-        </span>
-      )}
-    </button>
-  );
-
   const profileMenu = (
     <div style={{ position: "relative", flexShrink: 0 }}>
       <button onClick={() => setShowMenu(v => !v)} title="Menu" style={{ position: "relative", width: "clamp(26px, 7vw, 30px)", height: "clamp(26px, 7vw, 30px)", borderRadius: "50%", border: "none", background: "none", padding: 0, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
@@ -349,13 +335,11 @@ export default function Bonda() {
             {pageTitle}
           </p>
 
-          {inboxBell}
           {profileMenu}
         </div>
       ) : (
         <div style={{ background: T.canvas, padding: "14px 18px 0" }}>
-          <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 6 }}>
-            {inboxBell}
+          <div style={{ display: "flex", justifyContent: "flex-end" }}>
             {profileMenu}
           </div>
         </div>

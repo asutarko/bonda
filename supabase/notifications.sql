@@ -4,7 +4,7 @@
 -- In-app notification inbox. Every notification send_push() sends (schedule
 -- reminders, community messages, announcements) also lands here, one row per
 -- recipient — even for users without a push subscription — so it can be read
--- later from the bell in the app header (src/screens/InboxScreen.jsx).
+-- later from Notifications in the header's 3-dot menu (src/screens/InboxScreen.jsx).
 --
 -- Rows are only kept for 3 days: a daily pg_cron job deletes anything older,
 -- so the table never grows beyond a few days of traffic.

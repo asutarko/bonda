@@ -283,7 +283,7 @@ export function useRewardClaims(userId) {
 // Stack of "close this" callbacks registered by open modals/forms, so the
 // hardware/browser back button can dismiss them instead of leaving the app.
 
-// Unread count for the header bell. Rows land in public.notifications from
+// Unread count for the 3-dot menu's Notifications badge. Rows land in public.notifications from
 // send_push() (supabase/notifications.sql); realtime keeps the badge live, and
 // a refetch on refocus covers anything missed while the app was backgrounded.
 export function useUnreadNotifications(userId) {
