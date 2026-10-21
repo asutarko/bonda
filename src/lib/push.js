@@ -6,8 +6,18 @@ import { supabase } from "./supabase";
 
 const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY;
 
-export const pushSupported = () =>
-  "serviceWorker" in navigator && "PushManager" in window && "Notification" in window && !!VAPID_PUBLIC_KEY;
+// Why push can't work here, or null if it can. Checked in this order because
+// each one hides the next: an insecure origin (http:// on a LAN IP) has no
+// service worker at all, and in-app browsers (WhatsApp, Instagram…) lack
+// PushManager even on a secure origin.
+export const pushUnsupportedReason = () => {
+  if (!VAPID_PUBLIC_KEY) return "missing-key";
+  if (!window.isSecureContext || !("serviceWorker" in navigator)) return "insecure";
+  if (!("PushManager" in window) || !("Notification" in window)) return "browser";
+  return null;
+};
+
+export const pushSupported = () => pushUnsupportedReason() === null;
 
 const urlBase64ToUint8Array = (base64) => {
   const padded = (base64 + "=".repeat((4 - (base64.length % 4)) % 4)).replace(/-/g, "+").replace(/_/g, "/");
@@ -61,6 +71,16 @@ export const setPushPref = async (userId, key, value) => {
   const column = key === "schedule" ? "push_schedule" : "push_messages";
   const { error } = await supabase.from("profiles").update({ [column]: value }).eq("id", userId);
   if (error) throw error;
+};
+
+// Closes the system notifications still sitting in the tray, once the user
+// has read them in the inbox, so they don't keep popping up afterwards.
+export const clearShownNotifications = async () => {
+  if (!pushSupported()) return;
+  try {
+    const reg = await getRegistration();
+    (await reg.getNotifications()).forEach(n => n.close());
+  } catch {}
 };
 
 export const sendTestPush = async () => {

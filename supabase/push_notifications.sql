@@ -25,8 +25,10 @@ alter table public.push_subscriptions add column if not exists timezone text not
 
 -- ── send_push(): the one place that calls the Edge Function ──────────────
 -- Fire-and-forget (pg_net is async), so a slow push never holds up the
--- insert or cron run that triggered it. Only users who actually have a
--- subscription are passed on. Not callable from the app (execute revoked).
+-- insert or cron run that triggered it. Every recipient also gets a row in
+-- the inbox (public.notifications, see notifications.sql); only users who
+-- actually have a subscription are passed on to the Edge Function.
+-- Not callable from the app (execute revoked).
 create or replace function public.send_push(p_user_ids uuid[], p_title text, p_body text, p_url text default '/', p_tag text default null)
 returns void
 language plpgsql
@@ -37,6 +39,11 @@ declare
   v_secret text;
   v_targets uuid[];
 begin
+  insert into public.notifications (user_id, title, body, url, tag)
+  select distinct u, p_title, coalesce(p_body, ''), coalesce(p_url, '/'), p_tag
+  from unnest(p_user_ids) u
+  where u is not null;
+
   select array_agg(distinct s.user_id) into v_targets
   from public.push_subscriptions s
   where s.user_id = any(p_user_ids);
@@ -205,7 +212,8 @@ set search_path = public
 as $$
 begin
   perform public.send_push(
-    coalesce(new.target_user_ids, (select array_agg(distinct user_id) from public.push_subscriptions)),
+    -- Everyone gets it in their inbox; send_push only pushes to subscribers.
+    coalesce(new.target_user_ids, (select array_agg(id) from public.profiles)),
     new.title,
     new.body,
     new.url,

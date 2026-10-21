@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { T } from "../theme";
 import { SectionLabel, Btn } from "../ui";
-import { pushSupported, getPushSubscription, enablePush, disablePush, sendTestPush, getPushPrefs, setPushPref } from "../lib/push";
+import { pushSupported, pushUnsupportedReason, getPushSubscription, enablePush, disablePush, sendTestPush, getPushPrefs, setPushPref } from "../lib/push";
 
 const PREF_ROWS = [
   { key: "schedule", label: "Schedule reminders", hint: "When each activity in your child's schedule starts" },
@@ -53,7 +53,10 @@ export default function PushNotificationsCard({ userId }) {
       <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: T.rL, padding: "16px 16px 14px" }}>
         {!supported ? (
           <p style={{ margin: 0, fontSize: 13, color: T.inkSoft, lineHeight: 1.5 }}>
-            This browser doesn't support notifications. On iPhone/iPad, add Bonda to your Home Screen first (iOS 16.4 or later).
+            {{
+              "missing-key": "Notifications aren't set up for this version of Bonda yet.",
+              "insecure": "Notifications need Bonda to be opened over a secure (https://) address.",
+            }[pushUnsupportedReason()] || "This browser doesn't support notifications. Open Bonda in Chrome (Android) — not inside WhatsApp or Instagram. On iPhone/iPad, add Bonda to your Home Screen first (iOS 16.4 or later)."}
           </p>
         ) : (
           <>

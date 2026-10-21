@@ -283,6 +283,33 @@ export function useRewardClaims(userId) {
 // Stack of "close this" callbacks registered by open modals/forms, so the
 // hardware/browser back button can dismiss them instead of leaving the app.
 
+// Unread count for the header bell. Rows land in public.notifications from
+// send_push() (supabase/notifications.sql); realtime keeps the badge live, and
+// a refetch on refocus covers anything missed while the app was backgrounded.
+export function useUnreadNotifications(userId) {
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    if (!userId) { setCount(0); return; }
+    let cancelled = false;
+    const load = async () => {
+      const { count: c, error } = await supabase.from("notifications").select("id", { count: "exact", head: true }).eq("user_id", userId).is("read_at", null);
+      if (!cancelled && !error) setCount(c || 0);
+    };
+    load();
+
+    const channel = supabase.channel(`notifications_${userId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` }, load)
+      .subscribe();
+    const onVisible = () => { if (document.visibilityState === "visible") load(); };
+    document.addEventListener("visibilitychange", onVisible);
+
+    return () => { cancelled = true; supabase.removeChannel(channel); document.removeEventListener("visibilitychange", onVisible); };
+  }, [userId]);
+
+  return [count, setCount];
+}
+
 export const backHandlerStack = [];
 
 export function useBackHandler(active, onBack) {

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { supabase } from "./lib/supabase";
 import { T } from "./theme";
 import { NavMark, ComAvatar } from "./ui";
-import { useChildren, useBackHandler, backHandlerStack, accountFromUser, forceSignOut, consumeNewSignupFlag } from "./hooks";
+import { useChildren, useBackHandler, backHandlerStack, accountFromUser, forceSignOut, consumeNewSignupFlag, useUnreadNotifications } from "./hooks";
 
 // Every screen below is only ever needed once its tab/stack entry is actually
 // opened (this app uses its own tab/stack nav, not route-based splitting), so
@@ -31,6 +31,7 @@ const EmotionsBehavioursScreen = lazy(() => import("./screens/EmotionsBehaviours
 const EditProfileScreen = lazy(() => import("./screens/ProfileScreen").then(m => ({ default: m.EditProfileScreen })));
 const RedeemPointsScreen = lazy(() => import("./screens/GrowthTracker").then(m => ({ default: m.RedeemPointsScreen })));
 const FeedbackScreen = lazy(() => import("./screens/FeedbackScreen").then(m => ({ default: m.FeedbackScreen })));
+const InboxScreen = lazy(() => import("./screens/InboxScreen").then(m => ({ default: m.InboxScreen })));
 const LegalHub = lazy(() => import("./components/bonda-compliance").then(m => ({ default: m.LegalHub })));
 
 // Shared Suspense fallback, styled like the app's existing full-screen
@@ -107,6 +108,7 @@ export default function Bonda() {
   }, []);
 
   const childCtx = useChildren(account?.id);
+  const [unread, setUnread] = useUnreadNotifications(account?.id);
 
   // Intercept the hardware/browser back button: close any open modal/form,
   // else pop the screen stack, else go to the Home tab, else ask for a
@@ -208,6 +210,7 @@ export default function Bonda() {
     legalHub: "Legal & Privacy",
     redeemPoints: "Redeem your points",
     feedback: "Feedback",
+    inbox: "Notifications",
   };
 
   const pageTitle = current ? TITLES[current] || "" : TITLES[tab];
@@ -241,9 +244,24 @@ export default function Bonda() {
       case "legalHub":    return <LegalHub onBack={pop} />;
       case "redeemPoints": return <RedeemPointsScreen childCtx={childCtx} push={push} />;
       case "feedback":    return <FeedbackScreen account={account} pop={pop} />;
+      case "inbox":       return <InboxScreen account={account} pop={pop} setTab={setTab} onRead={() => setUnread(0)} />;
       default:           return null;
     }
   };
+
+  const inboxBell = current !== "inbox" && (
+    <button onClick={() => push("inbox")} title="Notifications" style={{ position: "relative", width: "clamp(26px, 7vw, 30px)", height: "clamp(26px, 7vw, 30px)", borderRadius: "50%", border: "none", background: "none", padding: 0, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
+      <svg width="19" height="19" viewBox="0 0 24 24">
+        <path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" stroke={T.purple} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+        <path d="M13.7 21a2 2 0 0 1-3.4 0" stroke={T.purple} strokeWidth="1.8" strokeLinecap="round" fill="none"/>
+      </svg>
+      {unread > 0 && (
+        <span style={{ position: "absolute", top: -2, right: -4, minWidth: 16, height: 16, padding: "0 4px", borderRadius: 99, background: T.red, color: "white", fontSize: 9.5, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", boxSizing: "border-box", fontFamily: T.fontBody }}>
+          {unread > 99 ? "99+" : unread}
+        </span>
+      )}
+    </button>
+  );
 
   const profileMenu = (
     <div style={{ position: "relative", flexShrink: 0 }}>
@@ -286,7 +304,7 @@ export default function Bonda() {
               { key: "profile", label: "Profile", onClick: () => { setShowMenu(false); push("editProfile"); }, icon: <><circle cx="12" cy="8" r="4" stroke={T.inkSoft} strokeWidth="1.8" fill="none"/><path d="M5 20c0-4 3.1-6.4 7-6.4s7 2.4 7 6.4" stroke={T.inkSoft} strokeWidth="1.8" strokeLinecap="round" fill="none"/></> },
               { key: "redeemPoints", label: "Redeem your points", onClick: () => { setShowMenu(false); push("redeemPoints"); }, icon: <><rect x="4" y="10" width="16" height="9" rx="1.6" stroke={T.inkSoft} strokeWidth="1.8" fill="none"/><path d="M4 13.5h16M12 10v9" stroke={T.inkSoft} strokeWidth="1.8" fill="none"/><path d="M12 10c-1.2-2.6-5-2.6-5-.4 0 1.5 2.6 1.4 5 .4zM12 10c1.2-2.6 5-2.6 5-.4 0 1.5-2.6 1.4-5 .4z" stroke={T.inkSoft} strokeWidth="1.8" strokeLinejoin="round" fill="none"/></> },
               { key: "feedback", label: "Feedback", onClick: () => { setShowMenu(false); push("feedback"); }, icon: <><path d="M4.5 6.5a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H10l-4 3.5v-3.5h0a1.5 1.5 0 0 1-1.5-1.5Z" stroke={T.inkSoft} strokeWidth="1.8" strokeLinejoin="round" fill="none"/><path d="M8.5 9.5h7M8.5 12.5h4.5" stroke={T.inkSoft} strokeWidth="1.8" strokeLinecap="round" fill="none"/></> },
-              { key: "notifications", label: "Notifications", soon: true, icon: <><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" stroke={T.inkSoft} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none"/><path d="M13.7 21a2 2 0 0 1-3.4 0" stroke={T.inkSoft} strokeWidth="1.8" strokeLinecap="round" fill="none"/></> },
+              { key: "notifications", label: "Notifications", onClick: () => { setShowMenu(false); if (current !== "inbox") push("inbox"); }, icon: <><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" stroke={T.inkSoft} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none"/><path d="M13.7 21a2 2 0 0 1-3.4 0" stroke={T.inkSoft} strokeWidth="1.8" strokeLinecap="round" fill="none"/></> },
               { key: "security", label: "Security", soon: true, icon: <><path d="M12 3l7 3v5c0 4.6-3 7.6-7 9-4-1.4-7-4.4-7-9V6Z" stroke={T.inkSoft} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none"/><path d="m9 12 2 2 4-4" stroke={T.inkSoft} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none"/></> },
               { key: "payment", label: "Payment & plans", soon: true, icon: <><rect x="3" y="6" width="18" height="12" rx="2.6" stroke={T.inkSoft} strokeWidth="1.8" fill="none"/><path d="M3 10h18" stroke={T.inkSoft} strokeWidth="1.8" fill="none"/></> },
               { key: "help", label: "Help", soon: true, icon: <><circle cx="12" cy="12" r="9" stroke={T.inkSoft} strokeWidth="1.8" fill="none"/><path d="M9.6 9.5a2.4 2.4 0 1 1 3.4 2.2c-.9.4-1.5 1-1.5 2M12 17h.01" stroke={T.inkSoft} strokeWidth="1.8" strokeLinecap="round" fill="none"/></> },
@@ -329,11 +347,13 @@ export default function Bonda() {
             {pageTitle}
           </p>
 
+          {inboxBell}
           {profileMenu}
         </div>
       ) : (
         <div style={{ background: T.canvas, padding: "14px 18px 0" }}>
-          <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 6 }}>
+            {inboxBell}
             {profileMenu}
           </div>
         </div>
