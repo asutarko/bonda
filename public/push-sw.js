@@ -21,21 +21,30 @@ self.addEventListener("push", (event) => {
       body: data.body || "",
       icon: "/icon-192.png",
       badge: "/icon-192.png",
-      data: { url: data.url || "/" },
+      data: { url: data.url || "/", tag: data.tag || null },
       ...(data.tag ? { tag: data.tag, renotify: true } : {}),
     });
   })());
 });
 
 // Focus an open Bonda tab (navigating it to the notification's url) or open
-// a new one.
+// a new one. Tapping counts as reading it: an open tab is told the tag via
+// postMessage, a (re)loaded one gets it as ?read=<tag> (see useUnreadNotifications).
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const url = new URL(event.notification.data?.url || "/", self.location.origin).href;
+  const { url: path, tag } = event.notification.data || {};
+  const url = new URL(path || "/", self.location.origin).href;
+  const withRead = new URL(url);
+  if (tag) withRead.searchParams.set("read", tag);
   event.waitUntil((async () => {
     const tabs = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
     const tab = tabs.find(c => c.url.startsWith(self.location.origin));
-    if (tab) { await tab.focus(); if (tab.url !== url && "navigate" in tab) await tab.navigate(url); return; }
-    await self.clients.openWindow(url);
+    if (tab) {
+      await tab.focus();
+      if (tab.url !== url && "navigate" in tab) await tab.navigate(withRead.href);
+      else if (tag) tab.postMessage({ type: "notification-read", tag });
+      return;
+    }
+    await self.clients.openWindow(withRead.href);
   })());
 });
