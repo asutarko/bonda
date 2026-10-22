@@ -5,7 +5,8 @@
 
 // Safari/iOS revokes the subscription if a push doesn't show a notification,
 // so there it always pops up; elsewhere it's skipped while Bonda is open on
-// screen, since the header bell's badge already updates live.
+// screen, since the header bell's badge already updates live. The "Send
+// test" push (tag "test") always pops up, since it's sent from the open app.
 const ALWAYS_SHOW = /iPhone|iPad|iPod|^((?!Chrome|Android).)*Safari/i.test(self.navigator.userAgent);
 
 self.addEventListener("push", (event) => {
@@ -13,7 +14,7 @@ self.addEventListener("push", (event) => {
   try { data = event.data ? event.data.json() : {}; } catch { data = { body: event.data?.text() }; }
   const title = data.title || "Bonda";
   event.waitUntil((async () => {
-    if (!ALWAYS_SHOW) {
+    if (!ALWAYS_SHOW && data.tag !== "test") {
       const tabs = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
       if (tabs.some(c => c.visibilityState === "visible")) return;
     }
