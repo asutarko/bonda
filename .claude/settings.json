@@ -6,7 +6,9 @@
       "Bash(npm run *)",
       "PowerShell(npx vite build --logLevel error 2>&1)",
       "Bash(npm i *)",
-      "Bash(node -e \"const w=require\\('web-push'\\);const k=w.generateVAPIDKeys\\(\\);require\\('fs'\\).writeFileSync\\('../vapid.json',JSON.stringify\\(k\\)\\);console.log\\('public:',k.publicKey\\)\")"
+      "Bash(node -e \"const w=require\\('web-push'\\);const k=w.generateVAPIDKeys\\(\\);require\\('fs'\\).writeFileSync\\('../vapid.json',JSON.stringify\\(k\\)\\);console.log\\('public:',k.publicKey\\)\")",
+      "PowerShell(supabase --version)",
+      "PowerShell(supabase functions list 2>&1)"
     ]
   }
 }

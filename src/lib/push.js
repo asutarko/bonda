@@ -85,7 +85,7 @@ export const clearShownNotifications = async () => {
 
 export const sendTestPush = async () => {
   const { data, error } = await supabase.functions.invoke("send-push", {
-    body: { title: "Bonda", body: "Notifications are working 🎉", url: "/" },
+    body: { title: "Bonda", body: "Notifications are working 🎉", url: "/", tag: "test" },
   });
   if (error) throw error;
   return data;

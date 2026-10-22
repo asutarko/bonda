@@ -28,7 +28,7 @@ self.addEventListener("push", (event) => {
 });
 
 // Focus an open Bonda tab (navigating it to the notification's url) or open
-// a new one. Tapping counts as reading it: an open tab is told the tag via
+// a new one. Tapping removes it from the inbox: an open tab is told the tag via
 // postMessage, a (re)loaded one gets it as ?read=<tag> (see useUnreadNotifications).
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();

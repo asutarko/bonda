@@ -13,6 +13,7 @@
 //    user_ids to notify others.
 // Deployed with --no-verify-jwt so the database can call it without a JWT;
 // user calls are checked here instead.
+// User calls also add a row to each target's inbox (public.notifications).
 // Subscriptions the push service reports as gone (404/410) are deleted.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -54,6 +55,13 @@ Deno.serve(async (req) => {
       if (profile?.role !== "admin") return json({ error: "Only admins can notify other users" }, 403);
       targets = user_ids;
     }
+  }
+
+  // send_push() already wrote the inbox rows for database calls; user calls
+  // (the "Send test" button, admin pushes) land in the inbox here.
+  if (!isInternal) {
+    const { error: inboxError } = await admin.from("notifications").insert(targets.map((user_id) => ({ user_id, title, body, url, tag })));
+    if (inboxError) console.error("Inbox insert failed:", inboxError.message);
   }
 
   const { data: subs, error } = await admin.from("push_subscriptions").select("id, endpoint, p256dh, auth").in("user_id", targets);
