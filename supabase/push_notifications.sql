@@ -4,7 +4,8 @@
 -- Push notifications sent from the database itself, through the send-push
 -- Edge Function (supabase/functions/send-push):
 --   1. Schedule reminders — every minute, pg_cron sends one for each
---      schedule item that starts now, in the device's own timezone.
+--      schedule item that starts now, in the device's own timezone — except
+--      items that clash with another one (the app's "Conflict" badge).
 --   2. Community messages — a trigger on public.messages notifies the other
 --      DM participant, or every other member of the group/room.
 --   3. Announcements — an admin inserts a row into public.announcements
@@ -70,6 +71,36 @@ revoke all on function public.send_push(uuid[], text, text, text, text) from pub
 -- Mirrors the app: an empty schedule_items shows DEFAULT_SCHEDULE (src/data.js),
 -- and an item applies today unless it has a non-empty, non-full `days` list
 -- (0=Sun..6=Sat) that doesn't include today (appliesToday in ScheduleScreen).
+-- Items that overlap another one (the "Conflict" badge) get no reminder.
+
+-- Same rule as hasConflict in ScheduleScreen: the two items share a day (no
+-- `days` means every day) and their times overlap, where a missing endTime is
+-- a zero-duration point. Times are zero-padded "HH:MM", so text compares work.
+create or replace function public.schedule_items_conflict(a jsonb, b jsonb)
+returns boolean
+language sql
+immutable
+as $$
+  select
+    (
+      jsonb_typeof(a->'days') is distinct from 'array' or jsonb_array_length(a->'days') = 0
+      or jsonb_typeof(b->'days') is distinct from 'array' or jsonb_array_length(b->'days') = 0
+      or exists (select 1 from jsonb_array_elements(a->'days') d where (b->'days') @> jsonb_build_array(d))
+    )
+    and (
+      case
+        when s1 = e1 and s2 = e2 then s1 = s2
+        when s1 = e1 then s1 >= s2 and s1 < e2
+        when s2 = e2 then s2 >= s1 and s2 < e1
+        else s1 < e2 and s2 < e1
+      end
+    )
+  from (
+    select a->>'time' as s1, coalesce(nullif(a->>'endTime', ''), a->>'time') as e1,
+           b->>'time' as s2, coalesce(nullif(b->>'endTime', ''), b->>'time') as e2
+  ) t
+$$;
+
 create or replace function public.push_schedule_reminders()
 returns void
 language plpgsql
@@ -93,16 +124,22 @@ begin
     from public.children c
     join public.profiles p on p.id = c.user_id and p.push_schedule
     join lateral (select distinct s.timezone from public.push_subscriptions s where s.user_id = c.user_id) tz on true
-    cross join lateral jsonb_array_elements(
-      case when jsonb_typeof(c.schedule_items) = 'array' and jsonb_array_length(c.schedule_items) > 0
-           then c.schedule_items else v_default end
-    ) it
+    cross join lateral (
+      select case when jsonb_typeof(c.schedule_items) = 'array' and jsonb_array_length(c.schedule_items) > 0
+                  then c.schedule_items else v_default end as items
+    ) s
+    cross join lateral jsonb_array_elements(s.items) it
     where c.active is not false
       and it->>'time' = to_char(now() at time zone tz.timezone, 'HH24:MI')
       and (
         jsonb_typeof(it->'days') is distinct from 'array'
         or jsonb_array_length(it->'days') in (0, 7)
         or (it->'days') @> to_jsonb(extract(dow from now() at time zone tz.timezone)::int)
+      )
+      -- An item shown as "Conflict" in the app is skipped — no reminder.
+      and not exists (
+        select 1 from jsonb_array_elements(s.items) o
+        where o->>'id' is distinct from it->>'id' and public.schedule_items_conflict(it, o)
       )
   loop
     perform public.send_push(
