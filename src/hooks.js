@@ -286,20 +286,6 @@ export function useRewardClaims(userId) {
 // Unread count for the 3-dot menu's Notifications badge. Rows land in public.notifications from
 // send_push() (supabase/notifications.sql); realtime keeps the badge live, and
 // a refetch on refocus covers anything missed while the app was backgrounded.
-// Tapping a system notification deletes every row with its tag from the inbox
-// (public/push-sw.js passes the tag as ?read=<tag> or via postMessage).
-let pendingReadTag = (() => {
-  try {
-    const url = new URL(window.location.href);
-    const tag = url.searchParams.get("read");
-    if (tag) { url.searchParams.delete("read"); window.history.replaceState(window.history.state, "", url); }
-    return tag;
-  } catch { return null; }
-})();
-
-const deleteTag = (userId, tag) =>
-  supabase.from("notifications").delete().eq("user_id", userId).eq("tag", tag);
-
 export function useUnreadNotifications(userId) {
   const [count, setCount] = useState(0);
 
@@ -310,29 +296,47 @@ export function useUnreadNotifications(userId) {
       const { count: c, error } = await supabase.from("notifications").select("id", { count: "exact", head: true }).eq("user_id", userId).is("read_at", null);
       if (!cancelled && !error) setCount(c || 0);
     };
-    if (pendingReadTag) {
-      const tag = pendingReadTag;
-      pendingReadTag = null;
-      deleteTag(userId, tag).then(load);
-    } else load();
+    load();
 
     const channel = supabase.channel(`notifications_${userId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` }, load)
       .subscribe();
     const onVisible = () => { if (document.visibilityState === "visible") load(); };
     document.addEventListener("visibilitychange", onVisible);
-    const onSwMessage = (e) => { if (e.data?.type === "notification-read" && e.data.tag) deleteTag(userId, e.data.tag).then(load); };
-    navigator.serviceWorker?.addEventListener("message", onSwMessage);
 
     return () => {
       cancelled = true;
       supabase.removeChannel(channel);
       document.removeEventListener("visibilitychange", onVisible);
-      navigator.serviceWorker?.removeEventListener("message", onSwMessage);
     };
   }, [userId]);
 
   return [count, setCount];
+}
+
+// Tapping a system notification opens the inbox: public/push-sw.js loads the
+// app with ?open=inbox, or posts "open-inbox" to a tab that's already open.
+// openInbox only runs once `ready` (signed in, past phone capture).
+let pendingOpenInbox = (() => {
+  try {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("open") !== "inbox") return false;
+    url.searchParams.delete("open");
+    window.history.replaceState(window.history.state, "", url);
+    return true;
+  } catch { return false; }
+})();
+
+export function useOpenInboxOnTap(ready, openInbox) {
+  const openRef = useRef(openInbox);
+  openRef.current = openInbox;
+  useEffect(() => {
+    if (!ready) return;
+    if (pendingOpenInbox) { pendingOpenInbox = false; openRef.current(); }
+    const onSwMessage = (e) => { if (e.data?.type === "open-inbox") openRef.current(); };
+    navigator.serviceWorker?.addEventListener("message", onSwMessage);
+    return () => navigator.serviceWorker?.removeEventListener("message", onSwMessage);
+  }, [ready]);
 }
 
 export const backHandlerStack = [];

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { supabase } from "./lib/supabase";
 import { T } from "./theme";
 import { NavMark, ComAvatar } from "./ui";
-import { useChildren, useBackHandler, backHandlerStack, accountFromUser, forceSignOut, consumeNewSignupFlag, useUnreadNotifications } from "./hooks";
+import { useChildren, useBackHandler, backHandlerStack, accountFromUser, forceSignOut, consumeNewSignupFlag, useUnreadNotifications, useOpenInboxOnTap } from "./hooks";
 
 // Every screen below is only ever needed once its tab/stack entry is actually
 // opened (this app uses its own tab/stack nav, not route-based splitting), so
@@ -109,6 +109,15 @@ export default function Bonda() {
 
   const childCtx = useChildren(account?.id);
   const [unread, setUnread] = useUnreadNotifications(account?.id);
+
+  // A tapped system notification lands on the inbox; bumping the key remounts
+  // it if it's already open, so it refetches and shows the new notification.
+  const [inboxKey, setInboxKey] = useState(0);
+  useOpenInboxOnTap(!!account && !pendingPhone, () => {
+    setShowMenu(false);
+    setInboxKey(k => k + 1);
+    setStack(s => [...s.filter(x => x !== "inbox"), "inbox"]);
+  });
 
   // Intercept the hardware/browser back button: close any open modal/form,
   // else pop the screen stack, else go to the Home tab, else ask for a
@@ -244,7 +253,7 @@ export default function Bonda() {
       case "legalHub":    return <LegalHub onBack={pop} />;
       case "redeemPoints": return <RedeemPointsScreen childCtx={childCtx} push={push} />;
       case "feedback":    return <FeedbackScreen account={account} pop={pop} />;
-      case "inbox":       return <InboxScreen account={account} pop={pop} setTab={setTab} onRead={() => setUnread(0)} />;
+      case "inbox":       return <InboxScreen key={inboxKey} account={account} pop={pop} setTab={setTab} onRead={() => setUnread(0)} />;
       default:           return null;
     }
   };

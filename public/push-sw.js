@@ -28,24 +28,20 @@ self.addEventListener("push", (event) => {
   })());
 });
 
-// Focus an open Bonda tab (navigating it to the notification's url) or open
-// a new one. Tapping removes it from the inbox: an open tab is told the tag via
-// postMessage, a (re)loaded one gets it as ?read=<tag> (see useUnreadNotifications).
+// Tapping opens the inbox: an open Bonda tab is focused and told via
+// postMessage, otherwise a new one opens with ?open=inbox (see useOpenInboxOnTap).
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const { url: path, tag } = event.notification.data || {};
-  const url = new URL(path || "/", self.location.origin).href;
-  const withRead = new URL(url);
-  if (tag) withRead.searchParams.set("read", tag);
+  const url = new URL("/", self.location.origin);
+  url.searchParams.set("open", "inbox");
   event.waitUntil((async () => {
     const tabs = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
     const tab = tabs.find(c => c.url.startsWith(self.location.origin));
     if (tab) {
       await tab.focus();
-      if (tab.url !== url && "navigate" in tab) await tab.navigate(withRead.href);
-      else if (tag) tab.postMessage({ type: "notification-read", tag });
+      tab.postMessage({ type: "open-inbox" });
       return;
     }
-    await self.clients.openWindow(withRead.href);
+    await self.clients.openWindow(url.href);
   })());
 });
