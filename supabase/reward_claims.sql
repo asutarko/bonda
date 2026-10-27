@@ -5,19 +5,20 @@
 -- Rewards redeemed from the points catalogue (BondaDevelopment.jsx /
 -- GrowthTracker.jsx RedeemPointsScreen). Replaces children.growth_claims.
 --
--- Each reward can be claimed ONCE PER ACCOUNT, whichever child's points
--- unlocked it — a caregiver with several children still gets "10% off Bonda"
+-- Points belong to the caregiver: the points (from dev_answers) of all their
+-- active children are pooled into one total. Each reward can be claimed ONCE
+-- PER ACCOUNT — a caregiver with several children still gets "10% off Bonda"
 -- only once. Enforced by the unique (user_id, reward_id) constraint, so it
 -- holds even against a double tap or two open tabs.
 --
 -- Caregivers can't write this table directly; claims only go through
--- claim_reward(), which checks the child is theirs, that child's points
--- (from dev_answers) reach the reward's cost, and generates the code.
+-- claim_reward(), which checks the pooled points reach the reward's cost
+-- (and, if a child is passed, that it is theirs) and generates the code.
 
 create table if not exists public.reward_claims (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
-  child_id uuid references public.children (id) on delete set null,  -- whose points unlocked it
+  child_id uuid references public.children (id) on delete set null,  -- child it was redeemed from, if any
   reward_id text not null,                                            -- off5 | off10 | free1
   code text not null unique,
   points_at_claim integer,
@@ -73,7 +74,8 @@ begin
     raise exception 'Unknown reward %', p_reward_id;
   end if;
 
-  if not exists (select 1 from public.children where id = p_child_id and user_id = v_uid) then
+  if p_child_id is not null
+     and not exists (select 1 from public.children where id = p_child_id and user_id = v_uid) then
     raise exception 'Unknown child %', p_child_id;
   end if;
 
@@ -82,7 +84,11 @@ begin
     return v_claim;
   end if;
 
-  select coalesce(sum(points), 0) into v_points from public.dev_answers where child_id = p_child_id;
+  -- Points are pooled across all of the caregiver's active children.
+  select coalesce(sum(a.points), 0) into v_points
+  from public.dev_answers a
+  join public.children c on c.id = a.child_id
+  where c.user_id = v_uid and c.active is not false;
   if v_points < v_cost then
     raise exception 'Not enough points: % of %', v_points, v_cost;
   end if;

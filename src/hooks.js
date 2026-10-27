@@ -243,8 +243,8 @@ export function useChildren(userId) {
 }
 
 // Rewards this account has redeemed (supabase/reward_claims.sql). Each reward
-// can be claimed once per account, whichever child's points unlocked it; the
-// claim_reward RPC checks ownership, points and duplicates server-side.
+// can be claimed once per account, against the points pooled from all active
+// children; the claim_reward RPC checks points and duplicates server-side.
 export function useRewardClaims(userId) {
   const [claimed, setClaimed] = useState({}); // rewardId -> code
   const [error, setError] = useState("");

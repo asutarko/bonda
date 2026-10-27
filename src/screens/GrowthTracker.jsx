@@ -202,28 +202,29 @@ export function GrowthTrackerSection({ activeChild, updateChild }) {
 
 /* ==================================================================
    REDEEM SCREEN — the same catalogue, opened straight from the header's
-   3-dot menu ("Redeem your points"). Points belong to each child (summed
-   from dev_answers), so a caregiver with several children can switch
-   whose points to use; each reward is claimed once per account.
+   3-dot menu ("Redeem your points"). Points belong to the caregiver: the
+   points of all their active children (summed from dev_answers) are pooled
+   into one total; each reward is claimed once per account.
    ================================================================== */
-export function RedeemPointsScreen({ childCtx, push }) {
-  const { children = [], activeChild, switchChild, userId } = childCtx || {};
+export function RedeemPointsScreen({ childCtx, account, push }) {
+  const { children = [], userId } = childCtx || {};
   const { claimed, claim, error } = useRewardClaims(userId);
   const [total, setTotal] = useState(0);
+  const activeIds = children.filter(c => c.active !== false).map(c => c.id).join(",");
   useEffect(() => {
     setTotal(0);
-    if (!activeChild?.id) return;
+    if (!activeIds) return;
     let cancelled = false;
-    supabase.from("dev_child_points").select("points").eq("child_id", activeChild.id).maybeSingle()
+    supabase.from("dev_child_points").select("points").in("child_id", activeIds.split(","))
       .then(({ data, error }) => {
         if (cancelled) return;
         if (error) { console.error("Failed to load points:", error.message); return; }
-        setTotal(data?.points || 0);
+        setTotal(data.reduce((n, r) => n + (r.points || 0), 0));
       });
     return () => { cancelled = true; };
-  }, [activeChild?.id]);
+  }, [activeIds]);
 
-  if (!activeChild) {
+  if (!children.length) {
     return (
       <Page>
         <p style={{ margin: "0 0 14px", color: T.inkSoft, fontSize: 13.5, lineHeight: 1.6 }}>Add a child profile first — points are earned by logging observations in their Growth tracker.</p>
@@ -233,20 +234,13 @@ export function RedeemPointsScreen({ childCtx, push }) {
   }
   const redeem = (r) => {
     if (total < r.cost || claimed[r.id]) return;
-    claim(activeChild.id, r.id);   // the database re-checks points and duplicates
+    claim(null, r.id);   // the database re-checks the pooled points and duplicates
   };
   return (
     <Page>
-      {children.length > 1 && (
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 18 }}>
-          {children.map(c => {
-            const on = c.id === activeChild.id;
-            return (
-              <button key={c.id} onClick={() => switchChild(c.id)} style={{ border: `1.5px solid ${on ? T.purple : T.border}`, background: on ? T.purpleL : T.surface, color: on ? T.purple : T.inkSoft, borderRadius: 99, padding: "6px 14px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody }}>{c.name}</button>
-            );
-          })}
-        </div>
-      )}
+      <div style={{ display: "flex", marginBottom: 18 }}>
+        <span style={{ border: `1.5px solid ${T.purple}`, background: T.purpleL, color: T.purple, borderRadius: 99, padding: "6px 14px", fontSize: 13, fontWeight: 700, fontFamily: T.fontBody }}>{account?.name || "Your account"}</span>
+      </div>
       <Redeem points={total} claimed={claimed} error={error} onRedeem={redeem} />
     </Page>
   );

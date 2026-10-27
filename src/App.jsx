@@ -251,7 +251,7 @@ export default function Bonda() {
       case "documents":   return <DocumentsScreen pop={pop} push={push} childCtx={childCtx} account={account} />;
       case "emotionsGuide": return <EmotionsBehavioursScreen pop={pop} />;
       case "legalHub":    return <LegalHub onBack={pop} />;
-      case "redeemPoints": return <RedeemPointsScreen childCtx={childCtx} push={push} />;
+      case "redeemPoints": return <RedeemPointsScreen childCtx={childCtx} account={account} push={push} />;
       case "feedback":    return <FeedbackScreen account={account} pop={pop} />;
       case "inbox":       return <InboxScreen key={inboxKey} account={account} pop={pop} setTab={setTab} onRead={() => setUnread(0)} />;
       default:           return null;
