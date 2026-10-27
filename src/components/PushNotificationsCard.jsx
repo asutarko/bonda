@@ -4,7 +4,7 @@ import { SectionLabel, Btn } from "../ui";
 import { pushSupported, pushUnsupportedReason, getPushSubscription, enablePush, disablePush, sendTestPush, getPushPrefs, setPushPref } from "../lib/push";
 
 const PREF_ROWS = [
-  { key: "schedule", label: "Schedule reminders", hint: "When each activity in your child's schedule starts" },
+  { key: "schedule", label: "Schedule reminders", hint: "1 hour and 10 minutes before each activity in your child's schedule, and when it starts" },
   { key: "messages", label: "Community messages", hint: "New messages in your groups and private chats" },
 ];
 

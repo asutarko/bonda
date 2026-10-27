@@ -4,8 +4,9 @@
 -- Push notifications sent from the database itself, through the send-push
 -- Edge Function (supabase/functions/send-push):
 --   1. Schedule reminders — every minute, pg_cron sends one for each
---      schedule item that starts now, in the device's own timezone — except
---      items that clash with another one (the app's "Conflict" badge).
+--      schedule item that starts in 1 hour, in 10 minutes, or now, in the
+--      device's own timezone — except items that clash with another one (the
+--      app's "Conflict" badge).
 --   2. Community messages — a trigger on public.messages notifies the other
 --      DM participant, or every other member of the group/room.
 --   3. Announcements — an admin inserts a row into public.announcements
@@ -119,22 +120,30 @@ declare
   ]';
 begin
   for r in
-    select c.id as child_id, c.user_id, c.name as child_name,
+    select c.id as child_id, c.user_id, c.name as child_name, ahead.minutes,
            it->>'id' as item_id, it->>'label' as label, coalesce(it->>'emoji', '') as emoji
     from public.children c
     join public.profiles p on p.id = c.user_id and p.push_schedule
     join lateral (select distinct s.timezone from public.push_subscriptions s where s.user_id = c.user_id) tz on true
+    -- Each item is announced 60 and 10 minutes ahead, and again when it starts.
+    -- `starts` is the local time an item would have to start at to be due for
+    -- that reminder now, so its day (for `days`) is the item's own day — a
+    -- 00:30 item gets its 1-hour warning at 23:30 the evening before.
+    cross join (values (60), (10), (0)) ahead (minutes)
+    cross join lateral (
+      select (now() at time zone tz.timezone) + make_interval(mins => ahead.minutes) as starts
+    ) t
     cross join lateral (
       select case when jsonb_typeof(c.schedule_items) = 'array' and jsonb_array_length(c.schedule_items) > 0
                   then c.schedule_items else v_default end as items
     ) s
     cross join lateral jsonb_array_elements(s.items) it
     where c.active is not false
-      and it->>'time' = to_char(now() at time zone tz.timezone, 'HH24:MI')
+      and it->>'time' = to_char(t.starts, 'HH24:MI')
       and (
         jsonb_typeof(it->'days') is distinct from 'array'
         or jsonb_array_length(it->'days') in (0, 7)
-        or (it->'days') @> to_jsonb(extract(dow from now() at time zone tz.timezone)::int)
+        or (it->'days') @> to_jsonb(extract(dow from t.starts)::int)
       )
       -- An item shown as "Conflict" in the app is skipped — no reminder.
       and not exists (
@@ -145,8 +154,13 @@ begin
     perform public.send_push(
       array[r.user_id],
       trim(r.emoji || ' ' || r.label),
-      'Time for ' || r.label || ' — ' || r.child_name,
+      case r.minutes
+        when 60 then r.label || ' starts in 1 hour — ' || r.child_name
+        when 10 then r.label || ' starts in 10 minutes — ' || r.child_name
+        else 'Time for ' || r.label || ' — ' || r.child_name
+      end,
       '/',
+      -- Same tag for all three, so each reminder replaces the previous one.
       'schedule_' || r.child_id || '_' || r.item_id
     );
   end loop;
