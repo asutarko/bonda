@@ -304,7 +304,7 @@ export default function Bonda() {
               { key: "security", label: "Security", soon: true, icon: <><path d="M12 3l7 3v5c0 4.6-3 7.6-7 9-4-1.4-7-4.4-7-9V6Z" stroke={T.inkSoft} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none"/><path d="m9 12 2 2 4-4" stroke={T.inkSoft} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none"/></> },
               { key: "payment", label: "Payment & plans", soon: true, icon: <><rect x="3" y="6" width="18" height="12" rx="2.6" stroke={T.inkSoft} strokeWidth="1.8" fill="none"/><path d="M3 10h18" stroke={T.inkSoft} strokeWidth="1.8" fill="none"/></> },
               { key: "help", label: "Help", soon: true, icon: <><circle cx="12" cy="12" r="9" stroke={T.inkSoft} strokeWidth="1.8" fill="none"/><path d="M9.6 9.5a2.4 2.4 0 1 1 3.4 2.2c-.9.4-1.5 1-1.5 2M12 17h.01" stroke={T.inkSoft} strokeWidth="1.8" strokeLinecap="round" fill="none"/></> },
-            ].filter(m => m.key !== "payment" || tab === "community").map(m => (
+            ].map(m => (
               <button key={m.key} className="bonda-macct-item" onClick={m.onClick || (() => setShowMenu(false))} style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: 10, borderRadius: 10, background: "none", border: "none", cursor: "pointer", fontFamily: T.fontBody, textAlign: "left" }}>
                 <svg width="19" height="19" viewBox="0 0 24 24">{m.icon}</svg>
                 <span style={{ fontSize: 14, fontWeight: 500, color: T.ink }}>{m.label}</span>
