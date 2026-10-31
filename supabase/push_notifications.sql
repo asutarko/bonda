@@ -5,7 +5,7 @@
 -- Edge Function (supabase/functions/send-push):
 --   1. Schedule reminders — every minute, pg_cron sends one for each
 --      schedule item that starts in 1 hour, in 10 minutes, or now, in the
---      device's own timezone — except items that clash with another one (the
+--      device's own timezone, including items that clash with another one (the
 --      app's "Conflict" badge).
 --   2. Community messages — a trigger on public.messages notifies the other
 --      DM participant, or every other member of the group/room.
@@ -72,35 +72,9 @@ revoke all on function public.send_push(uuid[], text, text, text, text) from pub
 -- Mirrors the app: an empty schedule_items shows DEFAULT_SCHEDULE (src/data.js),
 -- and an item applies today unless it has a non-empty, non-full `days` list
 -- (0=Sun..6=Sat) that doesn't include today (appliesToday in ScheduleScreen).
--- Items that overlap another one (the "Conflict" badge) get no reminder.
+-- Items that overlap another one (the "Conflict" badge) still get reminders.
 
--- Same rule as hasConflict in ScheduleScreen: the two items share a day (no
--- `days` means every day) and their times overlap, where a missing endTime is
--- a zero-duration point. Times are zero-padded "HH:MM", so text compares work.
-create or replace function public.schedule_items_conflict(a jsonb, b jsonb)
-returns boolean
-language sql
-immutable
-as $$
-  select
-    (
-      jsonb_typeof(a->'days') is distinct from 'array' or jsonb_array_length(a->'days') = 0
-      or jsonb_typeof(b->'days') is distinct from 'array' or jsonb_array_length(b->'days') = 0
-      or exists (select 1 from jsonb_array_elements(a->'days') d where (b->'days') @> jsonb_build_array(d))
-    )
-    and (
-      case
-        when s1 = e1 and s2 = e2 then s1 = s2
-        when s1 = e1 then s1 >= s2 and s1 < e2
-        when s2 = e2 then s2 >= s1 and s2 < e1
-        else s1 < e2 and s2 < e1
-      end
-    )
-  from (
-    select a->>'time' as s1, coalesce(nullif(a->>'endTime', ''), a->>'time') as e1,
-           b->>'time' as s2, coalesce(nullif(b->>'endTime', ''), b->>'time') as e2
-  ) t
-$$;
+drop function if exists public.schedule_items_conflict(jsonb, jsonb);
 
 create or replace function public.push_schedule_reminders()
 returns void
@@ -144,11 +118,6 @@ begin
         jsonb_typeof(it->'days') is distinct from 'array'
         or jsonb_array_length(it->'days') in (0, 7)
         or (it->'days') @> to_jsonb(extract(dow from t.starts)::int)
-      )
-      -- An item shown as "Conflict" in the app is skipped — no reminder.
-      and not exists (
-        select 1 from jsonb_array_elements(s.items) o
-        where o->>'id' is distinct from it->>'id' and public.schedule_items_conflict(it, o)
       )
   loop
     perform public.send_push(
