@@ -4,7 +4,8 @@
 // ./README.md for keys + deploy) to every device a user has subscribed in
 // public.push_subscriptions.
 //
-// Two callers, both sending { title, body, url, tag?, user_ids? }:
+// Two callers, both sending { title, body, url, tag?, user_ids?, dismiss? }
+// (dismiss: true closes the notification with that tag, see public/push-sw.js):
 //  - The database (send_push() in supabase/push_notifications.sql — schedule
 //    reminders, community messages, announcements), authenticated with the
 //    shared x-push-secret header. It always passes user_ids.
@@ -37,7 +38,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-  const { title = "Bonda", body = "", url = "/", tag = null, user_ids } = await req.json().catch(() => ({}));
+  const { title = "Bonda", body = "", url = "/", tag = null, user_ids, dismiss = false } = await req.json().catch(() => ({}));
   const internalSecret = Deno.env.get("PUSH_INTERNAL_SECRET");
   const isInternal = !!internalSecret && req.headers.get("x-push-secret") === internalSecret;
 
@@ -59,7 +60,7 @@ Deno.serve(async (req) => {
 
   // send_push() already wrote the inbox rows for database calls; user calls
   // (the "Send test" button, admin pushes) land in the inbox here.
-  if (!isInternal) {
+  if (!isInternal && !dismiss) {
     const { error: inboxError } = await admin.from("notifications").insert(targets.map((user_id) => ({ user_id, title, body, url, tag })));
     if (inboxError) console.error("Inbox insert failed:", inboxError.message);
   }
@@ -67,12 +68,14 @@ Deno.serve(async (req) => {
   const { data: subs, error } = await admin.from("push_subscriptions").select("id, endpoint, p256dh, auth").in("user_id", targets);
   if (error) return json({ error: error.message }, 500);
 
-  const payload = JSON.stringify({ title, body, url, tag });
+  const payload = JSON.stringify({ title, body, url, tag, dismiss });
+  // High urgency so a sleeping phone clears the notification on time.
+  const options = dismiss ? { urgency: "high" as const } : {};
   let sent = 0;
   const gone: string[] = [];
   await Promise.all((subs ?? []).map(async (s) => {
     try {
-      await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload);
+      await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload, options);
       sent += 1;
     } catch (err) {
       const status = (err as { statusCode?: number }).statusCode;

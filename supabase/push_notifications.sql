@@ -4,9 +4,9 @@
 -- Push notifications sent from the database itself, through the send-push
 -- Edge Function (supabase/functions/send-push):
 --   1. Schedule reminders — every minute, pg_cron sends one for each
---      schedule item that starts in 1 hour, in 10 minutes, or now, in the
---      device's own timezone, including items that clash with another one (the
---      app's "Conflict" badge).
+--      schedule item that starts in 1 hour or in 10 minutes, in the device's
+--      own timezone, including items that clash with another one (the app's
+--      "Conflict" badge). When the item starts, the reminder is cleared.
 --   2. Community messages — a trigger on public.messages notifies the other
 --      DM participant, or every other member of the group/room.
 --   3. Announcements — an admin inserts a row into public.announcements
@@ -68,6 +68,35 @@ $$;
 
 revoke all on function public.send_push(uuid[], text, text, text, text) from public, anon, authenticated;
 
+-- ── dismiss_push(): close a notification already on the device ───────────
+-- Same call as send_push(), but it adds nothing to the inbox and shows nothing:
+-- the service worker closes the notification with that tag (public/push-sw.js).
+create or replace function public.dismiss_push(p_user_ids uuid[], p_tag text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_secret text;
+begin
+  select decrypted_secret into v_secret from vault.decrypted_secrets where name = 'push_internal_secret';
+  if v_secret is null then
+    raise warning 'dismiss_push: vault secret push_internal_secret is missing';
+    return;
+  end if;
+
+  perform net.http_post(
+    url := 'https://wbhhaajfvanskhwyezds.supabase.co/functions/v1/send-push',
+    headers := jsonb_build_object('Content-Type', 'application/json', 'x-push-secret', v_secret),
+    body := jsonb_build_object('user_ids', to_jsonb(p_user_ids), 'tag', p_tag, 'dismiss', true),
+    timeout_milliseconds := 10000
+  );
+end;
+$$;
+
+revoke all on function public.dismiss_push(uuid[], text) from public, anon, authenticated;
+
 -- ── 1. Schedule reminders ────────────────────────────────────────────────
 -- Mirrors the app: an empty schedule_items shows DEFAULT_SCHEDULE (src/data.js),
 -- and an item applies today unless it has a non-empty, non-full `days` list
@@ -99,7 +128,8 @@ begin
     from public.children c
     join public.profiles p on p.id = c.user_id and p.push_schedule
     join lateral (select distinct s.timezone from public.push_subscriptions s where s.user_id = c.user_id) tz on true
-    -- Each item is announced 60 and 10 minutes ahead, and again when it starts.
+    -- Each item is announced 60 and 10 minutes ahead; 0 clears the reminder
+    -- when it starts.
     -- `starts` is the local time an item would have to start at to be due for
     -- that reminder now, so its day (for `days`) is the item's own day — a
     -- 00:30 item gets its 1-hour warning at 23:30 the evening before.
@@ -120,16 +150,19 @@ begin
         or (it->'days') @> to_jsonb(extract(dow from t.starts)::int)
       )
   loop
+    if r.minutes = 0 then
+      perform public.dismiss_push(array[r.user_id], 'schedule_' || r.child_id || '_' || r.item_id);
+      continue;
+    end if;
     perform public.send_push(
       array[r.user_id],
       trim(r.emoji || ' ' || r.label),
       case r.minutes
         when 60 then r.label || ' starts in 1 hour — ' || r.child_name
-        when 10 then r.label || ' starts in 10 minutes — ' || r.child_name
-        else 'Time for ' || r.label || ' — ' || r.child_name
+        else r.label || ' starts in 10 minutes — ' || r.child_name
       end,
       '/',
-      -- Same tag for all three, so each reminder replaces the previous one.
+      -- Same tag for both, so the 10-minute reminder replaces the 1-hour one.
       'schedule_' || r.child_id || '_' || r.item_id
     );
   end loop;

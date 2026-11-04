@@ -270,7 +270,9 @@ export function useRewardClaims(userId) {
     busy.current = false;
     if (error) {
       console.error("Failed to redeem reward:", error.message);
-      setError("This reward couldn't be redeemed. Please check your connection and try again.");
+      setError(/redemption period/i.test(error.message)
+        ? "This reward isn't open for redemption right now."
+        : "This reward couldn't be redeemed. Please check your connection and try again.");
       return;
     }
     setError("");
@@ -278,6 +280,46 @@ export function useRewardClaims(userId) {
   };
 
   return { claimed, claim, error };
+}
+
+// The rewards catalogue (supabase/rewards.sql), as { id, title, detail, cost,
+// popular, startsAt, endsAt }. null while loading.
+export function useRewards() {
+  const [rewards, setRewards] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    supabase.from("rewards").select("code, title, description, cost_points, is_popular, starts_at, ends_at")
+      .eq("is_active", true).order("sort_order")
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error) { console.error("Failed to load rewards:", error.message); setRewards([]); return; }
+        setRewards(data.map(r => ({ id: r.code, title: r.title, detail: r.description, cost: r.cost_points, popular: r.is_popular, startsAt: r.starts_at, endsAt: r.ends_at })));
+      });
+    return () => { cancelled = true; };
+  }, []);
+  return rewards;
+}
+
+// A reward can only be redeemed inside its redemption period: both dates set
+// and now between them. claim_reward enforces the same rule server-side.
+// Returns "open" | "unset" (empty period) | "upcoming" | "ended".
+export function redemptionStatus(r, now = Date.now()) {
+  if (!r.startsAt || !r.endsAt) return "unset";
+  if (now < Date.parse(r.startsAt)) return "upcoming";
+  if (now >= Date.parse(r.endsAt)) return "ended";
+  return "open";
+}
+
+const fmtDate = (iso) => new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+
+// One-line note on the reward's redemption period, for the catalogue cards.
+export function redemptionNote(r) {
+  switch (redemptionStatus(r)) {
+    case "open": return `Redeem by ${fmtDate(r.endsAt)}`;
+    case "upcoming": return `Opens ${fmtDate(r.startsAt)}`;
+    case "ended": return "Redemption period ended";
+    default: return "Not open for redemption";
+  }
 }
 
 // Stack of "close this" callbacks registered by open modals/forms, so the

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { useBackHandler, useRewardClaims } from "../hooks";
+import { useBackHandler, useRewardClaims, useRewards, redemptionStatus, redemptionNote } from "../hooks";
 import { ChildAvatar } from "../ui";
 import { supabase } from "../lib/supabase";
 
@@ -89,13 +89,8 @@ async function fetchAnswers(childId) {
   }
 }
 
-/* rewards catalogue — Bonda subscription discounts. 10% at 10,000 is the headline. */
+/* rewards catalogue lives in the database (useRewards). 10% at 10,000 is the headline. */
 const HEADLINE_TARGET = 10000;
-const REWARDS = [
-  { id: "off5",  title: "5% off Bonda",        cost: 5000,  detail: "Applied to your next subscription payment." },
-  { id: "off10", title: "10% off Bonda",       cost: 10000, detail: "Applied to your next subscription payment.", popular: true },
-  { id: "free1", title: "1 month of Bonda free", cost: 20000, detail: "Added to your subscription as a free month." },
-];
 
 /* Everything is per child: answers are dev_answers rows (points fixed by the
    database from the chosen option at answer time). Claimed rewards are per
@@ -240,8 +235,8 @@ export default function BondaDevelopment({ childCtx, onAddChild }) {
     setAnswers((a) => [...(a || []), ...data.map(answerToObs)]);
   };
   const redeem = (r) => {
-    if (total < r.cost || claimed[r.id]) return;   // reach the threshold to redeem
-    claim(child.id, r.id);                          // the database re-checks both
+    if (total < r.cost || claimed[r.id] || redemptionStatus(r) !== "open") return;   // threshold + redemption period
+    claim(child.id, r.id);                          // the database re-checks all three
   };
 
   if (!eligible.length) {
@@ -528,6 +523,7 @@ function InfoAccordion({ childName }) {
    REDEEM — points catalogue
    ================================================================== */
 function Redeem({ points, claimed, error, onRedeem, onClose }) {
+  const rewards = useRewards();
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
       <div className="b-safe-top" style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 18px", background: T.card, borderBottom: `1px solid ${T.line}`, position: "sticky", top: 0, zIndex: 5 }}>
@@ -548,9 +544,12 @@ function Redeem({ points, claimed, error, onRedeem, onClose }) {
         </p>
         {error && <p role="alert" style={{ fontSize: 12.5, color: T.ink70, lineHeight: 1.5, margin: "0 2px 14px" }}>{error}</p>}
 
-        {REWARDS.map((r) => {
+        {!rewards && <p style={{ fontSize: 12.5, color: T.ink40, margin: "0 2px" }}>Loading rewards…</p>}
+        {rewards?.length === 0 && <p style={{ fontSize: 12.5, color: T.ink40, margin: "0 2px" }}>No rewards available right now.</p>}
+        {rewards?.map((r) => {
           const code = claimed[r.id];
           const afford = points >= r.cost;
+          const open = redemptionStatus(r) === "open";
           return (
             <div key={r.id} style={{ background: T.card, border: `1px solid ${code ? T.tintBg : T.line}`, borderRadius: 16, padding: 16, marginBottom: 12 }}>
               <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
@@ -563,6 +562,7 @@ function Redeem({ points, claimed, error, onRedeem, onClose }) {
                     )}
                   </div>
                   <div style={{ fontSize: 12.5, color: T.ink55, marginTop: 3, lineHeight: 1.45 }}>{r.detail}</div>
+                  {!code && <div style={{ fontSize: 11.5, color: T.ink40, marginTop: 3 }}>{redemptionNote(r)}</div>}
                 </div>
               </div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginTop: 14 }}>
@@ -571,6 +571,8 @@ function Redeem({ points, claimed, error, onRedeem, onClose }) {
                   <span style={{ fontSize: 12.5, color: T.tintTx, fontWeight: 600 }}>
                     Redeemed · <span style={{ fontFamily: T.mono, color: T.ink }}>{code}</span>
                   </span>
+                ) : !open ? (
+                  <span style={{ fontSize: 12.5, color: T.ink40 }}>Unavailable</span>
                 ) : afford ? (
                   <button onClick={() => onRedeem(r)} className="b-primary" style={{ padding: "10px 18px", fontSize: 14 }}>Redeem</button>
                 ) : (

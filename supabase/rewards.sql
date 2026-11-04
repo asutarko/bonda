@@ -38,8 +38,8 @@ create table if not exists public.rewards (
   image_url text not null default '',
   is_popular boolean not null default false,  -- "Most popular" badge
   is_active boolean not null default true,
-  starts_at timestamptz,                      -- null = available right away
-  ends_at timestamptz,                        -- null = no end date
+  starts_at timestamptz,                      -- redemption period start; null = can't be redeemed
+  ends_at timestamptz,                        -- redemption period end;   null = can't be redeemed
   sort_order integer not null default 0,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -66,14 +66,15 @@ create trigger rewards_touch_updated_at
 
 alter table public.rewards enable row level security;
 
+-- Active rewards are visible whatever their redemption period, so the app can
+-- say why one can't be redeemed; claim_reward (rewards_redemption_period.sql)
+-- only accepts a claim inside the period.
 drop policy if exists "Active rewards are viewable by authenticated users" on public.rewards;
 create policy "Active rewards are viewable by authenticated users"
   on public.rewards for select
   to authenticated
   using (
-    (is_active
-      and (starts_at is null or starts_at <= now())
-      and (ends_at is null or ends_at > now()))
+    is_active
     or exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
   );
 

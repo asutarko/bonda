@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { T } from "../theme";
 import { Page, SectionLabel, Card, Badge, Btn, Accordion } from "../ui";
-import { useBackHandler, useRewardClaims } from "../hooks";
+import { useBackHandler, useRewardClaims, useRewards, redemptionStatus, redemptionNote } from "../hooks";
 import { supabase } from "../lib/supabase";
 
 /* ==================================================================
@@ -95,12 +95,6 @@ const ANSWERS = [
 const POINTS_PER_OBSERVATION = 20;
 const HEADLINE_TARGET = 10000;
 
-const REWARDS = [
-  { id: "off5",  title: "5% off Bonda",          cost: 5000,  detail: "Applied to your next subscription payment." },
-  { id: "off10", title: "10% off Bonda",         cost: 10000, detail: "Applied to your next subscription payment.", popular: true },
-  { id: "free1", title: "1 month of Bonda free", cost: 20000, detail: "Added to your subscription as a free month." },
-];
-
 const PERIODS = [
   { key: "week",  label: "Week",  days: 7,   buckets: 7 },
   { key: "month", label: "Month", days: 30,  buckets: 5 },
@@ -173,7 +167,7 @@ export function GrowthTrackerSection({ activeChild, updateChild }) {
 
   const logObservations = (obs) => updateChild(activeChild.id, { growthObservations: [...obs, ...observations] });
   const redeem = (r) => {
-    if (total < r.cost || claimed[r.id]) return;
+    if (total < r.cost || claimed[r.id] || redemptionStatus(r) !== "open") return;
     const code = "BONDA-" + Math.random().toString(36).slice(2, 7).toUpperCase();
     updateChild(activeChild.id, { growthClaims: { ...claimed, [r.id]: code } });
   };
@@ -233,8 +227,8 @@ export function RedeemPointsScreen({ childCtx, account, push }) {
     );
   }
   const redeem = (r) => {
-    if (total < r.cost || claimed[r.id]) return;
-    claim(null, r.id);   // the database re-checks the pooled points and duplicates
+    if (total < r.cost || claimed[r.id] || redemptionStatus(r) !== "open") return;
+    claim(null, r.id);   // the database re-checks the pooled points, period and duplicates
   };
   return (
     <Page>
@@ -345,6 +339,7 @@ function Home({ childName, earned, total, onStartQuiz, onRedeem, onProgress }) {
    REDEEM — points catalogue
    ================================================================== */
 function Redeem({ points, claimed, error, onRedeem }) {
+  const rewards = useRewards();
   return (
     <>
       <h3 style={{ margin: "0 0 16px", color: T.ink, fontSize: 18, fontWeight: 800 }}>Redeem points</h3>
@@ -363,9 +358,12 @@ function Redeem({ points, claimed, error, onRedeem }) {
       </p>
       {error && <p role="alert" style={{ fontSize: 12, color: T.inkSoft, lineHeight: 1.5, margin: "0 0 16px" }}>{error}</p>}
 
-      {REWARDS.map(r => {
+      {!rewards && <p style={{ fontSize: 12.5, color: T.inkMuted }}>Loading rewards…</p>}
+      {rewards?.length === 0 && <p style={{ fontSize: 12.5, color: T.inkMuted }}>No rewards available right now.</p>}
+      {rewards?.map(r => {
         const code = claimed[r.id];
         const afford = points >= r.cost;
+        const open = redemptionStatus(r) === "open";
         return (
           <Card key={r.id} style={{ marginBottom: 12 }}>
             <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
@@ -378,12 +376,15 @@ function Redeem({ points, claimed, error, onRedeem }) {
                   {r.popular && <Badge>Most popular</Badge>}
                 </div>
                 <p style={{ margin: "3px 0 0", fontSize: 12, color: T.inkSoft, lineHeight: 1.5 }}>{r.detail}</p>
+                {!code && <p style={{ margin: "3px 0 0", fontSize: 11.5, color: T.inkMuted }}>{redemptionNote(r)}</p>}
               </div>
             </div>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginTop: 14 }}>
               <span style={{ fontSize: 12.5, fontWeight: 700, color: T.inkSoft }}>{r.cost.toLocaleString()} points</span>
               {code ? (
                 <span style={{ fontSize: 12, color: T.green, fontWeight: 700 }}>Redeemed · <span style={{ fontFamily: fontMono, color: T.ink }}>{code}</span></span>
+              ) : !open ? (
+                <span style={{ fontSize: 12, color: T.inkMuted }}>Unavailable</span>
               ) : afford ? (
                 <Btn onClick={() => onRedeem(r)}>Redeem</Btn>
               ) : (
