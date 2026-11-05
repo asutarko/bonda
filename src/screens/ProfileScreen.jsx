@@ -4,7 +4,7 @@ import { uploadPhoto } from "../hooks";
 import { T } from "../theme";
 import { Page, SectionLabel, Input, TextArea, Select, FieldError, Btn, ComAvatar } from "../ui";
 import PushNotificationsCard from "../components/PushNotificationsCard";
-import { RELATIONSHIP_OPTIONS, OCCUPATION_OPTIONS, MARITAL_STATUS_OPTIONS, PHONE_COUNTRIES, splitPhone } from "../data";
+import { RELATIONSHIP_OPTIONS, OCCUPATION_OPTIONS, MARITAL_STATUS_OPTIONS, PROFESSION_OPTIONS, PHONE_COUNTRIES, splitPhone } from "../data";
 
 // Best-effort split of a legacy single-field name (entered before first/
 // middle/last were separate fields) so this form has something to show —
@@ -18,6 +18,7 @@ const splitName = full => {
 };
 
 export function EditProfileScreen({ account, pop, push }) {
+  const isProfessional = account?.accountType === "professional";
   const isExistingPhoto = !!(account?.avatar && (account.avatar.startsWith("data:") || account.avatar.startsWith("http")));
   const initialNameParts = splitName(account?.name || "");
 
@@ -40,6 +41,10 @@ export function EditProfileScreen({ account, pop, push }) {
   const [customOccupation, setCustomOccupation] = useState(initialCustomOccupation);
   const [nationality, setNationality] = useState(account?.nationality || "");
   const [maritalStatus, setMaritalStatus] = useState(account?.maritalStatus || "");
+  const [profession, setProfession] = useState(account?.profession || "");
+  const [specialisation, setSpecialisation] = useState(account?.specialisation || "");
+  const [practiceName, setPracticeName] = useState(account?.practiceName || "");
+  const [practiceAddress, setPracticeAddress] = useState(account?.practiceAddress || "");
   const [nationalityOptions, setNationalityOptions] = useState([]);
   const [err, setErr] = useState("");
   const [errors, setErrors] = useState({});
@@ -112,12 +117,16 @@ export function EditProfileScreen({ account, pop, push }) {
     if (!lastName.trim()) fe.lastName = "Please enter your surname.";
     if (!phone.trim()) fe.phone = "Please enter your phone number.";
     else if (!/^\d+$/.test(phone.replace(/\s+/g, ""))) fe.phone = "Phone number must contain numbers only. Please use numbers.";
-    if (!address.trim()) fe.address = "Please enter your home address.";
     if (!country) fe.country = "Please select your country.";
-    if (!postalCode.trim()) fe.postalCode = "Please enter your postal code.";
-    if (!relationship) fe.relationship = "Please select your relationship to the child.";
-    if (occupation === "Other" && !customOccupation.trim()) fe.customOccupation = "Please enter your occupation.";
     if (!nationality) fe.nationality = "Please select your nationality.";
+    if (isProfessional) {
+      if (!profession) fe.profession = "Please select your profession.";
+    } else {
+      if (!address.trim()) fe.address = "Please enter your home address.";
+      if (!postalCode.trim()) fe.postalCode = "Please enter your postal code.";
+      if (!relationship) fe.relationship = "Please select your relationship to the child.";
+      if (occupation === "Other" && !customOccupation.trim()) fe.customOccupation = "Please enter your occupation.";
+    }
     setErrors(fe);
     if (Object.keys(fe).length > 0) return;
     setErr(""); setSaving(true);
@@ -132,10 +141,25 @@ export function EditProfileScreen({ account, pop, push }) {
       if (url) avatarValue = url;
     }
 
-    const { error } = await supabase.auth.updateUser({ data: { name: fullName, firstName: firstName.trim(), middleName: middleName.trim(), lastName: lastName.trim(), avatar: avatarValue, phone: fullPhone, address: address.trim(), country, postalCode: postalCode.trim(), relationship, occupation: finalOccupation, nationality: nationality.trim(), maritalStatus } });
+    const shared = { name: fullName, avatar: avatarValue, phone: fullPhone, country, nationality: nationality.trim() };
+    const practice = { profession, specialisation: specialisation.trim() };
+    const home = { address: address.trim(), relationship, occupation: finalOccupation };
+
+    const { error } = await supabase.auth.updateUser({ data: {
+      ...shared, firstName: firstName.trim(), middleName: middleName.trim(), lastName: lastName.trim(),
+      ...(isProfessional
+        ? { ...practice, practiceName: practiceName.trim(), practiceAddress: practiceAddress.trim() }
+        : { ...home, postalCode: postalCode.trim(), maritalStatus }),
+    } });
     if (error) { setSaving(false); return setErr(error.message); }
-    await supabase.from("profiles").update({ name: fullName, first_name: firstName.trim(), middle_name: middleName.trim(), last_name: lastName.trim(), avatar: avatarValue, phone: fullPhone, address: address.trim(), country, postal_code: postalCode.trim(), relationship, occupation: finalOccupation, nationality: nationality.trim(), marital_status: maritalStatus }).eq("id", account.id);
+    const { error: profileErr } = await supabase.from("profiles").update({
+      ...shared, first_name: firstName.trim(), middle_name: middleName.trim(), last_name: lastName.trim(),
+      ...(isProfessional
+        ? { ...practice, practice_name: practiceName.trim(), practice_address: practiceAddress.trim() }
+        : { ...home, postal_code: postalCode.trim(), marital_status: maritalStatus }),
+    }).eq("id", account.id);
     setSaving(false);
+    if (profileErr) return setErr(profileErr.message);
     // Loaded on demand — sweetalert2 is only needed for this one success
     // popup, so it's kept out of the main bundle until a save actually happens.
     const { default: Swal } = await import("sweetalert2");
@@ -223,26 +247,46 @@ export function EditProfileScreen({ account, pop, push }) {
         </div>
       </div>
       <FieldError>{errors.phone}</FieldError>
-      <TextArea label="Home address" rows={3} value={address} onChange={e => setAddress(e.target.value)} placeholder="e.g. Blk 123 Ang Mo Kio Ave 3, #04-56" />
-      <FieldError>{errors.address}</FieldError>
-      <Select label="Country" placeholder="Select country" value={country} onChange={e => setCountry(e.target.value)} options={countryOptions} />
-      <FieldError>{errors.country}</FieldError>
-      <Input label="Postal code" inputMode="numeric" autoComplete="postal-code" value={postalCode} onChange={e => setPostalCode(e.target.value)} placeholder="e.g. 560123" />
-      <FieldError>{errors.postalCode}</FieldError>
+      {isProfessional ? (
+        <>
+          <Select label="Country" placeholder="Select country" value={country} onChange={e => setCountry(e.target.value)} options={countryOptions} />
+          <FieldError>{errors.country}</FieldError>
 
-      <Select label="Relationship to the child" value={relationship} onChange={e => setRelationship(e.target.value)} placeholder="Select relationship" options={RELATIONSHIP_OPTIONS} />
-      <FieldError>{errors.relationship}</FieldError>
+          <SectionLabel style={{ marginBottom: 10 }}>Professional Details</SectionLabel>
+          <Select label="Profession" placeholder="Select profession" value={profession} onChange={e => setProfession(e.target.value)} options={PROFESSION_OPTIONS} />
+          <FieldError>{errors.profession}</FieldError>
+          <Input label="Specialisation" value={specialisation} onChange={e => setSpecialisation(e.target.value)} placeholder="e.g. Speech therapy" />
+          <Input label="Clinic or practice name" value={practiceName} onChange={e => setPracticeName(e.target.value)} placeholder="e.g. Bright Minds Clinic" />
+          <TextArea label="Clinic or practice address" rows={3} value={practiceAddress} onChange={e => setPracticeAddress(e.target.value)} placeholder="e.g. 10 Sinaran Drive, #08-12" />
+        </>
+      ) : (
+        <>
+          <TextArea label="Home address" rows={3} value={address} onChange={e => setAddress(e.target.value)} placeholder="e.g. Blk 123 Ang Mo Kio Ave 3, #04-56" />
+          <FieldError>{errors.address}</FieldError>
+          <Select label="Country" placeholder="Select country" value={country} onChange={e => setCountry(e.target.value)} options={countryOptions} />
+          <FieldError>{errors.country}</FieldError>
+          <Input label="Postal code" inputMode="numeric" autoComplete="postal-code" value={postalCode} onChange={e => setPostalCode(e.target.value)} placeholder="e.g. 560123" />
+          <FieldError>{errors.postalCode}</FieldError>
+
+          <Select label="Relationship to the child" value={relationship} onChange={e => setRelationship(e.target.value)} placeholder="Select relationship" options={RELATIONSHIP_OPTIONS} />
+          <FieldError>{errors.relationship}</FieldError>
+        </>
+      )}
 
       <SectionLabel style={{ marginBottom: 10 }}>More About You</SectionLabel>
 
-      <Select label="Occupation" value={occupation} onChange={e => setOccupation(e.target.value)} placeholder="Select occupation" options={OCCUPATION_OPTIONS} />
-      {occupation === "Other" && (
-        <div style={{ marginTop: -6 }}>
-          <Input value={customOccupation} onChange={e => setCustomOccupation(e.target.value)} placeholder="Enter your occupation" />
-          <FieldError>{errors.customOccupation}</FieldError>
-        </div>
+      {!isProfessional && (
+        <>
+          <Select label="Occupation" value={occupation} onChange={e => setOccupation(e.target.value)} placeholder="Select occupation" options={OCCUPATION_OPTIONS} />
+          {occupation === "Other" && (
+            <div style={{ marginTop: -6 }}>
+              <Input value={customOccupation} onChange={e => setCustomOccupation(e.target.value)} placeholder="Enter your occupation" />
+              <FieldError>{errors.customOccupation}</FieldError>
+            </div>
+          )}
+          <Select label="Marital Status" value={maritalStatus} onChange={e => setMaritalStatus(e.target.value)} placeholder="Select marital status" options={MARITAL_STATUS_OPTIONS} />
+        </>
       )}
-      <Select label="Marital Status" value={maritalStatus} onChange={e => setMaritalStatus(e.target.value)} placeholder="Select marital status" options={MARITAL_STATUS_OPTIONS} />
       <Select label="Nationality" placeholder="Select nationality" value={nationality} onChange={e => setNationality(e.target.value)} options={nationalityOptions} />
       <FieldError>{errors.nationality}</FieldError>
 

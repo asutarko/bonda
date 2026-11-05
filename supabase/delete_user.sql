@@ -3,6 +3,9 @@
 -- letters, chat messages, caregiver FAQ answers, child documents) plus their
 -- uploaded photos in storage.
 --
+-- To delete the account and its storage files in one go, use
+-- scripts/delete-user.mjs instead.
+--
 -- Replace every '<user-uuid>' below with the target auth.users.id before running.
 
 -- Step 1: preview — run this first and check it's the right person/children.

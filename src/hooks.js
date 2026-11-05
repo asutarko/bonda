@@ -536,6 +536,11 @@ export const accountFromUser = (u) => u ? {
   // account so an unfinished sign-up resumes there on any device or reload.
   // Empty once finished, and for accounts that predate it.
   signupStep: u.user_metadata?.signupStep || "",
+  // Only filled in for accountType "professional".
+  profession: u.user_metadata?.profession || "",
+  specialisation: u.user_metadata?.specialisation || "",
+  practiceName: u.user_metadata?.practiceName || "",
+  practiceAddress: u.user_metadata?.practiceAddress || "",
   joined: u.user_metadata?.joined || new Date(u.created_at).toLocaleDateString("en-SG", { month: "short", year: "numeric" }),
   gender: u.user_metadata?.gender || "",
   address: u.user_metadata?.address || "",

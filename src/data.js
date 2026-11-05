@@ -73,6 +73,9 @@ export const OCCUPATION_OPTIONS = ["Unemployed", "Homemaker", "Student", "Civil 
 
 export const MARITAL_STATUS_OPTIONS = ["Single", "Married", "Divorced", "Widowed"];
 
+// Shown on the profile of accounts with accountType "professional".
+export const PROFESSION_OPTIONS = ["Doctor", "Therapist", "Psychologist"];
+
 // Dial codes for the countries Bonda's parents/caregivers most commonly come
 // from — not the full ISO list, just enough to cover the userbase.
 export const PHONE_COUNTRIES = [
