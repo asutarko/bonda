@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
-import { markNewSignup, consumeNewSignupFlag } from "../hooks";
 import { PHONE_COUNTRIES } from "../data";
 
 const ACCENT = "#3E6E6A";
@@ -62,6 +61,14 @@ const AUTH_CSS = `
   justify-content: center; color: rgba(35,32,28,.4); border-radius: 999px; transition: color .2s ease;
 }
 .bonda-auth .eye-btn:hover { color: ${ACCENT}; }
+.bonda-auth .choice-card {
+  display: flex; align-items: flex-start; gap: 12px; padding: 16px; border-radius: 16px;
+  border: 1.5px solid rgba(35,32,28,.14); background: #FFFFFF; cursor: pointer;
+  transition: border-color .18s ease, background .18s ease;
+}
+.bonda-auth .choice-card:hover { border-color: ${ACCENT}; }
+.bonda-auth .choice-card.selected { border-color: ${ACCENT}; background: ${SUCCESS_BG}; }
+.bonda-auth .choice-card:focus-within { box-shadow: 0 0 0 3px rgba(62,110,106,.16); }
 .bonda-auth .rise { animation: bondaAuthRise .48s cubic-bezier(.2,.75,.25,1) both; }
 @keyframes bondaAuthRise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
 .bonda-auth .track { display: flex; width: 200%; pointer-events: none; }
@@ -226,6 +233,11 @@ function LegalDocScreen({ url, errorLabel, onBack }) {
 
 const OTP_TTL_MS = 2 * 60 * 1000; // 2 minutes to enter the code before it expires
 
+const ACCOUNT_TYPES = [
+  { value: "caregiver", label: "Parent or caregiver", description: "I look after a child in my care." },
+  { value: "professional", label: "Doctor, therapist or psychologist", description: "I support children and families professionally." },
+];
+
 export function AuthScreen() {
   const [view, setView] = useState("welcome");
   const [transition, setTransition] = useState(null); // { from, to, dir: "fwd" | "back" }
@@ -290,17 +302,12 @@ export function AuthScreen() {
 
     const joined = new Date().toLocaleDateString("en-SG", { month: "short", year: "numeric" });
     const fullName = [regFirstName, regMiddleName, regLastName].map(s => s.trim()).filter(Boolean).join(" ");
-    // Flag this as a fresh signup before calling signUp() — the client fires
-    // its SIGNED_IN auth-state event as part of processing that call, so the
-    // flag must already be in place for App.jsx to see it in time.
-    markNewSignup();
     const { data, error } = await supabase.auth.signUp({
       email: regEmail.trim(),
       password: regPass,
-      options: { data: { name: fullName, firstName: regFirstName.trim(), middleName: regMiddleName.trim(), lastName: regLastName.trim(), avatar: "none", joined } },
+      options: { data: { name: fullName, firstName: regFirstName.trim(), middleName: regMiddleName.trim(), lastName: regLastName.trim(), avatar: "none", joined, signupStep: "phone" } },
     });
     if (error) {
-      consumeNewSignupFlag();
       const dupe = /already registered|already exists|duplicate/i.test(error.message);
       return setRegErr(dupe ? "This email is already registered. Please use a unique email address." : error.message);
     }
@@ -308,7 +315,6 @@ export function AuthScreen() {
     // email already exists and confirmations are on, to avoid leaking which
     // emails are registered — treat that the same as a duplicate-email error.
     if (data.user && data.user.identities && data.user.identities.length === 0) {
-      consumeNewSignupFlag();
       return setRegErr("This email is already registered. Please use a unique email address.");
     }
     if (!data.session) {
@@ -470,12 +476,14 @@ export function AuthScreen() {
   );
 }
 
-// Shown once, right after a fresh signup, before the account can enter the
-// app — collects the phone number that register() doesn't ask for up front,
-// then confirms it by emailing a one-time code to the account's (already
-// verified) email address before letting the user through.
-export function PhoneCaptureScreen({ account, onDone }) {
-  const [step, setStep] = useState("phone"); // "phone" | "verify"
+// Shown after signup until account.signupStep is cleared, before the account
+// can enter the app — collects the phone number that register() doesn't ask
+// for up front, then confirms it by emailing a one-time code to the account's
+// (already verified) email address. The last step asks whether they're a
+// caregiver or a professional; clearing signupStep there lets them through.
+export function PhoneCaptureScreen({ account }) {
+  const [step, setStep] = useState(account.signupStep === "accountType" ? "accountType" : "phone"); // "phone" | "verify" | "accountType"
+  const [accountType, setAccountType] = useState("");
   const [dial, setDial] = useState("+65");
   const [phone, setPhone] = useState("");
   const [err, setErr] = useState("");
@@ -530,9 +538,15 @@ export function PhoneCaptureScreen({ account, onDone }) {
     if (!/^\d{6}$/.test(code)) return setOtpErr("Enter the 6-digit code sent to your email.");
     setOtpVerifying(true);
     const { error } = await supabase.auth.verifyOtp({ email: account.email, token: code, type: "email" });
+    if (error) {
+      setOtpVerifying(false);
+      return setOtpErr(/expired/i.test(error.message) ? "This code has expired. Request a new one." : error.message);
+    }
+    // The code is spent, so carry on even if this fails: the only cost is
+    // repeating the phone step if they leave before finishing.
+    await supabase.auth.updateUser({ data: { signupStep: "accountType" } });
     setOtpVerifying(false);
-    if (error) return setOtpErr(/expired/i.test(error.message) ? "This code has expired. Request a new one." : error.message);
-    onDone();
+    setStep("accountType");
   };
 
   const resendOtp = async () => {
@@ -545,6 +559,41 @@ export function PhoneCaptureScreen({ account, onDone }) {
     setOtpMsg("We've sent a new code to your email.");
   };
 
+  const saveAccountType = async () => {
+    setErr(""); setSaving(true);
+    const { error: profileErr } = await supabase.from("profiles").update({ account_type: accountType }).eq("id", account.id);
+    if (profileErr) { setSaving(false); return setErr(profileErr.message); }
+    // Last, because clearing signupStep is what makes App.jsx leave this screen.
+    const { error } = await supabase.auth.updateUser({ data: { accountType, signupStep: "" } });
+    setSaving(false);
+    if (error) setErr(error.message);
+  };
+
+  if (step === "accountType") return (
+    <div className="bonda-auth" style={{ flex: 1, display: "flex", flexDirection: "column", background: CANVAS, padding: "28px 22px 26px", boxSizing: "border-box" }}>
+      <style>{AUTH_CSS}</style>
+      <div className="rise" style={{ display: "flex", flexDirection: "column" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", marginBottom: 4 }}>
+          <img src="/assets/images/3D - Logo - Green.png" alt="Bonda" style={{ height: 28, width: 28, borderRadius: "50%", objectFit: "cover" }} />
+        </div>
+        <ScreenHeading eyebrow="One last step" title="Which best describes you?" subtitle="Tell us how you'll be using Bonda." />
+        <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 18 }}>
+          {ACCOUNT_TYPES.map(t => (
+            <label key={t.value} className={`choice-card${accountType === t.value ? " selected" : ""}`}>
+              <input type="radio" name="accountType" value={t.value} checked={accountType === t.value} onChange={() => setAccountType(t.value)} style={{ margin: "3px 0 0", width: 16, height: 16, flexShrink: 0, accentColor: ACCENT }} />
+              <span>
+                <span style={{ display: "block", fontSize: 15, fontWeight: 700, color: INK }}>{t.label}</span>
+                <span style={{ display: "block", marginTop: 3, fontSize: 13.5, lineHeight: 1.45, color: INK55 }}>{t.description}</span>
+              </span>
+            </label>
+          ))}
+        </div>
+        {err && <ErrorNote>{err}</ErrorNote>}
+        <button className="btn-primary" onClick={saveAccountType} disabled={!accountType || saving}>{saving ? "Saving…" : "Continue"} <span aria-hidden="true">→</span></button>
+      </div>
+    </div>
+  );
+
   if (step === "verify") {
     const canResend = otpSecondsLeft <= 0;
     const mm = String(Math.floor(otpSecondsLeft / 60)).padStart(2, "0");
@@ -556,7 +605,7 @@ export function PhoneCaptureScreen({ account, onDone }) {
           <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", marginBottom: 4 }}>
             <img src="/assets/images/3D - Logo - Green.png" alt="Bonda" style={{ height: 28, width: 28, borderRadius: "50%", objectFit: "cover" }} />
           </div>
-          <ScreenHeading eyebrow="One last step" title="Confirm your phone number" subtitle={`We've sent a 6-digit code to ${account.email} to confirm this is really you.`} />
+          <ScreenHeading eyebrow="Almost there" title="Confirm your phone number" subtitle={`We've sent a 6-digit code to ${account.email} to confirm this is really you.`} />
           <TextField label="Verification code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={otpCode}
             onChange={e => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
             onKeyDown={e => e.key === "Enter" && otpCode.trim().length === 6 && verifyOtp()}
@@ -588,7 +637,7 @@ export function PhoneCaptureScreen({ account, onDone }) {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", marginBottom: 4 }}>
           <img src="/assets/images/3D - Logo - Green.png" alt="Bonda" style={{ height: 28, width: 28, borderRadius: "50%", objectFit: "cover" }} />
         </div>
-        <ScreenHeading eyebrow="One last step" title="What's your phone number?" subtitle="We'll save this to your profile and send a code to your email to confirm it." />
+        <ScreenHeading eyebrow="Almost there" title="What's your phone number?" subtitle="We'll save this to your profile and send a code to your email to confirm it." />
         <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
           <div style={{ flex: "0 0 118px" }}>
             <FieldLabel>Country</FieldLabel>

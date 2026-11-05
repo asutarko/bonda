@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { supabase } from "./lib/supabase";
 import { T } from "./theme";
 import { NavMark, ComAvatar } from "./ui";
-import { useChildren, useBackHandler, backHandlerStack, accountFromUser, forceSignOut, consumeNewSignupFlag, useUnreadNotifications, useOpenInboxOnTap } from "./hooks";
+import { useChildren, useBackHandler, backHandlerStack, accountFromUser, forceSignOut, useUnreadNotifications, useOpenInboxOnTap } from "./hooks";
 
 // Every screen below is only ever needed once its tab/stack entry is actually
 // opened (this app uses its own tab/stack nav, not route-based splitting), so
@@ -58,7 +58,9 @@ export default function Bonda() {
   const [authLoading, setAuthLoading] = useState(true);
   const [passwordRecovery, setPasswordRecovery] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
-  const [pendingPhone, setPendingPhone] = useState(false);
+  // A fresh registration must finish the phone and account-type steps before
+  // the app is usable.
+  const pendingPhone = !!account?.signupStep;
   const [showScheduleSettings, setShowScheduleSettings] = useState(false);
 
   // A group invite link (see openGroupInvite in CommunityScreen.jsx) is just
@@ -85,23 +87,16 @@ export default function Bonda() {
     if (account && !pendingPhone && pendingGroupId) setTab("community");
   }, [account, pendingPhone, pendingGroupId]);
 
-  // Loads the account and, if it just came from a fresh registration, flags
-  // the mandatory phone-capture screen so it's shown before the app is usable.
-  const applyAccount = (acc) => {
-    setAccount(acc);
-    if (acc && consumeNewSignupFlag()) setPendingPhone(true);
-  };
-
   useEffect(() => {
     let cancelled = false;
     supabase.auth.getSession().then(({ data }) => {
       if (cancelled) return;
-      applyAccount(accountFromUser(data.session?.user));
+      setAccount(accountFromUser(data.session?.user));
       setAuthLoading(false);
     });
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "PASSWORD_RECOVERY") setPasswordRecovery(true);
-      applyAccount(accountFromUser(session?.user));
+      setAccount(accountFromUser(session?.user));
       setAuthLoading(false);
     });
     return () => { cancelled = true; sub.subscription.unsubscribe(); };
@@ -190,7 +185,7 @@ export default function Bonda() {
     return (
       <div style={{ minHeight: "100vh", background: T.canvas, fontFamily: T.fontBody, display: "flex", flexDirection: "column", maxWidth: 480, margin: "0 auto", position: "relative" }}>
         <link href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,500;0,7..72,600;0,7..72,700;0,7..72,800;1,7..72,400;1,7..72,500;1,7..72,600&display=swap" rel="stylesheet" />
-        <Suspense fallback={<ScreenFallback />}><PhoneCaptureScreen account={account} onDone={() => setPendingPhone(false)} /></Suspense>
+        <Suspense fallback={<ScreenFallback />}><PhoneCaptureScreen account={account} /></Suspense>
       </div>
     );
   }

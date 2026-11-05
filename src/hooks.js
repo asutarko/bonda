@@ -503,19 +503,6 @@ export const forceSignOut = async () => {
   }
 };
 
-// Set right after a new account is created so the app knows to show the
-// mandatory compliance screen the first time that account's session loads —
-// even if email confirmation delays it to a later visit.
-const NEW_SIGNUP_KEY = "bonda_pending_compliance";
-export const markNewSignup = () => { try { localStorage.setItem(NEW_SIGNUP_KEY, "1"); } catch {} };
-export const consumeNewSignupFlag = () => {
-  try {
-    if (localStorage.getItem(NEW_SIGNUP_KEY) !== "1") return false;
-    localStorage.removeItem(NEW_SIGNUP_KEY);
-    return true;
-  } catch { return false; }
-};
-
 // Set right before navigating to the carer letter screen from an existing
 // saved letter (e.g. Documents screen's "Open ›" row), so that screen opens
 // straight to the letter preview instead of its "Set up your first letter"
@@ -542,6 +529,13 @@ export const accountFromUser = (u) => u ? {
   lastName: u.user_metadata?.lastName || "",
   avatar: u.user_metadata?.avatar || "none",
   email: u.email,
+  // "caregiver" | "professional", picked at signup. Empty for accounts created
+  // before that step existed.
+  accountType: u.user_metadata?.accountType || "",
+  // The sign-up step still to finish ("phone" | "accountType"). Kept on the
+  // account so an unfinished sign-up resumes there on any device or reload.
+  // Empty once finished, and for accounts that predate it.
+  signupStep: u.user_metadata?.signupStep || "",
   joined: u.user_metadata?.joined || new Date(u.created_at).toLocaleDateString("en-SG", { month: "short", year: "numeric" }),
   gender: u.user_metadata?.gender || "",
   address: u.user_metadata?.address || "",
