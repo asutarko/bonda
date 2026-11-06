@@ -3,7 +3,7 @@
 **Effective date:** [INSERT DATE]
 **Last updated:** [INSERT DATE]
 
-Welcome to Bonda ("**Bonda**", the "**App**", "**we**", "**us**", or "**our**"). Bonda is a caregiving companion application designed to support caregivers of children with developmental differences. These Terms & Conditions ("**Terms**") govern your access to and use of the App and any related services (together, the "**Services**").
+Welcome to Bonda ("**Bonda**", the "**App**", "**we**", "**us**", or "**our**"). Bonda is a caregiving companion application designed to support caregivers of children with developmental differences, and the doctors, therapists, and psychologists who work with them. These Terms & Conditions ("**Terms**") govern your access to and use of the App and any related services (together, the "**Services**").
 
 Bonda is operated by **Arte de Noor** (UEN/ACRA Reg. No. [INSERT NUMBER]), a business registered in Singapore ("**the Company**").
 
@@ -13,8 +13,9 @@ Please read these Terms carefully. **By downloading, accessing, or using Bonda, 
 
 ## 1. Definitions
 
-- **"User", "you", "your"** — any person who accesses or uses the App, including birth parents, foster carers, extended family members, and professional caregivers.
-- **"Child Profile"** — information you enter about a child in your care, including name, avatar, schedules, observations, and related records.
+- **"User", "you", "your"** — any person who accesses or uses the App, including birth parents, foster carers, extended family members, professional caregivers, and Professional Users.
+- **"Professional User"** — a User who registers with a professional account as a doctor, therapist, or psychologist.
+- **"Child Profile"** — information you enter about a child in your care or, for Professional Users, a child you support professionally, including name, avatar, schedules, observations, and related records.
 - **"Content"** — any text, images, logs, letters, messages, or other material submitted, generated, or stored through the App.
 - **"Community"** — features that allow Users to interact with or share information with other Users.
 - **"Subscription"** — any paid plan that unlocks premium features (see Clause 7).
@@ -25,9 +26,13 @@ Please read these Terms carefully. **By downloading, accessing, or using Bonda, 
 
 2.1 You must be at least 18 years old (or the age of legal majority in your jurisdiction) to create an account and use the Services.
 
-2.2 By using the App, you represent that you are a caregiver acting in the interest of a child in your care, or an adult authorised to enter and manage information relating to that child.
+2.2 By using the App, you represent that you are a caregiver acting in the interest of a child in your care, an adult authorised to enter and manage information relating to that child, or a Professional User.
 
-2.3 If you are entering information about a child you do not have parental responsibility or legal authority over (for example, as a professional or foster caregiver), you confirm that you have the necessary permission, consent, or authority to do so.
+2.3 If you are entering information about a child you do not have parental responsibility or legal authority over (for example, as a foster caregiver, professional caregiver, or Professional User), you confirm that you have the necessary permission, consent, or authority to do so.
+
+2.4 **Professional Users.** If you register as a Professional User, you confirm that you are qualified and, where required, licensed or registered to practise your profession, and that the professional details you provide (such as your profession, specialisation, and clinic or practice details) are accurate. You must update or remove those details if they change, including if your licence or registration lapses or is suspended or withdrawn.
+
+2.5 **Professional status is self-declared.** We do **not** verify the identity, qualifications, licence, or registration of Professional Users. A professional account is not an endorsement or confirmation of anyone's qualifications by the Company. Please make your own checks before relying on another User's stated professional background.
 
 ---
 
@@ -48,6 +53,8 @@ Please read these Terms carefully. **By downloading, accessing, or using Bonda, 
 3.5 **Support directory.** Any directory of organisations, services, or resources is provided for information only. Inclusion does **not** constitute an endorsement, recommendation, or guarantee of any third party. We do not verify, and are not responsible for, the services, availability, or conduct of listed third parties.
 
 3.6 **Communication (AAC-inspired) features.** Any communication or picture-based communication features are aids only and are not a certified assistive or medical communication device.
+
+3.7 **Use by Professional Users.** Bonda is a general support tool, not a clinical system. It is **not** an electronic medical record, and its guides, development tracking, and other content are **not** validated diagnostic or assessment instruments. If you are a Professional User, you remain solely responsible for your clinical and professional judgement, for keeping your own patient or client records, and for complying with the laws and professional standards that apply to your practice. Bonda does not create a doctor-patient, therapist-client, or other professional relationship between the Company and anyone, and the Company is not a party to any professional relationship between you and a family.
 
 ---
 
@@ -73,7 +80,9 @@ You agree **not** to:
 - attempt to gain unauthorised access to the App, other users' data, or our systems;
 - reverse-engineer, copy, resell, or exploit any part of the Services except as permitted by law;
 - use the Services to provide advice you are not qualified to give while representing it as coming from Bonda;
-- misuse the Community features, including sharing another person's private information without consent.
+- misuse the Community features, including sharing another person's private information without consent;
+- misrepresent your qualifications, licence, or registration, or imply that the Company has verified, endorsed, or employs you;
+- as a Professional User, use Community features to give individualised diagnosis or treatment advice, or to solicit patients or clients.
 
 We reserve the right to suspend or terminate accounts that breach these rules.
 
@@ -88,6 +97,8 @@ We reserve the right to suspend or terminate accounts that breach these rules.
 6.3 Our handling of personal data is governed by our **Privacy Policy** [INSERT LINK], which forms part of these Terms. Our practices are intended to comply with Singapore's **Personal Data Protection Act 2012 (PDPA)**.
 
 6.4 You must not enter more sensitive information than is necessary, and you should take care when using any sharing or Community features.
+
+6.5 If you are a Professional User, you may enter information about a patient or client only with the consent of the child's parent or legal guardian. You are responsible for meeting your own obligations for that information, including under the PDPA and any confidentiality or medical-records requirements that apply to your practice.
 
 ---
 
@@ -111,7 +122,7 @@ We reserve the right to suspend or terminate accounts that breach these rules.
 
 8.1 The App, including its design, code, text, graphics, logos, and features, is owned by or licensed to the Company and is protected by intellectual property laws.
 
-8.2 We grant you a limited, non-exclusive, non-transferable, revocable licence to use the App for your personal caregiving purposes, subject to these Terms.
+8.2 We grant you a limited, non-exclusive, non-transferable, revocable licence to use the App for your personal caregiving purposes or, if you are a Professional User, to support your work with children and families, subject to these Terms.
 
 8.3 **Your Content remains yours.** You retain ownership of the Content you enter. By using the Services, you grant us a limited licence to store, process, and display that Content solely to provide the Services to you.
 
@@ -126,6 +137,8 @@ We reserve the right to suspend or terminate accounts that breach these rules.
 9.2 We do not guarantee the accuracy, reliability, or appropriateness of any User-generated content, and you rely on it at your own discretion.
 
 9.3 We may, but are not obliged to, moderate, edit, or remove Content, and may suspend Users who breach these Terms.
+
+9.4 Anything a Professional User shares in the Community is general information and that User's own view. It is not professional advice to any individual and does not create a professional relationship. Professional Users must not share information that could identify a patient or client without valid consent.
 
 ---
 
@@ -153,7 +166,7 @@ We reserve the right to suspend or terminate accounts that breach these rules.
 
 ## 12. Indemnity
 
-You agree to indemnify and hold harmless the Company and its representatives against any claims, losses, or expenses arising from your breach of these Terms, your misuse of the Services, or your infringement of any third party's rights.
+You agree to indemnify and hold harmless the Company and its representatives against any claims, losses, or expenses arising from your breach of these Terms, your misuse of the Services, your infringement of any third party's rights, or, if you are a Professional User, any professional services you provide.
 
 ---
 

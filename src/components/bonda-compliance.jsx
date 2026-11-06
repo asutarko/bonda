@@ -96,7 +96,7 @@ export function PrivacyPolicyScreen({ onBack, hideBack = false }) {
       title: "Who we are",
       accent: C.primary,
       items: [
-        `${appName} is a caregiver support app for parents of autistic children in Singapore.`,
+        `${appName} is a caregiver support app for parents and caregivers of autistic children in Singapore, and the doctors, therapists, and psychologists who support them.`,
         `Developed and operated by: ${dpoName}`,
         `Data Protection Officer (DPO): ${dpoName}`,
         `DPO Email: ${dpoEmail}`,
@@ -108,7 +108,8 @@ export function PrivacyPolicyScreen({ onBack, hideBack = false }) {
       accent: C.primary,
       items: [
         "Child's name, age, and avatar — to personalise your experience",
-        "Caregiver type (biological parent, foster parent, grandparent, other)",
+        "Account type (parent or caregiver, or professional) and caregiver type (biological parent, foster parent, grandparent, other)",
+        "Professional accounts: profession, specialisation, and clinic or practice name and address — self-declared and not verified by us",
         "Schedule items and completion history — stored on your device only",
         "Health notes (allergies, medications, visible marks) — stored on your device only",
         "Community display name, password, and avatar — for the Community feature",
@@ -121,7 +122,7 @@ export function PrivacyPolicyScreen({ onBack, hideBack = false }) {
       accent: C.primary,
       items: [
         "Child profile data: to personalise schedules, emotion guides, and behaviour guides",
-        "Community account data: to enable parent-to-parent connection",
+        "Community account data: to enable connection between community members",
         "Health notes: to help you at medical appointments when HealthHub access is unavailable",
         "We do NOT use your data for advertising, profiling, or selling to any third party.",
       ]
@@ -143,6 +144,7 @@ export function PrivacyPolicyScreen({ onBack, hideBack = false }) {
       items: [
         "This app processes data about children under 18 years of age.",
         "You, the parent or guardian, provide consent on behalf of your child at account creation.",
+        "Doctors, therapists, and psychologists may enter a child's data only with the consent of the child's parent or guardian.",
         "Child profile data is NEVER made public or searchable — visible only to you.",
         "We apply data minimisation: we collect only what is strictly necessary.",
         "You can delete any child profile at any time from within the app.",

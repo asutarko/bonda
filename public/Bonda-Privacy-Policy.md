@@ -5,7 +5,7 @@
 
 This Privacy Policy explains how **Arte de Noor** (UEN/ACRA Reg. No. [INSERT NUMBER]) ("**we**", "**us**", "**our**", or "**the Company**") collects, uses, discloses, and protects personal data in connection with the **Bonda** application (the "**App**") and related services (the "**Services**").
 
-Bonda is a caregiving companion app for caregivers of children with developmental differences. Because the App is designed to hold information about children, we take privacy seriously. This Policy is intended to comply with Singapore's **Personal Data Protection Act 2012 (PDPA)**.
+Bonda is a caregiving companion app for caregivers of children with developmental differences, and for the doctors, therapists, and psychologists who work with them. Because the App is designed to hold information about children, we take privacy seriously. This Policy is intended to comply with Singapore's **Personal Data Protection Act 2012 (PDPA)**.
 
 By using Bonda, you acknowledge that you have read and understood this Policy. This Policy should be read together with our [Terms & Conditions](#).
 
@@ -13,9 +13,9 @@ By using Bonda, you acknowledge that you have read and understood this Policy. T
 
 ## 1. Who This Policy Applies To
 
-This Policy applies to all Users of Bonda, including birth parents, foster carers, extended family members, and professional caregivers ("**you**").
+This Policy applies to all Users of Bonda, including birth parents, foster carers, extended family members, professional caregivers, and doctors, therapists, and psychologists who register with a professional account ("**Professional Users**") (together, "**you**").
 
-Where you enter information about a child in your care, you are responsible for ensuring you have the authority or consent to do so, as described in our Terms & Conditions.
+Where you enter information about a child in your care or a child you support professionally, you are responsible for ensuring you have the authority or consent to do so, as described in our Terms & Conditions.
 
 ---
 
@@ -26,7 +26,7 @@ Depending on how you use the App, we may collect:
 **2.1 Account and contact data**
 - Name, email address, and/or phone number
 - Login credentials and authentication data (e.g., one-time passwords/OTP)
-- Your role (e.g., parent, foster carer, professional caregiver)
+- Your account type and role (e.g., parent, foster carer, professional caregiver, doctor, therapist, psychologist)
 - Nationality or country, where you provide it
 
 **2.2 Child Profile data (entered by you)**
@@ -34,7 +34,7 @@ Depending on how you use the App, we may collect:
 - Schedules, routines, and visual planning information
 - Observations, daily check-ins, notes, and logs you record
 - Communication preferences and picture-based communication content
-- Any other information you choose to enter about the child in your care
+- Any other information you choose to enter about the child
 
 *This may include **sensitive personal data** relating to a child's health, development, or care.*
 
@@ -49,6 +49,11 @@ Depending on how you use the App, we may collect:
 
 **2.5 Payment data**
 - If you subscribe to a paid plan, payment is processed by third-party app stores or payment providers. We do not store full card details; we may receive confirmation of a transaction and limited billing information.
+
+**2.6 Professional account data (Professional Users only)**
+- Your profession, specialisation, and clinic or practice name and address
+
+*These details are self-declared. We do not verify them.*
 
 ---
 
@@ -66,6 +71,7 @@ We collect personal data:
 We use personal data to:
 
 - create and manage your account and verify your identity (e.g., OTP);
+- set up your account according to the account type you choose (caregiver or professional);
 - provide the core Services — child profiles, schedules, communication aids, logging, the Foster Parent Hub, and the support directory;
 - generate documents and letters you request;
 - operate Community features you choose to use;
@@ -83,9 +89,13 @@ We only collect and use personal data for purposes that a reasonable person woul
 
 5.1 We rely on your **consent** to collect, use, and disclose personal data for the purposes described in this Policy, and on other legal bases permitted under the PDPA where applicable.
 
-5.2 By providing us with personal data about **another person** (including a child in your care), you confirm that you are authorised to do so and that you have obtained any necessary consent.
+5.2 By providing us with personal data about **another person** (including a child in your care or a patient or client), you confirm that you are authorised to do so and that you have obtained any necessary consent.
 
 5.3 You may **withdraw consent** at any time by contacting our Data Protection Officer (see Clause 13). Withdrawing consent may mean we can no longer provide some or all of the Services to you.
+
+5.4 **Professional Users.** If you are a Professional User and enter information about a patient or client, you must have the consent of the child's parent or legal guardian, and you remain responsible for your own obligations under the PDPA and any confidentiality requirements that apply to your practice.
+
+5.5 A Child Profile belongs to the account that created it. A Professional User cannot see a Child Profile created by a parent or caregiver, and a parent or caregiver cannot see one created by a Professional User.
 
 ---
 
@@ -138,9 +148,9 @@ Where personal data is transferred outside Singapore (for example, if cloud serv
 
 ## 11. Children's Data
 
-11.1 Bonda is intended for use by **adult caregivers**. It is not intended to be used directly by children.
+11.1 Bonda is intended for use by **adult caregivers and Professional Users**. It is not intended to be used directly by children.
 
-11.2 The App is designed to hold information about children entered by an authorised caregiver. We treat such information as **sensitive** and apply appropriate care.
+11.2 The App is designed to hold information about children entered by an authorised caregiver or Professional User. We treat such information as **sensitive** and apply appropriate care.
 
 11.3 We do not knowingly collect personal data directly from children. If you believe a child has provided us with personal data directly, please contact us so we can address it.
 
