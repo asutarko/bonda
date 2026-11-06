@@ -1,39 +1,56 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { T } from "../theme";
 import { Btn } from "../ui";
 import { useBackHandler } from "../hooks";
-import { pushSupported, needsHomeScreenInstall, enablePush } from "../lib/push";
+import { pushSupported, needsHomeScreenInstall, enablePush, getPushSubscription, syncPushSubscription, isOptedOut } from "../lib/push";
 
-const SNOOZE_KEY = "bonda_push_prompt_until";
-const SNOOZE_MS = 14 * 24 * 60 * 60 * 1000;
-
-const isSnoozed = () => {
-  try { return Date.now() < Number(localStorage.getItem(SNOOZE_KEY) || 0); } catch { return false; }
+const COPY = {
+  install: {
+    title: "Add Bonda to your Home Screen",
+    body: "To get schedule reminders and messages on this device, open Bonda in Safari, tap Share, then Add to Home Screen. Then open Bonda from your Home Screen.",
+    dismiss: "Got it",
+  },
+  blocked: {
+    title: "Notifications are blocked",
+    body: "To get schedule reminders and community messages, allow notifications for Bonda in your browser or device settings.",
+    dismiss: "Got it",
+  },
+  enable: {
+    title: "Turn on notifications",
+    body: "Get schedule reminders and community messages, even when Bonda is closed.",
+    dismiss: "Not now",
+  },
 };
 
-// "install" on an iPhone/iPad browser tab, "enable" while the browser hasn't
-// asked yet. Once permission is granted or denied the prompt can't help:
-// the browser won't show its popup again.
-const getMode = () => {
-  if (isSnoozed()) return null;
+// Null means notifications are on, or nothing here could turn them on.
+// "blocked" can only point to settings: the browser won't ask a second time.
+const getMode = async (userId) => {
   if (needsHomeScreenInstall()) return "install";
-  if (pushSupported() && Notification.permission === "default") return "enable";
-  return null;
+  if (!pushSupported()) return null;
+  if (Notification.permission === "denied") return "blocked";
+  if (Notification.permission === "default") return "enable";
+  // Permission is granted, so "on" depends on this device's subscription.
+  if (!isOptedOut()) await syncPushSubscription(userId).catch(() => {});
+  return (await getPushSubscription()) ? null : "enable";
 };
 
-// The browser's permission popup needs a tap first on iPhone, and it only gets
-// one real chance everywhere else, so this explains the benefit before asking.
+// Shown once each time the app opens while notifications are off on this
+// device, so it's mounted once in App.jsx, not per screen. The browser's own
+// permission popup needs a tap first on iPhone, so this asks before it does.
 export default function NotificationPrompt({ userId }) {
-  const [mode, setMode] = useState(getMode);
+  const [mode, setMode] = useState(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
-  const snooze = () => {
-    try { localStorage.setItem(SNOOZE_KEY, String(Date.now() + SNOOZE_MS)); } catch {}
-    setMode(null);
-  };
+  useEffect(() => {
+    let cancelled = false;
+    getMode(userId).then(m => { if (!cancelled) setMode(m); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [userId]);
 
-  useBackHandler(!!mode, snooze);
+  const dismiss = () => setMode(null);
+
+  useBackHandler(!!mode, dismiss);
 
   if (!mode) return null;
 
@@ -47,18 +64,12 @@ export default function NotificationPrompt({ userId }) {
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 300, background: "rgba(35,32,28,.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 18, boxSizing: "border-box" }}>
       <div role="dialog" aria-modal="true" aria-labelledby="notification-prompt-title" style={{ width: "100%", maxWidth: 400, background: T.surface, borderRadius: T.rL, padding: 20, boxSizing: "border-box", boxShadow: "0 18px 44px rgba(35,32,28,.18)" }}>
-        <p id="notification-prompt-title" style={{ margin: 0, fontSize: 17, fontWeight: 700, color: T.ink }}>
-          {mode === "install" ? "Add Bonda to your Home Screen" : "Turn on notifications"}
-        </p>
-        <p style={{ margin: "6px 0 16px", fontSize: 14, color: T.inkSoft, lineHeight: 1.5 }}>
-          {mode === "install"
-            ? "To get schedule reminders and messages on this device, open Bonda in Safari, tap Share, then Add to Home Screen. Then open Bonda from your Home Screen."
-            : "Get schedule reminders and community messages, even when Bonda is closed."}
-        </p>
+        <p id="notification-prompt-title" style={{ margin: 0, fontSize: 17, fontWeight: 700, color: T.ink }}>{COPY[mode].title}</p>
+        <p style={{ margin: "6px 0 16px", fontSize: 14, color: T.inkSoft, lineHeight: 1.5 }}>{COPY[mode].body}</p>
         {err && <p style={{ margin: "0 0 12px", fontSize: 12, fontWeight: 700, color: T.red }}>{err}</p>}
         <div style={{ display: "flex", gap: 8 }}>
           {mode === "enable" && <Btn onClick={turnOn} disabled={busy} style={{ flex: 1 }}>{busy ? "Turning on..." : "Turn on"}</Btn>}
-          <Btn onClick={snooze} disabled={busy} secondary style={{ flex: 1 }}>{mode === "install" ? "Got it" : "Not now"}</Btn>
+          <Btn onClick={dismiss} disabled={busy} secondary style={{ flex: 1 }}>{COPY[mode].dismiss}</Btn>
         </div>
       </div>
     </div>

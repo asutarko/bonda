@@ -358,7 +358,6 @@ export default function Bonda() {
 
 
       <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflowY: "auto" }}>
-        {!current && tab === "home" && <NotificationPrompt userId={account.id} />}
         <Suspense fallback={<ScreenFallback />}>
           {current ? renderStack() : renderMain()}
         </Suspense>
@@ -381,6 +380,8 @@ export default function Bonda() {
           </div>
         </div>
       )}
+
+      <NotificationPrompt userId={account.id} />
 
       {showExitHint && (
         <div style={{ position: "fixed", bottom: 90, left: "50%", transform: "translateX(-50%)", background: T.ink, color: "white", padding: "10px 20px", borderRadius: 99, fontSize: 13, fontWeight: 700, boxShadow: T.shadowM, zIndex: 200, whiteSpace: "nowrap" }}>

@@ -30,7 +30,7 @@ export const needsHomeScreenInstall = () => {
 // Set when the user turns push off on this device. Permission stays "granted"
 // after that, so without this flag syncPushSubscription would turn it back on.
 const OPTED_OUT_KEY = "bonda_push_off";
-const isOptedOut = () => { try { return localStorage.getItem(OPTED_OUT_KEY) === "1"; } catch { return false; } };
+export const isOptedOut = () => { try { return localStorage.getItem(OPTED_OUT_KEY) === "1"; } catch { return false; } };
 const setOptedOut = (off) => {
   try { if (off) localStorage.setItem(OPTED_OUT_KEY, "1"); else localStorage.removeItem(OPTED_OUT_KEY); } catch {}
 };
