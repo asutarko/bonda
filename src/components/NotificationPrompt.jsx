@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { T } from "../theme";
 import { Btn } from "../ui";
+import { useBackHandler } from "../hooks";
 import { pushSupported, needsHomeScreenInstall, enablePush } from "../lib/push";
 
 const SNOOZE_KEY = "bonda_push_prompt_until";
@@ -27,12 +28,14 @@ export default function NotificationPrompt({ userId }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
-  if (!mode) return null;
-
   const snooze = () => {
     try { localStorage.setItem(SNOOZE_KEY, String(Date.now() + SNOOZE_MS)); } catch {}
     setMode(null);
   };
+
+  useBackHandler(!!mode, snooze);
+
+  if (!mode) return null;
 
   const turnOn = async () => {
     setBusy(true); setErr("");
@@ -42,19 +45,21 @@ export default function NotificationPrompt({ userId }) {
   };
 
   return (
-    <div style={{ margin: "12px 18px 0", background: T.surface, border: `1px solid ${T.border}`, borderRadius: T.rL, padding: 16, flexShrink: 0 }}>
-      <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: T.ink }}>
-        {mode === "install" ? "Add Bonda to your Home Screen" : "Turn on notifications"}
-      </p>
-      <p style={{ margin: "4px 0 12px", fontSize: 13, color: T.inkSoft, lineHeight: 1.5 }}>
-        {mode === "install"
-          ? "To get schedule reminders and messages on this device, open Bonda in Safari, tap Share, then Add to Home Screen. Then open Bonda from your Home Screen."
-          : "Get schedule reminders and community messages, even when Bonda is closed."}
-      </p>
-      {err && <p style={{ margin: "0 0 10px", fontSize: 12, fontWeight: 700, color: T.red }}>{err}</p>}
-      <div style={{ display: "flex", gap: 8 }}>
-        {mode === "enable" && <Btn onClick={turnOn} disabled={busy} style={{ flex: 1 }}>{busy ? "Turning on..." : "Turn on"}</Btn>}
-        <Btn onClick={snooze} disabled={busy} secondary style={{ flex: 1 }}>{mode === "install" ? "Got it" : "Not now"}</Btn>
+    <div style={{ position: "fixed", inset: 0, zIndex: 300, background: "rgba(35,32,28,.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 18, boxSizing: "border-box" }}>
+      <div role="dialog" aria-modal="true" aria-labelledby="notification-prompt-title" style={{ width: "100%", maxWidth: 400, background: T.surface, borderRadius: T.rL, padding: 20, boxSizing: "border-box", boxShadow: "0 18px 44px rgba(35,32,28,.18)" }}>
+        <p id="notification-prompt-title" style={{ margin: 0, fontSize: 17, fontWeight: 700, color: T.ink }}>
+          {mode === "install" ? "Add Bonda to your Home Screen" : "Turn on notifications"}
+        </p>
+        <p style={{ margin: "6px 0 16px", fontSize: 14, color: T.inkSoft, lineHeight: 1.5 }}>
+          {mode === "install"
+            ? "To get schedule reminders and messages on this device, open Bonda in Safari, tap Share, then Add to Home Screen. Then open Bonda from your Home Screen."
+            : "Get schedule reminders and community messages, even when Bonda is closed."}
+        </p>
+        {err && <p style={{ margin: "0 0 12px", fontSize: 12, fontWeight: 700, color: T.red }}>{err}</p>}
+        <div style={{ display: "flex", gap: 8 }}>
+          {mode === "enable" && <Btn onClick={turnOn} disabled={busy} style={{ flex: 1 }}>{busy ? "Turning on..." : "Turn on"}</Btn>}
+          <Btn onClick={snooze} disabled={busy} secondary style={{ flex: 1 }}>{mode === "install" ? "Got it" : "Not now"}</Btn>
+        </div>
       </div>
     </div>
   );
