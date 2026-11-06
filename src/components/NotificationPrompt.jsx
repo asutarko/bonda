@@ -34,6 +34,12 @@ const getMode = async (userId) => {
   return (await getPushSubscription()) ? null : "enable";
 };
 
+// sessionStorage lasts until the app or tab is closed, so a reload or a
+// return to Home doesn't count as opening the app again.
+const SHOWN_KEY = "bonda_push_prompt_shown";
+const wasShown = () => { try { return sessionStorage.getItem(SHOWN_KEY) === "1"; } catch { return false; } };
+const markShown = () => { try { sessionStorage.setItem(SHOWN_KEY, "1"); } catch {} };
+
 // Shown once each time the app opens while notifications are off on this
 // device, so it's mounted once in App.jsx, not per screen. The browser's own
 // permission popup needs a tap first on iPhone, so this asks before it does.
@@ -43,8 +49,13 @@ export default function NotificationPrompt({ userId }) {
   const [err, setErr] = useState("");
 
   useEffect(() => {
+    if (wasShown()) return;
     let cancelled = false;
-    getMode(userId).then(m => { if (!cancelled) setMode(m); }).catch(() => {});
+    getMode(userId).then(m => {
+      if (cancelled || !m) return;
+      markShown();
+      setMode(m);
+    }).catch(() => {});
     return () => { cancelled = true; };
   }, [userId]);
 
