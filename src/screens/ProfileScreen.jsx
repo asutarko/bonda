@@ -3,7 +3,6 @@ import { supabase } from "../lib/supabase";
 import { uploadPhoto } from "../hooks";
 import { T } from "../theme";
 import { Page, SectionLabel, Input, TextArea, Select, FieldError, Btn, ComAvatar } from "../ui";
-import PushNotificationsCard from "../components/PushNotificationsCard";
 import { RELATIONSHIP_OPTIONS, OCCUPATION_OPTIONS, MARITAL_STATUS_OPTIONS, PROFESSION_OPTIONS, PHONE_COUNTRIES, splitPhone } from "../data";
 
 // Best-effort split of a legacy single-field name (entered before first/
@@ -293,8 +292,6 @@ export function EditProfileScreen({ account, pop, push }) {
       {err && <p style={{ color: T.red, fontSize: 13, fontWeight: 700, margin: "-8px 0 12px" }}>{err}</p>}
       <Btn onClick={save} full disabled={saving}>{saving ? "Saving..." : "Save Changes"}</Btn>
       <Btn onClick={pop} full secondary style={{ marginTop: 10 }}>Cancel</Btn>
-
-      <PushNotificationsCard userId={account?.id} />
     </Page>
   );
 }
