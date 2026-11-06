@@ -19,6 +19,22 @@ export const pushUnsupportedReason = () => {
 
 export const pushSupported = () => pushUnsupportedReason() === null;
 
+// iPhone and iPad only offer Web Push once Bonda is added to the Home Screen.
+// iPadOS reports itself as a Mac, hence the touch check.
+export const needsHomeScreenInstall = () => {
+  const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const installed = navigator.standalone === true || window.matchMedia("(display-mode: standalone)").matches;
+  return ios && !installed;
+};
+
+// Set when the user turns push off on this device. Permission stays "granted"
+// after that, so without this flag syncPushSubscription would turn it back on.
+const OPTED_OUT_KEY = "bonda_push_off";
+const isOptedOut = () => { try { return localStorage.getItem(OPTED_OUT_KEY) === "1"; } catch { return false; } };
+const setOptedOut = (off) => {
+  try { if (off) localStorage.setItem(OPTED_OUT_KEY, "1"); else localStorage.removeItem(OPTED_OUT_KEY); } catch {}
+};
+
 const urlBase64ToUint8Array = (base64) => {
   const padded = (base64 + "=".repeat((4 - (base64.length % 4)) % 4)).replace(/-/g, "+").replace(/_/g, "/");
   return Uint8Array.from(atob(padded), c => c.charCodeAt(0));
@@ -39,7 +55,8 @@ export const getPushSubscription = async () => {
 
 export const enablePush = async (userId) => {
   const permission = await Notification.requestPermission();
-  if (permission !== "granted") throw new Error("Notifications are blocked. Allow them in your browser settings.");
+  if (permission === "denied") throw new Error("Notifications are blocked. Allow them in your browser settings.");
+  if (permission !== "granted") throw new Error("Tap Allow to turn on notifications.");
   const reg = await getRegistration();
   const sub = (await reg.pushManager.getSubscription())
     || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) });
@@ -50,10 +67,19 @@ export const enablePush = async (userId) => {
     { onConflict: "endpoint" }
   );
   if (error) throw error;
+  setOptedOut(false);
   return sub;
 };
 
+// Runs on app open: subscribes without asking when permission is already
+// granted, and keeps this device's timezone current on the saved row.
+export const syncPushSubscription = async (userId) => {
+  if (!pushSupported() || Notification.permission !== "granted" || isOptedOut()) return;
+  await enablePush(userId);
+};
+
 export const disablePush = async () => {
+  setOptedOut(true);
   const sub = await getPushSubscription();
   if (!sub) return;
   await supabase.from("push_subscriptions").delete().eq("endpoint", sub.endpoint);

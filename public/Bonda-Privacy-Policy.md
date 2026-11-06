@@ -51,7 +51,8 @@ Depending on how you use the App, we may collect:
 - If you subscribe to a paid plan, payment is processed by third-party app stores or payment providers. We do not store full card details; we may receive confirmation of a transaction and limited billing information.
 
 **2.6 Professional account data (Professional Users only)**
-- Your profession, specialisation, and clinic or practice name and address
+- Your profession and specialisation
+- Your clinic or practice name and address, if you have one and choose to provide it
 
 *These details are self-declared. We do not verify them.*
 

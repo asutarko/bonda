@@ -256,8 +256,8 @@ export function EditProfileScreen({ account, pop, push }) {
           <Select label="Profession" placeholder="Select profession" value={profession} onChange={e => setProfession(e.target.value)} options={PROFESSION_OPTIONS} />
           <FieldError>{errors.profession}</FieldError>
           <Input label="Specialisation" value={specialisation} onChange={e => setSpecialisation(e.target.value)} placeholder="e.g. Speech therapy" />
-          <Input label="Clinic or practice name" value={practiceName} onChange={e => setPracticeName(e.target.value)} placeholder="e.g. Bright Minds Clinic" />
-          <TextArea label="Clinic or practice address" rows={3} value={practiceAddress} onChange={e => setPracticeAddress(e.target.value)} placeholder="e.g. 10 Sinaran Drive, #08-12" />
+          <Input label="Clinic or practice name (optional)" value={practiceName} onChange={e => setPracticeName(e.target.value)} placeholder="e.g. Bright Minds Clinic" />
+          <TextArea label="Clinic or practice address (optional)" rows={3} value={practiceAddress} onChange={e => setPracticeAddress(e.target.value)} placeholder="e.g. 10 Sinaran Drive, #08-12" />
         </>
       ) : (
         <>

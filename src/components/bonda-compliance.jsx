@@ -109,7 +109,7 @@ export function PrivacyPolicyScreen({ onBack, hideBack = false }) {
       items: [
         "Child's name, age, and avatar — to personalise your experience",
         "Account type (parent or caregiver, or professional) and caregiver type (biological parent, foster parent, grandparent, other)",
-        "Professional accounts: profession, specialisation, and clinic or practice name and address — self-declared and not verified by us",
+        "Professional accounts: profession, specialisation, and optional clinic or practice name and address — self-declared and not verified by us",
         "Schedule items and completion history — stored on your device only",
         "Health notes (allergies, medications, visible marks) — stored on your device only",
         "Community display name, password, and avatar — for the Community feature",

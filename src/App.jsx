@@ -3,6 +3,8 @@ import { supabase } from "./lib/supabase";
 import { T } from "./theme";
 import { NavMark, ComAvatar } from "./ui";
 import { useChildren, useBackHandler, backHandlerStack, accountFromUser, forceSignOut, useUnreadNotifications, useOpenInboxOnTap } from "./hooks";
+import { syncPushSubscription } from "./lib/push";
+import NotificationPrompt from "./components/NotificationPrompt";
 
 // Every screen below is only ever needed once its tab/stack entry is actually
 // opened (this app uses its own tab/stack nav, not route-based splitting), so
@@ -104,6 +106,11 @@ export default function Bonda() {
 
   const childCtx = useChildren(account?.id);
   const [unread, setUnread] = useUnreadNotifications(account?.id);
+
+  const pushUserId = pendingPhone ? null : account?.id;
+  useEffect(() => {
+    if (pushUserId) syncPushSubscription(pushUserId).catch(() => {});
+  }, [pushUserId]);
 
   // A tapped system notification lands on the inbox; bumping the key remounts
   // it if it's already open, so it refetches and shows the new notification.
@@ -351,6 +358,7 @@ export default function Bonda() {
 
 
       <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflowY: "auto" }}>
+        {!current && tab === "home" && <NotificationPrompt userId={account.id} />}
         <Suspense fallback={<ScreenFallback />}>
           {current ? renderStack() : renderMain()}
         </Suspense>
