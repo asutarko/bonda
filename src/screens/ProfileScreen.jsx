@@ -54,6 +54,7 @@ export function EditProfileScreen({ account, pop, push }) {
   const [customOccupation, setCustomOccupation] = useState(initialCustomOccupation);
   const [nationality, setNationality] = useState(account?.nationality || "");
   const [maritalStatus, setMaritalStatus] = useState(account?.maritalStatus || "");
+  const [gender, setGender] = useState(account?.gender || "");
   const [profession, setProfession] = useState(account?.profession || "");
   const [specialisation, setSpecialisation] = useState(account?.specialisation || "");
   const [practiceName, setPracticeName] = useState(account?.practiceName || "");
@@ -146,6 +147,7 @@ export function EditProfileScreen({ account, pop, push }) {
     const isYear = y => /^\d{4}$/.test(y) && +y >= 1950 && +y <= thisYear;
     if (isProfessional) {
       if (!profession) fe.profession = "Please select your profession.";
+      if (!gender) fe.gender = "Please select your gender.";
       const expErrors = {};
       workExperience.forEach((x, i) => {
         if (isBlankExperience(x)) return;
@@ -187,7 +189,7 @@ export function EditProfileScreen({ account, pop, push }) {
       startMonth: x.startMonth, startYear: x.startYear.trim(),
       endMonth: x.current ? "" : x.endMonth, endYear: x.current ? "" : x.endYear.trim(), current: !!x.current,
     }));
-    const practice = { profession, specialisation: specialisation.trim() };
+    const practice = { profession, specialisation: specialisation.trim(), gender };
     const home = { address: address.trim(), relationship, occupation: finalOccupation };
 
     const { error } = await supabase.auth.updateUser({ data: {
@@ -280,6 +282,12 @@ export function EditProfileScreen({ account, pop, push }) {
       <Input label="Middle name" value={middleName} onChange={e => setMiddleName(e.target.value)} placeholder="Optional" />
       <Input label="Surname" value={lastName} onChange={e => setLastName(e.target.value)} placeholder="e.g. Tan" />
       <FieldError>{errors.lastName}</FieldError>
+      {isProfessional && (
+        <>
+          <Select label="Gender" placeholder="Select gender" value={gender} onChange={e => setGender(e.target.value)} options={["Male", "Female", "Prefer not to say"]} />
+          <FieldError>{errors.gender}</FieldError>
+        </>
+      )}
 
       <SectionLabel style={{ marginBottom: 10 }}>Contact Details</SectionLabel>
       <Input label="Email address" type="email" value={account?.email || ""} disabled style={{ background: T.border, cursor: "not-allowed", color: T.inkSoft }} />
