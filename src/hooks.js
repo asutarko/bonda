@@ -541,6 +541,8 @@ export const accountFromUser = (u) => u ? {
   specialisation: u.user_metadata?.specialisation || "",
   practiceName: u.user_metadata?.practiceName || "",
   practiceAddress: u.user_metadata?.practiceAddress || "",
+  // [{ position, workplace, startYear, endYear, current }] — any number of jobs.
+  workExperience: Array.isArray(u.user_metadata?.workExperience) ? u.user_metadata.workExperience : [],
   joined: u.user_metadata?.joined || new Date(u.created_at).toLocaleDateString("en-SG", { month: "short", year: "numeric" }),
   gender: u.user_metadata?.gender || "",
   address: u.user_metadata?.address || "",

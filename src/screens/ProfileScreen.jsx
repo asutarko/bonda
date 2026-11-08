@@ -16,6 +16,20 @@ const splitName = full => {
   return { firstName: parts[0], middleName: parts.slice(1, -1).join(" "), lastName: parts[parts.length - 1] };
 };
 
+// One job in a professional's work history. Years are kept as strings so a
+// half-typed value doesn't get coerced while editing.
+// Months are stored as "1".."12" so the period reads e.g. "Mar 2018 – Present".
+const emptyExperience = () => ({ position: "", workplace: "", startMonth: "", startYear: "", endMonth: "", endYear: "", current: false });
+const isBlankExperience = x => !x.position.trim() && !x.workplace.trim() && !x.startMonth && !x.startYear.trim() && !x.endMonth && !x.endYear.trim() && !x.current;
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const MONTH_OPTIONS = MONTHS.map((m, i) => ({ value: String(i + 1), label: m }));
+const formatPeriod = x => {
+  const part = (m, y) => [MONTHS[+m - 1], y].filter(Boolean).join(" ");
+  const start = part(x.startMonth, x.startYear);
+  const end = x.current ? "Present" : part(x.endMonth, x.endYear);
+  return start || end ? `${start || "?"} – ${end || "?"}` : "";
+};
+
 export function EditProfileScreen({ account, pop, push }) {
   const isProfessional = account?.accountType === "professional";
   const isExistingPhoto = !!(account?.avatar && (account.avatar.startsWith("data:") || account.avatar.startsWith("http")));
@@ -44,6 +58,16 @@ export function EditProfileScreen({ account, pop, push }) {
   const [specialisation, setSpecialisation] = useState(account?.specialisation || "");
   const [practiceName, setPracticeName] = useState(account?.practiceName || "");
   const [practiceAddress, setPracticeAddress] = useState(account?.practiceAddress || "");
+  const [workExperience, setWorkExperience] = useState(() =>
+    (account?.workExperience || []).map(x => ({
+      ...emptyExperience(), ...x,
+      startMonth: String(x.startMonth || ""), startYear: String(x.startYear || ""),
+      endMonth: String(x.endMonth || ""), endYear: String(x.endYear || ""), current: !!x.current,
+    }))
+  );
+  const updateExperience = (i, patch) => setWorkExperience(list => list.map((x, j) => j === i ? { ...x, ...patch } : x));
+  const removeExperience = i => setWorkExperience(list => list.filter((_, j) => j !== i));
+  const addExperience = () => setWorkExperience(list => [...list, emptyExperience()]);
   const [nationalityOptions, setNationalityOptions] = useState([]);
   const [err, setErr] = useState("");
   const [errors, setErrors] = useState({});
@@ -118,8 +142,25 @@ export function EditProfileScreen({ account, pop, push }) {
     else if (!/^\d+$/.test(phone.replace(/\s+/g, ""))) fe.phone = "Phone number must contain numbers only. Please use numbers.";
     if (!country) fe.country = "Please select your country.";
     if (!nationality) fe.nationality = "Please select your nationality.";
+    const thisYear = new Date().getFullYear();
+    const isYear = y => /^\d{4}$/.test(y) && +y >= 1950 && +y <= thisYear;
     if (isProfessional) {
       if (!profession) fe.profession = "Please select your profession.";
+      const expErrors = {};
+      workExperience.forEach((x, i) => {
+        if (isBlankExperience(x)) return;
+        const start = x.startYear.trim(), end = x.endYear.trim();
+        const now = thisYear * 12 + new Date().getMonth() + 1;
+        const startKey = +start * 12 + +x.startMonth, endKey = +end * 12 + +x.endMonth;
+        if (!x.position.trim()) expErrors[i] = "Please enter your job title.";
+        else if (!x.workplace.trim()) expErrors[i] = "Please enter the clinic, hospital or organisation.";
+        else if (!x.startMonth || !isYear(start)) expErrors[i] = `Please enter the start month and year (1950–${thisYear}).`;
+        else if (startKey > now) expErrors[i] = "Start date can't be in the future.";
+        else if (!x.current && (!x.endMonth || !isYear(end))) expErrors[i] = `Please enter the end month and year, or tick "I currently work here".`;
+        else if (!x.current && endKey > now) expErrors[i] = "End date can't be in the future.";
+        else if (!x.current && endKey < startKey) expErrors[i] = "End date can't be before the start date.";
+      });
+      if (Object.keys(expErrors).length) fe.experience = expErrors;
     } else {
       if (!address.trim()) fe.address = "Please enter your home address.";
       if (!postalCode.trim()) fe.postalCode = "Please enter your postal code.";
@@ -141,20 +182,25 @@ export function EditProfileScreen({ account, pop, push }) {
     }
 
     const shared = { name: fullName, avatar: avatarValue, phone: fullPhone, country, nationality: nationality.trim() };
+    const finalExperience = workExperience.filter(x => !isBlankExperience(x)).map(x => ({
+      position: x.position.trim(), workplace: x.workplace.trim(),
+      startMonth: x.startMonth, startYear: x.startYear.trim(),
+      endMonth: x.current ? "" : x.endMonth, endYear: x.current ? "" : x.endYear.trim(), current: !!x.current,
+    }));
     const practice = { profession, specialisation: specialisation.trim() };
     const home = { address: address.trim(), relationship, occupation: finalOccupation };
 
     const { error } = await supabase.auth.updateUser({ data: {
       ...shared, firstName: firstName.trim(), middleName: middleName.trim(), lastName: lastName.trim(),
       ...(isProfessional
-        ? { ...practice, practiceName: practiceName.trim(), practiceAddress: practiceAddress.trim() }
+        ? { ...practice, practiceName: practiceName.trim(), practiceAddress: practiceAddress.trim(), workExperience: finalExperience }
         : { ...home, postalCode: postalCode.trim(), maritalStatus }),
     } });
     if (error) { setSaving(false); return setErr(error.message); }
     const { error: profileErr } = await supabase.from("profiles").update({
       ...shared, first_name: firstName.trim(), middle_name: middleName.trim(), last_name: lastName.trim(),
       ...(isProfessional
-        ? { ...practice, practice_name: practiceName.trim(), practice_address: practiceAddress.trim() }
+        ? { ...practice, practice_name: practiceName.trim(), practice_address: practiceAddress.trim(), work_experience: finalExperience }
         : { ...home, postal_code: postalCode.trim(), marital_status: maritalStatus }),
     }).eq("id", account.id);
     setSaving(false);
@@ -257,6 +303,49 @@ export function EditProfileScreen({ account, pop, push }) {
           <Input label="Specialisation" value={specialisation} onChange={e => setSpecialisation(e.target.value)} placeholder="e.g. Speech therapy" />
           <Input label="Clinic or practice name (optional)" value={practiceName} onChange={e => setPracticeName(e.target.value)} placeholder="e.g. Bright Minds Clinic" />
           <TextArea label="Clinic or practice address (optional)" rows={3} value={practiceAddress} onChange={e => setPracticeAddress(e.target.value)} placeholder="e.g. 10 Sinaran Drive, #08-12" />
+
+          <SectionLabel style={{ marginBottom: 10 }}>Work Experience (optional)</SectionLabel>
+          {workExperience.length === 0 && (
+            <p style={{ margin: "0 0 12px", color: T.inkSoft, fontSize: 13, lineHeight: 1.6 }}>Add the clinics, hospitals or organisations you've worked at. You can add more than one.</p>
+          )}
+          {workExperience.map((x, i) => (
+            <div key={i} style={{ marginBottom: 12, padding: "14px 14px 2px", background: T.surface, border: `1px solid ${T.border}`, borderRadius: T.r }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                <div>
+                  <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: T.ink }}>Experience {i + 1}</p>
+                  {formatPeriod(x) && <p style={{ margin: "2px 0 0", fontSize: 12, fontWeight: 600, color: T.inkSoft }}>{formatPeriod(x)}</p>}
+                </div>
+                <button onClick={() => removeExperience(i)} style={{ background: "none", border: "none", color: T.red, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: T.fontBody, padding: 0 }}>Remove</button>
+              </div>
+              <Input label="Job title" value={x.position} onChange={e => updateExperience(i, { position: e.target.value })} placeholder="e.g. Senior Clinical Psychologist" />
+              <Input label="Clinic, hospital or organisation" value={x.workplace} onChange={e => updateExperience(i, { workplace: e.target.value })} placeholder="e.g. KK Women's and Children's Hospital" />
+              <p style={{ margin: "0 0 6px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>Period</p>
+              <div style={{ display: "flex", gap: 10 }}>
+                <div style={{ flex: 1 }}>
+                  <Select label="Start month" placeholder="Month" value={x.startMonth} onChange={e => updateExperience(i, { startMonth: e.target.value })} options={MONTH_OPTIONS} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <Input label="Start year" inputMode="numeric" maxLength={4} value={x.startYear} onChange={e => updateExperience(i, { startYear: e.target.value.replace(/\D/g, "") })} placeholder="e.g. 2018" />
+                </div>
+              </div>
+              {!x.current && (
+                <div style={{ display: "flex", gap: 10 }}>
+                  <div style={{ flex: 1 }}>
+                    <Select label="End month" placeholder="Month" value={x.endMonth} onChange={e => updateExperience(i, { endMonth: e.target.value })} options={MONTH_OPTIONS} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <Input label="End year" inputMode="numeric" maxLength={4} value={x.endYear} onChange={e => updateExperience(i, { endYear: e.target.value.replace(/\D/g, "") })} placeholder="e.g. 2022" />
+                  </div>
+                </div>
+              )}
+              <label style={{ display: "flex", alignItems: "center", gap: 8, margin: "-4px 0 14px", fontSize: 13, fontWeight: 600, color: T.inkSoft, cursor: "pointer" }}>
+                <input type="checkbox" checked={x.current} onChange={e => updateExperience(i, { current: e.target.checked })} style={{ width: 16, height: 16, accentColor: T.purple }} />
+                I currently work here
+              </label>
+              <FieldError>{errors.experience?.[i]}</FieldError>
+            </div>
+          ))}
+          <Btn onClick={addExperience} full ghost style={{ marginBottom: 18 }}>+ Add work experience</Btn>
         </>
       ) : (
         <>
