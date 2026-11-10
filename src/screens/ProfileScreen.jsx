@@ -59,6 +59,9 @@ export function EditProfileScreen({ account, pop, push }) {
   const [specialisation, setSpecialisation] = useState(account?.specialisation || "");
   const [practiceName, setPracticeName] = useState(account?.practiceName || "");
   const [practiceAddress, setPracticeAddress] = useState(account?.practiceAddress || "");
+  // Per-session fee in SGD (profiles.session_fee, see supabase/pro_matches.sql).
+  // Blank = not accepting "Say hello" requests yet.
+  const [sessionFee, setSessionFee] = useState(account?.sessionFee ? String(account.sessionFee) : "");
   const [workExperience, setWorkExperience] = useState(() =>
     (account?.workExperience || []).map(x => ({
       ...emptyExperience(), ...x,
@@ -148,6 +151,8 @@ export function EditProfileScreen({ account, pop, push }) {
     if (isProfessional) {
       if (!profession) fe.profession = "Please select your profession.";
       if (!gender) fe.gender = "Please select your gender.";
+      const fee = sessionFee.trim();
+      if (fee && !(/^\d+(\.\d{1,2})?$/.test(fee) && +fee > 0)) fe.sessionFee = "Please enter a fee above 0, e.g. 120 or 120.50.";
       const expErrors = {};
       workExperience.forEach((x, i) => {
         if (isBlankExperience(x)) return;
@@ -189,20 +194,21 @@ export function EditProfileScreen({ account, pop, push }) {
       startMonth: x.startMonth, startYear: x.startYear.trim(),
       endMonth: x.current ? "" : x.endMonth, endYear: x.current ? "" : x.endYear.trim(), current: !!x.current,
     }));
+    const finalFee = sessionFee.trim() ? Number(sessionFee.trim()) : null;
     const practice = { profession, specialisation: specialisation.trim(), gender };
     const home = { address: address.trim(), relationship, occupation: finalOccupation };
 
     const { error } = await supabase.auth.updateUser({ data: {
       ...shared, firstName: firstName.trim(), middleName: middleName.trim(), lastName: lastName.trim(),
       ...(isProfessional
-        ? { ...practice, practiceName: practiceName.trim(), practiceAddress: practiceAddress.trim(), workExperience: finalExperience }
+        ? { ...practice, practiceName: practiceName.trim(), practiceAddress: practiceAddress.trim(), workExperience: finalExperience, sessionFee: finalFee }
         : { ...home, postalCode: postalCode.trim(), maritalStatus }),
     } });
     if (error) { setSaving(false); return setErr(error.message); }
     const { error: profileErr } = await supabase.from("profiles").update({
       ...shared, first_name: firstName.trim(), middle_name: middleName.trim(), last_name: lastName.trim(),
       ...(isProfessional
-        ? { ...practice, practice_name: practiceName.trim(), practice_address: practiceAddress.trim(), work_experience: finalExperience }
+        ? { ...practice, practice_name: practiceName.trim(), practice_address: practiceAddress.trim(), work_experience: finalExperience, session_fee: finalFee }
         : { ...home, postal_code: postalCode.trim(), marital_status: maritalStatus }),
     }).eq("id", account.id);
     setSaving(false);
@@ -311,6 +317,11 @@ export function EditProfileScreen({ account, pop, push }) {
           <Input label="Specialisation" value={specialisation} onChange={e => setSpecialisation(e.target.value)} placeholder="e.g. Speech therapy" />
           <Input label="Clinic or practice name (optional)" value={practiceName} onChange={e => setPracticeName(e.target.value)} placeholder="e.g. Bright Minds Clinic" />
           <TextArea label="Clinic or practice address (optional)" rows={3} value={practiceAddress} onChange={e => setPracticeAddress(e.target.value)} placeholder="e.g. 10 Sinaran Drive, #08-12" />
+          <Input label="Fee per session, SGD (optional)" inputMode="decimal" value={sessionFee} onChange={e => setSessionFee(e.target.value)} placeholder="e.g. 120" />
+          <FieldError>{errors.sessionFee}</FieldError>
+          <p style={{ margin: "-4px 0 14px", fontSize: 12, color: T.inkMuted, lineHeight: 1.5 }}>
+            Parents can only say hello once you set a fee. Bonda keeps 50% of your first session with each new parent; every session after that is yours in full.
+          </p>
 
           <SectionLabel style={{ marginBottom: 10 }}>Work Experience (optional)</SectionLabel>
           {workExperience.length === 0 && (

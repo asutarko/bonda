@@ -543,6 +543,8 @@ export const accountFromUser = (u) => u ? {
   practiceAddress: u.user_metadata?.practiceAddress || "",
   // [{ position, workplace, startYear, endYear, current }] — any number of jobs.
   workExperience: Array.isArray(u.user_metadata?.workExperience) ? u.user_metadata.workExperience : [],
+  // Per-session fee in SGD, or null when not accepting "Say hello" requests.
+  sessionFee: u.user_metadata?.sessionFee ?? null,
   joined: u.user_metadata?.joined || new Date(u.created_at).toLocaleDateString("en-SG", { month: "short", year: "numeric" }),
   gender: u.user_metadata?.gender || "",
   address: u.user_metadata?.address || "",
