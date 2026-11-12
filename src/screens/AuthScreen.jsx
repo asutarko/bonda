@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
-import { forceSignOut } from "../hooks";
 import { PHONE_COUNTRIES } from "../data";
 
 const ACCENT = "#3E6E6A";
@@ -143,15 +142,6 @@ function SuccessNote({ children }) {
   return <p style={{ background: SUCCESS_BG, color: SUCCESS_TX, fontSize: 13, fontWeight: 700, borderRadius: 12, padding: "10px 14px", margin: "0 0 14px" }}>{children}</p>;
 }
 
-// The way out of the mandatory post-signup steps. Signing back in resumes
-// from account.signupStep.
-function SignOutLink() {
-  return (
-    <p style={{ textAlign: "center", margin: "16px 0 0", fontSize: 13 }}>
-      <button type="button" className="link-accent" style={{ fontSize: "inherit" }} onClick={forceSignOut}>Sign out</button>
-    </p>
-  );
-}
 
 // Minimal renderer for the small subset of markdown used in the legal
 // .md files in public/ (headers, --- dividers, > callouts, - lists,
@@ -601,7 +591,6 @@ export function PhoneCaptureScreen({ account }) {
         </div>
         {err && <ErrorNote>{err}</ErrorNote>}
         <button className="btn-primary" onClick={saveAccountType} disabled={!accountType || saving}>{saving ? "Saving…" : "Continue"} <span aria-hidden="true">→</span></button>
-        <SignOutLink />
       </div>
     </div>
   );
@@ -637,7 +626,6 @@ export function PhoneCaptureScreen({ account }) {
           <p style={{ textAlign: "center", margin: "16px 0 0", fontSize: 13, color: INK55 }}>
             <button type="button" className="link-accent" style={{ fontSize: "inherit" }} onClick={() => { setOtpErr(""); setOtpMsg(""); setOtpExpiresAt(null); setStep("phone"); }}>← Edit phone number</button>
           </p>
-          <SignOutLink />
         </div>
       </div>
     );
@@ -670,7 +658,6 @@ export function PhoneCaptureScreen({ account }) {
         </div>
         {err && <ErrorNote>{err}</ErrorNote>}
         <button className="btn-primary" onClick={save} disabled={!canSubmit || saving}>{saving ? "Sending code…" : "Continue"} <span aria-hidden="true">→</span></button>
-        <SignOutLink />
       </div>
     </div>
   );
