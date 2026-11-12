@@ -190,6 +190,13 @@ export function HomeScreen({ childCtx, setTab, push, account }) {
   const goToNews = (i) => newsTrack.current && newsTrack.current.scrollTo({ left: i * newsStep(), behavior: "smooth" });
 
   const firstName = account?.firstName || account?.name?.split(" ")[0];
+  // Professionals don't add children; until every required field on their
+  // Edit Profile is filled in, they get an "Add your profile" card instead.
+  const isProfessional = account?.accountType === "professional";
+  const proProfileComplete = isProfessional && !!(
+    account.name && account.phone && account.country && account.nationality &&
+    account.gender && account.profession && account.specialisation && account.sessionFee != null
+  );
 
   return (
     <Page>
@@ -219,8 +226,20 @@ export function HomeScreen({ childCtx, setTab, push, account }) {
         </button>
       </div>
 
-      <div style={{ marginBottom: 24 }}>
-        {children.length === 0 ? (
+      {!proProfileComplete && <div style={{ marginBottom: 24 }}>
+        {isProfessional ? (
+            <Card style={{ display: "flex", alignItems: "center", gap: 14, padding: 18 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ margin: "0 0 6px", fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: T.purple }}>Get started</p>
+                <p style={{ margin: 0, fontFamily: T.fontDisplay, fontWeight: 600, fontSize: 18, color: T.ink, lineHeight: 1.22 }}>Add your profile</p>
+                <p style={{ margin: "6px 0 14px", fontSize: 12.5, color: T.inkSoft, lineHeight: 1.45 }}>Share your profession, experience and session fee so parents can find you and say hello.</p>
+                <Btn onClick={() => push("editProfile")} style={{ borderRadius: 999, padding: "11px 18px", fontSize: 13.5 }}>+ Add your profile</Btn>
+              </div>
+              <div style={{ width: 108, flexShrink: 0 }}>
+                <HeroIllustration />
+              </div>
+            </Card>
+        ) : children.length === 0 ? (
           <Card style={{ display: "flex", alignItems: "center", gap: 14, padding: 18 }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <p style={{ margin: "0 0 6px", fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: T.purple }}>Get started</p>
@@ -272,7 +291,7 @@ export function HomeScreen({ childCtx, setTab, push, account }) {
             </Card>
           </div>
         )}
-      </div>
+      </div>}
 
 
       <SectionLabel style={{ marginBottom: 10 }}>Quick Access</SectionLabel>
