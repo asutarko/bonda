@@ -541,7 +541,7 @@ export const accountFromUser = (u) => u ? {
   specialisation: u.user_metadata?.specialisation || "",
   practiceName: u.user_metadata?.practiceName || "",
   practiceAddress: u.user_metadata?.practiceAddress || "",
-  // [{ position, workplace, startYear, endYear, current }] — any number of jobs.
+  // [{ position, workplace, description, startMonth, startYear, endMonth, endYear, current }] — any number of jobs.
   workExperience: Array.isArray(u.user_metadata?.workExperience) ? u.user_metadata.workExperience : [],
   // Per-session fee in SGD, or null when not accepting "Say hello" requests.
   sessionFee: u.user_metadata?.sessionFee ?? null,

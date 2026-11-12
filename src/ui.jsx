@@ -461,7 +461,7 @@ export const MultiSelect = ({ label, hint, options, selected, onToggle, placehol
 
 export const FieldError = ({ children }) => {
   if (!children) return null;
-  return <p style={{ margin: "-10px 0 14px", color: T.red, fontSize: 12, fontWeight: 700 }}>{children}</p>;
+  return <p data-field-error style={{ margin: "-10px 0 14px", color: T.red, fontSize: 12, fontWeight: 700 }}>{children}</p>;
 };
 
 // Avatar display — photo, emoji, or initials

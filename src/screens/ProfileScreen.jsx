@@ -19,8 +19,8 @@ const splitName = full => {
 // One job in a professional's work history. Years are kept as strings so a
 // half-typed value doesn't get coerced while editing.
 // Months are stored as "1".."12" so the period reads e.g. "Mar 2018 – Present".
-const emptyExperience = () => ({ position: "", workplace: "", startMonth: "", startYear: "", endMonth: "", endYear: "", current: false });
-const isBlankExperience = x => !x.position.trim() && !x.workplace.trim() && !x.startMonth && !x.startYear.trim() && !x.endMonth && !x.endYear.trim() && !x.current;
+const emptyExperience = () => ({ position: "", workplace: "", description: "", startMonth: "", startYear: "", endMonth: "", endYear: "", current: false });
+const isBlankExperience = x => !x.position.trim() && !x.workplace.trim() && !x.description.trim() && !x.startMonth && !x.startYear.trim() && !x.endMonth && !x.endYear.trim() && !x.current;
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const MONTH_OPTIONS = MONTHS.map((m, i) => ({ value: String(i + 1), label: m }));
 const formatPeriod = x => {
@@ -60,11 +60,12 @@ export function EditProfileScreen({ account, pop, push }) {
   const [practiceName, setPracticeName] = useState(account?.practiceName || "");
   const [practiceAddress, setPracticeAddress] = useState(account?.practiceAddress || "");
   // Per-session fee in SGD (profiles.session_fee, see supabase/pro_matches.sql).
-  // Blank = not accepting "Say hello" requests yet.
-  const [sessionFee, setSessionFee] = useState(account?.sessionFee ? String(account.sessionFee) : "");
+  // Required; defaults to 0 (free).
+  const [sessionFee, setSessionFee] = useState(account?.sessionFee != null ? String(account.sessionFee) : "0");
   const [workExperience, setWorkExperience] = useState(() =>
     (account?.workExperience || []).map(x => ({
       ...emptyExperience(), ...x,
+      description: String(x.description || ""),
       startMonth: String(x.startMonth || ""), startYear: String(x.startYear || ""),
       endMonth: String(x.endMonth || ""), endYear: String(x.endYear || ""), current: !!x.current,
     }))
@@ -151,8 +152,10 @@ export function EditProfileScreen({ account, pop, push }) {
     if (isProfessional) {
       if (!profession) fe.profession = "Please select your profession.";
       if (!gender) fe.gender = "Please select your gender.";
+      if (!specialisation.trim()) fe.specialisation = "Please enter your specialisation.";
       const fee = sessionFee.trim();
-      if (fee && !(/^\d+(\.\d{1,2})?$/.test(fee) && +fee > 0)) fe.sessionFee = "Please enter a fee above 0, e.g. 120 or 120.50.";
+      if (!fee) fe.sessionFee = "Please enter your fee per session (0 if free).";
+      else if (!/^\d+(\.\d{1,2})?$/.test(fee)) fe.sessionFee = "Please enter a valid fee, e.g. 0, 120 or 120.50.";
       const expErrors = {};
       workExperience.forEach((x, i) => {
         if (isBlankExperience(x)) return;
@@ -175,7 +178,11 @@ export function EditProfileScreen({ account, pop, push }) {
       if (occupation === "Other" && !customOccupation.trim()) fe.customOccupation = "Please enter your occupation.";
     }
     setErrors(fe);
-    if (Object.keys(fe).length > 0) return;
+    if (Object.keys(fe).length > 0) {
+      // The first error can be far above the Save button, so bring it into view.
+      requestAnimationFrame(() => document.querySelector("[data-field-error]")?.scrollIntoView({ behavior: "smooth", block: "center" }));
+      return;
+    }
     setErr(""); setSaving(true);
 
     const finalOccupation = occupation === "Other" ? customOccupation.trim() : occupation;
@@ -190,11 +197,11 @@ export function EditProfileScreen({ account, pop, push }) {
 
     const shared = { name: fullName, avatar: avatarValue, phone: fullPhone, country, nationality: nationality.trim() };
     const finalExperience = workExperience.filter(x => !isBlankExperience(x)).map(x => ({
-      position: x.position.trim(), workplace: x.workplace.trim(),
+      position: x.position.trim(), workplace: x.workplace.trim(), description: x.description.trim(),
       startMonth: x.startMonth, startYear: x.startYear.trim(),
       endMonth: x.current ? "" : x.endMonth, endYear: x.current ? "" : x.endYear.trim(), current: !!x.current,
     }));
-    const finalFee = sessionFee.trim() ? Number(sessionFee.trim()) : null;
+    const finalFee = Number(sessionFee.trim() || 0);
     const practice = { profession, specialisation: specialisation.trim(), gender };
     const home = { address: address.trim(), relationship, occupation: finalOccupation };
 
@@ -212,7 +219,12 @@ export function EditProfileScreen({ account, pop, push }) {
         : { ...home, postal_code: postalCode.trim(), marital_status: maritalStatus }),
     }).eq("id", account.id);
     setSaving(false);
-    if (profileErr) return setErr(profileErr.message);
+    if (profileErr) {
+      console.error("Profile save failed:", profileErr);
+      return setErr(/session_fee_check/.test(profileErr.message)
+        ? "Your fee couldn't be saved. Please try again later."
+        : profileErr.message);
+    }
     // Loaded on demand — sweetalert2 is only needed for this one success
     // popup, so it's kept out of the main bundle until a save actually happens.
     const { default: Swal } = await import("sweetalert2");
@@ -308,6 +320,8 @@ export function EditProfileScreen({ account, pop, push }) {
       <FieldError>{errors.phone}</FieldError>
       {isProfessional ? (
         <>
+          <Select label="Nationality" placeholder="Select nationality" value={nationality} onChange={e => setNationality(e.target.value)} options={nationalityOptions} />
+          <FieldError>{errors.nationality}</FieldError>
           <Select label="Country" placeholder="Select country" value={country} onChange={e => setCountry(e.target.value)} options={countryOptions} />
           <FieldError>{errors.country}</FieldError>
 
@@ -315,9 +329,10 @@ export function EditProfileScreen({ account, pop, push }) {
           <Select label="Profession" placeholder="Select profession" value={profession} onChange={e => setProfession(e.target.value)} options={PROFESSION_OPTIONS} />
           <FieldError>{errors.profession}</FieldError>
           <Input label="Specialisation" value={specialisation} onChange={e => setSpecialisation(e.target.value)} placeholder="e.g. Speech therapy" />
+          <FieldError>{errors.specialisation}</FieldError>
           <Input label="Clinic or practice name (optional)" value={practiceName} onChange={e => setPracticeName(e.target.value)} placeholder="e.g. Bright Minds Clinic" />
           <TextArea label="Clinic or practice address (optional)" rows={3} value={practiceAddress} onChange={e => setPracticeAddress(e.target.value)} placeholder="e.g. 10 Sinaran Drive, #08-12" />
-          <Input label="Fee per session, SGD (optional)" inputMode="decimal" value={sessionFee} onChange={e => setSessionFee(e.target.value)} placeholder="e.g. 120" />
+          <Input label="Fee per session, SGD" inputMode="decimal" value={sessionFee} onChange={e => setSessionFee(e.target.value)} placeholder="e.g. 120" />
           <FieldError>{errors.sessionFee}</FieldError>
           <p style={{ margin: "-4px 0 14px", fontSize: 12, color: T.inkMuted, lineHeight: 1.5 }}>
             Parents can only say hello once you set a fee. Bonda keeps 50% of your first session with each new parent; every session after that is yours in full.
@@ -338,6 +353,7 @@ export function EditProfileScreen({ account, pop, push }) {
               </div>
               <Input label="Job title" value={x.position} onChange={e => updateExperience(i, { position: e.target.value })} placeholder="e.g. Senior Clinical Psychologist" />
               <Input label="Clinic, hospital or organisation" value={x.workplace} onChange={e => updateExperience(i, { workplace: e.target.value })} placeholder="e.g. KK Women's and Children's Hospital" />
+              <TextArea label="Job description (optional)" rows={3} maxLength={1000} value={x.description} onChange={e => updateExperience(i, { description: e.target.value })} placeholder="e.g. Assessed and supported children with autism and ADHD, ran parent coaching sessions" />
               <p style={{ margin: "0 0 6px", fontSize: 12, fontWeight: 700, color: T.inkSoft }}>Period</p>
               <div style={{ display: "flex", gap: 10 }}>
                 <div style={{ flex: 1 }}>
@@ -380,10 +396,9 @@ export function EditProfileScreen({ account, pop, push }) {
         </>
       )}
 
-      <SectionLabel style={{ marginBottom: 10 }}>More About You</SectionLabel>
-
       {!isProfessional && (
         <>
+          <SectionLabel style={{ marginBottom: 10 }}>More About You</SectionLabel>
           <Select label="Occupation" value={occupation} onChange={e => setOccupation(e.target.value)} placeholder="Select occupation" options={OCCUPATION_OPTIONS} />
           {occupation === "Other" && (
             <div style={{ marginTop: -6 }}>
@@ -392,10 +407,10 @@ export function EditProfileScreen({ account, pop, push }) {
             </div>
           )}
           <Select label="Marital Status" value={maritalStatus} onChange={e => setMaritalStatus(e.target.value)} placeholder="Select marital status" options={MARITAL_STATUS_OPTIONS} />
+          <Select label="Nationality" placeholder="Select nationality" value={nationality} onChange={e => setNationality(e.target.value)} options={nationalityOptions} />
+          <FieldError>{errors.nationality}</FieldError>
         </>
       )}
-      <Select label="Nationality" placeholder="Select nationality" value={nationality} onChange={e => setNationality(e.target.value)} options={nationalityOptions} />
-      <FieldError>{errors.nationality}</FieldError>
 
       {err && <p style={{ color: T.red, fontSize: 13, fontWeight: 700, margin: "-8px 0 12px" }}>{err}</p>}
       <Btn onClick={save} full disabled={saving}>{saving ? "Saving..." : "Save Changes"}</Btn>
