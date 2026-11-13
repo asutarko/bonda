@@ -73,6 +73,9 @@ export const childFromRow = (row) => ({
   caseWorkers: entriesFromRow(row, "caseWorkers"),
   location: row.location || "",
   psychologistId: row.psychologist_id || null,
+  // Parent opted in to doctors/therapists seeing this child's card in the
+  // swipe deck (see supabase/match_swipes.sql).
+  openToMatch: row.open_to_match || false,
   active: row.active ?? true,
   createdAt: row.created_at,
 });
@@ -215,6 +218,7 @@ export function useChildren(userId) {
     if ("placementType" in patch) dbPatch.placement_type = patch.placementType;
     if ("courtOrderRef" in patch) dbPatch.court_order_ref = patch.courtOrderRef;
     if ("location" in patch) dbPatch.location = patch.location;
+    if ("openToMatch" in patch) dbPatch.open_to_match = patch.openToMatch;
     if (!Object.keys(dbPatch).length) return;
     supabase.from("children").update(dbPatch).eq("id", id).then(({ error }) => { if (error) console.error("Failed to save child profile:", error.message); });
   };

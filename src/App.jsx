@@ -34,6 +34,7 @@ const EditProfileScreen = lazy(() => import("./screens/ProfileScreen").then(m =>
 const RedeemPointsScreen = lazy(() => import("./screens/GrowthTracker").then(m => ({ default: m.RedeemPointsScreen })));
 const FeedbackScreen = lazy(() => import("./screens/FeedbackScreen").then(m => ({ default: m.FeedbackScreen })));
 const InboxScreen = lazy(() => import("./screens/InboxScreen").then(m => ({ default: m.InboxScreen })));
+const MatchScreen = lazy(() => import("./screens/MatchScreen").then(m => ({ default: m.MatchScreen })));
 const LegalHub = lazy(() => import("./components/bonda-compliance").then(m => ({ default: m.LegalHub })));
 
 // Shared Suspense fallback, styled like the app's existing full-screen
@@ -222,6 +223,7 @@ export default function Bonda() {
     redeemPoints: "Redeem your points",
     feedback: "Feedback",
     inbox: "Notifications",
+    match: "Find a Match",
   };
 
   const pageTitle = current ? TITLES[current] || "" : TITLES[tab];
@@ -255,6 +257,7 @@ export default function Bonda() {
       case "legalHub":    return <LegalHub onBack={pop} />;
       case "redeemPoints": return <RedeemPointsScreen childCtx={childCtx} account={account} push={push} />;
       case "feedback":    return <FeedbackScreen account={account} pop={pop} />;
+      case "match":       return <MatchScreen account={account} childCtx={childCtx} push={push} />;
       case "inbox":       return <InboxScreen key={inboxKey} account={account} pop={pop} setTab={setTab} onRead={() => setUnread(0)} />;
       default:           return null;
     }

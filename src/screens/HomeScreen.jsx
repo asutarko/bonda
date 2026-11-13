@@ -69,6 +69,7 @@ const QUICK_TONES = {
   devGuide:  { bg: T.violetL, fg: T.violet },
   emotions:  { bg: T.tealL,   fg: T.teal },
   foster:    { bg: T.slateL,  fg: T.slate },
+  match:     { bg: T.redL,    fg: T.red },
   allTools:  { bg: T.border,  fg: T.inkSoft },
 };
 
@@ -82,6 +83,7 @@ const QuickIcon = ({ type, size = 22, color }) => {
     devGuide: <><path d="M3 17 9 11l4 4 8-8" {...p} /><path d="M16.5 7H21v4.5" {...p} /></>,
     emotions: <><circle cx="12" cy="12" r="9" {...p} /><path d="M8.4 14.4s1.3 2 3.6 2 3.6-2 3.6-2" {...p} /><path d="M9 9.6h.01M15 9.6h.01" {...p} /></>,
     foster: <><path d="M12 3l7 3v5c0 4.6-3 7.6-7 9-4-1.4-7-4.4-7-9V6Z" {...p} /><path d="m9 12 2 2 4-4" {...p} /></>,
+    match: <><rect x="7.5" y="3.5" width="10" height="14" rx="2.2" transform="rotate(12 12.5 10.5)" {...p} /><path d="M12 20.2s-4.6-2.8-4.6-6a2.4 2.4 0 0 1 4.6-1 2.4 2.4 0 0 1 4.6 1c0 3.2-4.6 6-4.6 6Z" fill={color} stroke="none" /></>,
     allTools: <><rect x="3" y="3" width="7.5" height="7.5" rx="2" fill={color} /><rect x="13.5" y="3" width="7.5" height="7.5" rx="2" fill={color} /><rect x="3" y="13.5" width="7.5" height="7.5" rx="2" fill={color} /><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="2" fill={color} /></>,
   };
   return <svg width={size} height={size} viewBox="0 0 24 24" style={{ display: "block" }}>{paths[type]}</svg>;
@@ -161,6 +163,7 @@ export function HomeScreen({ childCtx, setTab, push, account }) {
   const q = quotes[qIdx] || quotes[0];
 
   const quickActions = [
+    { type: "match", category: "support", label: "Find a Match", desc: account?.accountType === "professional" ? "Swipe on children you could help" : "Swipe to find a doctor or therapist for your child", action: () => push("match") },
     { type: "letter", category: "documents", label: "Generate Carer Letter", desc: "Introduction letter for clinics & schools", action: () => push("carerLetterHub") },
     { type: "grants", category: "support", label: "Subsidies & Grants", desc: "Government schemes that cut therapy & care costs", action: () => push("subsidiesGrants") },
     { type: "subsidies", category: "support", label: "Support Hotlines", desc: "Teacher, doctor & therapist contacts", action: () => push("subsidies") },
